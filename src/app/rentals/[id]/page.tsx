@@ -19,8 +19,8 @@ export default async function RentalDetailPage({ params }: { params: { id: strin
 
   if (!rental) notFound()
 
-  const bike = rental.bikes as { license_plate: string; brand: string; model: string; color?: string; year?: number } | null
-  const cust = rental.customers as { name: string; phone: string; id_card?: string } | null
+  const bike = rental.bikes as unknown as { license_plate: string; brand: string; model: string; color?: string; year?: number } | null
+  const cust = rental.customers as unknown as { name: string; phone: string; id_card?: string } | null
 
   const now = new Date()
   const start = new Date(rental.start_datetime)
