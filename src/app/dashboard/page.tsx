@@ -55,8 +55,8 @@ export default async function DashboardPage() {
               const end = new Date(r.expected_end_datetime)
               const diffHrs = Math.round((end.getTime() - now.getTime()) / 36e5)
               const overdue = r.status === 'overdue' || diffHrs < 0
-              const bike = r.bikes as { license_plate: string; brand: string; model: string } | null
-              const cust = r.customers as { name: string; phone: string } | null
+              const bike = r.bikes as unknown as { license_plate: string; brand: string; model: string } | null
+              const cust = r.customers as unknown as { name: string; phone: string } | null
               return (
                 <Link key={r.id} href={'/rentals/' + r.id} style={{
                   display: 'block', background: '#fff', borderRadius: '12px',
