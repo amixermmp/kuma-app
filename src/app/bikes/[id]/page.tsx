@@ -68,7 +68,7 @@ export default async function BikeDetailPage({ params }: { params: { id: string 
           <div style={{ background: '#eff6ff', borderRadius: '12px', padding: '14px', marginBottom: '12px', border: '1.5px solid #bfdbfe' }}>
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#1d4ed8', marginBottom: '8px' }}>🛵 กำลังเช่าอยู่</div>
             {(() => {
-              const cust = activeRental.customers as { name: string; phone: string } | null
+              const cust = activeRental.customers as unknown as { name: string; phone: string } | null
               const end = new Date(activeRental.expected_end_datetime)
               const diffHrs = Math.round((end.getTime() - Date.now()) / 36e5)
               return (
@@ -107,7 +107,7 @@ export default async function BikeDetailPage({ params }: { params: { id: string 
           <div style={cardStyle}>
             <SectionTitle>ประวัติการเช่า</SectionTitle>
             {rentalHistory.map((r, i) => {
-              const cust = r.customers as { name: string } | null
+              const cust = r.customers as unknown as { name: string } | null
               const start = new Date(r.start_datetime).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
               const end = new Date(r.expected_end_datetime).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
               return (
