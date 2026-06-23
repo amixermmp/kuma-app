@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
     })
 
   if (error || !data) {
-    console.error('Upload error:', error)
-    return NextResponse.json({ error: 'อัพโหลดไม่สำเร็จ' }, { status: 500 })
+    console.error('Upload error:', JSON.stringify(error), 'message:', error?.message, 'status:', (error as {statusCode?: number})?.statusCode)
+    return NextResponse.json({ error: 'อัพโหลดไม่สำเร็จ', detail: error?.message }, { status: 500 })
   }
 
   // Signed URL valid 1 year
