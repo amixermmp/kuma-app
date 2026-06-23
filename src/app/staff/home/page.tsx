@@ -61,10 +61,10 @@ export default async function StaffHomePage() {
   const staffName = staffRow?.name ?? 'Staff'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const branchName = (staffRow as any)?.branches?.name ?? 'Kuma Bikes'
-  const allJobs: Rental[] = [
-    ...((overdue ?? []) as Rental[]),
-    ...((dueSoon ?? []) as Rental[]),
-  ]
+  const allJobs = [
+    ...(overdue ?? []),
+    ...(dueSoon ?? []),
+  ] as unknown as Rental[]
 
   return (
     <div className="app-wrap">
