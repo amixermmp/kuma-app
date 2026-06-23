@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
 
@@ -46,13 +46,17 @@ function nowLocal(offsetMs = 0) {
 
 export default function SendCarForm({ bike, staffId, promotions }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const preFrom = searchParams.get('from')
+  const preTo = searchParams.get('to')
 
   const [rentalType, setRentalType] = useState<'day' | 'month'>('day')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [customerHotel, setCustomerHotel] = useState('')
-  const [startDatetime, setStartDatetime] = useState(nowLocal())
-  const [endDatetime, setEndDatetime] = useState(nowLocal(3 * 24 * 60 * 60 * 1000))
+  const [startDatetime, setStartDatetime] = useState(preFrom ?? nowLocal())
+  const [endDatetime, setEndDatetime] = useState(preTo ?? nowLocal(3 * 24 * 60 * 60 * 1000))
   const [odometer, setOdometer] = useState(String(bike.odometer ?? ''))
   const [fuelLevel, setFuelLevel] = useState(4)
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash')
