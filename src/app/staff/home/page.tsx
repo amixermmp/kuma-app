@@ -127,48 +127,55 @@ export default async function StaffHomePage() {
           const bike = job.bikes
           const bikeName = `${bike.license_plate} ${bike.brand} ${bike.model}`
           return (
-            <Link
+            <div
               key={job.id}
-              href={`/staff/return/${job.id}`}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
                 background: '#fff',
                 borderRadius: '12px',
-                padding: '14px',
                 marginBottom: '10px',
                 borderLeft: `4px solid ${isOverdue ? '#dc2626' : '#d97706'}`,
-                textDecoration: 'none',
-                color: 'inherit',
                 boxShadow: '0 1px 3px rgba(0,0,0,.06)',
+                overflow: 'hidden',
               }}
             >
-              <div style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '10px',
-                flexShrink: 0,
-                background: isOverdue ? '#fef2f2' : '#fffbeb',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '22px',
-              }}>
-                ⬅️🛵
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>
-                  รับคืน — {bikeName}
+              {/* Job info row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 14px 10px' }}>
+                <div style={{
+                  width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0,
+                  background: isOverdue ? '#fef2f2' : '#fffbeb',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px',
+                }}>
+                  ⬅️🛵
                 </div>
-                <div style={{ fontSize: '12px', marginTop: '3px', color: isOverdue ? '#dc2626' : '#d97706' }}>
-                  {isOverdue
-                    ? `🔴 เกินกำหนด ${overdueHours(job.expected_end_datetime)} ชม. • ${job.customers.name}`
-                    : `⚠️ ${formatTime(job.expected_end_datetime)} น. • ${job.customers.name}`}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>
+                    {bikeName}
+                  </div>
+                  <div style={{ fontSize: '12px', marginTop: '3px', color: isOverdue ? '#dc2626' : '#d97706' }}>
+                    {isOverdue
+                      ? `🔴 เกินกำหนด ${overdueHours(job.expected_end_datetime)} ชม. • ${job.customers.name}`
+                      : `⚠️ ${formatTime(job.expected_end_datetime)} น. • ${job.customers.name}`}
+                  </div>
                 </div>
               </div>
-              <span style={{ color: '#9ca3af', fontSize: '22px', lineHeight: 1 }}>›</span>
-            </Link>
+              {/* Action buttons */}
+              <div style={{ display: 'flex', borderTop: '1px solid #f3f4f6' }}>
+                <Link href={`/staff/return/${job.id}`} style={{
+                  flex: 1, padding: '10px', textAlign: 'center',
+                  fontSize: '13px', fontWeight: 700, color: '#16a34a',
+                  textDecoration: 'none', borderRight: '1px solid #f3f4f6',
+                }}>
+                  ✅ รับคืนรถ
+                </Link>
+                <Link href={`/staff/extend/${job.id}`} style={{
+                  flex: 1, padding: '10px', textAlign: 'center',
+                  fontSize: '13px', fontWeight: 700, color: '#d97706',
+                  textDecoration: 'none',
+                }}>
+                  ⏱ ต่อเวลา
+                </Link>
+              </div>
+            </div>
           )
         })}
 
