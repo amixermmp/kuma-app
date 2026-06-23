@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   const buffer = Buffer.from(await file.arrayBuffer())
 
   const { data, error } = await supabase.storage
-    .from('rental-photos')
+    .from('rental-photo')
     .upload(filename, buffer, {
       contentType: 'image/jpeg',
       upsert: false,
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   // Signed URL valid 1 year
   const { data: signed } = await supabase.storage
-    .from('rental-photos')
+    .from('rental-photo')
     .createSignedUrl(data.path, 60 * 60 * 24 * 365)
 
   return NextResponse.json({ path: data.path, url: signed?.signedUrl ?? '' })
