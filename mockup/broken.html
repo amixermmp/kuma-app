@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — แจ้งรถเสีย</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:var(--red)">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div><h1>แจ้งรถเสีย</h1><div class="sub">กข 1234 Honda PCX 160</div></div>
+  </div>
+
+  <div class="section-pad">
+    <div class="card">
+      <div class="card-title">อาการที่พบ</div>
+      <div class="field-row">
+        <label class="field-label">อธิบายอาการของรถ *</label>
+        <textarea class="field-input" rows="4" placeholder="เช่น เครื่องไม่ติด, ยางแบน, ไฟหน้าไม่ติด..."></textarea>
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">ระดับความรุนแรง</label>
+        <div class="severity-row">
+          <button class="sev-btn active-low">⚠️ ปานกลาง</button>
+          <button class="sev-btn">🔴 วิกฤต</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">รูปภาพ</div>
+      <div class="upload-box">
+        <div class="icon">📷</div>
+        ถ่ายรูปจุดที่เสีย / ความเสียหาย
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">ตำแหน่งรถ / หมายเหตุ</div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">สถานที่ / หมายเหตุเพิ่มเติม</label>
+        <input class="field-input" type="text" placeholder="เช่น อยู่ที่ร้านซ่อมแถวตลาด">
+      </div>
+    </div>
+
+    <div style="background:var(--red-lt);border-radius:10px;padding:14px;margin:0 0 12px;font-size:13px;color:var(--red)">
+      ⚠️ เมื่อกดบันทึก รถจะเปลี่ยนสถานะเป็น <strong>"ซ่อม"</strong> และจะสร้าง Job Task ส่งซ่อมอัตโนมัติ
+    </div>
+
+    <button class="btn btn-danger" onclick="location.href='repairdone.html'">🔧 บันทึกแจ้งรถเสีย</button>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

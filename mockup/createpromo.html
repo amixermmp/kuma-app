@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — สร้างโปรโมชั่น</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:linear-gradient(135deg,#be185d,#e11d48)">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div><h1>สร้างโปรโมชั่น</h1><div class="sub">ตั้งค่าเงื่อนไขการลดราคา</div></div>
+  </div>
+
+  <div class="section-pad">
+
+    <!-- ชื่อและคำอธิบาย -->
+    <div class="card">
+      <div class="card-title">ข้อมูลโปรโมชั่น</div>
+      <div class="field-row">
+        <label class="field-label">ชื่อโปรโมชั่น *</label>
+        <input class="field-input" type="text" placeholder="เช่น โปรนักศึกษา, โปรหน้าร้อน">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">คำอธิบาย (แสดงให้ลูกค้าเห็น)</label>
+        <textarea class="field-input" rows="2" placeholder="เช่น เช่ารถกับเรารับส่วนลดพิเศษ สำหรับนักศึกษาเท่านั้น"></textarea>
+      </div>
+    </div>
+
+    <!-- ประเภทส่วนลด -->
+    <div class="card">
+      <div class="card-title">ประเภทส่วนลด *</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+        <div class="promo-type-card active-type" id="pt1" onclick="selectPromoType(1)">
+          <div style="font-size:26px">💯</div>
+          <div style="font-size:13px;font-weight:700;margin-top:6px">ลดเป็น %</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:2px">เช่น ลด 10%</div>
+        </div>
+        <div class="promo-type-card" id="pt2" onclick="selectPromoType(2)">
+          <div style="font-size:26px">💵</div>
+          <div style="font-size:13px;font-weight:700;margin-top:6px">ลดเงินสด</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:2px">เช่น ลด ฿50</div>
+        </div>
+        <div class="promo-type-card" id="pt3" onclick="selectPromoType(3)">
+          <div style="font-size:26px">🎁</div>
+          <div style="font-size:13px;font-weight:700;margin-top:6px">เช่า X แถม Y</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:2px">เช่น 5 วัน แถม 2</div>
+        </div>
+        <div class="promo-type-card" id="pt4" onclick="selectPromoType(4)">
+          <div style="font-size:26px">🏷️</div>
+          <div style="font-size:13px;font-weight:700;margin-top:6px">ราคาพิเศษ/วัน</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:2px">เช่น ฿150/วัน</div>
+        </div>
+      </div>
+
+      <div id="promoVal1">
+        <label class="field-label">ลดกี่ % *</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input class="field-input" type="number" placeholder="10" style="flex:1">
+          <span style="font-size:20px;font-weight:800;color:var(--text2)">%</span>
+        </div>
+      </div>
+      <div id="promoVal2" style="display:none">
+        <label class="field-label">ลดกี่บาท *</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:16px;font-weight:700;color:var(--text2)">฿</span>
+          <input class="field-input" type="number" placeholder="50" style="flex:1">
+        </div>
+      </div>
+      <div id="promoVal3" style="display:none">
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="flex:1">
+            <label class="field-label">เช่ากี่วัน</label>
+            <input class="field-input" type="number" placeholder="5">
+          </div>
+          <div style="font-size:18px;padding-top:20px">→</div>
+          <div style="flex:1">
+            <label class="field-label">แถมกี่วัน</label>
+            <input class="field-input" type="number" placeholder="2">
+          </div>
+        </div>
+      </div>
+      <div id="promoVal4" style="display:none">
+        <label class="field-label">ราคาพิเศษต่อวัน (บาท) *</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:16px;font-weight:700;color:var(--text2)">฿</span>
+          <input class="field-input" type="number" placeholder="150" style="flex:1">
+          <span style="font-size:14px;color:var(--gray)">/วัน</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- เงื่อนไข -->
+    <div class="card">
+      <div class="card-title">เงื่อนไขการใช้งาน</div>
+      <div class="field-row">
+        <label class="field-label">เช่าขั้นต่ำ (วัน)</label>
+        <select class="field-input">
+          <option>ไม่กำหนด</option>
+          <option>1 วันขึ้นไป</option>
+          <option>3 วันขึ้นไป</option>
+          <option>7 วันขึ้นไป</option>
+          <option>30 วันขึ้นไป</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label class="field-label">ช่วงเวลาที่ใช้ได้</label>
+        <select class="field-input">
+          <option>ตลอดเวลา</option>
+          <option>วันธรรมดา (จ–ศ) เท่านั้น</option>
+          <option>วันหยุด (ส–อา) เท่านั้น</option>
+          <option>ช่วง High Season</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label class="field-label">กลุ่มลูกค้าที่ใช้ได้</label>
+        <select class="field-input">
+          <option>ทุกคน</option>
+          <option>นักศึกษา (แสดงบัตร)</option>
+          <option>ลูกค้าประจำ / เช่าซ้ำ</option>
+          <option>ลูกค้าต่างชาติ</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label class="field-label">รุ่นรถที่ใช้ได้</label>
+        <select class="field-input">
+          <option>ทุกรุ่น</option>
+          <option>Honda PCX เท่านั้น</option>
+          <option>Yamaha NMAX เท่านั้น</option>
+          <option>รถราคา ≤ ฿200/วัน</option>
+        </select>
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">สาขาที่ใช้ได้</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" checked> ทุกสาขา</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox"> 🌊 ป่าตอง</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox"> 🏖 กะตะ</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox"> ⛱ กะรน</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- รหัสและจำกัด -->
+    <div class="card">
+      <div class="card-title">รหัสและจำกัดการใช้งาน</div>
+      <div class="field-row">
+        <label class="field-label">รหัสโปรโมชั่น (Promo Code)</label>
+        <div style="display:flex;gap:8px">
+          <input class="field-input" type="text" placeholder="เช่น STUDENT10" style="flex:1;text-transform:uppercase">
+          <button style="background:var(--gray-lt);border:1.5px solid var(--border);border-radius:8px;padding:0 12px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap">สุ่มรหัส</button>
+        </div>
+        <div style="font-size:11px;color:var(--gray);margin-top:4px">ถ้าไม่ใส่ Staff กดเลือกได้เลยโดยไม่ต้องกรอกรหัส</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">จำกัดจำนวนครั้งที่ใช้ได้</label>
+        <select class="field-input">
+          <option>ไม่จำกัด</option>
+          <option>จำกัด 10 ครั้ง</option>
+          <option>จำกัด 50 ครั้ง</option>
+          <option>จำกัด 100 ครั้ง</option>
+          <option>กำหนดเอง...</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label class="field-label">ใช้ได้กี่ครั้งต่อลูกค้า 1 คน</label>
+        <select class="field-input">
+          <option>ไม่จำกัด</option>
+          <option>1 ครั้งเท่านั้น</option>
+          <option>สูงสุด 3 ครั้ง</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div class="field-row" style="flex:1">
+          <label class="field-label">วันเริ่มต้น</label>
+          <input class="field-input" type="date" value="2026-06-22">
+        </div>
+        <div class="field-row" style="flex:1;margin-bottom:0">
+          <label class="field-label">วันสิ้นสุด</label>
+          <input class="field-input" type="date" value="2026-08-31">
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div style="background:linear-gradient(135deg,#be185d,#e11d48);border-radius:14px;padding:16px;margin-bottom:12px;color:#fff">
+      <div style="font-size:12px;opacity:.8;margin-bottom:8px">ตัวอย่างที่ Staff จะเห็นตอนส่งรถ</div>
+      <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:12px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:28px">💯</span>
+        <div>
+          <div style="font-weight:700;font-size:15px">โปรนักศึกษา</div>
+          <div style="font-size:12px;opacity:.85;margin-top:2px">ลด 10% • แสดงบัตรนักศึกษา • ทุกสาขา</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- สถานะ -->
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:14px;font-weight:700">เปิดใช้งานทันที</div>
+          <div style="font-size:12px;color:var(--gray);margin-top:2px">Staff จะเห็นโปรนี้ในหน้าส่งรถ</div>
+        </div>
+        <div class="toggle" onclick="this.classList.toggle('off')"></div>
+      </div>
+    </div>
+
+    <button class="btn" style="background:linear-gradient(135deg,#be185d,#e11d48);color:#fff">
+      🎁 บันทึกโปรโมชั่น
+    </button>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

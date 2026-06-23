@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — ต่อเวลาการเช่า</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div><h1>ต่อเวลาการเช่า</h1><div class="sub">กข 1234 Honda PCX 160</div></div>
+  </div>
+
+  <div class="section-pad">
+    <div class="card" style="border-top:3px solid var(--amber)">
+      <div class="card-title">การเช่าปัจจุบัน</div>
+      <div class="info-row"><span class="info-key">ผู้เช่า</span><span class="info-val">คุณ สมชาย ดีใจ</span></div>
+      <div class="info-row"><span class="info-key">กำหนดคืนเดิม</span><span class="info-val" style="color:var(--red)">23 มิ.ย. 10:00</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">ต่อเวลาเป็น</div>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="promo-chip selected" id="extUnit1" onclick="setExtUnit('day')">รายวัน</button>
+        <button class="promo-chip" id="extUnit2" onclick="setExtUnit('hour')">รายชั่วโมง</button>
+      </div>
+
+      <div id="ext-day">
+        <label class="field-label">จำนวนวันที่ต้องการต่อ</label>
+        <div class="time-stepper">
+          <button class="stepper-btn">−</button>
+          <div>
+            <div class="stepper-val">2</div>
+            <div class="stepper-unit" style="text-align:center">วัน</div>
+          </div>
+          <button class="stepper-btn">+</button>
+        </div>
+      </div>
+
+      <div id="ext-hour" style="display:none">
+        <label class="field-label">จำนวนชั่วโมงที่ต้องการต่อ</label>
+        <div class="time-stepper">
+          <button class="stepper-btn">−</button>
+          <div>
+            <div class="stepper-val">3</div>
+            <div class="stepper-unit" style="text-align:center">ชม.</div>
+          </div>
+          <button class="stepper-btn">+</button>
+        </div>
+        <div style="background:var(--amber-lt);border-radius:8px;padding:10px;font-size:13px;color:var(--amber);text-align:center">
+          ⚠️ ถ้าเกิน 5 ชม. จะคิดเป็นราคา 1 วัน (฿200)
+        </div>
+      </div>
+    </div>
+
+    <div class="price-box">
+      <div class="price-label">กำหนดคืนใหม่</div>
+      <div style="font-size:22px;font-weight:800;margin:8px 0">25 มิ.ย. 2026 • 10:00</div>
+      <div class="price-label">ค่าต่อเวลาเพิ่มเติม</div>
+      <div class="price-amount">฿400</div>
+      <div class="price-detail">฿200/วัน × 2 วัน</div>
+    </div>
+
+    <button class="btn btn-amber" onclick="history.back()">💾 ยืนยันต่อเวลา</button>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

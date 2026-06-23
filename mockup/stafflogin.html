@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — Staff Login</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1e3a5f,#1e40af)">
+  <div style="width:100%;max-width:360px;padding:32px 24px;color:#fff;text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">👤</div>
+    <h1 style="font-size:22px;font-weight:800;margin:0 0 4px">Staff Login</h1>
+    <p style="font-size:13px;opacity:.7;margin:0 0 32px">ใส่รหัส PIN 4 หลัก</p>
+
+    <div class="pin-screen" style="background:transparent;padding:0">
+      <div class="pin-dots">
+        <div class="pin-dot" id="sl-d1"></div>
+        <div class="pin-dot" id="sl-d2"></div>
+        <div class="pin-dot" id="sl-d3"></div>
+        <div class="pin-dot" id="sl-d4"></div>
+      </div>
+      <div class="pin-pad">
+        <button class="pin-btn" onclick="slPin('1')">1</button>
+        <button class="pin-btn" onclick="slPin('2')">2</button>
+        <button class="pin-btn" onclick="slPin('3')">3</button>
+        <button class="pin-btn" onclick="slPin('4')">4</button>
+        <button class="pin-btn" onclick="slPin('5')">5</button>
+        <button class="pin-btn" onclick="slPin('6')">6</button>
+        <button class="pin-btn" onclick="slPin('7')">7</button>
+        <button class="pin-btn" onclick="slPin('8')">8</button>
+        <button class="pin-btn" onclick="slPin('9')">9</button>
+        <button class="pin-btn pin-clear" onclick="slClear()">⌫</button>
+        <button class="pin-btn" onclick="slPin('0')">0</button>
+        <button class="pin-btn pin-confirm" onclick="location.href='staffhome.html'">✓</button>
+      </div>
+    </div>
+
+    <a href="landing.html" style="display:block;margin-top:16px;color:rgba(255,255,255,.6);font-size:13px;text-decoration:none">← กลับ</a>
+  </div>
+</div>
+<script src="_script.js"></script>
+<script>
+var slDigits = [];
+function slPin(d) {
+  if (slDigits.length >= 4) return;
+  slDigits.push(d);
+  ['sl-d1','sl-d2','sl-d3','sl-d4'].forEach(function(id, i) {
+    document.getElementById(id).classList.toggle('filled', i < slDigits.length);
+  });
+}
+function slClear() {
+  slDigits.pop();
+  ['sl-d1','sl-d2','sl-d3','sl-d4'].forEach(function(id, i) {
+    document.getElementById(id).classList.toggle('filled', i < slDigits.length);
+  });
+}
+</script>
+</body>
+</html>

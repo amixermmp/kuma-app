@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — บันทึกค่าใช้จ่าย</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div><h1>บันทึกค่าใช้จ่าย</h1><div class="sub">รายจ่ายประจำเดือน</div></div>
+  </div>
+
+  <div class="section-pad" style="padding-top:12px">
+
+    <div class="card">
+      <div class="card-title">+ เพิ่มรายการค่าใช้จ่าย</div>
+      <div class="field-row">
+        <label class="field-label">สาขา</label>
+        <select class="field-input">
+          <option>🌊 ป่าตอง</option>
+          <option>🏖 กะตะ</option>
+          <option>⛱ กะรน</option>
+          <option>🏢 ส่วนกลาง</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label class="field-label">หมวดหมู่</label>
+        <select class="field-input">
+          <option>💼 เงินเดือนพนักงาน</option>
+          <option>🏠 ค่าเช่าร้าน</option>
+          <option>💡 ค่าน้ำ / ไฟ / เน็ต</option>
+          <option>🔧 ค่าซ่อมบำรุง</option>
+          <option>📄 ค่าต่อเอกสาร/ภาษี</option>
+          <option>🛢️ ค่าน้ำมัน</option>
+          <option>📦 อื่นๆ</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label class="field-label">รายละเอียด</label>
+        <input class="field-input" placeholder="เช่น เงินเดือนพนักงาน มิ.ย. 2026">
+      </div>
+      <div class="field-row">
+        <label class="field-label">จำนวนเงิน (บาท)</label>
+        <input class="field-input" type="number" placeholder="0">
+      </div>
+      <div class="field-row">
+        <label class="field-label">วันที่</label>
+        <input class="field-input" type="date" value="2026-06-22">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">ใบเสร็จ / หลักฐาน (ถ้ามี)</label>
+        <div class="upload-box"><div class="icon">🧾</div>อัพโหลดใบเสร็จ</div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" style="background:#7c3aed">💾 บันทึกค่าใช้จ่าย</button>
+
+    <div style="margin-top:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div class="card-title" style="margin:0">ประวัติ — มิถุนายน 2026</div>
+        <select style="border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;color:var(--gray)">
+          <option>ทุกสาขา</option>
+          <option>🌊 ป่าตอง</option>
+          <option>🏖 กะตะ</option>
+          <option>⛱ กะรน</option>
+        </select>
+      </div>
+
+      <div style="background:var(--red-lt);border-radius:10px;padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--red)">รวมค่าใช้จ่ายเดือนนี้</span>
+        <span style="font-size:18px;font-weight:800;color:var(--red)">฿41,500</span>
+      </div>
+
+      <div class="txn-item">
+        <div class="txn-icon">💼</div>
+        <div class="txn-info"><div class="txn-name">เงินเดือนพนักงาน</div><div class="txn-sub">🌊 ป่าตอง • 1 มิ.ย.</div></div>
+        <div class="txn-amt" style="color:var(--red)">−฿22,000</div>
+      </div>
+      <div class="txn-item">
+        <div class="txn-icon">🏠</div>
+        <div class="txn-info"><div class="txn-name">ค่าเช่าร้าน</div><div class="txn-sub">🌊 ป่าตอง • 1 มิ.ย.</div></div>
+        <div class="txn-amt" style="color:var(--red)">−฿12,000</div>
+      </div>
+      <div class="txn-item">
+        <div class="txn-icon">🔧</div>
+        <div class="txn-info"><div class="txn-name">ค่าซ่อมเครื่องยนต์ — กข 1234</div><div class="txn-sub">🏖 กะตะ • 15 มิ.ย.</div></div>
+        <div class="txn-amt" style="color:var(--red)">−฿3,500</div>
+      </div>
+      <div class="txn-item">
+        <div class="txn-icon">💡</div>
+        <div class="txn-info"><div class="txn-name">ค่าไฟ + เน็ต</div><div class="txn-sub">⛱ กะรน • 10 มิ.ย.</div></div>
+        <div class="txn-amt" style="color:var(--red)">−฿3,000</div>
+      </div>
+      <div class="txn-item" style="margin-bottom:80px">
+        <div class="txn-icon">🔧</div>
+        <div class="txn-info"><div class="txn-name">เปลี่ยนยาง — กข 5678</div><div class="txn-sub">🌊 ป่าตอง • 20 มิ.ย.</div></div>
+        <div class="txn-amt" style="color:var(--red)">−฿1,000</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

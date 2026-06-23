@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — รับรถคืน</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div>
+      <h1>รับรถคืน</h1>
+      <div class="sub">กข 1234 Honda PCX 160</div>
+    </div>
+  </div>
+
+  <div class="section-pad">
+    <!-- สรุปการเช่า -->
+    <div class="card" style="border-top:3px solid var(--blue)">
+      <div class="card-title">สรุปการเช่า</div>
+      <div class="info-row"><span class="info-key">ผู้เช่า</span><span class="info-val">คุณ สมชาย ดีใจ</span></div>
+      <div class="info-row"><span class="info-key">วันเริ่มเช่า</span><span class="info-val">20 มิ.ย. 10:00</span></div>
+      <div class="info-row"><span class="info-key">กำหนดคืน</span><span class="info-val">23 มิ.ย. 10:00</span></div>
+      <div class="info-row"><span class="info-key">วันที่คืนจริง</span><span class="info-val" style="color:var(--green)">22 มิ.ย. 14:30 (คืนก่อนกำหนด)</span></div>
+      <div class="info-row"><span class="info-key">ค่าเช่าที่คิด</span><span class="info-val" style="color:var(--blue)">฿600</span></div>
+      <div class="info-row"><span class="info-key">เงินมัดจำ</span><span class="info-val">฿1,000</span></div>
+    </div>
+
+    <!-- ตรวจสภาพ -->
+    <div class="card">
+      <div class="card-title">ตรวจสภาพรถตอนรับคืน</div>
+      <div class="checklist-item">
+        <div class="check-box checked">✓</div>
+        <span>ไฟหน้า-ไฟท้าย ปกติ</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check-box checked">✓</div>
+        <span>กระจกมองข้าง ครบ</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check-box" onclick="this.classList.toggle('checked');this.textContent=this.classList.contains('checked')?'✓':''">
+        </div>
+        <span>ตัวรถไม่มีรอยขีดข่วนใหม่</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check-box checked">✓</div>
+        <span>กุญแจครบ</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check-box checked">✓</div>
+        <span>แผ่นป้ายทะเบียน ปกติ</span>
+      </div>
+    </div>
+
+    <!-- ข้อมูลตอนรับคืน -->
+    <div class="card">
+      <div class="card-title">ข้อมูลตอนรับคืน</div>
+      <div class="field-row">
+        <label class="field-label">เลขไมล์ตอนรับคืน</label>
+        <input class="field-input" type="number" placeholder="14,580">
+      </div>
+      <div class="field-row">
+        <label class="field-label">ระดับน้ำมันตอนรับคืน</label>
+        <div class="fuel-bar" id="fuelReturn">
+          <div class="fuel-seg filled" onclick="setFuel('fuelReturn',1)"></div>
+          <div class="fuel-seg filled" onclick="setFuel('fuelReturn',2)"></div>
+          <div class="fuel-seg filled" onclick="setFuel('fuelReturn',3)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelReturn',4)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelReturn',5)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelReturn',6)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelReturn',7)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelReturn',8)"></div>
+        </div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">รูปภาพตอนรับคืน</label>
+        <div class="upload-box"><div class="icon">📷</div>อัพโหลดรูปรถตอนคืน</div>
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">หมายเหตุ / ค่าเสียหายเพิ่มเติม</label>
+        <textarea class="field-input" rows="2" placeholder="เช่น มีรอยขีดข่วนด้านซ้าย ค่าเสียหาย 200 บาท"></textarea>
+      </div>
+    </div>
+
+    <!-- สรุปเงิน -->
+    <div class="card">
+      <div class="card-title">สรุปการเงิน</div>
+      <div class="info-row"><span class="info-key">ค่าเช่า</span><span class="info-val">฿600</span></div>
+      <div class="info-row"><span class="info-key">ค่าเสียหาย</span><span class="info-val">฿0</span></div>
+      <div class="info-row"><span class="info-key">เงินมัดจำที่รับไว้</span><span class="info-val">฿1,000</span></div>
+      <div class="info-row" style="border-top:2px solid var(--border);padding-top:10px;margin-top:2px">
+        <span class="info-key" style="font-weight:700">คืนเงินลูกค้า</span>
+        <span class="info-val" style="color:var(--green);font-size:18px">฿400</span>
+      </div>
+    </div>
+
+    <button class="btn btn-success" onclick="history.back()">✅ ยืนยันรับรถคืน</button>
+    <button class="btn btn-outline" style="margin-top:8px;border-color:#7c3aed;color:#7c3aed" onclick="location.href='invoice.html'">🧾 ออกใบกำกับภาษี</button>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

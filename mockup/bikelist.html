@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — สต็อครถทั้งหมด</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:linear-gradient(135deg,#0f172a,#1e3a8a)">
+    <div style="flex:1"><h1>สต็อครถทั้งหมด</h1><div class="sub">18 คัน • 3 สาขา</div></div>
+    <button style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer" onclick="location.href='addbike.html'">+ เพิ่มรถ</button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="inv-toolbar">
+    <input class="inv-search" placeholder="🔍 ค้นหาทะเบียน, รุ่น...">
+    <select style="border:1.5px solid var(--border);border-radius:8px;padding:8px;font-size:12px;color:var(--text2);outline:none">
+      <option>ทุกสาขา</option>
+      <option>🌊 ป่าตอง</option>
+      <option>🏖 กะตะ</option>
+      <option>⛱ กะรน</option>
+    </select>
+    <div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;flex-shrink:0">
+      <button id="btn-list-view" onclick="setBikeView('list')" style="padding:7px 10px;border:none;background:#1e3a8a;color:#fff;font-size:14px;cursor:pointer">☰</button>
+      <button id="btn-grid-view" onclick="setBikeView('grid')" style="padding:7px 10px;border:none;background:#fff;color:var(--gray);font-size:14px;cursor:pointer">⊞</button>
+    </div>
+  </div>
+
+  <!-- Status summary strip -->
+  <div style="background:#fff;display:flex;border-bottom:1px solid var(--border)">
+    <div style="flex:1;text-align:center;padding:10px;border-right:1px solid var(--border)">
+      <div style="font-size:18px;font-weight:800;color:var(--green)">11</div>
+      <div style="font-size:10px;color:var(--gray)">ว่าง</div>
+    </div>
+    <div style="flex:1;text-align:center;padding:10px;border-right:1px solid var(--border)">
+      <div style="font-size:18px;font-weight:800;color:var(--blue)">5</div>
+      <div style="font-size:10px;color:var(--gray)">เช่าอยู่</div>
+    </div>
+    <div style="flex:1;text-align:center;padding:10px;border-right:1px solid var(--border)">
+      <div style="font-size:18px;font-weight:800;color:var(--red)">2</div>
+      <div style="font-size:10px;color:var(--gray)">ซ่อม</div>
+    </div>
+    <div style="flex:1;text-align:center;padding:10px">
+      <div style="font-size:18px;font-weight:800;color:var(--gray)">0</div>
+      <div style="font-size:10px;color:var(--gray)">เลิกใช้</div>
+    </div>
+  </div>
+
+  <!-- Grid view -->
+  <div id="bike-grid-view" style="display:none">
+    <div class="fleet-filter">
+      <div class="fleet-chip active">ทั้งหมด (18)</div>
+      <div class="fleet-chip">🟢 ว่าง (11)</div>
+      <div class="fleet-chip">🔵 เช่าอยู่ (5)</div>
+      <div class="fleet-chip">🔴 ซ่อม (2)</div>
+    </div>
+    <div class="fleet-grid">
+      <div class="fleet-card status-available" onclick="location.href='bikedetail.html'">
+        <div class="fleet-card-img">🛵</div>
+        <div class="fleet-card-plate">กข 1234</div>
+        <div class="fleet-card-model">Honda PCX 160</div>
+        <div><span class="fleet-card-status" style="background:var(--green-lt);color:var(--green)">🟢 ว่าง</span></div>
+        <div class="fleet-card-due" style="margin-top:6px;font-size:10px;color:var(--gray)">🌊 ป่าตอง • ฿200/วัน</div>
+      </div>
+      <div class="fleet-card status-rented" onclick="location.href='bikedetail.html'">
+        <div class="fleet-card-img">🛵</div>
+        <div class="fleet-card-plate">กข 5678</div>
+        <div class="fleet-card-model">Yamaha NMAX 155</div>
+        <div><span class="fleet-card-status" style="background:var(--blue-lt);color:var(--blue)">🔵 เช่าอยู่</span></div>
+        <div class="fleet-card-due">คืน 25 มิ.ย.</div>
+        <div style="font-size:10px;color:var(--gray)">🏖 กะตะ</div>
+      </div>
+      <div class="fleet-card status-repair" onclick="location.href='bikedetail.html'">
+        <div class="fleet-card-img" style="filter:grayscale(.6)">🛵</div>
+        <div class="fleet-card-plate">กข 9999</div>
+        <div class="fleet-card-model">Honda Wave 125</div>
+        <div><span class="fleet-card-status" style="background:var(--red-lt);color:var(--red)">🔴 ซ่อม</span></div>
+        <div class="fleet-card-due" style="color:var(--red)">เครื่องไม่ติด</div>
+        <div style="font-size:10px;color:var(--gray)">⛱ กะรน</div>
+      </div>
+      <div class="fleet-card status-available" onclick="location.href='bikedetail.html'">
+        <div class="fleet-card-img">🏍️</div>
+        <div class="fleet-card-plate">กข 3322</div>
+        <div class="fleet-card-model">Honda Click 160</div>
+        <div><span class="fleet-card-status" style="background:var(--green-lt);color:var(--green)">🟢 ว่าง</span></div>
+        <div class="fleet-card-due" style="margin-top:6px;font-size:10px;color:var(--gray)">🌊 ป่าตอง • ฿200/วัน</div>
+      </div>
+      <div class="fleet-card status-rented" onclick="location.href='bikedetail.html'">
+        <div class="fleet-card-img">🏍️</div>
+        <div class="fleet-card-plate">กข 8800</div>
+        <div class="fleet-card-model">Yamaha NMAX 155</div>
+        <div><span class="fleet-card-status" style="background:var(--blue-lt);color:var(--blue)">🔵 เช่าอยู่</span></div>
+        <div class="fleet-card-due">คืน 23 มิ.ย.</div>
+        <div style="font-size:10px;color:var(--amber);font-weight:600">⚠️ ใกล้หมด</div>
+      </div>
+      <div class="fleet-card status-available" onclick="location.href='bikedetail.html'">
+        <div class="fleet-card-img">🛵</div>
+        <div class="fleet-card-plate">กข 4411</div>
+        <div class="fleet-card-model">Honda PCX 160</div>
+        <div><span class="fleet-card-status" style="background:var(--green-lt);color:var(--green)">🟢 ว่าง</span></div>
+        <div class="fleet-card-due" style="margin-top:6px;font-size:10px;color:var(--gray)">🏖 กะตะ • ฿200/วัน</div>
+      </div>
+    </div>
+    <div style="height:80px"></div>
+  </div>
+
+  <!-- List view -->
+  <div id="bike-list-view">
+    <div style="padding:8px 14px 4px;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;background:var(--gray-lt)">🟢 ว่าง (11)</div>
+
+    <div class="inv-row" onclick="location.href='bikedetail.html'">
+      <div class="inv-status-dot dot-green"></div>
+      <div class="inv-row-icon">🛵</div>
+      <div class="inv-row-main">
+        <div class="inv-row-plate">กข 1234</div>
+        <div class="inv-row-model">Honda PCX 160 • ปี 2022 • ขาว</div>
+        <div class="inv-row-tags">
+          <span class="inv-tag">🌊 ป่าตอง</span>
+          <span class="inv-tag" style="background:var(--red-lt);color:var(--red)">⚠️ พรบ. 8 วัน</span>
+        </div>
+      </div>
+      <div class="inv-row-right">
+        <div class="inv-row-price">฿200/วัน</div>
+        <div class="inv-row-mile">14,230 กม.</div>
+      </div>
+    </div>
+
+    <div class="inv-row" onclick="location.href='bikedetail.html'">
+      <div class="inv-status-dot dot-green"></div>
+      <div class="inv-row-icon">🏍️</div>
+      <div class="inv-row-main">
+        <div class="inv-row-plate">กข 3322</div>
+        <div class="inv-row-model">Honda Click 160 • ปี 2024 • แดง</div>
+        <div class="inv-row-tags"><span class="inv-tag">🌊 ป่าตอง</span></div>
+      </div>
+      <div class="inv-row-right">
+        <div class="inv-row-price">฿200/วัน</div>
+        <div class="inv-row-mile">5,800 กม.</div>
+      </div>
+    </div>
+
+    <div class="inv-row" onclick="location.href='bikedetail.html'">
+      <div class="inv-status-dot dot-green"></div>
+      <div class="inv-row-icon">🛵</div>
+      <div class="inv-row-main">
+        <div class="inv-row-plate">กข 4411</div>
+        <div class="inv-row-model">Honda PCX 160 • ปี 2023 • ดำ</div>
+        <div class="inv-row-tags">
+          <span class="inv-tag">🏖 กะตะ</span>
+          <span class="inv-tag" style="background:var(--amber-lt);color:var(--amber)">🛢️ ใกล้เปลี่ยนน้ำมัน</span>
+        </div>
+      </div>
+      <div class="inv-row-right">
+        <div class="inv-row-price">฿200/วัน</div>
+        <div class="inv-row-mile">14,850 กม.</div>
+      </div>
+    </div>
+
+    <div class="inv-row" onclick="location.href='bikedetail.html'">
+      <div class="inv-status-dot dot-green"></div>
+      <div class="inv-row-icon">🏍️</div>
+      <div class="inv-row-main">
+        <div class="inv-row-plate">กข 9911</div>
+        <div class="inv-row-model">Yamaha NMAX 155 • ปี 2022 • ขาว</div>
+        <div class="inv-row-tags"><span class="inv-tag">⛱ กะรน</span></div>
+      </div>
+      <div class="inv-row-right">
+        <div class="inv-row-price">฿250/วัน</div>
+        <div class="inv-row-mile">22,100 กม.</div>
+      </div>
+    </div>
+
+    <div style="padding:8px 14px 4px;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;background:var(--gray-lt)">🔵 เช่าอยู่ (5)</div>
+
+    <div class="inv-row" onclick="location.href='bikedetail.html'">
+      <div class="inv-status-dot dot-blue"></div>
+      <div class="inv-row-icon">🏍️</div>
+      <div class="inv-row-main">
+        <div class="inv-row-plate">กข 5678</div>
+        <div class="inv-row-model">Yamaha NMAX 155 • ปี 2022 • น้ำเงิน</div>
+        <div class="inv-row-tags">
+          <span class="inv-tag">🏖 กะตะ</span>
+          <span class="inv-tag" style="background:var(--blue-lt);color:var(--blue)">คืน 25 มิ.ย.</span>
+        </div>
+      </div>
+      <div class="inv-row-right">
+        <div class="inv-row-price">฿250/วัน</div>
+        <div class="inv-row-mile">18,400 กม.</div>
+      </div>
+    </div>
+
+    <div class="inv-row" onclick="location.href='bikedetail.html'">
+      <div class="inv-status-dot dot-blue"></div>
+      <div class="inv-row-icon">🛵</div>
+      <div class="inv-row-main">
+        <div class="inv-row-plate">กข 8800</div>
+        <div class="inv-row-model">Yamaha NMAX 155 • ปี 2023 • เทา</div>
+        <div class="inv-row-tags">
+          <span class="inv-tag">🌊 ป่าตอง</span>
+          <span class="inv-tag" style="background:var(--amber-lt);color:var(--amber)">⚠️ คืน วันนี้ 18:00</span>
+        </div>
+      </div>
+      <div class="inv-row-right">
+        <div class="inv-row-price">฿250/วัน</div>
+        <div class="inv-row-mile">9,200 กม.</div>
+      </div>
+    </div>
+
+    <div style="padding:8px 14px 4px;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;background:var(--gray-lt)">🔴 ซ่อม (2)</div>
+
+    <div class="inv-row" onclick="location.href='bikedetail.html'">
+      <div class="inv-status-dot dot-red"></div>
+      <div class="inv-row-icon" style="filter:grayscale(.5)">🛵</div>
+      <div class="inv-row-main">
+        <div class="inv-row-plate">กข 9999</div>
+        <div class="inv-row-model">Honda Wave 125 • ปี 2020 • แดง</div>
+        <div class="inv-row-tags">
+          <span class="inv-tag">⛱ กะรน</span>
+          <span class="inv-tag" style="background:var(--red-lt);color:var(--red)">🔧 เครื่องไม่ติด</span>
+        </div>
+      </div>
+      <div class="inv-row-right">
+        <div class="inv-row-price">฿150/วัน</div>
+        <div class="inv-row-mile">31,500 กม.</div>
+      </div>
+    </div>
+
+    <div class="inv-row" style="margin-bottom:80px" onclick="location.href='bikedetail.html'">
+      <div class="inv-status-dot dot-red"></div>
+      <div class="inv-row-icon" style="filter:grayscale(.5)">🏍️</div>
+      <div class="inv-row-main">
+        <div class="inv-row-plate">กข 3344</div>
+        <div class="inv-row-model">Yamaha NMAX 155 • ปี 2021 • ขาว</div>
+        <div class="inv-row-tags">
+          <span class="inv-tag">🌊 ป่าตอง</span>
+          <span class="inv-tag" style="background:var(--red-lt);color:var(--red)">🔧 ยางแบน</span>
+        </div>
+      </div>
+      <div class="inv-row-right">
+        <div class="inv-row-price">฿250/วัน</div>
+        <div class="inv-row-mile">27,800 กม.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

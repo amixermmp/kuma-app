@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — ส่งรถรายเดือน</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div>
+      <h1>ส่งรถ — รายเดือน</h1>
+      <div class="sub">กข 1234 Honda PCX 160</div>
+    </div>
+  </div>
+
+  <div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:10px 14px">
+    <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px">
+      🔒 รถจะถูกล็อคจนกว่าจะ "สิ้นสุดสัญญา" — ไม่มีวันคืนรถอัตโนมัติ
+    </div>
+  </div>
+
+  <div class="section-pad">
+
+    <!-- ข้อมูลลูกค้า -->
+    <div class="card">
+      <div class="card-title">ข้อมูลลูกค้า</div>
+      <div class="field-row">
+        <label class="field-label">ชื่อ - นามสกุล *</label>
+        <input class="field-input" type="text" placeholder="สมชาย ดีใจ">
+      </div>
+      <div class="field-row">
+        <label class="field-label">เบอร์โทรศัพท์ *</label>
+        <input class="field-input" type="tel" placeholder="081-234-5678">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">ที่พัก / ที่อยู่ปัจจุบัน</label>
+        <input class="field-input" type="text" placeholder="คอนโด ริมทะเล ห้อง 203">
+      </div>
+    </div>
+
+    <!-- รูปและเอกสาร -->
+    <div class="card">
+      <div class="card-title">รูปภาพ</div>
+      <div class="field-row">
+        <label class="field-label">📄 รูปบัตรประชาชน / พาสปอร์ต *</label>
+        <div class="upload-box"><div class="icon">🪪</div>ถ่ายรูปหรืออัพโหลดบัตร</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">🤳 รูปคู่บัตรประชาชน * <span style="font-size:11px;color:var(--gray);font-weight:400">(ลูกค้าถือบัตรให้เห็นหน้า)</span></label>
+        <div class="upload-box"><div class="icon">🤳</div>ถ่ายรูปลูกค้าถือบัตร</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">🛵 รูปคู่รถ * <span style="font-size:11px;color:var(--gray);font-weight:400">(ลูกค้ายืนคู่รถก่อนรับ)</span></label>
+        <div class="upload-box"><div class="icon">🛵</div>ถ่ายรูปลูกค้าคู่รถ</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">🔍 รูปตำหนิรถก่อนเช่า *</label>
+        <div class="upload-box"><div class="icon">📷</div>ถ่ายรูปรถ</div>
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">💳 หลักฐานการชำระเงิน *</label>
+        <div style="display:flex;gap:8px;margin-top:2px">
+          <div class="promo-chip selected" onclick="togglePromo(this)" style="font-size:12px">💵 เงินสด</div>
+          <div class="promo-chip" onclick="togglePromo(this)" style="font-size:12px">📱 สลิปโอน</div>
+        </div>
+        <div class="upload-box" style="margin-top:8px"><div class="icon">💵</div>ถ่ายรูปเงินสด / อัพโหลดสลิป</div>
+      </div>
+    </div>
+
+    <!-- รายละเอียดสัญญา -->
+    <div class="card">
+      <div class="card-title">รายละเอียดสัญญารายเดือน</div>
+      <div class="field-row">
+        <label class="field-label">วันเริ่มสัญญา *</label>
+        <input class="field-input" type="date" value="2026-06-22">
+      </div>
+      <div class="field-row">
+        <label class="field-label">ครบกำหนดชำระทุกวันที่ *</label>
+        <select class="field-input">
+          <option>1 ของทุกเดือน</option>
+          <option>5 ของทุกเดือน</option>
+          <option>10 ของทุกเดือน</option>
+          <option>15 ของทุกเดือน</option>
+          <option>22 ของทุกเดือน (วันเริ่มสัญญา)</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label class="field-label">ราคาเช่าต่อเดือน (บาท) *</label>
+        <input class="field-input" type="number" placeholder="3500">
+      </div>
+      <div class="field-row">
+        <label class="field-label">เงินมัดจำ (บาท)</label>
+        <input class="field-input" type="number" placeholder="3500">
+      </div>
+      <div class="field-row">
+        <label class="field-label">เลขไมล์ตอนส่งรถ</label>
+        <input class="field-input" type="number" placeholder="14230">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">ระดับน้ำมันตอนส่ง</label>
+        <div class="fuel-bar" id="fuelMonthly">
+          <div class="fuel-seg filled" onclick="setFuel('fuelMonthly',1)"></div>
+          <div class="fuel-seg filled" onclick="setFuel('fuelMonthly',2)"></div>
+          <div class="fuel-seg filled" onclick="setFuel('fuelMonthly',3)"></div>
+          <div class="fuel-seg filled" onclick="setFuel('fuelMonthly',4)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelMonthly',5)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelMonthly',6)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelMonthly',7)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelMonthly',8)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- สรุป -->
+    <div class="price-box" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">
+      <div class="price-label">ค่าเช่าต่อเดือน</div>
+      <div class="price-amount">฿3,500</div>
+      <div class="price-detail">ครบกำหนดชำระทุกวันที่ 22 ของเดือน</div>
+    </div>
+
+    <div style="background:#faf5ff;border:1px solid #ddd6fe;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#6d28d9">
+      📌 ระบบจะสร้าง <strong>Job Task เก็บค่าเช่า 💰</strong> อัตโนมัติทุกเดือน และรถจะ <strong>ไม่ปรากฏในการค้นหา</strong> จนกว่าจะกด "สิ้นสุดสัญญา"
+    </div>
+
+    <!-- ลายเซ็น -->
+    <div class="card">
+      <div class="card-title">ลายเซ็นลูกค้า</div>
+      <div class="sign-area">✏️ แตะเพื่อเซ็นชื่อ</div>
+    </div>
+
+    <button class="btn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff" onclick="location.href='menu.html'">
+      💾 บันทึกสัญญารายเดือน
+    </button>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

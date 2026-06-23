@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — เมนู Staff</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header">
+    <div>
+      <h1>เมนูพนักงาน</h1>
+      <div class="sub">คุณ นภา รักงาน • กข 1234 Honda PCX</div>
+    </div>
+  </div>
+
+  <!-- Bike status card -->
+  <div style="background:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)">
+    <span style="font-size:36px">🛵</span>
+    <div style="flex:1">
+      <div style="font-weight:700">กข 1234 — Honda PCX 160</div>
+      <div style="font-size:13px;color:var(--gray);margin-top:2px">ไมล์: 14,230 กม. • น้ำมัน: ●●●●○</div>
+    </div>
+    <span class="badge badge-green">ว่าง</span>
+  </div>
+
+  <div class="menu-grid" style="padding-top:16px">
+    <!-- 3 เมนูหลัก -->
+    <a href="sendcar.html" class="menu-card color-blue" style="grid-column:span 2;display:flex;align-items:center;text-align:left;gap:16px;padding:18px 20px;text-decoration:none">
+      <div class="icon" style="margin:0;font-size:40px">➡️</div>
+      <div>
+        <div class="label" style="font-size:17px">ส่งรถให้ลูกค้า</div>
+        <div class="desc">บันทึกการเช่าใหม่ — ลูกค้ารับรถ</div>
+      </div>
+    </a>
+    <a href="returncar.html" class="menu-card color-green" style="grid-column:span 2;display:flex;align-items:center;text-align:left;gap:16px;padding:18px 20px;text-decoration:none">
+      <div class="icon" style="margin:0;font-size:40px">⬅️</div>
+      <div>
+        <div class="label" style="font-size:17px">รับรถคืน</div>
+        <div class="desc">ตรวจรับ — ปิดการเช่า</div>
+      </div>
+    </a>
+    <a href="search.html" class="menu-card" style="grid-column:span 2;border-top:4px solid #0891b2;display:flex;align-items:center;text-align:left;gap:16px;padding:18px 20px;text-decoration:none">
+      <div class="icon" style="margin:0;font-size:40px">🔍</div>
+      <div>
+        <div class="label" style="font-size:17px">ค้นหา & ลงคิวจอง</div>
+        <div class="desc">เลือกวันเวลา — ดูรถว่าง — จองล่วงหน้า</div>
+      </div>
+    </a>
+
+    <!-- เมนูรอง -->
+    <a href="extend.html" class="menu-card color-amber" style="text-decoration:none">
+      <div class="icon">⏱️</div>
+      <div class="label">ต่อเวลา</div>
+      <div class="desc">ขยายวันเช่า</div>
+    </a>
+    <a href="broken.html" class="menu-card color-red" style="text-decoration:none">
+      <div class="icon">🛵💥</div>
+      <div class="label">แจ้งรถเสีย</div>
+      <div class="desc">รายงานปัญหา</div>
+    </a>
+    <a href="jobtask.html" class="menu-card" style="border-top:4px solid #7c3aed;grid-column:span 2;text-decoration:none">
+      <div class="notif-badge">3</div>
+      <div class="icon">📋</div>
+      <div class="label">Job Tasks</div>
+      <div class="desc">งานที่ต้องดำเนินการ — 3 รายการ</div>
+    </a>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

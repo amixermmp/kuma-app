@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — งานซ่อมบำรุงรูทีน</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:#92400e">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div><h1>งานซ่อมบำรุงรูทีน</h1><div class="sub">การบำรุงรักษาประจำ</div></div>
+  </div>
+
+  <div class="section-pad" style="padding-top:12px">
+    <div style="background:var(--amber-lt);border-radius:10px;padding:12px 14px;margin:12px 0 4px;font-size:13px;color:var(--amber);border:1px solid #fcd34d">
+      🛢️ มีงานบำรุงรักษาที่ถึงกำหนด 2 รายการ
+    </div>
+
+    <div class="card" style="border-top:3px solid var(--red)">
+      <div class="card-title" style="color:var(--red)">🚨 ถึงกำหนดแล้ว!</div>
+      <div class="info-row"><span class="info-key">งาน</span><span class="info-val">เปลี่ยนน้ำมันเครื่อง</span></div>
+      <div class="info-row"><span class="info-key">ทะเบียนรถ</span><span class="info-val">กข 5678 Honda Wave</span></div>
+      <div class="info-row"><span class="info-key">ไมล์ปัจจุบัน</span><span class="info-val">15,120 กม.</span></div>
+      <div class="info-row"><span class="info-key">กำหนดเปลี่ยน</span><span class="info-val" style="color:var(--red)">ทุก 15,000 กม. (เกินแล้ว!)</span></div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border)">
+        <div class="field-row">
+          <label class="field-label">ร้านซ่อม / ผู้ดำเนินการ</label>
+          <input class="field-input" type="text" placeholder="เช่น ช่างหมู">
+        </div>
+        <div class="field-row">
+          <label class="field-label">ค่าใช้จ่าย (บาท)</label>
+          <input class="field-input" type="number" placeholder="250">
+        </div>
+        <div class="field-row">
+          <label class="field-label">เลขไมล์ที่เปลี่ยน</label>
+          <input class="field-input" type="number" placeholder="15,120">
+        </div>
+        <div class="field-row" style="margin-bottom:0">
+          <label class="field-label">อัพโหลดบิล (ถ้ามี)</label>
+          <div class="upload-box"><div class="icon">🧾</div>อัพโหลดใบเสร็จ</div>
+        </div>
+      </div>
+      <button class="btn btn-success" style="margin-top:14px" onclick="alert('บันทึกเรียบร้อย!')">✅ บันทึกว่าเปลี่ยนแล้ว</button>
+    </div>
+
+    <div class="card" style="border-top:3px solid var(--amber)">
+      <div class="card-title" style="color:var(--amber)">⚠️ ถึงกำหนดตามวันที่</div>
+      <div class="info-row"><span class="info-key">งาน</span><span class="info-val">เปลี่ยนน้ำมันเครื่อง</span></div>
+      <div class="info-row"><span class="info-key">ทะเบียนรถ</span><span class="info-val">กข 3344 Yamaha NMAX</span></div>
+      <div class="info-row"><span class="info-key">กำหนดเปลี่ยน</span><span class="info-val" style="color:var(--amber)">ทุก 90 วัน (วันนี้ครบ!)</span></div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border)">
+        <div class="field-row">
+          <label class="field-label">ค่าใช้จ่าย (บาท)</label>
+          <input class="field-input" type="number" placeholder="250">
+        </div>
+        <div class="field-row" style="margin-bottom:0">
+          <label class="field-label">อัพโหลดบิล (ถ้ามี)</label>
+          <div class="upload-box"><div class="icon">🧾</div>อัพโหลดใบเสร็จ</div>
+        </div>
+      </div>
+      <button class="btn btn-amber" style="margin-top:14px">💾 บันทึก</button>
+    </div>
+
+    <div class="card-title" style="padding:8px 0;font-size:12px;color:var(--gray)">เสร็จแล้ว (ล่าสุด)</div>
+    <div class="job-item" style="opacity:.6">
+      <div class="job-icon-wrap" style="background:var(--green-lt)">✅</div>
+      <div class="job-info">
+        <div class="job-title">เปลี่ยนน้ำมันเครื่อง — กข 1234</div>
+        <div class="job-sub">เสร็จเมื่อ: 1 เม.ย. 2026 • ฿250</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

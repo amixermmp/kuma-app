@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — ส่งรถ / เช่ารถ</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div>
+      <h1>ส่งรถ — เช่ารถ</h1>
+      <div class="sub">กข 1234 Honda PCX 160</div>
+    </div>
+  </div>
+
+  <!-- ล็อคสถานะ -->
+  <div style="background:var(--amber-lt);border-left:4px solid var(--amber);padding:10px 14px;font-size:13px;color:var(--amber);font-weight:600">
+    🔒 รถคันนี้ถูกล็อคสำหรับรายการนี้แล้ว
+  </div>
+
+  <!-- Toggle รายวัน / รายเดือน -->
+  <div style="background:#fff;padding:12px;border-bottom:1px solid var(--border)">
+    <div style="display:flex;background:var(--gray-lt);border-radius:10px;padding:4px;gap:4px">
+      <button id="typeDay" onclick="setRentalType('day')"
+        style="flex:1;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;transition:all .15s">
+        📅 รายวัน
+      </button>
+      <button id="typeMonth" onclick="setRentalType('month')"
+        style="flex:1;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;background:transparent;color:var(--gray);transition:all .15s">
+        🗓️ รายเดือน
+      </button>
+    </div>
+  </div>
+
+  <div class="section-pad">
+    <!-- ข้อมูลลูกค้า -->
+    <div class="card">
+      <div class="card-title">ข้อมูลลูกค้า</div>
+      <div class="field-row">
+        <label class="field-label">ชื่อ - นามสกุล *</label>
+        <input class="field-input" type="text" placeholder="สมชาย ดีใจ">
+      </div>
+      <div class="field-row">
+        <label class="field-label">เบอร์โทรศัพท์ *</label>
+        <input class="field-input" type="tel" placeholder="081-234-5678">
+      </div>
+      <div class="field-row">
+        <label class="field-label">โรงแรม / ที่พัก</label>
+        <input class="field-input" type="text" placeholder="Nap Park Hotel">
+      </div>
+    </div>
+
+    <!-- อัพรูป -->
+    <div class="card">
+      <div class="card-title">รูปภาพ</div>
+      <div class="field-row">
+        <label class="field-label">📄 รูปบัตรประชาชน / พาสปอร์ต *</label>
+        <div class="upload-box"><div class="icon">🪪</div>ถ่ายรูปหรืออัพโหลดบัตร</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">🤳 รูปคู่บัตรประชาชน * <span style="font-size:11px;color:var(--gray);font-weight:400">(ลูกค้าถือบัตรให้เห็นหน้า)</span></label>
+        <div class="upload-box"><div class="icon">🤳</div>ถ่ายรูปลูกค้าถือบัตร</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">🛵 รูปคู่รถ * <span style="font-size:11px;color:var(--gray);font-weight:400">(ลูกค้ายืนคู่รถก่อนรับ)</span></label>
+        <div class="upload-box"><div class="icon">🛵</div>ถ่ายรูปลูกค้าคู่รถ</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">🔍 รูปตำหนิรถก่อนเช่า *</label>
+        <div class="upload-box"><div class="icon">📷</div>ถ่ายรูปรอบคันก่อนส่ง</div>
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">💳 หลักฐานการชำระเงิน *</label>
+        <div style="display:flex;gap:8px;margin-top:2px">
+          <div class="promo-chip selected" onclick="togglePromo(this)" style="font-size:12px">💵 เงินสด</div>
+          <div class="promo-chip" onclick="togglePromo(this)" style="font-size:12px">📱 สลิปโอน</div>
+        </div>
+        <div class="upload-box" style="margin-top:8px"><div class="icon">💵</div>ถ่ายรูปเงินสด / อัพโหลดสลิป</div>
+      </div>
+    </div>
+
+    <!-- วันที่และข้อมูลรถ -->
+    <div class="card">
+      <div class="card-title">รายละเอียดการเช่า</div>
+      <div class="field-row">
+        <label class="field-label">วันที่เริ่มเช่า *</label>
+        <input class="field-input" type="datetime-local" value="2026-06-22T10:00">
+      </div>
+      <div class="field-row">
+        <label class="field-label">วันที่กำหนดคืน *</label>
+        <input class="field-input" type="datetime-local" value="2026-06-25T10:00">
+      </div>
+      <div class="field-row">
+        <label class="field-label">เลขไมล์ตอนส่งรถ</label>
+        <input class="field-input" type="number" placeholder="14230">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">ระดับน้ำมันตอนส่ง</label>
+        <div class="fuel-bar" id="fuelSend">
+          <div class="fuel-seg filled" onclick="setFuel('fuelSend',1)"></div>
+          <div class="fuel-seg filled" onclick="setFuel('fuelSend',2)"></div>
+          <div class="fuel-seg filled" onclick="setFuel('fuelSend',3)"></div>
+          <div class="fuel-seg filled" onclick="setFuel('fuelSend',4)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelSend',5)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelSend',6)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelSend',7)"></div>
+          <div class="fuel-seg" onclick="setFuel('fuelSend',8)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- โปรโมชั่น -->
+    <div class="card">
+      <div class="card-title">โปรโมชั่น</div>
+      <label class="field-label">เลือกโปรโมชั่น (ถ้ามี)</label>
+      <div class="promo-select">
+        <div class="promo-chip selected" onclick="togglePromo(this)">ราคาปกติ</div>
+        <div class="promo-chip" onclick="togglePromo(this)">🎓 นักศึกษา -10%</div>
+        <div class="promo-chip" onclick="togglePromo(this)">📅 รายสัปดาห์ 5+2</div>
+        <div class="promo-chip" onclick="togglePromo(this)">💰 ลด ฿50</div>
+      </div>
+    </div>
+
+    <!-- เงินมัดจำ -->
+    <div class="card">
+      <div class="card-title">เงินมัดจำ</div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">ยอดเงินมัดจำ (บาท)</label>
+        <input class="field-input" type="number" placeholder="1000">
+      </div>
+    </div>
+
+    <!-- ราคา -->
+    <div class="price-box">
+      <div class="price-label">ค่าเช่าทั้งหมด (3 วัน)</div>
+      <div class="price-amount">฿600</div>
+      <div class="price-detail">฿200/วัน × 3 วัน • ไม่มีโปรโมชั่น</div>
+    </div>
+
+    <!-- ลายเซ็น -->
+    <div class="card">
+      <div class="card-title">ลายเซ็นลูกค้า</div>
+      <div class="sign-area">✏️ แตะเพื่อเซ็นชื่อ</div>
+    </div>
+
+    <button class="btn btn-primary" onclick="history.back()">💾 บันทึกการเช่า</button>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

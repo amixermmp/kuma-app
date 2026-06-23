@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — ตั้งค่าระบบ</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">
+    <div style="flex:1"><h1>ตั้งค่าระบบ</h1><div class="sub">Owner — Kuma Rental</div></div>
+    <div style="font-size:28px">👑</div>
+  </div>
+
+  <!-- ปรับแต่งแอป -->
+  <div class="settings-section">
+    <div class="settings-header">🎨 ปรับแต่งแอป (Branding)</div>
+    <div style="padding:16px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:13px;color:var(--gray)">ตั้งชื่อ, โลโก้, สีธีม สำหรับร้านของคุณ</div>
+      <button onclick="location.href='branding.html'" style="background:#7c3aed;border:none;color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">⚙️ ตั้งค่า</button>
+    </div>
+  </div>
+
+  <!-- ข้อมูลบริษัท -->
+  <div class="settings-section">
+    <div class="settings-header">🏢 ข้อมูลบริษัท / ร้าน</div>
+    <div style="padding:16px">
+      <div class="field-row">
+        <label class="field-label">ชื่อบริษัท / ร้าน</label>
+        <input class="field-input" placeholder="Kuma Rental Co., Ltd.">
+      </div>
+      <div class="field-row">
+        <label class="field-label">ที่อยู่</label>
+        <textarea class="field-input" rows="2" placeholder="123/4 ถ.วิชิตสงคราม ต.กะรน อ.เมือง จ.ภูเก็ต 83100" style="resize:none"></textarea>
+      </div>
+      <div class="field-row">
+        <label class="field-label">เลขประจำตัวผู้เสียภาษี (13 หลัก)</label>
+        <input class="field-input" placeholder="0-0000-00000-00-0" maxlength="17">
+        <div style="font-size:11px;color:var(--gray);margin-top:4px">ใส่เมื่อจดทะเบียน VAT แล้ว</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">เบอร์โทรศัพท์</label>
+        <input class="field-input" type="tel" placeholder="076-000-000">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">โลโก้ร้าน (แสดงบนบิล)</label>
+        <div class="upload-box"><div class="icon">🖼️</div>อัพโหลดโลโก้</div>
+      </div>
+    </div>
+    <div style="padding:0 16px 16px">
+      <button class="btn btn-primary" style="background:#7c3aed">💾 บันทึก</button>
+    </div>
+  </div>
+
+  <!-- พนักงาน -->
+  <div class="settings-section">
+    <div class="settings-header">👤 จัดการพนักงาน</div>
+    <div class="staff-item">
+      <div class="staff-avatar">น</div>
+      <div class="staff-info">
+        <div class="staff-name">นภา รักงาน</div>
+        <div class="staff-meta">PIN: ••••  •  🌊 ป่าตอง</div>
+      </div>
+      <span style="font-size:13px;color:var(--blue);cursor:pointer">แก้ไข</span>
+    </div>
+    <div class="staff-item">
+      <div class="staff-avatar">ส</div>
+      <div class="staff-info">
+        <div class="staff-name">สมพร มีดี</div>
+        <div class="staff-meta">PIN: ••••  •  🏖 กะตะ</div>
+      </div>
+      <span style="font-size:13px;color:var(--blue);cursor:pointer">แก้ไข</span>
+    </div>
+    <div class="staff-item">
+      <div class="staff-avatar">ว</div>
+      <div class="staff-info">
+        <div class="staff-name">วิชัย ทำงานดี</div>
+        <div class="staff-meta">PIN: ••••  •  ⛱ กะรน</div>
+      </div>
+      <span style="font-size:13px;color:var(--blue);cursor:pointer">แก้ไข</span>
+    </div>
+    <div style="padding:12px 16px">
+      <button class="btn btn-outline" style="border-color:#7c3aed;color:#7c3aed">+ เพิ่มพนักงาน</button>
+    </div>
+  </div>
+
+  <!-- สาขา -->
+  <div class="settings-section">
+    <div class="settings-header">🏢 จัดการสาขา</div>
+    <div class="settings-row">
+      <div class="settings-row-icon">🌊</div>
+      <div class="settings-row-info"><div class="settings-row-title">สาขาป่าตอง</div><div class="settings-row-sub">8 คัน • 1 Staff</div></div>
+      <span class="settings-row-arrow">›</span>
+    </div>
+    <div class="settings-row">
+      <div class="settings-row-icon">🏖</div>
+      <div class="settings-row-info"><div class="settings-row-title">สาขากะตะ</div><div class="settings-row-sub">6 คัน • 1 Staff</div></div>
+      <span class="settings-row-arrow">›</span>
+    </div>
+    <div class="settings-row">
+      <div class="settings-row-icon">⛱</div>
+      <div class="settings-row-info"><div class="settings-row-title">สาขากะรน</div><div class="settings-row-sub">4 คัน • 1 Staff</div></div>
+      <span class="settings-row-arrow">›</span>
+    </div>
+    <div style="padding:12px 16px">
+      <button class="btn btn-outline" style="border-color:#7c3aed;color:#7c3aed">+ เพิ่มสาขา</button>
+    </div>
+  </div>
+
+  <!-- ราคาและล่วงเวลา -->
+  <div class="settings-section">
+    <div class="settings-header">💰 ราคาและค่าล่วงเวลา</div>
+    <div style="padding:16px">
+      <div class="field-row">
+        <label class="field-label">ค่าล่วงเวลา (บาท/ชั่วโมง)</label>
+        <input class="field-input" type="number" value="50">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">กี่ชั่วโมงเท่ากับ 1 วัน</label>
+        <input class="field-input" type="number" value="5">
+      </div>
+    </div>
+  </div>
+
+  <!-- โปรโมชั่น -->
+  <div class="settings-section">
+    <div class="settings-header">🎁 โปรโมชั่น</div>
+    <div style="padding:12px 16px">
+      <div class="promo-card">
+        <div class="promo-icon">🎓</div>
+        <div class="promo-info"><div class="promo-name">โปรนักศึกษา</div><div class="promo-desc">ลด 10% — แสดงบัตรนักศึกษา</div></div>
+        <div class="toggle"></div>
+      </div>
+      <div class="promo-card">
+        <div class="promo-icon">📅</div>
+        <div class="promo-info"><div class="promo-name">โปรรายสัปดาห์</div><div class="promo-desc">เช่า 5 วัน แถม 2 วัน</div></div>
+        <div class="toggle"></div>
+      </div>
+      <div class="promo-card">
+        <div class="promo-icon">💵</div>
+        <div class="promo-info"><div class="promo-name">ลดเงินสด</div><div class="promo-desc">ลด ฿50 ต่อรายการ</div></div>
+        <div class="toggle off"></div>
+      </div>
+      <button class="btn btn-outline" style="margin-top:8px;border-color:#7c3aed;color:#7c3aed" onclick="location.href='createpromo.html'">+ สร้างโปรโมชั่นใหม่</button>
+    </div>
+  </div>
+
+  <!-- การแจ้งเตือน -->
+  <div class="settings-section">
+    <div class="settings-header">🔔 การแจ้งเตือน</div>
+    <div style="padding:16px">
+      <div class="field-row">
+        <label class="field-label">แจ้งเตือนก่อนเอกสารหมดอายุ (วัน)</label>
+        <input class="field-input" type="number" value="30">
+      </div>
+      <div class="field-row">
+        <label class="field-label">แจ้งเตือนเมื่อลูกค้าเกินกำหนดคืน (ชม.)</label>
+        <input class="field-input" type="number" value="2">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">แจ้งเตือนก่อนถึงกำหนดเปลี่ยนน้ำมัน (กม.)</label>
+        <input class="field-input" type="number" value="200">
+      </div>
+    </div>
+  </div>
+
+  <!-- LINE Notification -->
+  <div class="settings-section" style="margin-bottom:80px">
+    <div class="settings-header">💬 LINE Notification</div>
+    <div style="background:#f0fdf4;border-radius:10px;margin:12px 16px 0;padding:12px 14px;font-size:12px;color:#166534;border:1px solid #bbf7d0">
+      ระบบจะส่งแจ้งเตือนเข้า LINE OA ของร้านอัตโนมัติ สำหรับ event สำคัญเท่านั้น (ไม่เปลือง message quota)
+    </div>
+    <div style="padding:16px">
+      <div class="field-row">
+        <label class="field-label">LINE Channel Access Token</label>
+        <input class="field-input" type="password" placeholder="วางได้จาก LINE Developers Console">
+      </div>
+      <div class="field-row">
+        <label class="field-label">LINE Group / User ID ที่รับแจ้งเตือน</label>
+        <input class="field-input" placeholder="C... หรือ U... จาก webhook">
+        <div style="font-size:11px;color:var(--gray);margin-top:4px">เพิ่มบอทเข้ากลุ่มไลน์ Staff แล้ว copy Group ID มาใส่</div>
+      </div>
+      <div class="field-label" style="margin-bottom:8px;margin-top:4px">เปิดแจ้งเตือนสำหรับ</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;align-items:center;gap:10px;font-size:14px">
+          <input type="checkbox" checked style="width:16px;height:16px;accent-color:var(--green)">
+          ⏰ ลูกค้าเกินกำหนดคืนรถ
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:14px">
+          <input type="checkbox" checked style="width:16px;height:16px;accent-color:var(--green)">
+          📄 เอกสารรถใกล้หมดอายุ (ตาม threshold ด้านบน)
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:14px">
+          <input type="checkbox" checked style="width:16px;height:16px;accent-color:var(--green)">
+          💜 ค่าเช่ารายเดือนค้างชำระ
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:14px">
+          <input type="checkbox" style="width:16px;height:16px;accent-color:var(--green)">
+          🛵💥 มีแจ้งรถเสียใหม่
+        </label>
+      </div>
+      <button class="btn btn-outline" style="margin-top:16px;border-color:#00b900;color:#00b900" onclick="alert('ส่ง test message ไปแล้ว!')">🧪 ทดสอบส่ง LINE</button>
+    </div>
+    <div style="padding:0 16px 16px">
+      <button class="btn btn-primary" style="background:#7c3aed">💾 บันทึกการตั้งค่า</button>
+    </div>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

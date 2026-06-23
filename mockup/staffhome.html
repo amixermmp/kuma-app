@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — Staff Home</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:#1e40af">
+    <span style="font-size:22px">🛵</span>
+    <div style="flex:1">
+      <h1 style="font-size:17px">สวัสดี, พี่แดง! 👋</h1>
+      <div class="sub">Kuma Bikes — สาขาป่าตอง</div>
+    </div>
+    <span style="font-size:22px;cursor:pointer" onclick="location.href='settings.html'">⚙️</span>
+  </div>
+
+  <div class="section-pad" style="padding-top:16px">
+
+    <!-- QR Scan -->
+    <div style="background:linear-gradient(135deg,#1e40af,#1d4ed8);border-radius:16px;padding:24px;text-align:center;color:#fff;margin-bottom:16px;cursor:pointer" onclick="location.href='public.html'">
+      <div style="font-size:48px;margin-bottom:8px">📷</div>
+      <div style="font-size:18px;font-weight:700">สแกน QR รถ</div>
+      <div style="font-size:13px;opacity:.8;margin-top:4px">แตะเพื่อเปิดกล้องสแกน</div>
+    </div>
+
+    <!-- Today's jobs -->
+    <div class="card-title" style="padding:8px 0;font-size:13px;color:var(--gray)">งานวันนี้ (3)</div>
+
+    <div class="job-item" style="border-top:3px solid var(--blue)">
+      <div class="job-icon-wrap" style="background:var(--blue-lt)">🛵➡️</div>
+      <div class="job-info">
+        <div class="job-title">ส่งรถ — กข 1234 Honda PCX</div>
+        <div class="job-sub">⏰ 09:00 น. • คุณ สมชาย ดีใจ</div>
+      </div>
+      <span class="job-arrow" onclick="location.href='sendcar.html'">›</span>
+    </div>
+
+    <div class="job-item" style="border-top:3px solid var(--red)">
+      <div class="job-icon-wrap" style="background:var(--red-lt)">⬅️🛵</div>
+      <div class="job-info">
+        <div class="job-title">รับคืน — กข 3344 NMAX (เกินกำหนด!)</div>
+        <div class="job-sub">🔴 เกินกำหนด 28 ชม.</div>
+      </div>
+      <span class="job-arrow" onclick="location.href='returncar.html'">›</span>
+    </div>
+
+    <div class="job-item" style="border-top:3px solid var(--amber)">
+      <div class="job-icon-wrap" style="background:var(--amber-lt)">⬅️🛵</div>
+      <div class="job-info">
+        <div class="job-title">รับคืน — กข 9999 PCX 160</div>
+        <div class="job-sub">⚠️ 12:00 น. • ใกล้ถึงกำหนด</div>
+      </div>
+      <span class="job-arrow" onclick="location.href='returncar.html'">›</span>
+    </div>
+
+    <button class="btn" style="margin-top:12px;width:100%;background:#4f46e5" onclick="location.href='jobtask.html'">
+      📌 ดูงานทั้งหมด →
+    </button>
+
+    <!-- Quick actions -->
+    <div class="card-title" style="padding:16px 0 8px;font-size:13px;color:var(--gray)">เมนูด่วน</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <a href="search.html" class="quick-btn">🔍 ค้นหารถ</a>
+      <a href="bikelist.html" class="quick-btn">📋 รายการรถ</a>
+      <a href="broken.html" class="quick-btn">🔧 แจ้งรถเสีย</a>
+      <a href="docs.html" class="quick-btn">📄 งานเอกสาร</a>
+    </div>
+
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

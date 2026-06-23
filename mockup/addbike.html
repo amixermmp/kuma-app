@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — เพิ่มรถใหม่</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:linear-gradient(135deg,#0f172a,#1e3a8a)">
+    <button class="app-header-back" onclick="location.href='bikelist.html'">←</button>
+    <div><h1>เพิ่มรถใหม่</h1><div class="sub">กรอกข้อมูลรถที่ต้องการเพิ่มเข้าระบบ</div></div>
+  </div>
+
+  <div class="section-pad">
+
+    <!-- ข้อมูลพื้นฐาน -->
+    <div class="card">
+      <div class="card-title">ข้อมูลรถ</div>
+      <div class="field-row">
+        <label class="field-label">เลขทะเบียน *</label>
+        <input class="field-input" type="text" placeholder="กข 1234">
+      </div>
+      <div style="display:flex;gap:8px">
+        <div class="field-row" style="flex:1">
+          <label class="field-label">ยี่ห้อ *</label>
+          <select class="field-input">
+            <option>Honda</option><option>Yamaha</option><option>Kawasaki</option>
+          </select>
+        </div>
+        <div class="field-row" style="flex:1">
+          <label class="field-label">รุ่น *</label>
+          <input class="field-input" type="text" placeholder="PCX 160">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div class="field-row" style="flex:1">
+          <label class="field-label">ปีรถ</label>
+          <input class="field-input" type="number" placeholder="2023">
+        </div>
+        <div class="field-row" style="flex:1">
+          <label class="field-label">สี</label>
+          <input class="field-input" type="text" placeholder="ขาว">
+        </div>
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">สาขา *</label>
+        <select class="field-input">
+          <option>🌊 ป่าตอง</option><option>🏖 กะตะ</option><option>⛱ กะรน</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ราคาเช่า -->
+    <div class="card">
+      <div class="card-title">ราคาเช่า</div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">ราคาเช่าต่อวัน (บาท) *</label>
+        <input class="field-input" type="number" placeholder="200">
+      </div>
+    </div>
+
+    <!-- วงรอบซ่อมบำรุง -->
+    <div class="card">
+      <div class="card-title">🛢️ วงรอบซ่อมบำรุง</div>
+      <div style="font-size:12px;color:var(--gray);margin-bottom:12px">ระบบจะสร้าง Job Task อัตโนมัติเมื่อถึงกำหนด</div>
+      <div style="display:flex;gap:8px">
+        <div class="field-row" style="flex:1">
+          <label class="field-label">เปลี่ยนน้ำมัน (กม.)</label>
+          <input class="field-input" type="number" placeholder="3000">
+        </div>
+        <div class="field-row" style="flex:1">
+          <label class="field-label">หรือทุก (วัน)</label>
+          <input class="field-input" type="number" placeholder="90">
+        </div>
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">เลขไมล์ปัจจุบัน</label>
+        <input class="field-input" type="number" placeholder="5000">
+      </div>
+    </div>
+
+    <!-- เอกสาร -->
+    <div class="card">
+      <div class="card-title">📄 เอกสารประจำรถ</div>
+      <div class="field-row">
+        <label class="field-label">🛡️ พ.ร.บ. — วันหมดอายุ</label>
+        <input class="field-input" type="date" value="2026-12-31">
+      </div>
+      <div class="field-row">
+        <label class="field-label">📋 ประกันภัย — วันหมดอายุ</label>
+        <input class="field-input" type="date" value="2027-02-15">
+      </div>
+      <div class="field-row">
+        <label class="field-label">💰 ภาษีประจำปี — วันหมดอายุ</label>
+        <input class="field-input" type="date" value="2026-12-31">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">อัพโหลดเอกสารทั้งหมด (ไฟล์/รูป)</label>
+        <div class="upload-box"><div class="icon">📎</div>พรบ, ประกัน, หน้าเล่ม, ภาษี, สัญญา</div>
+      </div>
+    </div>
+
+    <!-- QR Code -->
+    <div class="card" style="text-align:center">
+      <div class="card-title" style="text-align:left">QR Code</div>
+      <div style="width:120px;height:120px;background:var(--gray-lt);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:48px;margin:0 auto 12px">🔲</div>
+      <div style="font-size:13px;color:var(--gray)">QR Code จะ generate อัตโนมัติหลังบันทึก</div>
+      <div style="font-size:12px;color:var(--gray);margin-top:4px">สามารถพิมพ์และติดที่รถได้เลย</div>
+    </div>
+
+    <!-- รูปรถ -->
+    <div class="card">
+      <div class="card-title">รูปภาพรถ</div>
+      <div id="addbikePhotoPreview" style="display:none;margin-bottom:12px">
+        <img id="addbikePhotoImg" src="" alt="รูปรถ" style="width:100%;border-radius:10px;max-height:200px;object-fit:cover">
+        <button onclick="clearAddPhoto()" style="margin-top:8px;background:none;border:none;color:var(--red);font-size:13px;cursor:pointer">✕ ลบรูป</button>
+      </div>
+      <label style="cursor:pointer">
+        <div class="upload-box" id="addbikeUploadBox">
+          <div class="icon">📷</div>
+          แตะเพื่อถ่ายรูปหรืออัพโหลดรูปรถ
+        </div>
+        <input type="file" accept="image/*" style="display:none" onchange="previewAddPhoto(event)">
+      </label>
+    </div>
+
+    <button class="btn btn-primary">💾 บันทึก & Generate QR Code</button>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

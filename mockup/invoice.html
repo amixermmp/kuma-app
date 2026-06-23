@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — ใบกำกับภาษี</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:linear-gradient(135deg,#0f172a,#1e3a8a)">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div><h1>ใบกำกับภาษี</h1><div class="sub">INV-2026-0042</div></div>
+    <button onclick="alert('กำลัง Download PDF...')" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer">⬇️ PDF</button>
+  </div>
+
+  <div class="section-pad" style="padding-top:12px">
+
+    <!-- ตัวอย่างบิล -->
+    <div class="card" style="padding:20px;font-size:13px;line-height:1.8">
+
+      <div style="text-align:center;margin-bottom:16px;padding-bottom:16px;border-bottom:2px solid var(--border)">
+        <div style="font-size:20px;font-weight:800;color:#1e3a8a">KUMA RENTAL</div>
+        <div style="color:var(--gray);font-size:12px">123/4 ถ.วิชิตสงคราม ต.กะรน อ.เมือง จ.ภูเก็ต 83100</div>
+        <div style="color:var(--gray);font-size:12px">Tel: 076-000-000</div>
+        <div style="background:#f0f4ff;border-radius:6px;padding:4px 12px;display:inline-block;margin-top:6px;font-size:12px;color:#1e3a8a;font-weight:600">
+          เลขประจำตัวผู้เสียภาษี: 0-8376-12345-67-8
+        </div>
+      </div>
+
+      <div style="text-align:center;font-size:16px;font-weight:800;margin-bottom:16px">
+        ใบกำกับภาษี / Tax Invoice
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:12px">
+        <div>
+          <div style="font-weight:700;margin-bottom:4px">ออกให้แก่:</div>
+          <div>Miss Sarah Johnson</div>
+          <div style="color:var(--gray)">Passport: AB1234567</div>
+          <div style="color:var(--gray)">Kata Beach Resort, ห้อง 302</div>
+        </div>
+        <div style="text-align:right">
+          <div><span style="color:var(--gray)">เลขที่: </span><strong>INV-2026-0042</strong></div>
+          <div><span style="color:var(--gray)">วันที่: </span><strong>22 มิ.ย. 2026</strong></div>
+          <div><span style="color:var(--gray)">สาขา: </span><strong>🏖 กะตะ</strong></div>
+        </div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px">
+        <thead>
+          <tr style="background:var(--gray-lt);border-bottom:1px solid var(--border)">
+            <th style="padding:8px 6px;text-align:left">รายการ</th>
+            <th style="padding:8px 6px;text-align:center">จำนวน</th>
+            <th style="padding:8px 6px;text-align:right">ราคา/วัน</th>
+            <th style="padding:8px 6px;text-align:right">รวม</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px 6px">
+              เช่ารถจักรยานยนต์<br>
+              <span style="color:var(--gray);font-size:11px">Honda PCX 160 • กข 9911<br>20–22 มิ.ย. 2026</span>
+            </td>
+            <td style="padding:8px 6px;text-align:center">3 วัน</td>
+            <td style="padding:8px 6px;text-align:right">฿250</td>
+            <td style="padding:8px 6px;text-align:right;font-weight:700">฿750</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="border-top:1px solid var(--border);padding-top:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px">
+          <span style="color:var(--gray)">ราคาก่อนภาษี</span><span>฿701.87</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px">
+          <span style="color:var(--gray)">ภาษีมูลค่าเพิ่ม 7%</span><span>฿49.13</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:800;border-top:2px solid var(--border);padding-top:8px;margin-top:4px">
+          <span>ยอดรวมทั้งสิ้น</span><span style="color:#1e3a8a">฿750.00</span>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--gray);text-align:center">
+        ชำระโดย: เงินสด &nbsp;|&nbsp; วันที่ชำระ: 22 มิ.ย. 2026<br>
+        ขอบคุณที่ใช้บริการ Kuma Rental 🙏
+      </div>
+    </div>
+
+    <!-- ข้อมูลผู้รับบิล -->
+    <div class="card">
+      <div class="card-title">ข้อมูลผู้รับบิล <span style="font-size:11px;font-weight:400;color:var(--gray)">(แก้ไขได้ก่อน download)</span></div>
+      <div class="field-row">
+        <label class="field-label">ชื่อลูกค้า</label>
+        <input class="field-input" value="Miss Sarah Johnson">
+      </div>
+      <div class="field-row">
+        <label class="field-label">ที่อยู่ / โรงแรม</label>
+        <input class="field-input" value="Kata Beach Resort, ห้อง 302">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">เลขบัตร / พาสปอร์ต</label>
+        <input class="field-input" value="AB1234567">
+      </div>
+    </div>
+
+    <button onclick="alert('กำลัง Download PDF...')" class="btn btn-primary" style="background:#1e3a8a;margin-bottom:80px">⬇️ Download ใบกำกับภาษี (PDF)</button>
+
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

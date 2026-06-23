@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — Job Tasks Board</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <!-- Header -->
+  <div class="app-header" style="background:#4f46e5;flex-direction:column;align-items:flex-start;gap:10px">
+    <div style="display:flex;align-items:center;gap:10px;width:100%">
+      <span style="font-size:22px">📌</span>
+      <div style="flex:1">
+        <h1 style="font-size:17px">Job Tasks</h1>
+        <div class="sub">งานทั้งหมดที่ต้องดำเนินการ</div>
+      </div>
+      <div style="display:flex;background:rgba(255,255,255,.15);border-radius:20px;padding:3px">
+        <button id="viewStaff" onclick="setJobView('staff')"
+          style="background:#fff;color:#4f46e5;border:none;border-radius:16px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">
+          👤 Staff
+        </button>
+        <button id="viewOwner" onclick="setJobView('owner')"
+          style="background:transparent;color:#fff;border:none;border-radius:16px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">
+          👑 Owner
+        </button>
+      </div>
+    </div>
+    <div id="branchFilter" style="display:none;width:100%">
+      <div style="font-size:11px;opacity:.7;margin-bottom:6px">กรองตามสาขา:</div>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
+        <button class="branch-btn active" onclick="setBranch(this,'all')">🏢 ทุกสาขา</button>
+        <button class="branch-btn" onclick="setBranch(this,'patong')">🌊 ป่าตอง</button>
+        <button class="branch-btn" onclick="setBranch(this,'kata')">🏖 กะตะ</button>
+        <button class="branch-btn" onclick="setBranch(this,'karon')">⛱ กะรน</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary bar -->
+  <div style="background:#fff;padding:12px;display:flex;gap:8px;overflow-x:auto;border-bottom:1px solid var(--border)">
+    <div class="sum-chip" onclick="filterJob('all')" style="border-color:#4f46e5;background:#eef2ff;color:#4f46e5">
+      <span class="sum-num">9</span><span class="sum-lbl">ทั้งหมด</span>
+    </div>
+    <div class="sum-chip" onclick="filterJob('sendcar')"><span class="sum-num">2</span><span class="sum-lbl">ส่งรถ</span></div>
+    <div class="sum-chip" onclick="filterJob('returncar')"><span class="sum-num">3</span><span class="sum-lbl">รับคืน</span></div>
+    <div class="sum-chip red-chip" onclick="filterJob('broken')"><span class="sum-num">1</span><span class="sum-lbl">รถเสีย</span></div>
+    <div class="sum-chip amber-chip" onclick="filterJob('routine')"><span class="sum-num">1</span><span class="sum-lbl">รูทีน</span></div>
+    <div class="sum-chip blue-chip" onclick="filterJob('docs')"><span class="sum-num">1</span><span class="sum-lbl">เอกสาร</span></div>
+    <div class="sum-chip" style="border-color:#7c3aed;background:#faf5ff" onclick="filterJob('monthly')">
+      <span class="sum-num" style="color:#7c3aed">1</span><span class="sum-lbl">รายเดือน</span>
+    </div>
+  </div>
+
+  <div id="ownerBanner" style="display:none;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:10px 14px;font-size:13px;font-weight:600">
+    👑 Owner Mode — แสดงงานทุกสาขา (ป่าตอง + กะตะ + กะรน)
+  </div>
+
+  <!-- Job list -->
+  <div style="padding:10px 12px 80px">
+
+    <!-- ส่งรถ -->
+    <div class="job-section cat-sendcar" data-cat="sendcar">
+      <div class="job-section-title">งานส่งรถ 🛵➡️ — คิววันนี้</div>
+      <div class="jcard urgent">
+        <div class="jcard-left blue-dot"></div>
+        <div class="jcard-body">
+          <div class="jcard-top">
+            <span class="jcard-title">ส่งรถ — กข 1234 Honda PCX</span>
+            <span class="jbadge" style="background:#eff6ff;color:#2563eb">⏰ 09:00</span>
+          </div>
+          <div class="jcard-meta"><span>👤 คุณ สมชาย ดีใจ</span><span>📞 081-234-5678</span></div>
+          <div class="jcard-meta"><span>🏨 Nap Park Hotel</span><span class="jbranch">🌊 ป่าตอง</span></div>
+          <div class="jcard-footer">
+            <span class="jstatus" style="background:#eff6ff;color:#2563eb">🔵 รอดำเนินการ</span>
+            <button class="jbtn" onclick="location.href='sendcar.html'">เปิด →</button>
+          </div>
+        </div>
+      </div>
+      <div class="jcard">
+        <div class="jcard-left blue-dot"></div>
+        <div class="jcard-body">
+          <div class="jcard-top">
+            <span class="jcard-title">ส่งรถ — กข 5678 Yamaha NMAX</span>
+            <span class="jbadge" style="background:#eff6ff;color:#2563eb">⏰ 14:00</span>
+          </div>
+          <div class="jcard-meta"><span>👤 Miss Sarah Johnson</span><span>📞 +44-7911-123456</span></div>
+          <div class="jcard-meta"><span>🏨 Kata Beach Resort</span><span class="jbranch">🏖 กะตะ</span></div>
+          <div class="jcard-footer">
+            <span class="jstatus" style="background:#eff6ff;color:#2563eb">🔵 รอดำเนินการ</span>
+            <button class="jbtn" onclick="location.href='sendcar.html'">เปิด →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- รับรถคืน -->
+    <div class="job-section cat-returncar" data-cat="returncar">
+      <div class="job-section-title">งานรับรถคืน ⬅️🛵 — ถึงกำหนดวันนี้</div>
+      <div class="jcard urgent">
+        <div class="jcard-left red-dot"></div>
+        <div class="jcard-body">
+          <div class="jcard-top">
+            <span class="jcard-title">รับคืน — กข 3344 NMAX</span>
+            <span class="jbadge" style="background:#fef2f2;color:#dc2626">🔴 เกินกำหนด!</span>
+          </div>
+          <div class="jcard-meta"><span>👤 คุณ วิไล สุขใจ</span><span>กำหนดคืน: <strong>เมื่อวาน 10:00</strong></span></div>
+          <div class="jcard-meta"><span>⏱ เกินมา 28 ชม.</span><span class="jbranch">⛱ กะรน</span></div>
+          <div class="jcard-footer">
+            <span class="jstatus" style="background:#fef2f2;color:#dc2626">🔴 เกินกำหนด</span>
+            <button class="jbtn danger-btn" onclick="location.href='returncar.html'">เปิด →</button>
+          </div>
+        </div>
+      </div>
+      <div class="jcard">
+        <div class="jcard-left amber-dot"></div>
+        <div class="jcard-body">
+          <div class="jcard-top">
+            <span class="jcard-title">รับคืน — กข 9999 PCX 160</span>
+            <span class="jbadge" style="background:#fffbeb;color:#d97706">⚠️ 12:00 น.</span>
+          </div>
+          <div class="jcard-meta"><span>👤 Mr. Kevin Brown</span><span>กำหนดคืน: <strong>วันนี้ 12:00</strong></span></div>
+          <div class="jcard-meta"><span>⏱ อีก 2 ชม.</span><span class="jbranch">🌊 ป่าตอง</span></div>
+          <div class="jcard-footer">
+            <span class="jstatus" style="background:#fffbeb;color:#d97706">⚠️ ใกล้ถึงกำหนด</span>
+            <button class="jbtn" onclick="location.href='returncar.html'">เปิด →</button>
+          </div>
+        </div>
+      </div>
+      <div class="jcard" style="opacity:.75">
+        <div class="jcard-left" style="background:#6b7280"></div>
+        <div class="jcard-body">
+          <div class="jcard-top">
+            <span class="jcard-title">รับคืน — กข 8800 Wave 125</span>
+            <span class="jbadge" style="background:#f9fafb;color:#6b7280">📅 18:00 น.</span>
+          </div>
+          <div class="jcard-meta"><span>👤 คุณ ธนพล มีสุข</span><span>กำหนดคืน: <strong>วันนี้ 18:00</strong></span></div>
+          <div class="jcard-meta"><span>⏱ อีก 8 ชม.</span><span class="jbranch">🏖 กะตะ</span></div>
+          <div class="jcard-footer">
+            <span class="jstatus" style="background:#f9fafb;color:#6b7280">⬜ ปกติ</span>
+            <button class="jbtn" onclick="location.href='returncar.html'">เปิด →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- รถเสีย -->
+    <div class="job-section cat-broken" data-cat="broken">
+      <div class="job-section-title">งานแจ้งรถเสีย 🛵💥</div>
+      <div class="jcard urgent">
+        <div class="jcard-left red-dot"></div>
+        <div class="jcard-body">
+          <div class="jcard-top">
+            <span class="jcard-title">รถเสีย — กข 1234 PCX 160</span>
+            <span class="jbadge" style="background:#fef2f2;color:#dc2626">🔴 วิกฤต</span>
+          </div>
+          <div class="jcard-meta"><span>⚠️ อาการ: เครื่องไม่ติด</span></div>
+          <div class="jcard-meta"><span>📅 แจ้งเมื่อ: วันนี้ 09:15</span><span class="jbranch">🌊 ป่าตอง</span></div>
+          <div class="jcard-footer">
+            <span class="jstatus" style="background:#fef2f2;color:#dc2626">🔴 รอส่งซ่อม</span>
+            <button class="jbtn danger-btn" onclick="location.href='repairdone.html'">เปิด →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- รูทีน -->
+    <div class="job-section cat-routine" data-cat="routine">
+      <div class="job-section-title">งานซ่อมบำรุงรูทีน 🔧🛢️</div>
+      <div class="jcard urgent">
+        <div class="jcard-left amber-dot"></div>
+        <div class="jcard-body">
+          <div class="jcard-top">
+            <span class="jcard-title">เปลี่ยนน้ำมันเครื่อง — กข 5678</span>
+            <span class="jbadge" style="background:#fffbeb;color:#d97706">⚠️ ถึงกำหนด</span>
+          </div>
+          <div class="jcard-meta"><span>🛵 Yamaha NMAX 155</span><span>📍 ไมล์: 15,120 / กำหนด 15,000</span></div>
+          <div class="jcard-meta"><span>⏱ เกินกำหนด 120 กม.</span><span class="jbranch">🏖 กะตะ</span></div>
+          <div class="jcard-footer">
+            <span class="jstatus" style="background:#fffbeb;color:#d97706">⚠️ เกินกำหนดไมล์</span>
+            <button class="jbtn amber-btn" onclick="location.href='routine.html'">เปิด →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- รายเดือน -->
+    <div class="job-section cat-monthly" data-cat="monthly">
+      <div class="job-section-title">งานเก็บค่าเช่ารายเดือน 💰🗓️</div>
+      <div class="jcard urgent">
+        <div class="jcard-left" style="background:#7c3aed"></div>
+        <div class="jcard-body">
+          <div class="jcard-top">
+            <span class="jcard-title">เก็บค่าเช่า — กข 1234 PCX 160</span>
+            <span class="jbadge" style="background:#faf5ff;color:#7c3aed">🗓️ ครบ 22 มิ.ย.</span>
+          </div>
+          <div class="jcard-meta"><span>👤 คุณ สมชาย ดีใจ • เดือนที่ 2</span></div>
+          <div class="jcard-meta"><span>💰 ฿3,500</span><span class="jbranch">🌊 ป่าตอง</span></div>
+          <div class="jcard-footer">
+            <span class="jstatus" style="background:#faf5ff;color:#7c3aed">🟣 รอเก็บเงิน</span>
+            <button class="jbtn" style="background:#7c3aed" onclick="location.href='collectrent.html'">เปิด →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- เอกสาร -->
+    <div class="job-section cat-docs" data-cat="docs">
+      <div class="job-section-title">งานเอกสาร 📋✅</div>
+      <div class="jcard urgent">
+        <div class="jcard-left red-dot"></div>
+        <div class="jcard-body">
+          <div class="jcard-top">
+            <span class="jcard-title">ต่อ พ.ร.บ. — กข 9999</span>
+            <span class="jbadge" style="background:#fef2f2;color:#dc2626">🚨 8 วัน</span>
+          </div>
+          <div class="jcard-meta"><span>🛡️ พ.ร.บ. รถจักรยานยนต์</span><span>หมดอายุ: 30 มิ.ย. 2026</span></div>
+          <div class="jcard-meta"><span class="jbranch">⛱ กะรน</span></div>
+          <div class="jcard-footer">
+            <span class="jstatus" style="background:#fef2f2;color:#dc2626">🚨 เร่งด่วน</span>
+            <button class="jbtn danger-btn" onclick="location.href='docs.html'">เปิด →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

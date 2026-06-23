@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — งานเอกสาร</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:#0f766e">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div><h1>งานเอกสาร</h1><div class="sub">ภาษี / พ.ร.บ. / ประกัน</div></div>
+  </div>
+
+  <div class="section-pad" style="padding-top:12px">
+    <!-- แจ้งเตือนด่วน -->
+    <div style="background:var(--red-lt);border-radius:10px;padding:12px 14px;margin:12px 0 4px;font-size:13px;color:var(--red);border:1px solid #fecaca">
+      🚨 <strong>ใกล้หมดอายุ!</strong> มี 2 รายการที่ต้องดำเนินการภายใน 30 วัน
+    </div>
+
+    <div class="card" style="border-top:3px solid var(--red)">
+      <div class="card-title" style="color:var(--red)">🚨 เร่งด่วน — หมดภายใน 8 วัน</div>
+      <div class="info-row"><span class="info-key">ประเภท</span><span class="info-val">พ.ร.บ. รถจักรยานยนต์</span></div>
+      <div class="info-row"><span class="info-key">ทะเบียนรถ</span><span class="info-val">กข 9999</span></div>
+      <div class="info-row"><span class="info-key">หมดอายุ</span><span class="info-val" style="color:var(--red)">30 มิ.ย. 2026</span></div>
+      <div style="margin-top:12px">
+        <label class="field-label">อัพโหลด พ.ร.บ. ใหม่</label>
+        <div class="upload-box"><div class="icon">🛡️</div>อัพโหลดรูป พ.ร.บ. ที่ได้รับ</div>
+      </div>
+      <div class="field-row" style="margin-top:12px;margin-bottom:0">
+        <label class="field-label">วันหมดอายุของ พ.ร.บ. ใหม่</label>
+        <input class="field-input" type="date" value="2027-06-30">
+      </div>
+      <button class="btn btn-success" style="margin-top:14px" onclick="alert('บันทึกเรียบร้อย!')">✅ บันทึก — ปิด Job Task</button>
+    </div>
+
+    <div class="card" style="border-top:3px solid var(--amber)">
+      <div class="card-title" style="color:var(--amber)">⚠️ ใกล้หมดอายุ — เหลือ 23 วัน</div>
+      <div class="info-row"><span class="info-key">ประเภท</span><span class="info-val">ภาษีประจำปี</span></div>
+      <div class="info-row"><span class="info-key">ทะเบียนรถ</span><span class="info-val">กข 5555</span></div>
+      <div class="info-row"><span class="info-key">หมดอายุ</span><span class="info-val" style="color:var(--amber)">15 ก.ค. 2026</span></div>
+      <div style="margin-top:12px">
+        <div class="upload-box"><div class="icon">💰</div>อัพโหลดเอกสารภาษีใหม่</div>
+      </div>
+      <button class="btn btn-amber" style="margin-top:14px">💾 บันทึก</button>
+    </div>
+
+    <div class="card-title" style="padding:8px 0;font-size:12px;color:var(--gray)">เสร็จแล้ว (ล่าสุด)</div>
+    <div class="job-item" style="opacity:.6">
+      <div class="job-icon-wrap" style="background:var(--green-lt)">✅</div>
+      <div class="job-info">
+        <div class="job-title">ต่อประกันภัย — กข 1234</div>
+        <div class="job-sub">เสร็จเมื่อ: 1 ม.ค. 2026 • ครบกำหนด ก.พ. 2027</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

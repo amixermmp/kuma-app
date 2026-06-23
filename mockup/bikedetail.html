@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — รายละเอียดรถ</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:linear-gradient(135deg,#0f172a,#1e3a8a)">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div style="flex:1"><h1>กข 1234</h1><div class="sub">Honda PCX 160</div></div>
+    <button style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer">แก้ไข ✏️</button>
+  </div>
+
+  <!-- Hero -->
+  <div style="position:relative">
+    <div id="detailPhotoWrap" style="width:100%;height:220px;background:linear-gradient(160deg,#0f172a,#1e3a8a);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+      <img id="detailPhotoImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none">
+      <div id="detailPhotoPlaceholder" style="text-align:center;color:rgba(255,255,255,.5)">
+        <div style="font-size:64px">🛵</div>
+        <div style="font-size:13px;margin-top:4px">ยังไม่มีรูปภาพ</div>
+      </div>
+      <label style="position:absolute;bottom:12px;right:12px;cursor:pointer">
+        <div style="background:rgba(0,0,0,.5);color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;backdrop-filter:blur(4px)">
+          📷 เปลี่ยนรูป
+        </div>
+        <input type="file" accept="image/*" style="display:none" onchange="previewDetailPhoto(event)">
+      </label>
+    </div>
+    <div style="background:linear-gradient(160deg,#0f172a,#1e3a8a);padding:16px;color:#fff">
+      <div style="font-size:24px;font-weight:900">กข 1234</div>
+      <div style="font-size:14px;opacity:.8;margin-top:2px">Honda PCX 160 • ปี 2022 • สีขาว</div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <span class="detail-hero-badge">🟢 ว่าง</span>
+        <span class="detail-hero-badge">🌊 ป่าตอง</span>
+        <span class="detail-hero-badge">฿200/วัน</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:0 0 80px">
+
+    <!-- ข้อมูลพื้นฐาน -->
+    <div class="card">
+      <div class="card-title">ข้อมูลรถ</div>
+      <div class="info-row"><span class="info-key">ยี่ห้อ/รุ่น</span><span class="info-val">Honda PCX 160</span></div>
+      <div class="info-row"><span class="info-key">ปีรถ</span><span class="info-val">2022</span></div>
+      <div class="info-row"><span class="info-key">สี</span><span class="info-val">ขาว</span></div>
+      <div class="info-row"><span class="info-key">เลขไมล์ปัจจุบัน</span><span class="info-val">14,230 กม.</span></div>
+      <div class="info-row"><span class="info-key">เปลี่ยนน้ำมันทุก</span><span class="info-val">3,000 กม. / 90 วัน</span></div>
+      <div class="info-row"><span class="info-key">เปลี่ยนน้ำมันครั้งล่าสุด</span><span class="info-val">12,000 กม.</span></div>
+      <div class="info-row"><span class="info-key">ราคาเช่า/วัน</span><span class="info-val" style="color:var(--blue)">฿200</span></div>
+    </div>
+
+    <!-- เปลี่ยนสาขา -->
+    <div class="card" style="border-top:3px solid #0891b2">
+      <div class="card-title" style="color:#0891b2">🏢 สาขา</div>
+      <div class="info-row" style="margin-bottom:12px">
+        <span class="info-key">สาขาปัจจุบัน</span>
+        <span class="info-val"><span class="badge badge-blue">🌊 ป่าตอง</span></span>
+      </div>
+      <label class="field-label">ย้ายไปสาขา</label>
+      <select class="field-input" style="margin-bottom:12px">
+        <option>🌊 ป่าตอง (ปัจจุบัน)</option>
+        <option>🏖 กะตะ</option>
+        <option>⛱ กะรน</option>
+      </select>
+      <button class="btn" style="background:#0891b2;color:#fff">🔄 ยืนยันย้ายสาขา</button>
+    </div>
+
+    <!-- สถานะเอกสาร -->
+    <div class="detail-section">
+      <div class="detail-section-title">📄 สถานะเอกสาร</div>
+      <div class="doc-status-row">
+        <div class="doc-status-icon">🛡️</div>
+        <div class="doc-status-info">
+          <div class="doc-status-name">พ.ร.บ. รถจักรยานยนต์</div>
+          <div class="doc-status-date">หมดอายุ: 30 มิ.ย. 2026</div>
+        </div>
+        <span class="doc-status-badge" style="background:var(--red-lt);color:var(--red)">🚨 8 วัน</span>
+      </div>
+      <div class="doc-status-row">
+        <div class="doc-status-icon">📋</div>
+        <div class="doc-status-info">
+          <div class="doc-status-name">ประกันภัยชั้น 1</div>
+          <div class="doc-status-date">หมดอายุ: 15 ก.พ. 2027</div>
+        </div>
+        <span class="doc-status-badge" style="background:var(--green-lt);color:var(--green)">✅ ปกติ</span>
+      </div>
+      <div class="doc-status-row">
+        <div class="doc-status-icon">💰</div>
+        <div class="doc-status-info">
+          <div class="doc-status-name">ภาษีประจำปี</div>
+          <div class="doc-status-date">หมดอายุ: 31 ธ.ค. 2026</div>
+        </div>
+        <span class="doc-status-badge" style="background:var(--green-lt);color:var(--green)">✅ ปกติ</span>
+      </div>
+      <div class="doc-status-row">
+        <div class="doc-status-icon">📘</div>
+        <div class="doc-status-info">
+          <div class="doc-status-name">สำเนาหน้าเล่มทะเบียน</div>
+          <div class="doc-status-date">อัพเดท: 1 ม.ค. 2026</div>
+        </div>
+        <span class="doc-status-badge" style="background:var(--green-lt);color:var(--green)">✅ มีแล้ว</span>
+      </div>
+    </div>
+
+    <!-- สถิติ -->
+    <div class="card">
+      <div class="card-title">📊 สถิติการใช้งาน</div>
+      <div class="info-row"><span class="info-key">รายได้รวมตลอดอายุ</span><span class="info-val" style="color:var(--green)">฿48,200</span></div>
+      <div class="info-row"><span class="info-key">จำนวนครั้งที่เช่า</span><span class="info-val">241 ครั้ง</span></div>
+      <div class="info-row"><span class="info-key">Utilization เดือนนี้</span><span class="info-val" style="color:var(--blue)">89%</span></div>
+      <div class="info-row"><span class="info-key">เช่าครั้งล่าสุด</span><span class="info-val">21 มิ.ย. 2026</span></div>
+    </div>
+
+    <!-- Danger zone -->
+    <div class="card" style="border:1.5px solid var(--red)">
+      <div class="card-title" style="color:var(--red)">⚠️ Danger Zone</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px">
+        การเลิกใช้งานรถจะซ่อนรถจากระบบการเช่า แต่ยังเก็บประวัติและรายได้ไว้ครบถ้วน
+      </div>
+      <button class="btn" style="background:#fff;color:var(--red);border:2px solid var(--red)">
+        🚫 เลิกใช้งานรถคันนี้
+      </button>
+    </div>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

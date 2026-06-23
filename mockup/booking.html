@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — จองคิว</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:#0891b2">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div><h1>จองคิว</h1><div class="sub">กรอกข้อมูลการจอง</div></div>
+  </div>
+
+  <div class="section-pad">
+
+    <!-- รถที่เลือก -->
+    <div style="background:linear-gradient(135deg,#0891b2,#0e7490);border-radius:14px;padding:14px 16px;margin:12px 0;color:#fff;display:flex;align-items:center;gap:14px">
+      <div style="font-size:44px">🛵</div>
+      <div style="flex:1">
+        <div style="font-size:17px;font-weight:800">Honda PCX 160</div>
+        <div style="font-size:13px;opacity:.85;margin-top:2px">ทะเบียน กข 5678 • สีดำ • ปี 2023</div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <span style="background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700">23–26 มิ.ย. 2026</span>
+          <span style="background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700">3 วัน</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:22px;font-weight:800">฿600</div>
+        <div style="font-size:11px;opacity:.8">฿200/วัน</div>
+      </div>
+    </div>
+
+    <!-- ข้อมูลลูกค้า -->
+    <div class="card">
+      <div class="card-title">ข้อมูลลูกค้า</div>
+      <div class="field-row">
+        <label class="field-label">ชื่อ - นามสกุล *</label>
+        <input class="field-input" type="text" placeholder="สมชาย ดีใจ">
+      </div>
+      <div class="field-row">
+        <label class="field-label">เบอร์โทรศัพท์ *</label>
+        <input class="field-input" type="tel" placeholder="081-234-5678">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">โรงแรม / ที่พัก</label>
+        <input class="field-input" type="text" placeholder="Nap Park Hotel">
+      </div>
+    </div>
+
+    <!-- ช่องทางติดต่อ -->
+    <div class="card">
+      <div class="card-title">ช่องทางที่ลูกค้าติดต่อมา</div>
+      <div class="promo-select">
+        <div class="promo-chip selected" onclick="togglePromo(this)">💬 LINE</div>
+        <div class="promo-chip" onclick="togglePromo(this)">📘 Facebook</div>
+        <div class="promo-chip" onclick="togglePromo(this)">📱 โทรศัพท์</div>
+        <div class="promo-chip" onclick="togglePromo(this)">🚶 Walk-in</div>
+      </div>
+    </div>
+
+    <!-- โปรโมชั่น -->
+    <div class="card">
+      <div class="card-title">โปรโมชั่น (ถ้ามี)</div>
+      <div class="promo-select">
+        <div class="promo-chip selected" onclick="togglePromo(this)">ราคาปกติ</div>
+        <div class="promo-chip" onclick="togglePromo(this)">🎓 นักศึกษา -10%</div>
+        <div class="promo-chip" onclick="togglePromo(this)">📅 รายสัปดาห์ 5+2</div>
+        <div class="promo-chip" onclick="togglePromo(this)">💰 ลด ฿50</div>
+      </div>
+    </div>
+
+    <!-- หมายเหตุ -->
+    <div class="card">
+      <div class="card-title">หมายเหตุ</div>
+      <textarea class="field-input" rows="2" placeholder="เช่น ลูกค้าขอรถสีดำ, ต้องการ GPS..."></textarea>
+    </div>
+
+    <!-- สรุป -->
+    <div class="price-box" style="background:linear-gradient(135deg,#0891b2,#0e7490)">
+      <div class="price-label">ยอดรวมการจอง</div>
+      <div class="price-amount">฿600</div>
+      <div class="price-detail">Honda PCX 160 • 3 วัน • 23–26 มิ.ย. 2026</div>
+    </div>
+
+    <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#0f766e">
+      📌 เมื่อกดยืนยัน รถคันนี้จะถูก <strong>จองล่วงหน้า</strong> และจะขึ้นใน Job Tasks เป็น <strong>งานส่งรถ 🛵➡️</strong> ในวันที่ 23 มิ.ย. อัตโนมัติ
+    </div>
+
+    <button class="btn" style="background:#0891b2;color:#fff" onclick="location.href='menu.html'">
+      📅 ยืนยันการจอง
+    </button>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — Dashboard</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">
+    <div style="flex:1">
+      <h1>Dashboard</h1>
+      <div class="sub">ภาพรวมธุรกิจ — มิถุนายน 2026</div>
+    </div>
+    <select style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600">
+      <option>เดือนนี้</option><option>สัปดาห์นี้</option><option>วันนี้</option>
+    </select>
+  </div>
+
+  <!-- Branch filter -->
+  <div class="fleet-filter">
+    <div class="fleet-chip active">🏢 ทุกสาขา</div>
+    <div class="fleet-chip">🌊 ป่าตอง</div>
+    <div class="fleet-chip">🏖 กะตะ</div>
+    <div class="fleet-chip">⛱ กะรน</div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card" style="border-top:3px solid var(--green)">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-val">฿84,200</div>
+      <div class="kpi-lbl">รายได้เดือนนี้</div>
+      <div class="kpi-delta delta-up">▲ 12% vs เดือนก่อน</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--blue)">
+      <div class="kpi-icon">📋</div>
+      <div class="kpi-val">142</div>
+      <div class="kpi-lbl">รายการเช่าเดือนนี้</div>
+      <div class="kpi-delta delta-up">▲ 8 รายการ vs เดือนก่อน</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--amber)">
+      <div class="kpi-icon">🛵</div>
+      <div class="kpi-val">78%</div>
+      <div class="kpi-lbl">อัตราการใช้งานรถ</div>
+      <div class="kpi-delta delta-up">▲ 5% vs เดือนก่อน</div>
+    </div>
+    <div class="kpi-card" style="border-top:3px solid var(--red)">
+      <div class="kpi-icon">📌</div>
+      <div class="kpi-val">3</div>
+      <div class="kpi-lbl">งานค้างทั้งหมด</div>
+      <div class="kpi-delta delta-down">▼ ต้องดำเนินการด่วน</div>
+    </div>
+  </div>
+
+  <!-- Bar Chart -->
+  <div class="bar-chart-wrap">
+    <div class="bar-chart">
+      <div class="bar-chart-title">📈 รายได้ 7 วันล่าสุด (บาท)</div>
+      <div class="bars">
+        <div class="bar-col"><div class="bar-amt">3.2K</div><div class="bar-fill" style="height:52%"></div><div class="bar-day">จ</div></div>
+        <div class="bar-col"><div class="bar-amt">4.8K</div><div class="bar-fill" style="height:77%"></div><div class="bar-day">อ</div></div>
+        <div class="bar-col"><div class="bar-amt">2.9K</div><div class="bar-fill" style="height:47%"></div><div class="bar-day">พ</div></div>
+        <div class="bar-col"><div class="bar-amt">5.6K</div><div class="bar-fill" style="height:90%"></div><div class="bar-day">พฤ</div></div>
+        <div class="bar-col"><div class="bar-amt">6.2K</div><div class="bar-fill highlight" style="height:100%"></div><div class="bar-day">ศ</div></div>
+        <div class="bar-col"><div class="bar-amt">5.1K</div><div class="bar-fill" style="height:82%"></div><div class="bar-day">ส</div></div>
+        <div class="bar-col"><div class="bar-amt">4.4K</div><div class="bar-fill" style="height:71%"></div><div class="bar-day">อา</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- สถานะรถ -->
+  <div class="card">
+    <div class="card-title">สถานะรถทั้งหมด (18 คัน)</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div style="flex:1;background:var(--green-lt);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--green)">11</div>
+        <div style="font-size:11px;color:var(--green)">ว่าง</div>
+      </div>
+      <div style="flex:1;background:var(--blue-lt);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--blue)">5</div>
+        <div style="font-size:11px;color:var(--blue)">เช่าอยู่</div>
+      </div>
+      <div style="flex:1;background:var(--red-lt);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--red)">2</div>
+        <div style="font-size:11px;color:var(--red)">ซ่อม</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:4px">Utilization Rate</div>
+    <div style="background:var(--border);border-radius:6px;height:10px;overflow:hidden">
+      <div style="background:linear-gradient(90deg,var(--green),#34d399);height:100%;width:78%;border-radius:6px"></div>
+    </div>
+    <div style="font-size:12px;color:var(--green);font-weight:700;margin-top:4px">78% — ดีมาก</div>
+  </div>
+
+  <!-- รายได้แยกสาขา -->
+  <div class="card">
+    <div class="card-title">รายได้แยกตามสาขา</div>
+    <table class="branch-table">
+      <tr><th>สาขา</th><th>รายได้</th><th>รถ</th><th>Util.</th></tr>
+      <tr>
+        <td>🌊 ป่าตอง</td>
+        <td style="font-weight:700;color:var(--green)">฿38,400</td>
+        <td>8 คัน</td>
+        <td><div class="util-bar-wrap"><div class="util-bar" style="width:82%"></div></div></td>
+      </tr>
+      <tr>
+        <td>🏖 กะตะ</td>
+        <td style="font-weight:700;color:var(--green)">฿27,600</td>
+        <td>6 คัน</td>
+        <td><div class="util-bar-wrap"><div class="util-bar" style="width:72%"></div></div></td>
+      </tr>
+      <tr>
+        <td>⛱ กะรน</td>
+        <td style="font-weight:700;color:var(--green)">฿18,200</td>
+        <td>4 คัน</td>
+        <td><div class="util-bar-wrap"><div class="util-bar" style="width:68%"></div></div></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- รถยอดนิยม -->
+  <div class="card">
+    <div class="card-title">🏆 รถที่สร้างรายได้สูงสุด</div>
+    <div class="txn-item">
+      <div class="txn-icon">🥇</div>
+      <div class="txn-info">
+        <div class="txn-name">Honda PCX 160 — กข 1234</div>
+        <div class="txn-sub">เช่า 22 ครั้ง • 89% utilization</div>
+      </div>
+      <div class="txn-amt" style="color:var(--green)">฿8,800</div>
+    </div>
+    <div class="txn-item">
+      <div class="txn-icon">🥈</div>
+      <div class="txn-info">
+        <div class="txn-name">Yamaha NMAX 155 — กข 5678</div>
+        <div class="txn-sub">เช่า 18 ครั้ง • 76% utilization</div>
+      </div>
+      <div class="txn-amt" style="color:var(--green)">฿7,200</div>
+    </div>
+    <div class="txn-item">
+      <div class="txn-icon">🥉</div>
+      <div class="txn-info">
+        <div class="txn-name">Honda Click 160 — กข 3322</div>
+        <div class="txn-sub">เช่า 15 ครั้ง • 64% utilization</div>
+      </div>
+      <div class="txn-amt" style="color:var(--green)">฿6,000</div>
+    </div>
+  </div>
+
+  <!-- รายรับ vs รายจ่าย -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin:0">💹 รายรับ vs รายจ่าย</div>
+      <button onclick="location.href='expense.html'" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--blue);cursor:pointer">+ บันทึกค่าใช้จ่าย</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:var(--green-lt);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:var(--gray);margin-bottom:2px">รายรับ</div>
+        <div style="font-size:20px;font-weight:800;color:var(--green)">฿84,200</div>
+      </div>
+      <div style="background:var(--red-lt);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:var(--gray);margin-bottom:2px">รายจ่าย</div>
+        <div style="font-size:20px;font-weight:800;color:var(--red)">฿41,500</div>
+      </div>
+    </div>
+    <div style="background:#f0fdf4;border-radius:10px;padding:12px;text-align:center;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--gray);margin-bottom:2px">กำไรสุทธิ</div>
+      <div style="font-size:24px;font-weight:800;color:var(--green)">฿42,700</div>
+    </div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:8px">รายจ่ายแยกหมวด</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span>💼 เงินเดือนพนักงาน</span><span style="font-weight:700">฿22,000</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span>🏠 ค่าเช่าร้าน</span><span style="font-weight:700">฿12,000</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span>🔧 ค่าซ่อมบำรุง</span><span style="font-weight:700">฿4,500</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span>💡 ค่าน้ำ/ไฟ/เน็ต</span><span style="font-weight:700">฿3,000</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- กำไรแยกสาขา -->
+  <div class="card">
+    <div class="card-title">กำไรแยกตามสาขา</div>
+    <table class="branch-table">
+      <tr><th>สาขา</th><th>รายรับ</th><th>รายจ่าย</th><th>กำไร</th></tr>
+      <tr>
+        <td>🌊 ป่าตอง</td>
+        <td style="color:var(--green);font-weight:700">฿38,400</td>
+        <td style="color:var(--red)">฿19,200</td>
+        <td style="font-weight:800">฿19,200</td>
+      </tr>
+      <tr>
+        <td>🏖 กะตะ</td>
+        <td style="color:var(--green);font-weight:700">฿27,600</td>
+        <td style="color:var(--red)">฿14,300</td>
+        <td style="font-weight:800">฿13,300</td>
+      </tr>
+      <tr>
+        <td>⛱ กะรน</td>
+        <td style="color:var(--green);font-weight:700">฿18,200</td>
+        <td style="color:var(--red)">฿8,000</td>
+        <td style="font-weight:800">฿10,200</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- รายการล่าสุด -->
+  <div class="card" style="margin-bottom:80px">
+    <div class="card-title">รายการล่าสุด</div>
+    <div class="txn-item">
+      <div class="txn-icon">📤</div>
+      <div class="txn-info"><div class="txn-name">ส่งรถ — คุณ สมชาย ดีใจ</div><div class="txn-sub">กข 5678 • วันนี้ 09:00</div></div>
+      <div class="txn-amt" style="color:var(--blue)">฿600</div>
+    </div>
+    <div class="txn-item">
+      <div class="txn-icon">📥</div>
+      <div class="txn-info"><div class="txn-name">รับรถคืน — Miss Sarah Johnson</div><div class="txn-sub">กข 9911 • เมื่อวาน 16:30</div></div>
+      <div class="txn-amt" style="color:var(--green)">฿750</div>
+    </div>
+    <div class="txn-item">
+      <div class="txn-icon">📅</div>
+      <div class="txn-info"><div class="txn-name">จองล่วงหน้า — Mr. Kevin Brown</div><div class="txn-sub">กข 3322 • 25–28 มิ.ย.</div></div>
+      <div class="txn-amt" style="color:var(--amber)">฿600</div>
+    </div>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

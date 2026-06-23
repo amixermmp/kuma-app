@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — ปรับแต่งแอป</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:linear-gradient(135deg,#7c3aed,#db2777)">
+    <button class="app-header-back" onclick="location.href='settings.html'">←</button>
+    <div><h1>ปรับแต่งแอป</h1><div class="sub">Branding & White-label</div></div>
+  </div>
+
+  <div class="section-pad" style="padding-top:12px">
+
+    <!-- Preview -->
+    <div class="card" style="background:linear-gradient(135deg,#1e3a8a,#7c3aed);color:#fff;text-align:center;padding:24px 16px">
+      <div style="font-size:13px;opacity:.7;margin-bottom:12px">ตัวอย่างหน้าแรกของแอป</div>
+      <div style="width:72px;height:72px;background:rgba(255,255,255,.2);border-radius:20px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:32px">🛵</div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:.5px">KUMA RENTAL</div>
+      <div style="font-size:12px;opacity:.7;margin-top:4px">Phuket Motorcycle Rental</div>
+      <div style="display:flex;gap:8px;margin-top:16px;justify-content:center">
+        <div style="background:rgba(255,255,255,.9);color:#1e3a8a;border-radius:10px;padding:8px 18px;font-size:13px;font-weight:700">👤 Staff</div>
+        <div style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:10px;padding:8px 18px;font-size:13px;font-weight:700">👑 Owner</div>
+      </div>
+    </div>
+
+    <!-- โลโก้และชื่อ -->
+    <div class="card">
+      <div class="card-title">🖼️ โลโก้และชื่อแอป</div>
+      <div class="field-row">
+        <label class="field-label">โลโก้แอป</label>
+        <div style="display:flex;gap:12px;align-items:center">
+          <div style="width:64px;height:64px;background:var(--gray-lt);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;border:2px dashed var(--border)">🛵</div>
+          <div class="upload-box" style="flex:1;margin:0"><div class="icon" style="font-size:16px">📁</div>อัพโหลดโลโก้</div>
+        </div>
+        <div style="font-size:11px;color:var(--gray);margin-top:6px">แนะนำ: PNG พื้นหลังโปร่งใส ขนาด 512×512px</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">ชื่อแอป / ชื่อร้าน</label>
+        <input class="field-input" value="Kuma Rental">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">คำอธิบายใต้ชื่อ</label>
+        <input class="field-input" value="Phuket Motorcycle Rental">
+      </div>
+    </div>
+
+    <!-- สีธีม -->
+    <div class="card">
+      <div class="card-title">🎨 สีธีมแอป</div>
+      <div class="field-row">
+        <label class="field-label">สีหลัก (Primary Color)</label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input type="color" value="#2563eb" style="width:44px;height:44px;border:none;border-radius:10px;cursor:pointer;padding:2px">
+          <input class="field-input" value="#2563eb" style="flex:1;font-family:monospace">
+        </div>
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">เลือก preset สี</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+          <div style="width:36px;height:36px;background:#2563eb;border-radius:10px;cursor:pointer;outline:3px solid #000"></div>
+          <div style="width:36px;height:36px;background:#7c3aed;border-radius:10px;cursor:pointer"></div>
+          <div style="width:36px;height:36px;background:#dc2626;border-radius:10px;cursor:pointer"></div>
+          <div style="width:36px;height:36px;background:#16a34a;border-radius:10px;cursor:pointer"></div>
+          <div style="width:36px;height:36px;background:#0891b2;border-radius:10px;cursor:pointer"></div>
+          <div style="width:36px;height:36px;background:#d97706;border-radius:10px;cursor:pointer"></div>
+          <div style="width:36px;height:36px;background:#0f172a;border-radius:10px;cursor:pointer"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ข้อมูลติดต่อ -->
+    <div class="card">
+      <div class="card-title">📞 ข้อมูลติดต่อที่แสดงในแอป</div>
+      <div class="field-row">
+        <label class="field-label">เบอร์โทร (แสดงในหน้า Public)</label>
+        <input class="field-input" placeholder="076-000-000">
+      </div>
+      <div class="field-row">
+        <label class="field-label">LINE ID</label>
+        <input class="field-input" placeholder="@kumarental">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">Facebook / Instagram</label>
+        <input class="field-input" placeholder="KumaRentalPhuket">
+      </div>
+    </div>
+
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#7c3aed">
+      <div style="font-weight:700;margin-bottom:6px">🚀 White-label Ready</div>
+      <div style="color:#6b21a8;line-height:1.6">ระบบนี้รองรับการขายให้ร้านอื่นได้เลย แต่ละร้านจะมีข้อมูล, โลโก้, และสีธีมแยกกันสนิท ไม่ปนกัน</div>
+    </div>
+
+    <button class="btn btn-primary" style="background:linear-gradient(135deg,#7c3aed,#db2777);margin-bottom:80px">💾 บันทึกการตั้งค่า</button>
+
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

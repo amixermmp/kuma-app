@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — ค้นหารถว่าง</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:#0891b2">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div><h1>ค้นหารถว่าง</h1><div class="sub">เลือกวันเวลาที่ต้องการเช่า</div></div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="card-title">ช่วงเวลาที่ต้องการ</div>
+    <div class="field-row">
+      <label class="field-label">📅 วันเริ่มเช่า</label>
+      <input class="field-input" type="datetime-local" id="searchFrom" value="2026-06-23T09:00">
+    </div>
+    <div class="field-row" style="margin-bottom:0">
+      <label class="field-label">📅 วันที่คืนรถ</label>
+      <input class="field-input" type="datetime-local" id="searchTo" value="2026-06-26T09:00">
+    </div>
+  </div>
+
+  <div style="padding:0 12px">
+    <div style="display:flex;gap:8px;margin-bottom:4px">
+      <div style="flex:1">
+        <label class="field-label">ประเภทรถ</label>
+        <select class="field-input">
+          <option>ทุกประเภท</option>
+          <option>Automatic</option>
+          <option>Manual</option>
+        </select>
+      </div>
+      <div style="flex:1">
+        <label class="field-label">ราคา (บาท/วัน)</label>
+        <select class="field-input">
+          <option>ทุกราคา</option>
+          <option>≤ 200</option>
+          <option>201–350</option>
+          <option>> 350</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:0 12px 12px">
+    <button class="btn btn-primary" style="background:#0891b2" onclick="showSearchResults()">
+      🔍 ค้นหารถว่าง
+    </button>
+  </div>
+
+  <!-- Results (hidden until search) -->
+  <div id="searchResults" style="display:none">
+    <div class="divider"></div>
+    <div style="padding:12px 12px 4px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:13px;font-weight:700;color:var(--text2)">
+        ผลการค้นหา — <span style="color:#0891b2">23–26 มิ.ย. (3 วัน)</span>
+      </div>
+      <div style="font-size:12px;color:var(--gray)">ว่าง 4 คัน</div>
+    </div>
+
+    <div style="padding:0 12px 80px">
+
+      <div class="bike-result-card" onclick="location.href='booking.html'">
+        <div class="bike-result-img">🛵</div>
+        <div class="bike-result-info">
+          <div class="bike-result-top">
+            <div>
+              <div class="bike-result-name">Honda PCX 160</div>
+              <div class="bike-result-plate">ทะเบียน กข 5678</div>
+            </div>
+            <span class="badge badge-green">ว่าง</span>
+          </div>
+          <div class="bike-result-meta">
+            <span>🎨 สีดำ • ปี 2023</span>
+            <span>📍 14,500 กม.</span>
+          </div>
+          <div class="bike-result-footer">
+            <div class="bike-result-price">฿200<span style="font-size:12px;font-weight:400;color:var(--gray)">/วัน</span></div>
+            <div class="bike-result-total">รวม 3 วัน = <strong style="color:#0891b2">฿600</strong></div>
+            <button class="jbtn" style="background:#0891b2">เลือก →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bike-result-card" onclick="location.href='booking.html'">
+        <div class="bike-result-img">🏍️</div>
+        <div class="bike-result-info">
+          <div class="bike-result-top">
+            <div>
+              <div class="bike-result-name">Yamaha NMAX 155</div>
+              <div class="bike-result-plate">ทะเบียน กข 9911</div>
+            </div>
+            <span class="badge badge-green">ว่าง</span>
+          </div>
+          <div class="bike-result-meta">
+            <span>🎨 สีขาว • ปี 2022</span>
+            <span>📍 22,100 กม.</span>
+          </div>
+          <div class="bike-result-footer">
+            <div class="bike-result-price">฿250<span style="font-size:12px;font-weight:400;color:var(--gray)">/วัน</span></div>
+            <div class="bike-result-total">รวม 3 วัน = <strong style="color:#0891b2">฿750</strong></div>
+            <button class="jbtn" style="background:#0891b2">เลือก →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bike-result-card" onclick="location.href='booking.html'">
+        <div class="bike-result-img">🛵</div>
+        <div class="bike-result-info">
+          <div class="bike-result-top">
+            <div>
+              <div class="bike-result-name">Honda Click 160</div>
+              <div class="bike-result-plate">ทะเบียน กข 3322</div>
+            </div>
+            <span class="badge badge-green">ว่าง</span>
+          </div>
+          <div class="bike-result-meta">
+            <span>🎨 สีแดง • ปี 2024</span>
+            <span>📍 5,800 กม.</span>
+          </div>
+          <div class="bike-result-footer">
+            <div class="bike-result-price">฿200<span style="font-size:12px;font-weight:400;color:var(--gray)">/วัน</span></div>
+            <div class="bike-result-total">รวม 3 วัน = <strong style="color:#0891b2">฿600</strong></div>
+            <button class="jbtn" style="background:#0891b2">เลือก →</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:12px;font-weight:700;color:var(--gray);padding:8px 2px 6px;text-transform:uppercase;letter-spacing:.5px">
+        ไม่ว่างในช่วงเวลานี้
+      </div>
+
+      <div class="bike-result-card" style="opacity:.55;pointer-events:none">
+        <div class="bike-result-img" style="filter:grayscale(1)">🛵</div>
+        <div class="bike-result-info">
+          <div class="bike-result-top">
+            <div>
+              <div class="bike-result-name">Honda PCX 160</div>
+              <div class="bike-result-plate">ทะเบียน กข 1234</div>
+            </div>
+            <span class="badge badge-red">ถูกเช่าอยู่</span>
+          </div>
+          <div class="bike-result-meta"><span>🎨 สีขาว • ปี 2022</span></div>
+          <div style="font-size:12px;color:var(--red);margin-top:6px">🔴 มีการเช่า 21–24 มิ.ย. — ทับช่วงเวลาที่ต้องการ</div>
+        </div>
+      </div>
+
+      <div class="bike-result-card" style="opacity:.55;pointer-events:none">
+        <div class="bike-result-img" style="filter:grayscale(1)">🏍️</div>
+        <div class="bike-result-info">
+          <div class="bike-result-top">
+            <div>
+              <div class="bike-result-name">Yamaha NMAX 155</div>
+              <div class="bike-result-plate">ทะเบียน กข 5678</div>
+            </div>
+            <span class="badge badge-red">ซ่อม</span>
+          </div>
+          <div class="bike-result-meta"><span>🎨 สีน้ำเงิน • ปี 2021</span></div>
+          <div style="font-size:12px;color:var(--red);margin-top:6px">🔧 อยู่ระหว่างซ่อม</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

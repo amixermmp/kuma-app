@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — เก็บค่าเช่ารายเดือน</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap">
+
+  <div class="app-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">
+    <button class="app-header-back" onclick="history.back()">←</button>
+    <div><h1>เก็บค่าเช่ารายเดือน</h1><div class="sub">กข 1234 Honda PCX 160</div></div>
+  </div>
+
+  <div class="section-pad">
+
+    <!-- สรุปสัญญา -->
+    <div class="card" style="border-top:3px solid #7c3aed">
+      <div class="card-title">ข้อมูลสัญญา</div>
+      <div class="info-row"><span class="info-key">ผู้เช่า</span><span class="info-val">คุณ สมชาย ดีใจ</span></div>
+      <div class="info-row"><span class="info-key">เบอร์โทร</span><span class="info-val">081-234-5678</span></div>
+      <div class="info-row"><span class="info-key">ที่พัก</span><span class="info-val">คอนโด ริมทะเล 203</span></div>
+      <div class="info-row"><span class="info-key">เริ่มสัญญา</span><span class="info-val">22 พ.ค. 2026</span></div>
+      <div class="info-row"><span class="info-key">เช่ามาแล้ว</span><span class="info-val" style="color:#7c3aed;font-weight:700">1 เดือน</span></div>
+      <div class="info-row"><span class="info-key">ประเภท</span><span class="info-val"><span class="monthly-badge">🗓️ รายเดือน</span></span></div>
+    </div>
+
+    <!-- งวดที่ต้องเก็บ -->
+    <div class="card" style="border-top:3px solid var(--green)">
+      <div class="card-title" style="color:var(--green)">💰 งวดที่ต้องเก็บ</div>
+      <div style="background:var(--green-lt);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px">
+        <div style="font-size:13px;color:var(--green);font-weight:600">เดือนที่ 2 — มิถุนายน 2026</div>
+        <div style="font-size:32px;font-weight:800;color:var(--green);margin:6px 0">฿3,500</div>
+        <div style="font-size:12px;color:var(--green)">ครบกำหนด: 22 มิ.ย. 2026</div>
+      </div>
+
+      <div class="field-row">
+        <label class="field-label">วันที่รับเงิน</label>
+        <input class="field-input" type="date" value="2026-06-22">
+      </div>
+      <div class="field-row">
+        <label class="field-label">ช่องทางชำระเงิน</label>
+        <select class="field-input">
+          <option>💵 เงินสด</option>
+          <option>📱 โอนธนาคาร</option>
+          <option>💳 บัตรเครดิต</option>
+          <option>📲 QR Promptpay</option>
+        </select>
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">หมายเหตุ</label>
+        <input class="field-input" type="text" placeholder="เช่น โอนมาแล้ว ref 123456">
+      </div>
+    </div>
+
+    <!-- ประวัติการชำระ -->
+    <div class="card">
+      <div class="card-title">ประวัติการชำระ</div>
+      <div class="payment-history-item">
+        <span style="font-size:18px">✅</span>
+        <div style="flex:1">
+          <div class="pay-month">เดือนที่ 1 — พ.ค. 2026</div>
+          <div class="pay-date">ชำระ: 22 พ.ค. 2026 • เงินสด</div>
+        </div>
+        <span class="pay-amt">฿3,500</span>
+      </div>
+      <div style="text-align:center;padding:10px;font-size:13px;color:var(--gray)">
+        รายได้สะสม: <strong style="color:#7c3aed">฿3,500</strong>
+      </div>
+    </div>
+
+    <button class="btn" style="background:var(--green);color:#fff">
+      ✅ บันทึกรับเงินเดือนนี้
+    </button>
+
+    <div style="height:16px"></div>
+    <div class="card" style="border:1.5px solid var(--red)">
+      <div class="card-title" style="color:var(--red)">⚠️ สิ้นสุดสัญญา</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px">
+        เมื่อลูกค้าคืนรถและสิ้นสุดการเช่ารายเดือน กดปุ่มนี้เพื่อปลดล็อครถ รถจะกลับสู่สถานะ <strong>ว่าง</strong> และปรากฏในการค้นหาอีกครั้ง
+      </div>
+      <button class="btn" style="background:#fff;color:var(--red);border:2px solid var(--red)" onclick="location.href='menu.html'">
+        🚫 สิ้นสุดสัญญาเช่ารายเดือน
+      </button>
+    </div>
+  </div>
+
+</div>
+<script src="_script.js"></script>
+</body>
+</html>

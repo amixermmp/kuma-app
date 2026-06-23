@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuma — Owner Login</title>
+<link rel="stylesheet" href="_styles.css">
+</head>
+<body>
+<div class="app-wrap" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#4f46e5,#7c3aed)">
+  <div style="width:100%;max-width:360px;padding:32px 24px;color:#fff;text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">👑</div>
+    <h1 style="font-size:22px;font-weight:800;margin:0 0 4px">Owner Login</h1>
+    <p style="font-size:13px;opacity:.7;margin:0 0 32px">เข้าสู่ระบบสำหรับเจ้าของ</p>
+
+    <div style="background:rgba(255,255,255,.1);border-radius:16px;padding:24px;text-align:left">
+      <div class="field-row">
+        <label class="field-label" style="color:rgba(255,255,255,.8)">อีเมล</label>
+        <input class="field-input" type="email" placeholder="owner@kuma.com" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label" style="color:rgba(255,255,255,.8)">รหัสผ่าน</label>
+        <input class="field-input" type="password" placeholder="••••••••" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff">
+      </div>
+    </div>
+
+    <button class="btn" style="margin-top:20px;width:100%;background:#fff;color:#4f46e5;font-size:15px;font-weight:700" onclick="location.href='dashboard.html'">
+      เข้าสู่ระบบ →
+    </button>
+    <a href="landing.html" style="display:block;margin-top:16px;color:rgba(255,255,255,.6);font-size:13px;text-decoration:none">← กลับ</a>
+  </div>
+</div>
+<script src="_script.js"></script>
+</body>
+</html>
