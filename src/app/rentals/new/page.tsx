@@ -90,7 +90,6 @@ export default function NewRentalPage() {
           </div>
         )}
 
-        {/* เลือกรถ */}
         <div style={cardStyle}>
           <SectionTitle>🏍️ เลือกรถ</SectionTitle>
           <Field label="รถ *">
@@ -108,7 +107,6 @@ export default function NewRentalPage() {
           )}
         </div>
 
-        {/* เลือกลูกค้า */}
         <div style={cardStyle}>
           <SectionTitle>👤 ลูกค้า</SectionTitle>
           <Field label="ลูกค้า *">
@@ -124,7 +122,6 @@ export default function NewRentalPage() {
           </div>
         </div>
 
-        {/* วันเวลา */}
         <div style={cardStyle}>
           <SectionTitle>📅 ช่วงเวลา</SectionTitle>
           <Field label="วันเริ่มเช่า *">
@@ -140,7 +137,6 @@ export default function NewRentalPage() {
           )}
         </div>
 
-        {/* ราคา */}
         <div style={cardStyle}>
           <SectionTitle>💰 ราคาและการชำระ</SectionTitle>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -170,7 +166,6 @@ export default function NewRentalPage() {
           )}
         </div>
 
-        {/* หมายเหตุ */}
         <div style={cardStyle}>
           <SectionTitle>📝 หมายเหตุ</SectionTitle>
           <textarea

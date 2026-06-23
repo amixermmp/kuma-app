@@ -13,7 +13,6 @@ export default async function DashboardPage() {
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
-  // ดึงข้อมูลทั้งหมดพร้อมกัน
   const [
     { data: bikesData },
     { data: activeRentalsData },
@@ -25,7 +24,7 @@ export default async function DashboardPage() {
       .select('id, status, expected_end_datetime')
       .in('status', ['active', 'extended', 'overdue', 'monthly']),
     supabase.from('rentals')
-      .select('id, paid_amount, status, start_datetime, expected_end_datetime, bikes(license_plate, brand, model), customers(name)')
+      .select('id, paid_amount, status, start_datetime')
       .gte('start_datetime', monthStart),
     supabase.from('rentals')
       .select('id, status, start_datetime, expected_end_datetime, paid_amount, bikes(license_plate, brand, model), customers(name)')
@@ -33,18 +32,17 @@ export default async function DashboardPage() {
       .limit(5),
   ])
 
-  // คำนวณ KPI
-  const totalBikes    = bikesData?.length ?? 0
-  const availCount    = bikesData?.filter(b => b.status === 'available').length ?? 0
-  const rentedCount   = bikesData?.filter(b => b.status === 'rented' || b.status === 'monthly').length ?? 0
-  const repairCount   = bikesData?.filter(b => b.status === 'maintenance').length ?? 0
-  const utilRate      = totalBikes > 0 ? Math.round((rentedCount / totalBikes) * 100) : 0
+  const totalBikes   = bikesData?.length ?? 0
+  const availCount   = bikesData?.filter(b => b.status === 'available').length ?? 0
+  const rentedCount  = bikesData?.filter(b => b.status === 'rented' || b.status === 'monthly').length ?? 0
+  const repairCount  = bikesData?.filter(b => b.status === 'maintenance').length ?? 0
+  const utilRate     = totalBikes > 0 ? Math.round((rentedCount / totalBikes) * 100) : 0
 
-  const overdueCount  = activeRentalsData?.filter(r => {
-    return r.status === 'overdue' || new Date(r.expected_end_datetime) < now
-  }).length ?? 0
+  const overdueCount = activeRentalsData?.filter(r =>
+    r.status === 'overdue' || new Date(r.expected_end_datetime) < now
+  ).length ?? 0
 
-  const monthRevenue  = monthRentalsData?.reduce((s, r) => s + Number(r.paid_amount ?? 0), 0) ?? 0
+  const monthRevenue     = monthRentalsData?.reduce((s, r) => s + Number(r.paid_amount ?? 0), 0) ?? 0
   const monthRentalCount = monthRentalsData?.length ?? 0
 
   return (
@@ -53,37 +51,25 @@ export default async function DashboardPage() {
       subtitle={'ภาพรวมธุรกิจ — ' + now.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
       headerStyle="blue"
     >
-
       {/* KPI Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '12px 12px 0' }}>
-        <KpiCard
-          icon="💰" accent="#16a34a"
+        <KpiCard icon="💰" accent="#16a34a"
           value={'฿' + monthRevenue.toLocaleString()}
-          label="รายได้เดือนนี้"
-          delta="รวมทุกรายการ"
-          deltaUp
-        />
-        <KpiCard
-          icon="📋" accent="#2563eb"
+          label="รายได้เดือนนี้" delta="รวมทุกรายการ" deltaUp />
+        <KpiCard icon="📋" accent="#2563eb"
           value={String(monthRentalCount)}
           label="รายการเช่าเดือนนี้"
-          delta={'active ' + (activeRentalsData?.length ?? 0) + ' รายการ'}
-          deltaUp
-        />
-        <KpiCard
-          icon="🛵" accent="#7c3aed"
+          delta={'active ' + (activeRentalsData?.length ?? 0) + ' รายการ'} deltaUp />
+        <KpiCard icon="🛵" accent="#7c3aed"
           value={utilRate + '%'}
           label="อัตราการใช้งานรถ"
           delta={'เช่า ' + rentedCount + ' / ทั้งหมด ' + totalBikes + ' คัน'}
-          deltaUp={utilRate >= 50}
-        />
-        <KpiCard
-          icon={overdueCount ? '🚨' : '📌'} accent={overdueCount ? '#dc2626' : '#16a34a'}
+          deltaUp={utilRate >= 50} />
+        <KpiCard icon={overdueCount ? '🚨' : '📌'} accent={overdueCount ? '#dc2626' : '#16a34a'}
           value={String(overdueCount)}
           label="เกินกำหนดคืน"
           delta={overdueCount ? 'ต้องดำเนินการด่วน' : 'ทุกอย่างปกติ'}
-          deltaUp={!overdueCount}
-        />
+          deltaUp={!overdueCount} />
       </div>
 
       {/* สถานะรถ */}
@@ -120,10 +106,10 @@ export default async function DashboardPage() {
         <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '10px' }}>⚡ เมนูด่วน</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           {([
-            { href: '/rentals/new', icon: '🛵', label: 'เช่าใหม่',   desc: 'สร้างรายการเช่า',   color: '#2563eb', bg: '#eff6ff' },
-            { href: '/rentals',     icon: '📋', label: 'การเช่า',    desc: 'ดูรายการเช่าทั้งหมด', color: '#16a34a', bg: '#f0fdf4' },
-            { href: '/bikes/new',   icon: '➕', label: 'เพิ่มรถ',    desc: 'เพิ่มรถเข้าระบบ',   color: '#7c3aed', bg: '#faf5ff' },
-            { href: '/customers/new', icon: '👤', label: 'เพิ่มลูกค้า', desc: 'บันทึกลูกค้าใหม่', color: '#d97706', bg: '#fffbeb' },
+            { href: '/rentals/new',   icon: '🛵', label: 'เช่าใหม่',    desc: 'สร้างรายการเช่า',    color: '#2563eb', bg: '#eff6ff' },
+            { href: '/rentals',       icon: '📋', label: 'การเช่า',     desc: 'ดูรายการเช่าทั้งหมด', color: '#16a34a', bg: '#f0fdf4' },
+            { href: '/bikes/new',     icon: '➕', label: 'เพิ่มรถ',     desc: 'เพิ่มรถเข้าระบบ',    color: '#7c3aed', bg: '#faf5ff' },
+            { href: '/customers/new', icon: '👤', label: 'เพิ่มลูกค้า', desc: 'บันทึกลูกค้าใหม่',   color: '#d97706', bg: '#fffbeb' },
           ] as const).map(item => (
             <Link key={item.href} href={item.href} style={{
               display: 'block', background: item.bg, borderRadius: '12px', padding: '14px 12px',
@@ -151,7 +137,6 @@ export default async function DashboardPage() {
           const isOverdue = r.status === 'overdue'
           const icon = isOverdue ? '🚨' : isActive ? '📤' : '📥'
           const amtColor = isActive ? '#2563eb' : '#16a34a'
-
           return (
             <Link key={r.id} href={'/rentals/' + r.id} style={{
               display: 'flex', alignItems: 'center', gap: '10px',
@@ -179,7 +164,6 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
-
     </AppLayout>
   )
 }

@@ -63,7 +63,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
           }}>
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#1d4ed8', marginBottom: '4px' }}>🛵 กำลังเช่าอยู่</div>
             {(() => {
-              const bike = activeRental.bikes as { license_plate: string; brand: string; model: string } | null
+              const bike = activeRental.bikes as unknown as { license_plate: string; brand: string; model: string } | null
               const end = new Date(activeRental.expected_end_datetime)
               return (
                 <div style={{ fontSize: '14px', color: '#111827' }}>
@@ -90,7 +90,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
           <div style={cardStyle}>
             <SectionTitle>ประวัติการเช่า ({rentals.length} รายการ)</SectionTitle>
             {rentals.map((r, i) => {
-              const bike = r.bikes as { license_plate: string; brand: string; model: string } | null
+              const bike = r.bikes as unknown as { license_plate: string; brand: string; model: string } | null
               const start = new Date(r.start_datetime).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
               const end = new Date(r.expected_end_datetime).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
               const isActive = ['active', 'extended', 'overdue'].includes(r.status)
