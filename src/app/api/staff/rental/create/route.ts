@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const {
     bikeId, customer, startDatetime, endDatetime,
     dailyRate, totalDays, totalAmount, depositAmount,
-    discount, paymentMethod, fuelLevel, odometer,
+    discount, paymentMethod, fuelLevel, odometer, photos,
   } = body
 
   if (!bikeId || !customer?.name || !customer?.phone || !startDatetime || !endDatetime) {
@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
       paid_amount: totalAmount,
       status: 'active',
       notes: `น้ำมัน ${fuelLevel}/8 แถบ • ไมล์ ${odometer}`,
+      send_photos: photos ?? {},
     })
     .select('id')
     .single()

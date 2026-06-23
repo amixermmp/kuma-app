@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import PhotoUpload from '@/components/PhotoUpload'
 
 type Bike = {
   id: string
@@ -28,6 +29,14 @@ type Props = {
   promotions: Promotion[]
 }
 
+type PhotoState = {
+  id_card: string
+  selfie: string
+  with_bike: string
+  damage: string
+  payment: string
+}
+
 function nowLocal(offsetMs = 0) {
   const d = new Date(Date.now() + offsetMs)
   d.setSeconds(0, 0)
@@ -51,6 +60,17 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
   const [selectedPromoId, setSelectedPromoId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [photos, setPhotos] = useState<PhotoState>({
+    id_card: '', selfie: '', with_bike: '', damage: '', payment: '',
+  })
+
+  const setPhoto = useCallback((key: keyof PhotoState) => (url: string) => {
+    setPhotos(prev => ({ ...prev, [key]: url }))
+  }, [])
+
+  const clearPhoto = useCallback((key: keyof PhotoState) => () => {
+    setPhotos(prev => ({ ...prev, [key]: '' }))
+  }, [])
 
   // Price calculation
   const totalDays = startDatetime && endDatetime
@@ -104,6 +124,7 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
           paymentMethod,
           fuelLevel,
           odometer: odometer || '0',
+          photos,
         }),
       })
       const data = await res.json()
@@ -115,6 +136,8 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
       setLoading(false)
     }
   }
+
+  const folder = `send/${bike.id}`
 
   return (
     <div className="app-wrap">
@@ -182,21 +205,46 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
         {/* Photos */}
         <div className="card">
           <div className="card-title">รูปภาพ</div>
-          {[
-            { label: '📄 รูปบัตรประชาชน / พาสปอร์ต *', icon: '🪪', hint: 'ถ่ายรูปหรืออัพโหลดบัตร' },
-            { label: '🤳 รูปคู่บัตรประชาชน *', icon: '🤳', hint: 'ลูกค้าถือบัตรให้เห็นหน้า' },
-            { label: '🛵 รูปคู่รถ *', icon: '🛵', hint: 'ลูกค้ายืนคู่รถก่อนรับ' },
-            { label: '🔍 รูปตำหนิรถก่อนเช่า *', icon: '📷', hint: 'ถ่ายรูปรอบคันก่อนส่ง' },
-          ].map(({ label, icon, hint }) => (
-            <div className="field-row" key={label}>
-              <label className="field-label">{label}</label>
-              <label className="upload-box" style={{ cursor: 'pointer', display: 'block' }}>
-                <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} />
-                <div className="icon">{icon}</div>
-                {hint}
-              </label>
-            </div>
-          ))}
+          <div className="field-row">
+            <label className="field-label">📄 รูปบัตรประชาชน / พาสปอร์ต *</label>
+            <PhotoUpload
+              icon="🪪"
+              hint="ถ่ายรูปหรืออัพโหลดบัตร"
+              folder={folder}
+              onUpload={setPhoto('id_card')}
+              onRemove={clearPhoto('id_card')}
+            />
+          </div>
+          <div className="field-row">
+            <label className="field-label">🤳 รูปคู่บัตรประชาชน *</label>
+            <PhotoUpload
+              icon="🤳"
+              hint="ลูกค้าถือบัตรให้เห็นหน้า"
+              folder={folder}
+              onUpload={setPhoto('selfie')}
+              onRemove={clearPhoto('selfie')}
+            />
+          </div>
+          <div className="field-row">
+            <label className="field-label">🛵 รูปคู่รถ *</label>
+            <PhotoUpload
+              icon="🛵"
+              hint="ลูกค้ายืนคู่รถก่อนรับ"
+              folder={folder}
+              onUpload={setPhoto('with_bike')}
+              onRemove={clearPhoto('with_bike')}
+            />
+          </div>
+          <div className="field-row">
+            <label className="field-label">🔍 รูปตำหนิรถก่อนเช่า *</label>
+            <PhotoUpload
+              icon="📷"
+              hint="ถ่ายรูปรอบคันก่อนส่ง"
+              folder={folder}
+              onUpload={setPhoto('damage')}
+              onRemove={clearPhoto('damage')}
+            />
+          </div>
           {/* Payment proof */}
           <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">💳 หลักฐานการชำระเงิน *</label>
@@ -213,11 +261,13 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
                 </button>
               ))}
             </div>
-            <label className="upload-box" style={{ cursor: 'pointer', display: 'block' }}>
-              <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} />
-              <div className="icon">{paymentMethod === 'cash' ? '💵' : '📱'}</div>
-              {paymentMethod === 'cash' ? 'ถ่ายรูปเงินสด' : 'อัพโหลดสลิปโอน'}
-            </label>
+            <PhotoUpload
+              icon={paymentMethod === 'cash' ? '💵' : '📱'}
+              hint={paymentMethod === 'cash' ? 'ถ่ายรูปเงินสด' : 'อัพโหลดสลิปโอน'}
+              folder={folder}
+              onUpload={setPhoto('payment')}
+              onRemove={clearPhoto('payment')}
+            />
           </div>
         </div>
 
