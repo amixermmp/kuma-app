@@ -31,39 +31,56 @@ export async function GET(request: NextRequest) {
 
   if (!bikes) return NextResponse.json({ bikes: [] })
 
-  // Get rentals that conflict with the search period (including 3h buffer)
-  // Conflict = rental.start_datetime < searchEnd AND rental.expected_end_datetime > bufferStart
-  const { data: conflicts } = await supabase
+  // Get rentals that conflict
+  const { data: rentalConflicts } = await supabase
     .from('rentals')
     .select('bike_id, start_datetime, expected_end_datetime')
     .in('status', ['active', 'extended'])
     .lt('start_datetime', searchEnd.toISOString())
     .gt('expected_end_datetime', bufferStart.toISOString())
 
-  // Map conflicting bike IDs with their rental info
-  const conflictMap = new Map<string, { start: string; end: string }>()
-  for (const r of conflicts ?? []) {
-    conflictMap.set(r.bike_id, {
-      start: r.start_datetime,
-      end: r.expected_end_datetime,
-    })
+  // Get bookings that conflict
+  const { data: bookingConflicts } = await supabase
+    .from('bookings')
+    .select('bike_id, start_datetime, end_datetime')
+    .in('status', ['confirmed'])
+    .lt('start_datetime', searchEnd.toISOString())
+    .gt('end_datetime', bufferStart.toISOString())
+
+  // Map conflicts — rentals take priority over bookings
+  const rentalMap = new Map<string, { start: string; end: string }>()
+  for (const r of rentalConflicts ?? []) {
+    rentalMap.set(r.bike_id, { start: r.start_datetime, end: r.expected_end_datetime })
   }
+
+  const bookingMap = new Map<string, { start: string; end: string }>()
+  for (const b of bookingConflicts ?? []) {
+    if (!rentalMap.has(b.bike_id)) {
+      bookingMap.set(b.bike_id, { start: b.start_datetime, end: b.end_datetime })
+    }
+  }
+
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })
 
   const result = bikes.map(bike => {
     if (bike.status === 'repair') {
-      return { ...bike, available: false, conflict_reason: 'อยู่ระหว่างซ่อม' }
+      return { ...bike, available: false, conflict_type: 'repair', conflict_reason: 'อยู่ระหว่างซ่อม' }
     }
-    const conflict = conflictMap.get(bike.id)
-    if (conflict) {
-      const s = new Date(conflict.start).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })
-      const e = new Date(conflict.end).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })
+    const rental = rentalMap.get(bike.id)
+    if (rental) {
       return {
-        ...bike,
-        available: false,
-        conflict_reason: `มีการเช่า ${s}–${e} (+ buffer ${BUFFER_HOURS} ชม.)`,
+        ...bike, available: false, conflict_type: 'rented',
+        conflict_reason: `มีการเช่า ${fmt(rental.start)}–${fmt(rental.end)}`,
       }
     }
-    return { ...bike, available: true }
+    const booking = bookingMap.get(bike.id)
+    if (booking) {
+      return {
+        ...bike, available: false, conflict_type: 'booked',
+        conflict_reason: `ติดจอง ${fmt(booking.start)}–${fmt(booking.end)}`,
+      }
+    }
+    return { ...bike, available: true, conflict_type: null }
   })
 
   return NextResponse.json({ bikes: result })

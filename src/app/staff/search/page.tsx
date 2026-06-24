@@ -14,6 +14,7 @@ type BikeResult = {
   odometer: number
   status: string
   available: boolean
+  conflict_type?: string | null
   conflict_reason?: string
 }
 
@@ -169,11 +170,10 @@ export default function SearchPage() {
                       รวม {days} วัน = <strong style={{ color: '#0891b2' }}>฿{(bike.daily_rate * days).toLocaleString()}</strong>
                     </div>
                     <Link
-                      href={`/staff/send/${bike.id}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
-                      className="jbtn"
+                      href={`/staff/booking/${bike.id}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
                       style={{ background: '#0891b2', textDecoration: 'none', padding: '5px 12px', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: 700 }}
                     >
-                      เลือก →
+                      จอง →
                     </Link>
                   </div>
                 </div>
@@ -195,8 +195,13 @@ export default function SearchPage() {
                           <div className="bike-result-name">{bike.brand} {bike.model}</div>
                           <div className="bike-result-plate">ทะเบียน {bike.license_plate}</div>
                         </div>
-                        <span className="badge badge-red">
-                          {bike.status === 'repair' ? 'ซ่อม' : 'ถูกเช่าอยู่'}
+                        <span className="badge" style={{
+                          background: bike.conflict_type === 'booked' ? '#faf5ff' : '#fef2f2',
+                          color: bike.conflict_type === 'booked' ? '#7c3aed' : '#dc2626',
+                          border: `1px solid ${bike.conflict_type === 'booked' ? '#ddd6fe' : '#fecaca'}`,
+                          borderRadius: '20px', padding: '2px 10px', fontSize: '11px', fontWeight: 700,
+                        }}>
+                          {bike.conflict_type === 'repair' ? '🔧 ซ่อม' : bike.conflict_type === 'booked' ? '📅 ติดจอง' : '🔴 ถูกเช่า'}
                         </span>
                       </div>
                       {(bike.color || bike.year) && (
@@ -204,7 +209,7 @@ export default function SearchPage() {
                           <span>🎨 {[bike.color, bike.year ? `ปี ${bike.year}` : null].filter(Boolean).join(' • ')}</span>
                         </div>
                       )}
-                      <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '6px' }}>
+                      <div style={{ fontSize: '12px', color: bike.conflict_type === 'booked' ? '#7c3aed' : '#dc2626', marginTop: '6px' }}>
                         {bike.status === 'repair'
                           ? '🔧 อยู่ระหว่างซ่อม'
                           : `🔴 ${bike.conflict_reason ?? 'มีการเช่าในช่วงเวลานี้'}`}
