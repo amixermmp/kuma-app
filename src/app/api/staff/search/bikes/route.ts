@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   // Get all bikes
   const { data: bikes } = await supabase
     .from('bikes')
-    .select('id, license_plate, brand, model, daily_rate, odometer, status')
+    .select('id, license_plate, brand, model, color, year, daily_rate, odometer, status')
     .order('daily_rate', { ascending: true })
 
   if (!bikes) return NextResponse.json({ bikes: [] })

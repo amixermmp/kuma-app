@@ -8,6 +8,8 @@ type BikeResult = {
   license_plate: string
   brand: string
   model: string
+  color: string | null
+  year: number | null
   daily_rate: number
   odometer: number
   status: string
@@ -153,6 +155,9 @@ export default function SearchPage() {
                     <span className="badge badge-green">ว่าง</span>
                   </div>
                   <div className="bike-result-meta">
+                    {(bike.color || bike.year) && (
+                      <span>🎨 {[bike.color, bike.year ? `ปี ${bike.year}` : null].filter(Boolean).join(' • ')}</span>
+                    )}
                     <span>📍 {bike.odometer.toLocaleString()} กม.</span>
                   </div>
                   <div className="bike-result-footer">
@@ -194,6 +199,11 @@ export default function SearchPage() {
                           {bike.status === 'repair' ? 'ซ่อม' : 'ถูกเช่าอยู่'}
                         </span>
                       </div>
+                      {(bike.color || bike.year) && (
+                        <div className="bike-result-meta">
+                          <span>🎨 {[bike.color, bike.year ? `ปี ${bike.year}` : null].filter(Boolean).join(' • ')}</span>
+                        </div>
+                      )}
                       <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '6px' }}>
                         {bike.status === 'repair'
                           ? '🔧 อยู่ระหว่างซ่อม'
