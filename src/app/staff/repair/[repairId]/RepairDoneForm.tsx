@@ -1,0 +1,168 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import PhotoUpload from '@/components/PhotoUpload'
+
+type Repair = {
+  id: string
+  description: string
+  severity: string
+  status: string
+  location_note: string | null
+  photo_url: string | null
+  created_at: string
+  bikes: { id: string; license_plate: string; brand: string; model: string }
+}
+
+type Props = { repair: Repair; staffId: string }
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleString('th-TH', {
+    timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+}
+
+export default function RepairDoneForm({ repair }: Props) {
+  const router = useRouter()
+  const bike = repair.bikes
+  const isCritical = repair.severity === 'critical'
+
+  const [repairShop, setRepairShop] = useState('')
+  const [repairCost, setRepairCost] = useState('')
+  const [receiptUrl, setReceiptUrl] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/staff/repair/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repairId: repair.id,
+          bikeId: bike.id,
+          repairShop: repairShop.trim() || null,
+          repairCost: repairCost ? parseFloat(repairCost) : null,
+          receiptUrl: receiptUrl || null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
+      router.push('/staff/jobs')
+    } catch {
+      setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="app-wrap">
+      <div className="app-header" style={{ background: '#7c3aed' }}>
+        <Link href="/staff/jobs" className="app-header-back">←</Link>
+        <div>
+          <h1>ซ่อมเสร็จ</h1>
+          <div className="sub">{bike.license_plate} {bike.brand} {bike.model}</div>
+        </div>
+      </div>
+
+      <div className="section-pad">
+        {/* Repair info */}
+        <div className="card" style={{ borderTop: `3px solid ${isCritical ? '#dc2626' : '#d97706'}` }}>
+          <div className="card-title" style={{ color: isCritical ? '#dc2626' : '#d97706' }}>
+            🔧 ส่งซ่อม — {bike.license_plate}
+          </div>
+          <div className="info-row">
+            <span className="info-key">อาการ</span>
+            <span className="info-val">{repair.description}</span>
+          </div>
+          <div className="info-row">
+            <span className="info-key">วันที่แจ้ง</span>
+            <span className="info-val">{fmtDate(repair.created_at)}</span>
+          </div>
+          {repair.location_note && (
+            <div className="info-row">
+              <span className="info-key">สถานที่</span>
+              <span className="info-val">{repair.location_note}</span>
+            </div>
+          )}
+          <div className="info-row">
+            <span className="info-key">ความรุนแรง</span>
+            <span className="info-val">
+              <span className={`badge ${isCritical ? 'badge-red' : 'badge-amber'}`}>
+                {isCritical ? '🔴 วิกฤต' : '⚠️ ปานกลาง'}
+              </span>
+            </span>
+          </div>
+          <div className="info-row">
+            <span className="info-key">สถานะ</span>
+            <span className="info-val">
+              <span className="badge badge-red">กำลังซ่อม</span>
+            </span>
+          </div>
+          {repair.photo_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={repair.photo_url} alt="repair" style={{
+              width: '100%', borderRadius: '8px', marginTop: '10px', maxHeight: '180px', objectFit: 'cover',
+            }} />
+          )}
+        </div>
+
+        {/* Completion form */}
+        <div className="card">
+          <div className="card-title">บันทึกผลการซ่อม</div>
+          <div className="field-row">
+            <label className="field-label">ร้านซ่อม</label>
+            <input className="field-input" type="text"
+              placeholder="ร้านซ่อมมอเตอร์ไซค์เจริญ"
+              value={repairShop}
+              onChange={e => setRepairShop(e.target.value)}
+            />
+          </div>
+          <div className="field-row">
+            <label className="field-label">ค่าซ่อม (บาท)</label>
+            <input className="field-input" type="number" placeholder="850"
+              value={repairCost}
+              onChange={e => setRepairCost(e.target.value)}
+            />
+          </div>
+          <div className="field-row" style={{ marginBottom: 0 }}>
+            <label className="field-label">อัพโหลดบิล / ใบเสร็จ</label>
+            <PhotoUpload
+              icon="🧾"
+              hint="อัพโหลดใบเสร็จค่าซ่อม"
+              folder={`repair/${bike.id}`}
+              onUpload={url => setReceiptUrl(url)}
+              onRemove={() => setReceiptUrl('')}
+            />
+          </div>
+        </div>
+
+        <div style={{
+          background: '#f0fdf4', borderRadius: '10px', padding: '14px',
+          margin: '0 0 12px', fontSize: '13px', color: '#16a34a',
+        }}>
+          ✅ เมื่อกดยืนยัน รถจะกลับสู่สถานะ <strong>"ว่าง"</strong> และ Job Task จะปิด
+        </div>
+
+        {error && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca',
+            borderRadius: '10px', padding: '12px', color: '#dc2626',
+            fontSize: '14px', marginBottom: '12px',
+          }}>⚠️ {error}</div>
+        )}
+
+        <button className="btn btn-success" onClick={handleSubmit} disabled={loading}
+          style={{ width: '100%', opacity: loading ? 0.7 : 1 }}>
+          {loading ? '⏳ กำลังบันทึก...' : '✅ ยืนยันซ่อมเสร็จ'}
+        </button>
+      </div>
+    </div>
+  )
+}
