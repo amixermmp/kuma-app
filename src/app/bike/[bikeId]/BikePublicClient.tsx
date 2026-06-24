@@ -228,16 +228,18 @@ export default function BikePublicClient({
       {tab === 'info' && (
         <div style={{ padding: '14px' }}>
           <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-            {([
-              ['ยี่ห้อ/รุ่น', `${bike.brand} ${bike.model}`],
-              bike.year ? ['ปีรถ', String(bike.year)] : null,
-              bike.color ? ['สี', bike.color] : null,
-              ['เลขไมล์', `${Number(bike.odometer).toLocaleString()} กม.`],
-              ['ราคาเช่า/วัน', `฿${Number(bike.daily_rate).toLocaleString()}`],
-              bike.monthly_rate ? ['ราคาเช่า/เดือน', `฿${Number(bike.monthly_rate).toLocaleString()}`] : null,
-              bike.deposit_amount ? ['ค่ามัดจำ', `฿${Number(bike.deposit_amount).toLocaleString()}`] : null,
-              ['สถานะ', statusLabel],
-            ] as (string[] | null)[]).filter(Boolean).map(([key, val], i) => (
+            {(
+              [
+                ['ยี่ห้อ/รุ่น', `${bike.brand} ${bike.model}`],
+                bike.year ? ['ปีรถ', String(bike.year)] : null,
+                bike.color ? ['สี', bike.color] : null,
+                ['เลขไมล์', `${Number(bike.odometer).toLocaleString()} กม.`],
+                ['ราคาเช่า/วัน', `฿${Number(bike.daily_rate).toLocaleString()}`],
+                bike.monthly_rate ? ['ราคาเช่า/เดือน', `฿${Number(bike.monthly_rate).toLocaleString()}`] : null,
+                bike.deposit_amount ? ['ค่ามัดจำ', `฿${Number(bike.deposit_amount).toLocaleString()}`] : null,
+                ['สถานะ', statusLabel],
+              ] as ([string, string] | null)[]
+            ).filter((r): r is [string, string] => r !== null).map(([key, val], i) => (
               <div key={i} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 padding: '12px 16px', borderBottom: '1px solid #f1f5f9',
@@ -320,14 +322,14 @@ export default function BikePublicClient({
               <DocRow
                 icon="📋" title="เงื่อนไขการใช้งาน"
                 photoUrl={settings.terms_photo_url}
-                onView={() => setViewDoc({ url: settings.terms_photo_url!, label: 'เงื่อนไขการใช้งาน' })}
+                onView={() => setViewDoc({ url: settings!.terms_photo_url!, label: 'เงื่อนไขการใช้งาน' })}
               />
             )}
             {settings?.manual_photo_url && (
               <DocRow
                 icon="📖" title="คู่มือการใช้งาน"
                 photoUrl={settings.manual_photo_url}
-                onView={() => setViewDoc({ url: settings.manual_photo_url!, label: 'คู่มือการใช้งาน' })}
+                onView={() => setViewDoc({ url: settings!.manual_photo_url!, label: 'คู่มือการใช้งาน' })}
               />
             )}
           </div>
