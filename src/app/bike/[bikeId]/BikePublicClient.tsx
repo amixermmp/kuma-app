@@ -141,7 +141,7 @@ export default function BikePublicClient({
     })
     const data = await res.json()
     if (res.ok && data.success) {
-      router.push(`/staff/bikes/${bike.id}/menu`)
+      window.location.href = `/staff/bikes/${bike.id}/menu`
     } else {
       setLoginError(data.error ?? 'PIN ไม่ถูกต้อง')
       setPin('')
