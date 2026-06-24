@@ -23,7 +23,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
   const staffName = cookieStore.get('kuma_staff_name')?.value ?? 'Staff'
 
   const supabase = createAdminClient()
-  const [{ data: bike }, { data: docs }, { data: routines }] = await Promise.all([
+  const [{ data: bike }, { data: docs }, { data: routines }, { data: activeRental }] = await Promise.all([
     supabase
       .from('bikes')
       .select('id, license_plate, brand, model, status, odometer, color, year, fuel_level')
@@ -38,6 +38,12 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
       .from('bike_routines')
       .select('next_due_km, next_due_date')
       .eq('bike_id', params.bikeId),
+    supabase
+      .from('rentals')
+      .select('id')
+      .eq('bike_id', params.bikeId)
+      .in('status', ['active', 'extended'])
+      .maybeSingle(),
   ])
 
   if (!bike) notFound()
@@ -57,7 +63,8 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
   const isRented = bike.status === 'rented'
 
   const fuelLevel = bike.fuel_level ?? 0
-  const fuelDots = Array.from({ length: 5 }, (_, i) => i < fuelLevel ? '●' : '○').join('')
+  const fuelDots = Array.from({ length: 8 }, (_, i) => i < fuelLevel ? '●' : '○').join('')
+  const rentalId = activeRental?.id ?? null
 
   return (
     <div className="app-wrap">
@@ -106,7 +113,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
 
         {/* ส่งรถให้ลูกค้า */}
         <Link
-          href={isAvailable ? `/staff/bikes/${bike.id}/sendcar` : '#'}
+          href={isAvailable ? `/staff/send/${bike.id}` : '#'}
           style={{
             display: 'flex', alignItems: 'center', gap: '16px',
             background: isAvailable ? '#1d4ed8' : '#e2e8f0',
@@ -128,7 +135,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
 
         {/* รับรถคืน */}
         <Link
-          href={isRented ? `/staff/bikes/${bike.id}/returncar` : '#'}
+          href={isRented && rentalId ? `/staff/return/${rentalId}` : '#'}
           style={{
             display: 'flex', alignItems: 'center', gap: '16px',
             background: isRented ? '#15803d' : '#e2e8f0',
@@ -150,7 +157,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
 
         {/* ค้นหา & ลงคิวจอง */}
         <Link
-          href={`/staff/bikes/${bike.id}/search`}
+          href={`/staff/search`}
           style={{
             display: 'flex', alignItems: 'center', gap: '16px',
             background: '#fff', border: '2px solid #0891b2',
@@ -174,7 +181,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
 
           {/* ต่อเวลา */}
           <Link
-            href={isRented ? `/staff/bikes/${bike.id}/extend` : '#'}
+            href={isRented && rentalId ? `/staff/extend/${rentalId}` : '#'}
             style={{
               background: isRented ? '#fffbeb' : '#f8fafc',
               border: `2px solid ${isRented ? '#f59e0b' : '#e2e8f0'}`,
@@ -190,7 +197,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
 
           {/* แจ้งรถเสีย */}
           <Link
-            href={`/staff/bikes/${bike.id}/broken`}
+            href={`/staff/broken/${bike.id}`}
             style={{
               background: '#fff5f5', border: '2px solid #fca5a5',
               borderRadius: '14px', padding: '16px',
