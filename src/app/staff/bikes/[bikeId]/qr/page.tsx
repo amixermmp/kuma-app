@@ -20,8 +20,7 @@ export default async function QRPage({ params }: { params: { bikeId: string } })
 
   if (!bike) redirect('/staff/home')
 
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://kuma-app.vercel.app').replace(/\/$/, '')
-  const publicUrl = `${baseUrl}/bike/${bike.id}`
+  const publicUrl = `https://kuma-app.vercel.app/bike/${bike.id}`
   const qrDataUrl = await QRCode.toDataURL(publicUrl, {
     width: 300,
     margin: 2,
@@ -62,9 +61,14 @@ export default async function QRPage({ params }: { params: { bikeId: string } })
           </div>
         </div>
 
-        <div style={{ fontSize: '11px', color: '#9ca3af', margin: '12px 0 20px' }}>
+        <div style={{ fontSize: '11px', color: '#9ca3af', margin: '8px 0 4px' }}>
           พิมพ์และติด QR นี้ที่ตัวรถ
         </div>
+
+        <a href={publicUrl} target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: '12px', color: '#2563eb', wordBreak: 'break-all', display: 'block', margin: '0 0 20px' }}>
+          {publicUrl}
+        </a>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <a href={qrDataUrl} download={`QR-${bike.license_plate}.png`}
