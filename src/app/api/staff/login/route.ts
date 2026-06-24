@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
   const { data: staff } = await supabase
     .from('staff')
-    .select('id, name, branch_id, branches(name)')
+    .select('id, name, role, branch_id, branches(name)')
     .eq('pin', String(pin))
     .eq('is_active', true)
     .maybeSingle()
@@ -35,5 +35,7 @@ export async function POST(request: NextRequest) {
   res.cookies.set('kuma_staff_id', staff.id, { ...cookieOpts, httpOnly: true })
   res.cookies.set('kuma_staff_name', staff.name, cookieOpts)
   res.cookies.set('kuma_branch_name', branchName, cookieOpts)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  res.cookies.set('kuma_staff_role', (staff as any).role ?? 'staff', cookieOpts)
   return res
 }

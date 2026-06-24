@@ -9,5 +9,8 @@ export default async function AddBikePage() {
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) redirect('/staff/login')
 
+  const role = cookieStore.get('kuma_staff_role')?.value
+  if (role !== 'owner') redirect('/staff/home')
+
   return <AddBikeForm staffId={staffId} />
 }
