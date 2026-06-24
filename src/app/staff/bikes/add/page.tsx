@@ -1,16 +1,13 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import AddBikeForm from './AddBikeForm'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AddBikePage() {
-  const cookieStore = await cookies()
-  const staffId = cookieStore.get('kuma_staff_id')?.value
-  if (!staffId) redirect('/staff/login')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/owner/login')
 
-  const role = cookieStore.get('kuma_staff_role')?.value
-  if (role !== 'owner') redirect('/staff/home')
-
-  return <AddBikeForm staffId={staffId} />
+  return <AddBikeForm staffId={user.id} />
 }

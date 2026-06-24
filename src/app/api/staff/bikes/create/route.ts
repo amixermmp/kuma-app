@@ -5,17 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
 
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies()
-  const staffId = cookieStore.get('kuma_staff_id')?.value
-  if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  // Verify owner role from DB (don't trust cookie alone)
-  const supabaseCheck = createAdminClient()
-  const { data: staffData } = await supabaseCheck
-    .from('staff').select('role').eq('id', staffId).single()
-  if (staffData?.role !== 'owner') {
-    return NextResponse.json({ error: 'เฉพาะ Owner เท่านั้น' }, { status: 403 })
-  }
+  const { createClient: createServerClient } = await import('@/lib/supabase/server')
+  const supabaseAuth = await createServerClient()
+  const { data: { user } } = await supabaseAuth.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
   const {

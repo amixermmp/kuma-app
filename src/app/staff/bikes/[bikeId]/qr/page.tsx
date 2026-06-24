@@ -1,15 +1,15 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import QRCode from 'qrcode'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
 export default async function QRPage({ params }: { params: { bikeId: string } }) {
-  const cookieStore = await cookies()
-  const staffId = cookieStore.get('kuma_staff_id')?.value
-  if (!staffId) redirect('/staff/login')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/owner/login')
 
   const supabase = createAdminClient()
   const { data: bike } = await supabase
