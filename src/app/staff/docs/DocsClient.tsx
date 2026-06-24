@@ -7,11 +7,11 @@ import PhotoUpload from '@/components/PhotoUpload'
 import type { DocItem } from './page'
 
 const DOC_LABEL: Record<string, string> = {
-  pob: 'พ.ร.บ. รถจักรยานยนต์',
-  tax: 'ภาษีประจำปี',
-  insurance: 'ประกันภัย',
+  pob: 'พ.ร.บ. ประกันภัย',
+  tax: 'ป้ายภาษีประจำปี',
+  registration: 'หน้าเล่มรถ',
 }
-const DOC_ICON: Record<string, string> = { pob: '🛡️', tax: '💰', insurance: '📋' }
+const DOC_ICON: Record<string, string> = { pob: '🛡️', tax: '💰', registration: '📗' }
 
 function urgencyColor(u: DocItem['urgency']) {
   if (u === 'overdue' || u === 'critical') return '#dc2626'

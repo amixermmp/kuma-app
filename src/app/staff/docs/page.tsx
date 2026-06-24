@@ -35,6 +35,7 @@ export default async function DocsPage() {
   const { data: rawDocs } = await supabase
     .from('bike_documents')
     .select('id, bike_id, doc_type, expiry_date, doc_photo_url, notes, bikes(license_plate, brand, model)')
+    .in('doc_type', ['tax', 'pob'])
     .order('expiry_date', { ascending: true, nullsFirst: true })
 
   const docs: DocItem[] = (rawDocs ?? []).map(d => ({
