@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 
 const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
 
 export async function POST(request: NextRequest) {
-  const { createClient: createServerClient } = await import('@/lib/supabase/server')
-  const supabaseAuth = await createServerClient()
+  const supabaseAuth = await createClient()
   const { data: { user } } = await supabaseAuth.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
