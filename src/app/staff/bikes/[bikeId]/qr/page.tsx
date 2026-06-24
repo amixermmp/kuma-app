@@ -20,7 +20,8 @@ export default async function QRPage({ params }: { params: { bikeId: string } })
 
   if (!bike) redirect('/staff/home')
 
-  const publicUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://kuma-app.vercel.app'}/bike/${bike.id}`
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://kuma-app.vercel.app').replace(/\/$/, '')
+  const publicUrl = `${baseUrl}/bike/${bike.id}`
   const qrDataUrl = await QRCode.toDataURL(publicUrl, {
     width: 300,
     margin: 2,
