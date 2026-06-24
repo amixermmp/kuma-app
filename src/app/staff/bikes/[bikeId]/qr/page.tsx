@@ -7,8 +7,8 @@ import Link from 'next/link'
 export const dynamic = 'force-dynamic'
 
 export default async function QRPage({ params }: { params: { bikeId: string } }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
   if (!user) redirect('/owner/login')
 
   const supabase = createAdminClient()
