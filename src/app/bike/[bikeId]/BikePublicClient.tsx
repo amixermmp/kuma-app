@@ -134,19 +134,23 @@ export default function BikePublicClient({
     if (pin.length !== 6 || loginLoading) return
     setLoginLoading(true)
     setLoginError('')
-    const res = await fetch('/api/staff/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin }),
-    })
-    const data = await res.json()
-    if (res.ok && data.success) {
-      window.location.href = `/staff/bikes/${bike.id}/menu`
-    } else {
+    try {
+      const res = await fetch('/api/staff/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        window.location.href = `/staff/bikes/${bike.id}/menu`
+        return
+      }
       setLoginError(data.error ?? 'PIN ไม่ถูกต้อง')
-      setPin('')
-      setLoginLoading(false)
+    } catch {
+      setLoginError('เชื่อมต่อไม่ได้ ลองอีกครั้ง')
     }
+    setPin('')
+    setLoginLoading(false)
   }
 
   const tabs = [
