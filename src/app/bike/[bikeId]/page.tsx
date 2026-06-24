@@ -6,7 +6,13 @@ const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
 
 export const dynamic = 'force-dynamic'
 
-export default async function BikePublicPage({ params }: { params: { bikeId: string } }) {
+export default async function BikePublicPage({
+  params,
+  searchParams,
+}: {
+  params: { bikeId: string }
+  searchParams: { error?: string }
+}) {
   const supabase = createAdminClient()
 
   const [{ data: bike }, { data: docs }, { data: settings }] = await Promise.all([
@@ -30,5 +36,5 @@ export default async function BikePublicPage({ params }: { params: { bikeId: str
 
   const docMap = Object.fromEntries((docs ?? []).map(d => [d.doc_type, d]))
 
-  return <BikePublicClient bike={bike} docMap={docMap} settings={settings ?? null} />
+  return <BikePublicClient bike={bike} docMap={docMap} settings={settings ?? null} pinError={searchParams.error === 'pin'} />
 }

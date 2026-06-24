@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 type Bike = {
   id: string
@@ -113,44 +112,28 @@ function DocRow({
 }
 
 export default function BikePublicClient({
-  bike, docMap, settings,
+  bike, docMap, settings, pinError = false,
 }: {
   bike: Bike
   docMap: Record<string, DocRecord>
   settings: BranchSettings | null
+  pinError?: boolean
 }) {
   const [tab, setTab] = useState<'info' | 'rental' | 'docs'>('info')
   const [viewDoc, setViewDoc] = useState<{ url: string; label: string } | null>(null)
-  const [showLogin, setShowLogin] = useState(false)
+  const [showLogin, setShowLogin] = useState(pinError)
   const [pin, setPin] = useState('')
-  const [loginError, setLoginError] = useState('')
+  const [loginError, setLoginError] = useState(pinError ? 'PIN ไม่ถูกต้อง กรุณาลองอีกครั้ง' : '')
   const [loginLoading, setLoginLoading] = useState(false)
-  const router = useRouter()
-
   const statusColor = STATUS_COLOR[bike.status] ?? '#6b7280'
   const statusLabel = STATUS_LABEL[bike.status] ?? bike.status
 
-  async function handleLogin() {
+  function handleLogin() {
     if (pin.length !== 6 || loginLoading) return
     setLoginLoading(true)
     setLoginError('')
-    try {
-      const res = await fetch('/api/staff/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
-      })
-      const data = await res.json()
-      if (res.ok && data.success) {
-        window.location.href = `/staff/bikes/${bike.id}/menu`
-        return
-      }
-      setLoginError(data.error ?? 'PIN ไม่ถูกต้อง')
-    } catch {
-      setLoginError('เชื่อมต่อไม่ได้ ลองอีกครั้ง')
-    }
-    setPin('')
-    setLoginLoading(false)
+    // Use redirect instead of fetch — works in all mobile WebViews
+    window.location.href = `/api/staff/pin-login?pin=${encodeURIComponent(pin)}&bikeId=${bike.id}&redirect=${encodeURIComponent(`/staff/bikes/${bike.id}/menu`)}`
   }
 
   const tabs = [

@@ -5,7 +5,8 @@ const PUBLIC_PATHS = ['/', '/staff/login', '/owner/login', '/bike']
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/')) ||
-    pathname.startsWith('/qr/')
+    pathname.startsWith('/qr/') ||
+    pathname.startsWith('/api/staff/pin-login')
 }
 
 export async function middleware(request: NextRequest) {
