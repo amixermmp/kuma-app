@@ -1,0 +1,298 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import Link from 'next/link'
+
+export const dynamic = 'force-dynamic'
+
+const MONTHS_TH_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+  'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+const DAY_SHORT = ['อา','จ','อ','พ','พฤ','ศ','ส']
+
+function fmt(n: number) {
+  return '฿' + n.toLocaleString('th-TH')
+}
+
+export default async function OwnerDashboardPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/owner/login')
+
+  const admin = createAdminClient()
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
+
+  const sevenDaysAgo = new Date(now)
+  sevenDaysAgo.setDate(now.getDate() - 6)
+  sevenDaysAgo.setHours(0, 0, 0, 0)
+
+  const [bikesRes, bookingsMonthRes, bookingsRecentRes, branchesRes, pendingRes] = await Promise.all([
+    admin.from('bikes').select('id, status, branch_id, brand, model, license_plate'),
+    admin.from('bookings')
+      .select('id, branch_id, daily_rate, total_days, start_datetime, customer_name, bikes(license_plate, brand, model)')
+      .in('status', ['confirmed', 'active', 'completed'])
+      .gte('start_datetime', monthStart)
+      .lte('start_datetime', monthEnd),
+    admin.from('bookings')
+      .select('id, status, customer_name, start_datetime, daily_rate, total_days, bikes(license_plate)')
+      .in('status', ['confirmed', 'active', 'completed'])
+      .order('start_datetime', { ascending: false })
+      .limit(5),
+    admin.from('branches').select('id, name').order('name'),
+    admin.from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'confirmed')
+      .lte('start_datetime', new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()),
+  ])
+
+  const bikes          = bikesRes.data ?? []
+  const bookingsMonth  = bookingsMonthRes.data ?? []
+  const bookingsRecent = bookingsRecentRes.data ?? []
+  const branches       = branchesRes.data ?? []
+  const pendingCount   = pendingRes.count ?? 0
+
+  // Fleet stats
+  const total       = bikes.length
+  const available   = bikes.filter(b => b.status === 'available').length
+  const rented      = bikes.filter(b => b.status === 'rented').length
+  const repair      = bikes.filter(b => b.status === 'repair').length
+  const utilization = total > 0 ? Math.round((rented / total) * 100) : 0
+
+  // Monthly revenue
+  const monthlyRevenue = bookingsMonth.reduce((s, b) => s + (b.daily_rate ?? 0) * (b.total_days ?? 0), 0)
+  const monthlyCount   = bookingsMonth.length
+
+  // 7-day bar chart
+  const dayRevs: number[] = Array(7).fill(0)
+  for (const bk of bookingsMonth) {
+    const d = new Date(bk.start_datetime)
+    const idx = Math.floor((d.getTime() - sevenDaysAgo.getTime()) / (24 * 60 * 60 * 1000))
+    if (idx >= 0 && idx < 7) {
+      dayRevs[idx] += (bk.daily_rate ?? 0) * (bk.total_days ?? 0)
+    }
+  }
+  const maxRev = Math.max(...dayRevs, 1)
+
+  // Revenue by branch
+  const branchMap: Record<string, { name: string; revenue: number; bikeCount: number }> = {}
+  for (const br of branches) {
+    branchMap[br.id] = { name: br.name, revenue: 0, bikeCount: bikes.filter(b => b.branch_id === br.id).length }
+  }
+  for (const bk of bookingsMonth) {
+    if (bk.branch_id && branchMap[bk.branch_id]) {
+      branchMap[bk.branch_id].revenue += (bk.daily_rate ?? 0) * (bk.total_days ?? 0)
+    }
+  }
+
+  // Top bikes
+  const bikeRevMap: Record<string, { label: string; revenue: number; count: number }> = {}
+  for (const bk of bookingsMonth) {
+    const bike = Array.isArray(bk.bikes) ? bk.bikes[0] : bk.bikes as { license_plate?: string; brand?: string; model?: string } | null
+    if (!bike) continue
+    const key = bike.license_plate ?? bk.id
+    if (!bikeRevMap[key]) bikeRevMap[key] = { label: `${bike.brand} ${bike.model} — ${bike.license_plate}`, revenue: 0, count: 0 }
+    bikeRevMap[key].revenue += (bk.daily_rate ?? 0) * (bk.total_days ?? 0)
+    bikeRevMap[key].count++
+  }
+  const topBikes = Object.values(bikeRevMap).sort((a, b) => b.revenue - a.revenue).slice(0, 3)
+
+  const monthName = MONTHS_TH_FULL[now.getMonth()] + ' ' + (now.getFullYear() + 543)
+
+  return (
+    <div className="app-wrap">
+
+      {/* Header */}
+      <div className="app-header" style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>
+          <h1>Dashboard</h1>
+          <div className="sub">ภาพรวมธุรกิจ — {monthName}</div>
+        </div>
+        <form action="/api/owner/logout" method="POST">
+          <button style={{
+            background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: '8px',
+            color: '#fff', fontSize: '12px', padding: '6px 12px', cursor: 'pointer', fontWeight: 600,
+          }}>ออกจากระบบ</button>
+        </form>
+      </div>
+
+      {/* KPI Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '16px 16px 0' }}>
+        {([
+          { icon: '💰', val: fmt(monthlyRevenue), lbl: 'รายได้เดือนนี้',       border: '#16a34a', color: '#16a34a' },
+          { icon: '📋', val: String(monthlyCount), lbl: 'รายการเช่าเดือนนี้',   border: '#2563eb', color: '#2563eb' },
+          { icon: '🛵', val: `${utilization}%`,    lbl: 'อัตราการใช้งานรถ',     border: '#d97706', color: '#d97706' },
+          { icon: '📌', val: String(pendingCount),  lbl: 'งานค้างทั้งหมด',       border: '#dc2626', color: '#dc2626' },
+        ] as const).map(({ icon, val, lbl, border, color }) => (
+          <div key={lbl} style={{
+            background: '#fff', borderRadius: '14px', padding: '14px',
+            boxShadow: '0 1px 4px rgba(0,0,0,.07)', borderTop: `3px solid ${border}`,
+          }}>
+            <div style={{ fontSize: '22px', marginBottom: '6px' }}>{icon}</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color }}>{val}</div>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{lbl}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 7-day bar chart */}
+      <div style={{ margin: '16px', background: '#fff', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '14px' }}>📈 รายได้ 7 วันล่าสุด (บาท)</div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '80px' }}>
+          {dayRevs.map((rev, i) => {
+            const d = new Date(sevenDaysAgo)
+            d.setDate(d.getDate() + i)
+            const isToday  = d.toDateString() === now.toDateString()
+            const heightPct = Math.max((rev / maxRev) * 100, 4)
+            return (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', height: '100%', justifyContent: 'flex-end' }}>
+                {rev > 0 && (
+                  <div style={{ fontSize: '9px', color: '#6b7280', fontWeight: 600 }}>
+                    {rev >= 1000 ? (rev / 1000).toFixed(1) + 'K' : rev}
+                  </div>
+                )}
+                <div style={{
+                  width: '100%', borderRadius: '4px 4px 0 0',
+                  background: isToday ? '#4f46e5' : '#bfdbfe',
+                  height: `${heightPct}%`, minHeight: '4px',
+                }} />
+                <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: isToday ? 700 : 400 }}>
+                  {DAY_SHORT[d.getDay()]}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Fleet status */}
+      <div style={{ margin: '0 16px 16px', background: '#fff', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '12px' }}>สถานะรถทั้งหมด ({total} คัน)</div>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          {([
+            { label: 'ว่าง',    count: available, bg: '#f0fdf4', color: '#16a34a' },
+            { label: 'เช่าอยู่', count: rented,    bg: '#eff6ff', color: '#2563eb' },
+            { label: 'ซ่อม',    count: repair,    bg: '#fef2f2', color: '#dc2626' },
+          ] as const).map(({ label, count, bg, color }) => (
+            <div key={label} style={{ flex: 1, background: bg, borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+              <div style={{ fontSize: '22px', fontWeight: 800, color }}>{count}</div>
+              <div style={{ fontSize: '11px', color }}>{label}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Utilization Rate</div>
+        <div style={{ background: '#e5e7eb', borderRadius: '6px', height: '10px', overflow: 'hidden' }}>
+          <div style={{ background: 'linear-gradient(90deg,#16a34a,#34d399)', height: '100%', width: `${utilization}%`, borderRadius: '6px' }} />
+        </div>
+        <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: 700, marginTop: '4px' }}>
+          {utilization}% — {utilization >= 80 ? 'ดีมาก' : utilization >= 60 ? 'ดี' : 'ควรปรับปรุง'}
+        </div>
+      </div>
+
+      {/* Revenue by branch */}
+      {branches.length > 0 && (
+        <div style={{ margin: '0 16px 16px', background: '#fff', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '12px' }}>รายได้แยกตามสาขา</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr>
+                {['สาขา', 'รายได้', 'รถ', 'Util.'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '0 8px 8px 0', fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {branches.map(br => {
+                const d = branchMap[br.id]
+                const branchRented = bikes.filter(b => b.branch_id === br.id && b.status === 'rented').length
+                const branchUtil   = d.bikeCount > 0 ? Math.round((branchRented / d.bikeCount) * 100) : 0
+                return (
+                  <tr key={br.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '8px 8px 8px 0', fontWeight: 600 }}>{br.name}</td>
+                    <td style={{ padding: '8px 8px 8px 0', fontWeight: 700, color: '#16a34a' }}>{fmt(d.revenue)}</td>
+                    <td style={{ padding: '8px 8px 8px 0', color: '#6b7280' }}>{d.bikeCount} คัน</td>
+                    <td style={{ padding: '8px 0' }}>
+                      <div style={{ background: '#e5e7eb', borderRadius: '4px', height: '6px', width: '60px' }}>
+                        <div style={{ background: '#4f46e5', height: '100%', width: `${branchUtil}%`, borderRadius: '4px' }} />
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Top bikes */}
+      {topBikes.length > 0 && (
+        <div style={{ margin: '0 16px 16px', background: '#fff', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '12px' }}>🏆 รถที่สร้างรายได้สูงสุด</div>
+          {topBikes.map((bike, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', borderTop: i > 0 ? '1px solid #f3f4f6' : 'none' }}>
+              <div style={{ fontSize: '22px' }}>{['🥇', '🥈', '🥉'][i]}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{bike.label}</div>
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>เช่า {bike.count} ครั้ง</div>
+              </div>
+              <div style={{ fontWeight: 700, color: '#16a34a' }}>{fmt(bike.revenue)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Recent transactions */}
+      <div style={{ margin: '0 16px 16px', background: '#fff', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '12px' }}>รายการล่าสุด</div>
+        {bookingsRecent.length === 0 ? (
+          <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>ยังไม่มีรายการ</div>
+        ) : bookingsRecent.map((bk, i) => {
+          const bike = Array.isArray(bk.bikes) ? bk.bikes[0] : bk.bikes as { license_plate?: string } | null
+          const amt = (bk.daily_rate ?? 0) * (bk.total_days ?? 0)
+          const icon  = bk.status === 'completed' ? '📥' : bk.status === 'active' ? '📤' : '📅'
+          const label = bk.status === 'completed' ? 'รับรถคืน' : bk.status === 'active' ? 'ส่งรถ' : 'จองล่วงหน้า'
+          const dateStr = new Date(bk.start_datetime).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+          return (
+            <div key={bk.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', borderTop: i > 0 ? '1px solid #f3f4f6' : 'none' }}>
+              <div style={{ fontSize: '22px' }}>{icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{label} — {bk.customer_name}</div>
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>{bike?.license_plate ?? '—'} • {dateStr}</div>
+              </div>
+              <div style={{ fontWeight: 700, color: '#16a34a' }}>{amt > 0 ? fmt(amt) : '—'}</div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Management links */}
+      <div style={{ margin: '0 16px 80px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {([
+          { icon: '➕', label: 'เพิ่มรถคันใหม่',    sub: 'ลงทะเบียนรถและสร้าง QR Code', href: '/owner/bikes/add', color: '#4f46e5' },
+          { icon: '🛵', label: 'รายการรถทั้งหมด', sub: 'ดู/แก้ไขข้อมูลรถทุกสาขา',    href: '/owner/bikes',     color: '#0891b2' },
+        ] as const).map(({ icon, label, sub, href, color }) => (
+          <Link key={href} href={href} style={{ textDecoration: 'none' }}>
+            <div style={{
+              background: '#fff', borderRadius: '14px', padding: '16px',
+              boxShadow: '0 1px 4px rgba(0,0,0,.07)',
+              display: 'flex', alignItems: 'center', gap: '14px',
+              borderLeft: `4px solid ${color}`,
+            }}>
+              <div style={{
+                width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
+                background: `${color}15`, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: '22px',
+              }}>{icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>{label}</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{sub}</div>
+              </div>
+              <div style={{ color: '#d1d5db', fontSize: '18px' }}>›</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+    </div>
+  )
+}
