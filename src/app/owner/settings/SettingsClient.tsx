@@ -188,7 +188,6 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
   // ── Notification state ──
   const [docDays, setDocDays] = useState(String(shop.doc_alert_days ?? 30))
   const [overdueHours, setOverdueHours] = useState(String(shop.overdue_alert_hours ?? 2))
-  const [oilKm, setOilKm] = useState(String(shop.oil_alert_km ?? 200))
   const [overtimeRate, setOvertimeRate] = useState(String(shop.overtime_rate ?? 50))
   const [hoursPerDay, setHoursPerDay] = useState(String(shop.hours_per_day ?? 5))
 
@@ -221,7 +220,6 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
         hours_per_day: parseInt(hoursPerDay) || 5,
         doc_alert_days: parseInt(docDays) || 30,
         overdue_alert_hours: parseInt(overdueHours) || 2,
-        oil_alert_km: parseInt(oilKm) || 200,
       }),
     })
     setShopLoading(false)
@@ -368,9 +366,6 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
           </Field>
           <Field label="แจ้งเตือนเมื่อลูกค้าเกินกำหนดคืน (ชม.)">
             <input className="field-input" type="number" value={overdueHours} onChange={e => setOverdueHours(e.target.value)} />
-          </Field>
-          <Field label="แจ้งเตือนก่อนถึงกำหนดเปลี่ยนน้ำมัน (กม.)">
-            <input className="field-input" type="number" value={oilKm} onChange={e => setOilKm(e.target.value)} />
           </Field>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <SaveBtn loading={shopLoading} onClick={saveShop} />

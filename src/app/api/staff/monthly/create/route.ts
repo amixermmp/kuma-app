@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     fuelLevel,
     paymentMethod,
     photos,
+    signature,
   } = body
 
   if (!bikeId || !staffId || !customer?.name || !customer?.phone || !startDate || !monthlyRate) {
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
       deposit_amount: depositAmount || 0,
       status: 'active',
       send_photos: sendPhotos,
+      customer_signature: signature ?? null,
     })
     .select('id')
     .single()

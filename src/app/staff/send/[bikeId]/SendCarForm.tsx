@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
+import SignaturePad from '@/components/SignaturePad'
 
 type Bike = {
   id: string
@@ -86,6 +87,11 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
   const [mPaymentMethod, setMPaymentMethod] = useState<'cash' | 'transfer'>('cash')
   const [mPhotos, setMPhotos] = useState<PhotoState>({ id_card: '', selfie: '', with_bike: '', damage: '', payment: '' })
 
+  const [signature, setSignature] = useState<string | null>(null)
+  const [showSignPad, setShowSignPad] = useState(false)
+  const [mSignature, setMSignature] = useState<string | null>(null)
+  const [showMSignPad, setShowMSignPad] = useState(false)
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -156,6 +162,7 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
           startDatetime, endDatetime, dailyRate: bike.daily_rate, totalDays, totalAmount,
           depositAmount: parseFloat(depositAmount) || 0, discount, paymentMethod, fuelLevel,
           odometer: odometer || '0', photos,
+          signature: signature ?? null,
         }),
       })
       const data = await res.json()
@@ -189,6 +196,7 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
           fuelLevel: mFuelLevel,
           paymentMethod: mPaymentMethod,
           photos: mPhotos,
+          signature: mSignature ?? null,
         }),
       })
       const data = await res.json()
@@ -405,8 +413,23 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
 
           <div className="card">
             <div className="card-title">ลายเซ็นลูกค้า</div>
-            <div className="sign-area">✏️ แตะเพื่อเซ็นชื่อ</div>
+            {signature ? (
+              <div style={{ position: 'relative' }}>
+                <img src={signature} alt="ลายเซ็น" style={{ width: '100%', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff' }} />
+                <button onClick={() => setShowSignPad(true)} style={{ position: 'absolute', bottom: '8px', right: '8px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer' }}>
+                  เซ็นใหม่
+                </button>
+              </div>
+            ) : (
+              <div className="sign-area" onClick={() => setShowSignPad(true)} style={{ cursor: 'pointer' }}>
+                ✏️ แตะเพื่อเซ็นชื่อ
+              </div>
+            )}
           </div>
+
+          {showSignPad && (
+            <SignaturePad onSave={setSignature} onClose={() => setShowSignPad(false)} />
+          )}
 
           {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px', color: '#dc2626', fontSize: '14px', marginBottom: '12px' }}>⚠️ {error}</div>}
 
@@ -564,8 +587,23 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
 
           <div className="card">
             <div className="card-title">ลายเซ็นลูกค้า</div>
-            <div className="sign-area">✏️ แตะเพื่อเซ็นชื่อ</div>
+            {mSignature ? (
+              <div style={{ position: 'relative' }}>
+                <img src={mSignature} alt="ลายเซ็น" style={{ width: '100%', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff' }} />
+                <button onClick={() => setShowMSignPad(true)} style={{ position: 'absolute', bottom: '8px', right: '8px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer' }}>
+                  เซ็นใหม่
+                </button>
+              </div>
+            ) : (
+              <div className="sign-area" onClick={() => setShowMSignPad(true)} style={{ cursor: 'pointer' }}>
+                ✏️ แตะเพื่อเซ็นชื่อ
+              </div>
+            )}
           </div>
+
+          {showMSignPad && (
+            <SignaturePad onSave={setMSignature} onClose={() => setShowMSignPad(false)} />
+          )}
 
           {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px', color: '#dc2626', fontSize: '14px', marginBottom: '12px' }}>⚠️ {error}</div>}
 
