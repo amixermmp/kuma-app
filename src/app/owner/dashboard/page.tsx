@@ -241,6 +241,31 @@ export default async function OwnerDashboardPage() {
         </div>
       )}
 
+      {/* รายรับ vs รายจ่าย */}
+      <div style={{ margin: '0 16px 16px', background: '#fff', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>💹 รายรับ vs รายจ่าย</div>
+          <button style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '4px 10px', fontSize: '12px', color: '#2563eb', cursor: 'pointer' }}>
+            + บันทึกค่าใช้จ่าย
+          </button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+          <div style={{ background: '#f0fdf4', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>รายรับ</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#16a34a' }}>{fmt(monthlyRevenue)}</div>
+          </div>
+          <div style={{ background: '#fef2f2', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>รายจ่าย</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#dc2626' }}>฿0</div>
+          </div>
+        </div>
+        <div style={{ background: '#f0fdf4', borderRadius: '10px', padding: '12px', textAlign: 'center', marginBottom: '12px' }}>
+          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>กำไรสุทธิ (ประมาณ)</div>
+          <div style={{ fontSize: '24px', fontWeight: 800, color: '#16a34a' }}>{fmt(monthlyRevenue)}</div>
+        </div>
+        <div style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center' }}>ยังไม่มีข้อมูลรายจ่าย — กด "+ บันทึกค่าใช้จ่าย" เพื่อเพิ่ม</div>
+      </div>
+
       {/* Recent transactions */}
       <div style={{ margin: '0 16px 16px', background: '#fff', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
         <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '12px' }}>รายการล่าสุด</div>
