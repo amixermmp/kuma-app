@@ -11,8 +11,8 @@ export async function POST(request: Request) {
   if (!name?.trim()) return NextResponse.json({ error: 'กรุณาใส่ชื่อสาขา' }, { status: 400 })
 
   const admin = createAdminClient()
-  const { error } = await admin.from('branches').insert({ name: name.trim() })
+  const { data, error } = await admin.from('branches').insert({ name: name.trim() }).select('id').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, id: data.id })
 }

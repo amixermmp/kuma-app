@@ -16,8 +16,8 @@ export async function POST(request: Request) {
   const { data: existing } = await admin.from('staff').select('id').eq('pin', pin).maybeSingle()
   if (existing) return NextResponse.json({ error: 'PIN นี้มีพนักงานใช้อยู่แล้ว' }, { status: 400 })
 
-  const { error } = await admin.from('staff').insert({ name, pin, branch_id: branch_id || null, is_active: true })
+  const { data, error } = await admin.from('staff').insert({ name, pin, branch_id: branch_id || null, is_active: true }).select('id').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, id: data.id })
 }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 type Shop = Record<string, any>
@@ -64,7 +63,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
 function StaffModal({ branches, onClose, onSaved, editing }: {
   branches: Branch[]
   onClose: () => void
-  onSaved: () => void
+  onSaved: (staff: Staff) => void
   editing?: Staff
 }) {
   const [name, setName] = useState(editing?.name ?? '')
@@ -78,14 +77,19 @@ function StaffModal({ branches, onClose, onSaved, editing }: {
     if (pin.length !== 6) { setError('PIN ต้องมี 6 หลัก'); return }
     setLoading(true); setError('')
     const url = editing ? `/api/owner/settings/staff/${editing.id}` : '/api/owner/settings/staff'
+    const payload = { name: name.trim(), pin, branch_id: branchId || null }
     const res = await fetch(url, {
       method: editing ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.trim(), pin, branch_id: branchId || null }),
+      body: JSON.stringify(payload),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error ?? 'เกิดข้อผิดพลาด'); setLoading(false); return }
-    onSaved()
+    // return updated/new staff object for optimistic update
+    const result: Staff = editing
+      ? { ...editing, ...payload }
+      : { id: data.id ?? crypto.randomUUID(), ...payload, is_active: true, branches: null }
+    onSaved(result)
   }
 
   const deactivate = async () => {
@@ -96,7 +100,7 @@ function StaffModal({ branches, onClose, onSaved, editing }: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_active: false }),
     })
-    onSaved()
+    onSaved({ ...editing, is_active: false })
   }
 
   return (
@@ -134,7 +138,7 @@ function StaffModal({ branches, onClose, onSaved, editing }: {
 
 // ─── BranchModal ─────────────────────────────────────────────────────────────
 
-function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: (branch: Branch) => void }) {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -149,7 +153,7 @@ function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error ?? 'เกิดข้อผิดพลาด'); setLoading(false); return }
-    onSaved()
+    onSaved({ id: data.id ?? crypto.randomUUID(), name: name.trim() })
   }
 
   return (
@@ -172,7 +176,6 @@ function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export default function SettingsClient({ shop, staff: initialStaff, branches: initialBranches, promotions: initialPromos }: Props) {
-  const router = useRouter()
 
   // ── Shop state ──
   const [shopName, setShopName] = useState(shop.shop_name ?? '')
@@ -205,8 +208,6 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
   const [promos, setPromos] = useState(initialPromos)
   const [staffModal, setStaffModal] = useState<Staff | null | 'new'>(null)
   const [branchModal, setBranchModal] = useState(false)
-
-  const refresh = () => router.refresh()
 
   // ── Save shop info ──
   const saveShop = async () => {
@@ -420,13 +421,23 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
           branches={branches}
           editing={staffModal === 'new' ? undefined : staffModal as Staff}
           onClose={() => setStaffModal(null)}
-          onSaved={() => { setStaffModal(null); refresh() }}
+          onSaved={(saved) => {
+            setStaffModal(null)
+            setStaff(prev => {
+              const exists = prev.find(s => s.id === saved.id)
+              if (exists) return prev.map(s => s.id === saved.id ? saved : s)
+              return [...prev, saved]
+            })
+          }}
         />
       )}
       {branchModal && (
         <BranchModal
           onClose={() => setBranchModal(false)}
-          onSaved={() => { setBranchModal(false); refresh() }}
+          onSaved={(saved) => {
+            setBranchModal(false)
+            setBranches(prev => [...prev, saved])
+          }}
         />
       )}
     </div>
