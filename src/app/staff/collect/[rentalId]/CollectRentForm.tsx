@@ -4,101 +4,85 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-type Rental = {
+type Bike = { id: string; license_plate: string; brand: string; model: string }
+type Customer = { id: string; name: string; phone: string; workplace: string | null }
+
+type MonthlyRental = {
   id: string
-  start_datetime: string
-  daily_rate: number
-  total_amount: number
-  bikes: { id: string; license_plate: string; brand: string; model: string }
-  customers: { id: string; name: string; phone: string; workplace: string | null }
+  start_date: string
+  payment_day: number
+  monthly_rate: number
+  deposit_amount: number
+  bikes: Bike
+  customers: Customer
 }
 
-type Collection = {
+type Payment = {
   id: string
-  period_label: string
   due_date: string
-  amount_due: number
-  amount_paid: number
-  status: string
+  paid_date: string
+  amount: number
   payment_method: string | null
-  collected_at: string | null
-  payment_history: PaymentEntry[] | null
+  payment_note: string | null
+  status: string
 }
 
-type PaymentEntry = {
-  amount: number
-  method: string | null
-  note: string | null
-  paid_at: string
+type Period = {
+  periodNum: number
+  dueDate: string
+  label: string
+  payments: Payment[]
+  totalPaid: number
+  fullyPaid: boolean
+  isOverdue: boolean
 }
 
 type Props = {
-  rental: Rental
-  collections: Collection[]
+  rental: MonthlyRental
+  periods: Period[]
+  currentPeriod: Period
   staffId: string
-  currentPeriodNum: number
-  periodLabel: string
-  dueDate: string
-  monthlyRate: number
   totalCollected: number
-  currentPaidAmt: number
-  fullyPaid: boolean
-  isOverdue: boolean
 }
 
 const PAYMENT_METHODS = ['💵 เงินสด', '📱 โอนธนาคาร', '💳 บัตรเครดิต', '📲 QR Promptpay']
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
-    timeZone: 'Asia/Bangkok',
-    day: 'numeric', month: 'short', year: 'numeric',
+    timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: 'numeric',
   })
 }
 
-function statusBadge(c: Collection, monthlyRate: number) {
-  if (c.status === 'paid') return { icon: '✅', label: 'ครบแล้ว', color: '#16a34a', bg: '#f0fdf4' }
-  const now = new Date()
-  const due = new Date(c.due_date)
-  if (now > due) return { icon: '🔴', label: `เลท • ค้าง ฿${(monthlyRate - Number(c.amount_paid)).toLocaleString()}`, color: '#dc2626', bg: '#fef2f2' }
-  return { icon: '🟡', label: `บางส่วน • ค้าง ฿${(monthlyRate - Number(c.amount_paid)).toLocaleString()}`, color: '#d97706', bg: '#fffbeb' }
-}
-
-export default function CollectRentForm({
-  rental, collections, staffId,
-  currentPeriodNum, periodLabel, dueDate,
-  monthlyRate, totalCollected, currentPaidAmt, fullyPaid, isOverdue,
-}: Props) {
+export default function CollectRentForm({ rental, periods, currentPeriod, staffId, totalCollected }: Props) {
   const router = useRouter()
   const bike = rental.bikes
   const customer = rental.customers
+  const monthlyRate = rental.monthly_rate
+  const { isOverdue } = currentPeriod
+  const remaining = monthlyRate - currentPeriod.totalPaid
 
-  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0])
+  const [payDate, setPayDate]     = useState(new Date().toISOString().split('T')[0])
   const [payMethod, setPayMethod] = useState(PAYMENT_METHODS[0])
-  const [amountPaid, setAmountPaid] = useState('')
-  const [note, setNote] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [amount, setAmount]       = useState('')
+  const [note, setNote]           = useState('')
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState('')
 
-  const paid = parseFloat(amountPaid) || 0
-  const remaining = monthlyRate - currentPaidAmt
-  const newTotal = currentPaidAmt + paid
+  const paid = parseFloat(amount) || 0
+  const newTotal = currentPeriod.totalPaid + paid
   const willComplete = newTotal >= monthlyRate
-  const monthsRented = currentPeriodNum - 1
 
   const handleSubmit = async () => {
     if (paid <= 0) { setError('กรุณาใส่ยอดที่รับ'); return }
-    setLoading(true)
-    setError('')
+    setLoading(true); setError('')
     try {
       const res = await fetch('/api/staff/collection/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rentalId: rental.id,
+          monthlyRentalId: rental.id,
           staffId,
-          periodLabel,
-          dueDate,
-          amountDue: monthlyRate,
+          dueDate: currentPeriod.dueDate,
           amountPaid: paid,
           paymentMethod: payMethod,
           paymentNote: note.trim() || null,
@@ -107,8 +91,7 @@ export default function CollectRentForm({
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
-      setAmountPaid('')
-      setNote('')
+      setAmount(''); setNote('')
       router.refresh()
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
@@ -120,6 +103,8 @@ export default function CollectRentForm({
   const headerBg = isOverdue
     ? 'linear-gradient(135deg,#dc2626,#b91c1c)'
     : 'linear-gradient(135deg,#7c3aed,#4f46e5)'
+
+  const monthsRented = periods.filter(p => p.fullyPaid).length
 
   return (
     <div className="app-wrap">
@@ -135,11 +120,13 @@ export default function CollectRentForm({
 
       {/* Overdue banner */}
       {isOverdue && (
-        <div style={{ background: '#fef2f2', borderBottom: '1px solid #fecaca', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ background: '#fef2f2', borderBottom: '1px solid #fecaca', padding: '10px 14px', display: 'flex', gap: '8px', alignItems: 'center' }}>
           <span style={{ fontSize: '18px' }}>🔴</span>
           <div>
             <div style={{ fontSize: '13px', fontWeight: 700, color: '#dc2626' }}>ชำระล่าช้า</div>
-            <div style={{ fontSize: '11px', color: '#dc2626' }}>ครบกำหนด {fmtDate(dueDate)} — ยังค้างอยู่ ฿{remaining.toLocaleString()}</div>
+            <div style={{ fontSize: '11px', color: '#dc2626' }}>
+              ครบกำหนด {fmtDate(currentPeriod.dueDate)} — ยังค้าง ฿{remaining.toLocaleString()}
+            </div>
           </div>
         </div>
       )}
@@ -154,7 +141,7 @@ export default function CollectRentForm({
           {customer.workplace && (
             <div className="info-row"><span className="info-key">ที่พัก</span><span className="info-val">{customer.workplace}</span></div>
           )}
-          <div className="info-row"><span className="info-key">เริ่มสัญญา</span><span className="info-val">{fmtDate(rental.start_datetime)}</span></div>
+          <div className="info-row"><span className="info-key">เริ่มสัญญา</span><span className="info-val">{fmtDate(rental.start_date)}</span></div>
           <div className="info-row">
             <span className="info-key">เช่ามาแล้ว</span>
             <span className="info-val" style={{ color: '#7c3aed', fontWeight: 700 }}>{monthsRented} เดือน</span>
@@ -163,15 +150,19 @@ export default function CollectRentForm({
             <span className="info-key">ค่าเช่า/เดือน</span>
             <span className="info-val" style={{ color: '#7c3aed', fontWeight: 700 }}>฿{monthlyRate.toLocaleString()}</span>
           </div>
+          <div className="info-row">
+            <span className="info-key">ครบกำหนดทุกวันที่</span>
+            <span className="info-val">{rental.payment_day} ของเดือน</span>
+          </div>
         </div>
 
         {/* Current period */}
-        {fullyPaid ? (
+        {currentPeriod.fullyPaid ? (
           <div className="card" style={{ borderTop: '3px solid #16a34a' }}>
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <div style={{ fontSize: '36px', marginBottom: '8px' }}>✅</div>
-              <div style={{ fontWeight: 700, color: '#16a34a', fontSize: '15px' }}>เก็บเงินเดือนนี้ครบแล้ว</div>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{periodLabel}</div>
+              <div style={{ fontSize: '36px' }}>✅</div>
+              <div style={{ fontWeight: 700, color: '#16a34a', marginTop: '8px' }}>เก็บเงินครบทุกเดือนแล้ว</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{currentPeriod.label}</div>
             </div>
           </div>
         ) : (
@@ -185,40 +176,41 @@ export default function CollectRentForm({
               background: isOverdue ? '#fef2f2' : '#f0fdf4',
               borderRadius: '10px', padding: '14px', textAlign: 'center', marginBottom: '14px',
             }}>
-              <div style={{ fontSize: '13px', color: isOverdue ? '#dc2626' : '#16a34a', fontWeight: 600 }}>{periodLabel}</div>
+              <div style={{ fontSize: '13px', color: isOverdue ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
+                {currentPeriod.label}
+              </div>
               <div style={{ fontSize: '28px', fontWeight: 800, color: isOverdue ? '#dc2626' : '#16a34a', margin: '6px 0' }}>
                 ฿{monthlyRate.toLocaleString()}
               </div>
-              <div style={{ fontSize: '12px', color: isOverdue ? '#dc2626' : '#16a34a' }}>ครบกำหนด: {fmtDate(dueDate)}</div>
+              <div style={{ fontSize: '12px', color: isOverdue ? '#dc2626' : '#16a34a' }}>
+                ครบกำหนด: {fmtDate(currentPeriod.dueDate)}
+              </div>
             </div>
 
-            {/* Progress bar (show if partially paid) */}
-            {currentPaidAmt > 0 && (
+            {/* Progress bar (if partially paid) */}
+            {currentPeriod.totalPaid > 0 && (
               <div style={{ marginBottom: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                  <span style={{ color: '#16a34a', fontWeight: 600 }}>จ่ายแล้ว ฿{currentPaidAmt.toLocaleString()}</span>
-                  <span style={{ color: isOverdue ? '#dc2626' : '#d97706', fontWeight: 600 }}>ค้างอีก ฿{remaining.toLocaleString()}</span>
+                  <span style={{ color: '#16a34a', fontWeight: 600 }}>จ่ายแล้ว ฿{currentPeriod.totalPaid.toLocaleString()}</span>
+                  <span style={{ color: isOverdue ? '#dc2626' : '#d97706', fontWeight: 600 }}>ค้าง ฿{remaining.toLocaleString()}</span>
                 </div>
                 <div style={{ height: '8px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{
-                    height: '100%', borderRadius: '4px',
-                    background: '#16a34a',
-                    width: `${Math.min(100, (currentPaidAmt / monthlyRate) * 100)}%`,
-                    transition: 'width .3s',
+                    height: '100%', borderRadius: '4px', background: '#16a34a',
+                    width: `${Math.min(100, (currentPeriod.totalPaid / monthlyRate) * 100)}%`,
                   }} />
                 </div>
               </div>
             )}
 
-            {/* Amount input */}
+            {/* Amount */}
             <div className="field-row">
               <label className="field-label">
-                {currentPaidAmt > 0 ? `ยอดที่รับเพิ่ม (ค้าง ฿${remaining.toLocaleString()})` : 'ยอดที่รับ (บาท)'}
+                {currentPeriod.totalPaid > 0 ? `ยอดที่รับเพิ่ม (ค้าง ฿${remaining.toLocaleString()})` : 'ยอดที่รับ (บาท)'}
               </label>
               <input className="field-input" type="number"
                 placeholder={String(remaining)}
-                value={amountPaid}
-                onChange={e => setAmountPaid(e.target.value)}
+                value={amount} onChange={e => setAmount(e.target.value)}
               />
               {paid > 0 && !willComplete && (
                 <div style={{ fontSize: '12px', color: '#d97706', marginTop: '4px' }}>
@@ -248,47 +240,47 @@ export default function CollectRentForm({
               <label className="field-label">หมายเหตุ</label>
               <input className="field-input" type="text"
                 placeholder="เช่น โอนมาแล้ว ref 123456"
-                value={note}
-                onChange={e => setNote(e.target.value)}
+                value={note} onChange={e => setNote(e.target.value)}
               />
             </div>
           </div>
         )}
 
         {/* Payment history */}
-        {collections.length > 0 && (
+        {periods.length > 0 && (
           <div className="card">
             <div className="card-title">ประวัติการชำระ</div>
-            {collections.map((c) => {
-              const badge = statusBadge(c, monthlyRate)
-              const subPayments: PaymentEntry[] = Array.isArray(c.payment_history) ? c.payment_history : []
+            {[...periods].reverse().map(p => {
+              const icon = p.fullyPaid ? '✅' : p.isOverdue ? '🔴' : p.totalPaid > 0 ? '🟡' : '⏳'
+              const color = p.fullyPaid ? '#16a34a' : p.isOverdue ? '#dc2626' : p.totalPaid > 0 ? '#d97706' : '#9ca3af'
+              const label = p.fullyPaid
+                ? 'ครบแล้ว'
+                : p.isOverdue
+                  ? `เลท — ค้าง ฿${(monthlyRate - p.totalPaid).toLocaleString()}`
+                  : p.totalPaid > 0
+                    ? `บางส่วน — ค้าง ฿${(monthlyRate - p.totalPaid).toLocaleString()}`
+                    : 'รอชำระ'
               return (
-                <div key={c.id} style={{ marginBottom: '12px', borderBottom: '1px solid #f3f4f6', paddingBottom: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '16px' }}>{badge.icon}</span>
+                <div key={p.dueDate} style={{ marginBottom: '10px', borderBottom: '1px solid #f3f4f6', paddingBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '16px' }}>{icon}</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 700 }}>{c.period_label}</div>
-                      <div style={{ fontSize: '11px', color: badge.color, fontWeight: 600 }}>{badge.label}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 700 }}>{p.label}</div>
+                      <div style={{ fontSize: '11px', color, fontWeight: 600 }}>{label}</div>
                     </div>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: c.status === 'paid' ? '#16a34a' : badge.color }}>
-                      ฿{Number(c.amount_paid).toLocaleString()}
+                    <span style={{ fontSize: '13px', fontWeight: 700, color }}>
+                      {p.totalPaid > 0 ? `฿${p.totalPaid.toLocaleString()}` : '—'}
                     </span>
                   </div>
-                  {/* Sub-payment breakdown */}
-                  {subPayments.length > 1 && (
-                    <div style={{ marginLeft: '24px', marginTop: '4px' }}>
-                      {subPayments.map((sp, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#6b7280', padding: '2px 0' }}>
-                          <span>{fmtDate(sp.paid_at)} • {sp.method ?? '—'}{sp.note ? ` • ${sp.note}` : ''}</span>
-                          <span style={{ fontWeight: 600 }}>+฿{Number(sp.amount).toLocaleString()}</span>
+                  {/* Sub-payments */}
+                  {p.payments.length > 0 && (
+                    <div style={{ marginLeft: '28px', marginTop: '4px' }}>
+                      {p.payments.map((pay, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#6b7280', padding: '1px 0' }}>
+                          <span>{fmtDate(pay.paid_date)} • {pay.payment_method ?? '—'}{pay.payment_note ? ` • ${pay.payment_note}` : ''}</span>
+                          <span style={{ fontWeight: 600 }}>+฿{Number(pay.amount).toLocaleString()}</span>
                         </div>
                       ))}
-                    </div>
-                  )}
-                  {subPayments.length === 1 && (
-                    <div style={{ marginLeft: '24px', fontSize: '11px', color: '#9ca3af' }}>
-                      {fmtDate(subPayments[0].paid_at)} • {subPayments[0].method ?? '—'}
-                      {subPayments[0].note ? ` • ${subPayments[0].note}` : ''}
                     </div>
                   )}
                 </div>
@@ -306,19 +298,13 @@ export default function CollectRentForm({
           </div>
         )}
 
-        {!fullyPaid && (
-          <button
-            className="btn"
-            onClick={handleSubmit}
-            disabled={loading}
-            style={{
-              width: '100%',
-              background: isOverdue ? '#dc2626' : '#16a34a',
-              color: '#fff',
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading ? '⏳ กำลังบันทึก...' : currentPaidAmt > 0 ? '➕ เพิ่มการชำระ' : '✅ บันทึกรับเงินเดือนนี้'}
+        {!currentPeriod.fullyPaid && (
+          <button className="btn" onClick={handleSubmit} disabled={loading} style={{
+            width: '100%',
+            background: isOverdue ? '#dc2626' : '#16a34a',
+            color: '#fff', opacity: loading ? 0.7 : 1,
+          }}>
+            {loading ? '⏳ กำลังบันทึก...' : currentPeriod.totalPaid > 0 ? '➕ เพิ่มการชำระ' : '✅ บันทึกรับเงินเดือนนี้'}
           </button>
         )}
 
@@ -328,19 +314,12 @@ export default function CollectRentForm({
         <div className="card" style={{ border: '1.5px solid #dc2626' }}>
           <div className="card-title" style={{ color: '#dc2626' }}>⚠️ สิ้นสุดสัญญา</div>
           <div style={{ fontSize: '13px', color: '#4b5563', marginBottom: '14px' }}>
-            เมื่อลูกค้าคืนรถและสิ้นสุดการเช่ารายเดือน กดปุ่มนี้เพื่อปลดล็อครถ
-            รถจะกลับสู่สถานะ <strong>ว่าง</strong>
+            เมื่อลูกค้าคืนรถและสิ้นสุดการเช่ารายเดือน กดปุ่มนี้เพื่อปลดล็อครถ — รถจะกลับสู่สถานะ <strong>ว่าง</strong>
           </div>
-          <Link
-            href={`/staff/return/${rental.id}`}
-            className="btn"
-            style={{
-              display: 'block', width: '100%',
-              background: '#fff', color: '#dc2626',
-              border: '2px solid #dc2626', textAlign: 'center',
-              textDecoration: 'none',
-            }}
-          >
+          <Link href={`/staff/monthly/end/${rental.id}`} className="btn" style={{
+            display: 'block', width: '100%', background: '#fff', color: '#dc2626',
+            border: '2px solid #dc2626', textAlign: 'center', textDecoration: 'none',
+          }}>
             🚫 สิ้นสุดสัญญาเช่ารายเดือน
           </Link>
         </div>

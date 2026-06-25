@@ -7,6 +7,14 @@ export const dynamic = 'force-dynamic'
 
 const MONTH_NAMES = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
+function getDueDate(startDate: Date, periodIndex: number, paymentDay: number): Date {
+  const d = new Date(startDate)
+  d.setMonth(d.getMonth() + periodIndex)
+  const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  d.setDate(Math.min(paymentDay, daysInMonth))
+  return d
+}
+
 export default async function CollectRentPage({ params }: { params: Promise<{ rentalId: string }> }) {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
@@ -15,65 +23,71 @@ export default async function CollectRentPage({ params }: { params: Promise<{ re
   const { rentalId } = await params
   const supabase = createAdminClient()
 
-  const [{ data: rental }, { data: collections }] = await Promise.all([
+  const [{ data: rental }, { data: payments }] = await Promise.all([
     supabase
-      .from('rentals')
+      .from('monthly_rentals')
       .select(`
-        id, start_datetime, daily_rate, total_amount, status,
+        id, start_date, payment_day, monthly_rate, deposit_amount, status,
         bikes(id, license_plate, brand, model),
         customers(id, name, phone, workplace)
       `)
       .eq('id', rentalId)
-      .in('status', ['active', 'extended'])
+      .eq('status', 'active')
       .single(),
     supabase
-      .from('monthly_collections')
+      .from('monthly_payments')
       .select('*')
-      .eq('rental_id', rentalId)
-      .order('created_at', { ascending: true }),
+      .eq('monthly_rental_id', rentalId)
+      .order('paid_date', { ascending: true }),
   ])
 
   if (!rental) redirect('/staff/home')
 
-  // Calculate current period
-  const startDate = new Date(rental.start_datetime)
+  const startDate = new Date(rental.start_date)
+  const paymentDay = rental.payment_day ?? startDate.getDate()
   const now = new Date()
+
+  // Generate all periods from start until next month
   const monthsElapsed =
     (now.getFullYear() - startDate.getFullYear()) * 12 +
     (now.getMonth() - startDate.getMonth())
-  const currentPeriodNum = monthsElapsed + 1
+  const totalPeriods = monthsElapsed + 1 // include current month
 
-  const dueDate = new Date(startDate)
-  dueDate.setMonth(startDate.getMonth() + monthsElapsed)
+  // Build period list with payment data
+  const periods = Array.from({ length: totalPeriods }, (_, i) => {
+    const dueDate = getDueDate(startDate, i, paymentDay)
+    const dueDateStr = dueDate.toISOString().split('T')[0]
+    const thYear = dueDate.getFullYear() + 543
+    const label = `เดือนที่ ${i + 1} — ${MONTH_NAMES[dueDate.getMonth()]} ${thYear}`
 
-  const thYear = dueDate.getFullYear() + 543
-  const periodLabel = `เดือนที่ ${currentPeriodNum} — ${MONTH_NAMES[dueDate.getMonth()]} ${thYear}`
+    const periodPayments = (payments ?? []).filter(p => p.due_date === dueDateStr)
+    const totalPaid = periodPayments.reduce((s, p) => s + Number(p.amount), 0)
+    const fullyPaid = totalPaid >= rental.monthly_rate
+    const isOverdue = !fullyPaid && now > dueDate
 
-  const monthlyRate = rental.daily_rate * 30
-  const totalCollected = (collections ?? []).reduce((s, c) => s + Number(c.amount_paid), 0)
+    return {
+      periodNum: i + 1,
+      dueDate: dueDateStr,
+      label,
+      payments: periodPayments,
+      totalPaid,
+      fullyPaid,
+      isOverdue,
+    }
+  })
 
-  // Find current period record
-  const currentPeriodRecord = (collections ?? []).find(c => c.period_label === periodLabel)
-  const currentPaidAmt = currentPeriodRecord ? Number(currentPeriodRecord.amount_paid) : 0
-  const fullyPaid = currentPeriodRecord?.status === 'paid'
-
-  // Overdue: past due date and not fully paid
-  const isOverdue = !fullyPaid && now > dueDate
+  // Current period = first unpaid, or last if all paid
+  const currentPeriod = periods.find(p => !p.fullyPaid) ?? periods[periods.length - 1]
+  const totalCollected = (payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
 
   return (
     <CollectRentForm
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       rental={rental as any}
-      collections={(collections ?? []) as any[]}
+      periods={periods}
+      currentPeriod={currentPeriod}
       staffId={staffId}
-      currentPeriodNum={currentPeriodNum}
-      periodLabel={periodLabel}
-      dueDate={dueDate.toISOString().split('T')[0]}
-      monthlyRate={monthlyRate}
       totalCollected={totalCollected}
-      currentPaidAmt={currentPaidAmt}
-      fullyPaid={fullyPaid}
-      isOverdue={isOverdue}
     />
   )
 }
