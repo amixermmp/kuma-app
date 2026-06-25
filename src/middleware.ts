@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL('/owner/login', request.url))
   }
 
   return supabaseResponse

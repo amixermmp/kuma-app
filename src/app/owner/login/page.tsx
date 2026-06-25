@@ -21,7 +21,7 @@ export default function OwnerLoginPage() {
       const supabase = createClient()
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
       if (authError) throw authError
-      router.push('/owner/dashboard')
+      window.location.href = '/owner/dashboard'
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ'
       setError(msg === 'Invalid login credentials' ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : msg)
