@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
+import { PeriodSelector } from './PeriodSelector'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,15 +14,37 @@ function fmt(n: number) {
   return '฿' + n.toLocaleString('th-TH')
 }
 
-export default async function OwnerDashboardPage() {
+export default async function OwnerDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/owner/login')
 
+  const { period = 'month' } = await searchParams
+
   const admin = createAdminClient()
   const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
+
+  // Date range based on period
+  let periodStart: Date
+  let periodEnd: Date = new Date(now)
+  let periodLabel: string
+
+  if (period === 'today') {
+    periodStart = new Date(now); periodStart.setHours(0, 0, 0, 0)
+    periodEnd = new Date(now); periodEnd.setHours(23, 59, 59, 999)
+    periodLabel = 'วันนี้'
+  } else if (period === 'week') {
+    periodStart = new Date(now); periodStart.setDate(now.getDate() - 6); periodStart.setHours(0, 0, 0, 0)
+    periodLabel = '7 วันล่าสุด'
+  } else {
+    periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    periodEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+    periodLabel = MONTHS_TH_FULL[now.getMonth()] + ' ' + (now.getFullYear() + 543)
+  }
 
   const sevenDaysAgo = new Date(now)
   sevenDaysAgo.setDate(now.getDate() - 6)
@@ -32,8 +55,8 @@ export default async function OwnerDashboardPage() {
     admin.from('bookings')
       .select('id, branch_id, daily_rate, total_days, start_datetime, customer_name, bikes(license_plate, brand, model)')
       .in('status', ['confirmed', 'active', 'completed'])
-      .gte('start_datetime', monthStart)
-      .lte('start_datetime', monthEnd),
+      .gte('start_datetime', periodStart.toISOString())
+      .lte('start_datetime', periodEnd.toISOString()),
     admin.from('bookings')
       .select('id, status, customer_name, start_datetime, daily_rate, total_days, bikes(license_plate)')
       .in('status', ['confirmed', 'active', 'completed'])
@@ -103,24 +126,25 @@ export default async function OwnerDashboardPage() {
     <div className="app-wrap">
 
       {/* Header */}
-      <div className="app-header" style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', alignItems: 'flex-start' }}>
+      <div className="app-header" style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', alignItems: 'center' }}>
         <div style={{ flex: 1 }}>
           <h1>Dashboard</h1>
-          <div className="sub">ภาพรวมธุรกิจ — {monthName}</div>
+          <div className="sub">ภาพรวมธุรกิจ — {periodLabel}</div>
         </div>
-        <form action="/api/owner/logout" method="POST">
+        <PeriodSelector current={period} />
+        <form action="/api/owner/logout" method="POST" style={{ marginLeft: '8px' }}>
           <button style={{
             background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: '8px',
             color: '#fff', fontSize: '12px', padding: '6px 12px', cursor: 'pointer', fontWeight: 600,
-          }}>ออกจากระบบ</button>
+          }}>ออก</button>
         </form>
       </div>
 
       {/* KPI Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '16px 16px 0' }}>
         {([
-          { icon: '💰', val: fmt(monthlyRevenue), lbl: 'รายได้เดือนนี้',       border: '#16a34a', color: '#16a34a' },
-          { icon: '📋', val: String(monthlyCount), lbl: 'รายการเช่าเดือนนี้',   border: '#2563eb', color: '#2563eb' },
+          { icon: '💰', val: fmt(monthlyRevenue), lbl: `รายได้${periodLabel}`,  border: '#16a34a', color: '#16a34a' },
+          { icon: '📋', val: String(monthlyCount), lbl: `รายการเช่า${periodLabel}`, border: '#2563eb', color: '#2563eb' },
           { icon: '🛵', val: `${utilization}%`,    lbl: 'อัตราการใช้งานรถ',     border: '#d97706', color: '#d97706' },
           { icon: '📌', val: String(pendingCount),  lbl: 'งานค้างทั้งหมด',       border: '#dc2626', color: '#dc2626' },
         ] as const).map(({ icon, val, lbl, border, color }) => (
