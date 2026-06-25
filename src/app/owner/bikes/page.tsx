@@ -38,26 +38,27 @@ export default async function OwnerBikesPage() {
 
   const admin = createAdminClient()
 
-  const [bikesRes, activeBookingsRes, branchesRes] = await Promise.all([
+  const [bikesRes, docsRes, branchesRes] = await Promise.all([
     admin.from('bikes')
-      .select('id, license_plate, brand, model, year, color, status, daily_rate, odometer, notes, docs, branch_id, branches(name)')
+      .select('id, license_plate, brand, model, year, color, status, daily_rate, odometer, notes, branch_id, branches(name)')
       .order('license_plate'),
-    admin.from('bookings')
-      .select('bike_id, end_datetime, customer_name')
-      .eq('status', 'active'),
+    admin.from('bike_documents')
+      .select('bike_id, doc_type, expiry_date')
+      .in('doc_type', ['tax', 'pob']),
     admin.from('branches').select('id, name').order('name'),
   ])
 
-  const activeMap: Record<string, { end_datetime: string; customer_name: string }> = {}
-  for (const b of activeBookingsRes.data ?? []) {
-    if (b.bike_id) activeMap[b.bike_id] = { end_datetime: b.end_datetime, customer_name: b.customer_name }
+  // Map expiry dates per bike
+  const docExpiryMap: Record<string, { tax?: string | null; pob?: string | null }> = {}
+  for (const d of docsRes.data ?? []) {
+    if (!docExpiryMap[d.bike_id]) docExpiryMap[d.bike_id] = {}
+    if (d.doc_type === 'tax') docExpiryMap[d.bike_id].tax = d.expiry_date
+    if (d.doc_type === 'pob') docExpiryMap[d.bike_id].pob = d.expiry_date
   }
 
   const bikes: OwnerBike[] = (bikesRes.data ?? []).map(b => {
     const branch = Array.isArray(b.branches) ? b.branches[0] : b.branches as { name: string } | null
-    const active = activeMap[b.id]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const docs = b.docs as any
+    const expiry = docExpiryMap[b.id] ?? {}
     return {
       id: b.id,
       license_plate: b.license_plate,
@@ -71,10 +72,10 @@ export default async function OwnerBikesPage() {
       notes: b.notes,
       branch_id: b.branch_id,
       branch_name: branch?.name ?? '—',
-      return_date: active?.end_datetime ?? null,
-      customer_name: active?.customer_name ?? null,
-      days_until_tax: daysUntil(docs?.tax?.expiry_date),
-      days_until_pob: daysUntil(docs?.pob?.expiry_date),
+      return_date: null,
+      customer_name: null,
+      days_until_tax: daysUntil(expiry.tax),
+      days_until_pob: daysUntil(expiry.pob),
     }
   })
 
