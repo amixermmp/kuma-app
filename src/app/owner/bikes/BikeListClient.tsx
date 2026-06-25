@@ -114,7 +114,7 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
       {view === 'grid' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '12px', paddingBottom: '80px' }}>
           {filtered.map(bike => (
-            <Link key={bike.id} href={`/staff/bikes/${bike.id}/menu`} style={{ textDecoration: 'none' }}>
+            <Link key={bike.id} href={`/owner/bikes/${bike.id}`} style={{ textDecoration: 'none' }}>
               <div style={{
                 background: '#fff', borderRadius: '14px', padding: '12px',
                 boxShadow: '0 1px 4px rgba(0,0,0,.07)',
@@ -167,7 +167,7 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
                 const pobAlert = docAlert(bike.days_until_pob)
                 const isGray = bike.status === 'repair' || bike.status === 'retired'
                 return (
-                  <Link key={bike.id} href={`/staff/bikes/${bike.id}/menu`} style={{ textDecoration: 'none' }}>
+                  <Link key={bike.id} href={`/owner/bikes/${bike.id}`} style={{ textDecoration: 'none' }}>
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: '10px',
                       padding: '12px 14px', background: '#fff',
