@@ -17,13 +17,13 @@ function fmt(n: number) {
 export default async function OwnerDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string }>
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/owner/login')
 
-  const { period = 'month' } = await searchParams
+  const { period = 'month', from, to } = await searchParams
 
   const admin = createAdminClient()
   const now = new Date()
@@ -33,7 +33,12 @@ export default async function OwnerDashboardPage({
   let periodEnd: Date = new Date(now)
   let periodLabel: string
 
-  if (period === 'today') {
+  if (period === 'custom' && from && to) {
+    periodStart = new Date(`${from}T00:00:00`)
+    periodEnd   = new Date(`${to}T23:59:59`)
+    const fmtD  = (d: Date) => `${d.getDate()} ${MONTHS_TH_FULL[d.getMonth()].slice(0, 3)}. ${d.getFullYear() + 543}`
+    periodLabel = `${fmtD(periodStart)} — ${fmtD(periodEnd)}`
+  } else if (period === 'today') {
     periodStart = new Date(now); periodStart.setHours(0, 0, 0, 0)
     periodEnd = new Date(now); periodEnd.setHours(23, 59, 59, 999)
     periodLabel = 'วันนี้'
@@ -131,7 +136,7 @@ export default async function OwnerDashboardPage({
           <h1>Dashboard</h1>
           <div className="sub">ภาพรวมธุรกิจ — {periodLabel}</div>
         </div>
-        <PeriodSelector current={period} />
+        <PeriodSelector current={period} currentFrom={from} currentTo={to} />
         <form action="/api/owner/logout" method="POST" style={{ marginLeft: '8px' }}>
           <button style={{
             background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: '8px',
