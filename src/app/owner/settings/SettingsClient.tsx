@@ -1,0 +1,434 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+
+type Shop = Record<string, any>
+type Staff = { id: string; name: string; pin: string; branch_id: string | null; is_active: boolean; branches?: { name: string } | null }
+type Branch = { id: string; name: string }
+type Promo = { id: string; name: string | null; code: string | null; description: string | null; discount_type: string; discount_value: number; min_days: number | null; bonus_days: number | null; is_active: boolean }
+
+type Props = { shop: Shop; staff: Staff[]; branches: Branch[]; promotions: Promo[] }
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: '8px', background: '#fff' }}>
+      <div style={{ padding: '12px 16px 8px', fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.5px', borderBottom: '1px solid #f3f4f6' }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
+  return (
+    <div className="field-row">
+      <label className="field-label">{label}</label>
+      {children}
+      {hint && <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>{hint}</div>}
+    </div>
+  )
+}
+
+function SaveBtn({ loading, onClick, label = '💾 บันทึก' }: { loading: boolean; onClick: () => void; label?: string }) {
+  return (
+    <button onClick={onClick} disabled={loading} className="btn btn-primary"
+      style={{ background: '#7c3aed', opacity: loading ? .7 : 1 }}>
+      {loading ? '⏳...' : label}
+    </button>
+  )
+}
+
+function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <div onClick={onClick} style={{
+      width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer',
+      background: on ? '#7c3aed' : '#d1d5db', position: 'relative', flexShrink: 0,
+      transition: 'background .2s',
+    }}>
+      <div style={{
+        position: 'absolute', top: '3px', left: on ? '23px' : '3px',
+        width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+        transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+      }} />
+    </div>
+  )
+}
+
+// ─── StaffModal ──────────────────────────────────────────────────────────────
+
+function StaffModal({ branches, onClose, onSaved, editing }: {
+  branches: Branch[]
+  onClose: () => void
+  onSaved: () => void
+  editing?: Staff
+}) {
+  const [name, setName] = useState(editing?.name ?? '')
+  const [pin, setPin] = useState(editing?.pin ?? '')
+  const [branchId, setBranchId] = useState(editing?.branch_id ?? '')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const save = async () => {
+    if (!name.trim()) { setError('กรุณาใส่ชื่อ'); return }
+    if (pin.length !== 6) { setError('PIN ต้องมี 6 หลัก'); return }
+    setLoading(true); setError('')
+    const url = editing ? `/api/owner/settings/staff/${editing.id}` : '/api/owner/settings/staff'
+    const res = await fetch(url, {
+      method: editing ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), pin, branch_id: branchId || null }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setError(data.error ?? 'เกิดข้อผิดพลาด'); setLoading(false); return }
+    onSaved()
+  }
+
+  const deactivate = async () => {
+    if (!editing) return
+    if (!confirm(`ปิดการใช้งาน ${editing.name}?`)) return
+    await fetch(`/api/owner/settings/staff/${editing.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: false }),
+    })
+    onSaved()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 999, display: 'flex', alignItems: 'flex-end' }}>
+      <div style={{ background: '#fff', width: '100%', borderRadius: '16px 16px 0 0', padding: '20px 16px 32px' }}>
+        <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '16px' }}>
+          {editing ? 'แก้ไขพนักงาน' : '+ เพิ่มพนักงาน'}
+        </div>
+        <Field label="ชื่อ - นามสกุล *">
+          <input className="field-input" value={name} onChange={e => setName(e.target.value)} placeholder="สมชาย มีดี" />
+        </Field>
+        <Field label="PIN (6 หลัก) *" hint="พนักงานใช้ PIN นี้ scan QR รถเพื่อเข้าระบบ">
+          <input className="field-input" type="number" value={pin} onChange={e => setPin(e.target.value.slice(0, 6))} placeholder="123456" />
+        </Field>
+        <Field label="สาขา">
+          <select className="field-input" value={branchId} onChange={e => setBranchId(e.target.value)}>
+            <option value="">ไม่ระบุสาขา</option>
+            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </Field>
+        {error && <div style={{ color: '#dc2626', fontSize: '13px', marginBottom: '12px' }}>⚠️ {error}</div>}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={onClose} className="btn" style={{ flex: 1, background: '#f3f4f6', color: '#374151' }}>ยกเลิก</button>
+          <SaveBtn loading={loading} onClick={save} label={editing ? '💾 บันทึก' : '+ เพิ่ม'} />
+        </div>
+        {editing && editing.is_active && (
+          <button onClick={deactivate} style={{ marginTop: '10px', width: '100%', background: 'none', border: 'none', color: '#dc2626', fontSize: '13px', cursor: 'pointer' }}>
+            ปิดการใช้งานพนักงานคนนี้
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── BranchModal ─────────────────────────────────────────────────────────────
+
+function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const save = async () => {
+    if (!name.trim()) { setError('กรุณาใส่ชื่อสาขา'); return }
+    setLoading(true)
+    const res = await fetch('/api/owner/settings/branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setError(data.error ?? 'เกิดข้อผิดพลาด'); setLoading(false); return }
+    onSaved()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 999, display: 'flex', alignItems: 'flex-end' }}>
+      <div style={{ background: '#fff', width: '100%', borderRadius: '16px 16px 0 0', padding: '20px 16px 32px' }}>
+        <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '16px' }}>+ เพิ่มสาขา</div>
+        <Field label="ชื่อสาขา *">
+          <input className="field-input" value={name} onChange={e => setName(e.target.value)} placeholder="เช่น สาขาป่าตอง" />
+        </Field>
+        {error && <div style={{ color: '#dc2626', fontSize: '13px', marginBottom: '12px' }}>⚠️ {error}</div>}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={onClose} className="btn" style={{ flex: 1, background: '#f3f4f6', color: '#374151' }}>ยกเลิก</button>
+          <SaveBtn loading={loading} onClick={save} label="+ เพิ่มสาขา" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+export default function SettingsClient({ shop, staff: initialStaff, branches: initialBranches, promotions: initialPromos }: Props) {
+  const router = useRouter()
+
+  // ── Shop state ──
+  const [shopName, setShopName] = useState(shop.shop_name ?? '')
+  const [address, setAddress] = useState(shop.address ?? '')
+  const [taxId, setTaxId] = useState(shop.tax_id ?? '')
+  const [phone, setPhone] = useState(shop.phone ?? '')
+  const [shopLoading, setShopLoading] = useState(false)
+  const [shopMsg, setShopMsg] = useState('')
+
+  // ── Notification state ──
+  const [docDays, setDocDays] = useState(String(shop.doc_alert_days ?? 30))
+  const [overdueHours, setOverdueHours] = useState(String(shop.overdue_alert_hours ?? 2))
+  const [oilKm, setOilKm] = useState(String(shop.oil_alert_km ?? 200))
+  const [overtimeRate, setOvertimeRate] = useState(String(shop.overtime_rate ?? 50))
+  const [hoursPerDay, setHoursPerDay] = useState(String(shop.hours_per_day ?? 5))
+
+  // ── LINE state ──
+  const [lineToken, setLineToken] = useState(shop.line_token ?? '')
+  const [lineTarget, setLineTarget] = useState(shop.line_target_id ?? '')
+  const [lineOverdue, setLineOverdue] = useState(shop.line_notify_overdue ?? true)
+  const [lineDocs, setLineDocs] = useState(shop.line_notify_docs ?? true)
+  const [lineMonthly, setLineMonthly] = useState(shop.line_notify_monthly ?? true)
+  const [lineBroken, setLineBroken] = useState(shop.line_notify_broken ?? false)
+  const [lineLoading, setLineLoading] = useState(false)
+  const [lineMsg, setLineMsg] = useState('')
+
+  // ── Staff/Branch state ──
+  const [staff, setStaff] = useState(initialStaff)
+  const [branches, setBranches] = useState(initialBranches)
+  const [promos, setPromos] = useState(initialPromos)
+  const [staffModal, setStaffModal] = useState<Staff | null | 'new'>(null)
+  const [branchModal, setBranchModal] = useState(false)
+
+  const refresh = () => router.refresh()
+
+  // ── Save shop info ──
+  const saveShop = async () => {
+    setShopLoading(true); setShopMsg('')
+    const res = await fetch('/api/owner/settings/shop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shop_name: shopName, address, tax_id: taxId, phone,
+        overtime_rate: parseFloat(overtimeRate) || 50,
+        hours_per_day: parseInt(hoursPerDay) || 5,
+        doc_alert_days: parseInt(docDays) || 30,
+        overdue_alert_hours: parseInt(overdueHours) || 2,
+        oil_alert_km: parseInt(oilKm) || 200,
+      }),
+    })
+    setShopLoading(false)
+    setShopMsg(res.ok ? '✅ บันทึกแล้ว' : '❌ เกิดข้อผิดพลาด')
+    setTimeout(() => setShopMsg(''), 3000)
+  }
+
+  // ── Save LINE ──
+  const saveLine = async () => {
+    setLineLoading(true); setLineMsg('')
+    const res = await fetch('/api/owner/settings/shop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        line_token: lineToken, line_target_id: lineTarget,
+        line_notify_overdue: lineOverdue, line_notify_docs: lineDocs,
+        line_notify_monthly: lineMonthly, line_notify_broken: lineBroken,
+      }),
+    })
+    setLineLoading(false)
+    setLineMsg(res.ok ? '✅ บันทึกแล้ว' : '❌ เกิดข้อผิดพลาด')
+    setTimeout(() => setLineMsg(''), 3000)
+  }
+
+  // ── Toggle promo ──
+  const togglePromo = async (id: string, current: boolean) => {
+    setPromos(prev => prev.map(p => p.id === id ? { ...p, is_active: !current } : p))
+    await fetch(`/api/owner/settings/promo/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !current }),
+    })
+  }
+
+  const discountLabel = (p: Promo) => {
+    if (p.discount_type === 'percent') return `ลด ${p.discount_value}%`
+    if (p.discount_type === 'fixed') return `ลด ฿${p.discount_value}`
+    if (p.discount_type === 'bonus_days') return `เช่า ${p.min_days} วัน แถม ${p.bonus_days} วัน`
+    if (p.discount_type === 'flat_rate') return `฿${p.discount_value}/วัน`
+    return ''
+  }
+
+  return (
+    <div style={{ paddingBottom: '40px' }}>
+
+      {/* ── ข้อมูลร้าน ── */}
+      <Section title="🏢 ข้อมูลบริษัท / ร้าน">
+        <div style={{ padding: '12px 16px' }}>
+          <Field label="ชื่อบริษัท / ร้าน">
+            <input className="field-input" value={shopName} onChange={e => setShopName(e.target.value)} placeholder="Kuma Rental Co., Ltd." />
+          </Field>
+          <Field label="ที่อยู่">
+            <textarea className="field-input" rows={2} value={address} onChange={e => setAddress(e.target.value)} placeholder="123/4 ถ.วิชิตสงคราม ต.กะรน อ.เมือง จ.ภูเก็ต 83100" style={{ resize: 'none' }} />
+          </Field>
+          <Field label="เลขประจำตัวผู้เสียภาษี" hint="ใส่เมื่อจดทะเบียน VAT แล้ว">
+            <input className="field-input" value={taxId} onChange={e => setTaxId(e.target.value)} placeholder="0-0000-00000-00-0" maxLength={17} />
+          </Field>
+          <Field label="เบอร์โทรศัพท์">
+            <input className="field-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="076-000-000" />
+          </Field>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <SaveBtn loading={shopLoading} onClick={saveShop} />
+            {shopMsg && <span style={{ fontSize: '13px', color: shopMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{shopMsg}</span>}
+          </div>
+        </div>
+      </Section>
+
+      {/* ── พนักงาน ── */}
+      <Section title="👤 จัดการพนักงาน">
+        {staff.filter(s => s.is_active).map(s => {
+          const branchName = (s as any).branches?.name
+          return (
+            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#7c3aed', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0 }}>
+                {s.name[0]}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600 }}>{s.name}</div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>PIN: {'•'.repeat(6)} {branchName ? `• ${branchName}` : ''}</div>
+              </div>
+              <button onClick={() => setStaffModal(s)} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '13px', cursor: 'pointer' }}>แก้ไข</button>
+            </div>
+          )
+        })}
+        <div style={{ padding: '12px 16px' }}>
+          <button onClick={() => setStaffModal('new')} className="btn" style={{ border: '1.5px solid #7c3aed', color: '#7c3aed', background: '#fff', width: '100%' }}>
+            + เพิ่มพนักงาน
+          </button>
+        </div>
+      </Section>
+
+      {/* ── สาขา ── */}
+      <Section title="🏢 จัดการสาขา">
+        {branches.map(b => (
+          <div key={b.id} style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '14px', fontWeight: 600 }}>{b.name}</div>
+            </div>
+            <span style={{ color: '#9ca3af', fontSize: '18px' }}>›</span>
+          </div>
+        ))}
+        <div style={{ padding: '12px 16px' }}>
+          <button onClick={() => setBranchModal(true)} className="btn" style={{ border: '1.5px solid #7c3aed', color: '#7c3aed', background: '#fff', width: '100%' }}>
+            + เพิ่มสาขา
+          </button>
+        </div>
+      </Section>
+
+      {/* ── ราคาและล่วงเวลา ── */}
+      <Section title="💰 ราคาและค่าล่วงเวลา">
+        <div style={{ padding: '12px 16px' }}>
+          <Field label="ค่าล่วงเวลา (บาท/ชั่วโมง)">
+            <input className="field-input" type="number" value={overtimeRate} onChange={e => setOvertimeRate(e.target.value)} />
+          </Field>
+          <Field label="กี่ชั่วโมงเท่ากับ 1 วัน">
+            <input className="field-input" type="number" value={hoursPerDay} onChange={e => setHoursPerDay(e.target.value)} />
+          </Field>
+        </div>
+      </Section>
+
+      {/* ── โปรโมชั่น ── */}
+      <Section title="🎁 โปรโมชั่น">
+        <div style={{ padding: '12px 16px' }}>
+          {promos.map(p => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600 }}>{p.name ?? p.description ?? p.code}</div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>{discountLabel(p)}</div>
+              </div>
+              <Toggle on={p.is_active} onClick={() => togglePromo(p.id, p.is_active)} />
+            </div>
+          ))}
+          <Link href="/owner/settings/promos/create" className="btn" style={{ display: 'block', textAlign: 'center', marginTop: '12px', border: '1.5px solid #7c3aed', color: '#7c3aed', background: '#fff', textDecoration: 'none' }}>
+            + สร้างโปรโมชั่นใหม่
+          </Link>
+        </div>
+      </Section>
+
+      {/* ── การแจ้งเตือน ── */}
+      <Section title="🔔 การแจ้งเตือน">
+        <div style={{ padding: '12px 16px' }}>
+          <Field label="แจ้งเตือนก่อนเอกสารหมดอายุ (วัน)">
+            <input className="field-input" type="number" value={docDays} onChange={e => setDocDays(e.target.value)} />
+          </Field>
+          <Field label="แจ้งเตือนเมื่อลูกค้าเกินกำหนดคืน (ชม.)">
+            <input className="field-input" type="number" value={overdueHours} onChange={e => setOverdueHours(e.target.value)} />
+          </Field>
+          <Field label="แจ้งเตือนก่อนถึงกำหนดเปลี่ยนน้ำมัน (กม.)">
+            <input className="field-input" type="number" value={oilKm} onChange={e => setOilKm(e.target.value)} />
+          </Field>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <SaveBtn loading={shopLoading} onClick={saveShop} />
+            {shopMsg && <span style={{ fontSize: '13px', color: shopMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{shopMsg}</span>}
+          </div>
+        </div>
+      </Section>
+
+      {/* ── LINE Notification ── */}
+      <Section title="💬 LINE Notification">
+        <div style={{ margin: '12px 16px 0', background: '#f0fdf4', borderRadius: '10px', padding: '12px', fontSize: '12px', color: '#166534', border: '1px solid #bbf7d0' }}>
+          ระบบจะส่งแจ้งเตือนเข้า LINE OA อัตโนมัติสำหรับ event สำคัญ
+        </div>
+        <div style={{ padding: '12px 16px' }}>
+          <Field label="LINE Channel Access Token">
+            <input className="field-input" type="password" value={lineToken} onChange={e => setLineToken(e.target.value)} placeholder="วางได้จาก LINE Developers Console" />
+          </Field>
+          <Field label="LINE Group / User ID" hint="เพิ่มบอทเข้ากลุ่มไลน์ Staff แล้ว copy Group ID มาใส่">
+            <input className="field-input" value={lineTarget} onChange={e => setLineTarget(e.target.value)} placeholder="C... หรือ U..." />
+          </Field>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '10px' }}>เปิดแจ้งเตือนสำหรับ</div>
+          {[
+            { label: '⏰ ลูกค้าเกินกำหนดคืนรถ', val: lineOverdue, set: setLineOverdue },
+            { label: '📄 เอกสารรถใกล้หมดอายุ', val: lineDocs, set: setLineDocs },
+            { label: '💜 ค่าเช่ารายเดือนค้างชำระ', val: lineMonthly, set: setLineMonthly },
+            { label: '🛵💥 มีแจ้งรถเสียใหม่', val: lineBroken, set: setLineBroken },
+          ].map(({ label, val, set }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0' }}>
+              <span style={{ flex: 1, fontSize: '14px' }}>{label}</span>
+              <Toggle on={val} onClick={() => set(!val)} />
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+            <button className="btn" style={{ flex: 1, border: '1.5px solid #00b900', color: '#00b900', background: '#fff' }}>
+              🧪 ทดสอบส่ง LINE
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+            <SaveBtn loading={lineLoading} onClick={saveLine} />
+            {lineMsg && <span style={{ fontSize: '13px', color: lineMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{lineMsg}</span>}
+          </div>
+        </div>
+      </Section>
+
+      {/* Modals */}
+      {staffModal && (
+        <StaffModal
+          branches={branches}
+          editing={staffModal === 'new' ? undefined : staffModal as Staff}
+          onClose={() => setStaffModal(null)}
+          onSaved={() => { setStaffModal(null); refresh() }}
+        />
+      )}
+      {branchModal && (
+        <BranchModal
+          onClose={() => setBranchModal(false)}
+          onSaved={() => { setBranchModal(false); refresh() }}
+        />
+      )}
+    </div>
+  )
+}
