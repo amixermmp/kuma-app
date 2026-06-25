@@ -1,0 +1,107 @@
+====================================================
+KUMA APP — สรุปความคืบหน้า + Context สำหรับ AI
+====================================================
+อัปเดต: 2026-06-25
+
+=== TECH STACK ===
+- Next.js 14 App Router (Server + Client components)
+- Supabase SSR (@supabase/ssr) + Admin client (service role key)
+- Deployed on Vercel (auto-deploy จาก GitHub main branch)
+- Repo: github.com/amixermmp/kuma-app
+- Production URL: https://kuma-app.vercel.app
+
+=== CONSTANTS ===
+- BRANCH_ID = '00000000-0000-0000-0000-000000000001'
+- Admin client: createAdminClient() จาก @/lib/supabase/admin
+
+=== AUTH SYSTEMS (2 ระบบ) ===
+1. Staff PIN → httpOnly cookie "kuma_staff_id" + "kuma_staff_name" + "kuma_branch_name"
+   - Login endpoint: GET /api/staff/pin-login?pin=...&bikeId=...&redirect=...
+   - ใช้ redirect แทน fetch (compat กับ mobile WebView)
+2. Owner email/password → Supabase JWT session (standard)
+
+=== DATABASE TABLES ที่ใช้หลัก ===
+- bikes (id, license_plate, brand, model, color, year, daily_rate, deposit_amount, odometer, fuel_level, status)
+- staff (id, name, pin, branch_id)
+- customers (id, name, phone, workplace, branch_id)
+- rentals (id, bike_id, customer_id, start_datetime, expected_end_datetime, status, ...)
+- monthly_rentals (id, bike_id, customer_id, start_date, payment_day, monthly_rate, deposit_amount, status, send_photos)
+- monthly_payments (id, monthly_rental_id, due_date, paid_date, amount, payment_method, status)
+- bookings (id, branch_id, bike_id, staff_id, booking_ref, customer_name, customer_phone, customer_hotel, start_datetime, end_datetime, total_days, daily_rate, total_amount, discount, source, promo_id, notes, status)
+- bike_routines (id, bike_id, title, due_date, status)
+- bike_documents (id, bike_id, title, expiry_date)
+- repairs (id, bike_id, description, status, created_at)
+- promotions (id, code, description, discount_type, discount_value, is_active)
+- branch_settings (branch_id, contact_phone, contact_line, ...)
+
+bookings.booking_ref format: KMYYMMDDxxxx (เช่น KM260625-1234)
+
+=== หน้าที่ BUILD เสร็จแล้ว ===
+
+1. /staff/home
+   - หน้าหลักพนักงาน แสดง QR code ประจำสาขา
+   - link ไป: ค้นหารถ, ส่งรถ, job tasks, รายการรถ
+
+2. /staff/jobs
+   - Job Tasks — แสดงงานที่ต้องทำวันนี้ทั้งหมด
+   - Categories: รับคืนรถ (overdue+due soon), รถเสีย, รูทีนค้าง, เอกสารใกล้หมด, รายเดือนค้างชำระ
+   - TODO: ยังไม่มี "งานส่งรถ" จาก bookings table (user ถามแล้ว ต้องเพิ่ม)
+
+3. /staff/search
+   - ค้นหารถว่างตามวันเวลา
+   - กรอง: ราคา
+   - แสดง badge: ว่าง (เขียว), ติดจอง (ม่วง), ถูกเช่า (แดง), ซ่อม (เทา)
+   - ปุ่ม "จอง →" link ไป /staff/booking/[bikeId]?from=...&to=...
+   - API: GET /api/staff/search/bikes เช็ค conflict ทั้ง rentals + bookings
+
+4. /staff/booking/[bikeId]
+   - ฟอร์มจองคิวล่วงหน้า
+   - กรอก: ชื่อลูกค้า, เบอร์, โรงแรม, ช่องทาง (LINE/FB/โทร/Walk-in), โปรโมชั่น, หมายเหตุ
+   - phone lookup อัตโนมัติ (ถ้ามีลูกค้าเก่า)
+   - submit → /api/staff/booking/create → redirect ไป confirm page
+
+5. /staff/booking/[bikeId]/confirm
+   - E-ticket ยืนยันการจอง (พนักงานแคปส่งลูกค้า)
+   - แสดง: booking ref, รถ, วันรับ-คืน, ลูกค้า, ราคา, ช่องทางติดต่อร้าน
+   - หมายเหตุ: params.bikeId ในหน้านี้ = bookingId จริงๆ (เพราะ Next.js slug constraint)
+
+6. /staff/send/[bikeId] (SendCarForm)
+   - ฟอร์มส่งรถ — มี 2 tab: รายวัน + รายเดือน
+   - รายวัน: วันเช่า, วันคืน, ราคา, มัดจำ, ชำระ, slip
+   - รายเดือน: วันเริ่มสัญญา (date only), วันชำระ (dropdown auto จาก start date), ราคา/เดือน, มัดจำ
+   - API: /api/staff/monthly/create (upsert customer, insert monthly_rental + monthly_payment, set bike status = rented)
+
+7. /staff/bikes/[bikeId]/menu
+   - เมนูจัดการรถ: ดูสถานะ fuel, odometer, badge overdue
+   - link ไป: ส่งรถ, รับคืน, แจ้งซ่อม, รูทีน, เอกสาร
+
+8. /bike/[bikeId] (Public)
+   - หน้าสาธารณะ ลูกค้าสแกน QR เห็น
+   - แสดงรายละเอียดรถ, เงื่อนไขการเช่า
+   - Staff login ด้วย PIN (6 หลัก) → redirect ไป staff menu
+
+=== API ROUTES ===
+- GET  /api/staff/pin-login           — staff login (redirect-based)
+- GET  /api/staff/search/bikes        — ค้นหารถว่าง
+- POST /api/staff/booking/create      — สร้างการจอง
+- POST /api/staff/monthly/create      — สร้าง monthly rental
+- GET  /api/staff/customer/lookup     — ค้นหาลูกค้าจากเบอร์
+
+=== DEPLOYMENT ===
+- git add -A
+- git commit -m "..."
+- git push   (Vercel auto-deploy production จาก main)
+- PowerShell: รันแต่ละบรรทัดแยก ไม่ใช้ &&
+- ไม่ต้อง vercel --prod (unless git push ไม่ trigger)
+
+=== TODO ที่ยังไม่ได้ทำ ===
+1. Job Tasks: เพิ่ม "งานส่งรถ 🛵➡️" จาก bookings WHERE status='confirmed' AND start_datetime วันนี้/พรุ่งนี้
+2. Settings page: อัปโหลด terms/manual/contact
+3. หน้า staff home: design alignment ตาม mockup (low priority)
+
+=== IMPORTANT RULES ===
+- .env.local และ SUPABASE_SERVICE_ROLE_KEY ห้าม commit เด็ดขาด
+- Next.js: ห้ามใช้ slug names ต่างกันในระดับเดียวกัน ([bikeId] vs [bookingId] จะ conflict)
+- Mobile WebView: ใช้ window.location.href redirect แทน fetch() สำหรับ login
+
+====================================================

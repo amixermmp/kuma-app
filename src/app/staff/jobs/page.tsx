@@ -37,6 +37,15 @@ function daysUntil(dateStr: string) {
   return Math.floor((new Date(dateStr).getTime() - Date.now()) / 86_400_000)
 }
 
+// สีไล่ระดับตามความเร่งด่วน: น้ำเงิน → ส้ม → แดง → แดงแป๊ด
+function urgencyPalette(days: number) {
+  if (days < 0)  return { dot: '#b91c1c', bg: '#fee2e2', color: '#b91c1c' } // เกินกำหนด — แดงแป๊ด
+  if (days <= 3)  return { dot: '#dc2626', bg: '#fef2f2', color: '#dc2626' } // ≤3 วัน — แดง
+  if (days <= 7)  return { dot: '#ea580c', bg: '#fff7ed', color: '#ea580c' } // ≤7 วัน — ส้มแดง
+  if (days <= 14) return { dot: '#d97706', bg: '#fffbeb', color: '#d97706' } // ≤14 วัน — ส้ม
+  return           { dot: '#2563eb', bg: '#eff6ff', color: '#2563eb' }       // >14 วัน — น้ำเงิน
+}
+
 // ── Card components ──────────────────────────────────────────
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -109,6 +118,8 @@ export default async function JobsPage() {
   const today = now.toISOString().split('T')[0]
   const in30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
+  const in2hAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString()
+
   const [
     { data: overdueRentals },
     { data: dueSoonRentals },
@@ -116,6 +127,7 @@ export default async function JobsPage() {
     { data: routines },
     { data: docsDue },
     { data: monthlyDue },
+    { data: sendJobs },
   ] = await Promise.all([
     // รับรถคืน — เกินกำหนด
     supabase.from('rentals')
@@ -163,6 +175,16 @@ export default async function JobsPage() {
       .in('status', ['pending', 'overdue'])
       .lte('due_date', in30days)
       .limit(20),
+
+    // งานส่งรถ — bookings ที่วันรับรถอยู่ใน 24ชม (หรือเพิ่งผ่านมาไม่เกิน 2ชม)
+    supabase.from('bookings')
+      .select('id, booking_ref, start_datetime, customer_name, customer_phone, total_days, daily_rate, bikes(id, license_plate, brand, model)')
+      .eq('status', 'confirmed')
+      .eq('branch_id', BRANCH_ID)
+      .gte('start_datetime', in2hAgo)
+      .lte('start_datetime', in24h)
+      .order('start_datetime', { ascending: true })
+      .limit(20),
   ])
 
   // Filter routines that are actually overdue (km-based needs bike odometer)
@@ -177,6 +199,7 @@ export default async function JobsPage() {
   const returnJobs = [...(overdueRentals ?? []), ...(dueSoonRentals ?? [])]
 
   const counts = {
+    sendcar: (sendJobs ?? []).length,
     returncar: returnJobs.length,
     broken: (repairs ?? []).length,
     routine: overdueRoutines.length,
@@ -217,6 +240,7 @@ export default async function JobsPage() {
       }}>
         {[
           { label: 'ทั้งหมด', count: total, bg: '#eef2ff', color: '#4f46e5' },
+          { label: 'ส่งรถ', count: counts.sendcar, bg: '#f0fdfa', color: '#0891b2' },
           { label: 'รับคืน', count: counts.returncar, bg: '#fef2f2', color: '#dc2626' },
           { label: 'รถเสีย', count: counts.broken, bg: '#fef2f2', color: '#dc2626' },
           { label: 'รูทีน', count: counts.routine, bg: '#fffbeb', color: '#d97706' },
@@ -244,6 +268,36 @@ export default async function JobsPage() {
           }}>
             ✅ ไม่มีงานค้างอยู่
           </div>
+        )}
+
+        {/* งานส่งรถ */}
+        {(sendJobs ?? []).length > 0 && (
+          <>
+            <SectionTitle>งานส่งรถ 🛵➡️ — วันนี้</SectionTitle>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(sendJobs ?? []).map((b: any) => {
+              const bike = b.bikes
+              const hrs = hoursUntil(b.start_datetime)
+              const overdue = hrs < 0
+              return (
+                <JobCard
+                  key={b.id}
+                  dotColor="#0891b2"
+                  title={`ส่งรถ — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
+                  badge={overdue ? `🕐 เลยเวลา ${Math.abs(hrs)} ชม.` : hrs === 0 ? '🔔 ตอนนี้เลย!' : `⏰ อีก ${hrs} ชม.`}
+                  badgeBg={overdue ? '#fef2f2' : '#f0fdfa'}
+                  badgeColor={overdue ? '#dc2626' : '#0891b2'}
+                  meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
+                  meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
+                  statusLabel={overdue ? '🔴 เลยเวลา' : '🔵 รอส่งรถ'}
+                  statusBg={overdue ? '#fef2f2' : '#f0fdfa'}
+                  statusColor={overdue ? '#dc2626' : '#0891b2'}
+                  href={`/staff/send/${bike?.id}`}
+                  btnColor="#0891b2"
+                />
+              )
+            })}
+          </>
         )}
 
         {/* รับรถคืน */}
@@ -330,16 +384,24 @@ export default async function JobsPage() {
               const typeLabel = r.type ?? 'บำรุงรักษา'
               const kmOver = r.next_due_km != null && bike?.odometer != null
                 ? bike.odometer - r.next_due_km : null
+              // คำนวณ days สำหรับ date-based routine (km-based ถือว่าเกินแล้ว = -1)
+              const days = kmOver != null ? -1 : (r.next_due_date ? daysUntil(r.next_due_date) : 0)
+              const p = urgencyPalette(days)
+              const badgeText = kmOver != null
+                ? `🔴 เกิน ${kmOver.toLocaleString()} กม.`
+                : days < 0 ? `🚨 เกินกำหนด` : `📅 อีก ${days} วัน`
+              const statusText = days < 0 || kmOver != null ? '🔴 เกินกำหนด' : days <= 3 ? '🔴 เร่งด่วน' : '⚠️ ถึงกำหนด'
               return (
                 <JobCard
                   key={r.id}
-                  dotColor="#d97706"
+                  dotColor={p.dot}
                   title={`${typeLabel} — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
-                  badge="⚠️ ถึงกำหนด"
-                  badgeBg="#fffbeb" badgeColor="#d97706"
+                  badge={badgeText}
+                  badgeBg={p.bg} badgeColor={p.color}
                   meta1={kmOver != null ? `📍 เกินกำหนด ${kmOver.toLocaleString()} กม.` : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
-                  statusLabel="⚠️ เกินกำหนด" statusBg="#fffbeb" statusColor="#d97706"
-                  href="/staff/routine" btnColor="#d97706"
+                  statusLabel={statusText}
+                  statusBg={p.bg} statusColor={p.color}
+                  href="/staff/routine" btnColor={p.dot}
                 />
               )
             })}
@@ -354,21 +416,21 @@ export default async function JobsPage() {
             {(docsDue ?? []).map((d: any) => {
               const bike = d.bikes
               const days = daysUntil(d.expiry_date)
-              const urgent = days <= 14
+              const p = urgencyPalette(days)
+              const badgeText = days < 0 ? `🚨 เกินมา ${Math.abs(days)} วัน` : `📅 อีก ${days} วัน`
+              const statusText = days < 0 ? '🔴 เกินกำหนด' : days <= 3 ? '🔴 เร่งด่วนมาก' : days <= 7 ? '🟠 เร่งด่วน' : days <= 14 ? '⚠️ ใกล้หมด' : '📋 แจ้งเตือน'
               return (
                 <JobCard
                   key={d.id}
-                  dotColor={urgent ? '#dc2626' : '#2563eb'}
+                  dotColor={p.dot}
                   title={`ต่อ${DOC_LABEL[d.doc_type] ?? d.doc_type} — ${bike?.license_plate ?? ''}`}
-                  badge={urgent ? `🚨 ${days} วัน` : `📅 ${days} วัน`}
-                  badgeBg={urgent ? '#fef2f2' : '#eff6ff'}
-                  badgeColor={urgent ? '#dc2626' : '#2563eb'}
+                  badge={badgeText}
+                  badgeBg={p.bg} badgeColor={p.color}
                   meta1={`${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                   meta2={`หมดอายุ: ${fmtDate(d.expiry_date)}`}
-                  statusLabel={urgent ? '🚨 เร่งด่วน' : '📋 ใกล้หมดอายุ'}
-                  statusBg={urgent ? '#fef2f2' : '#eff6ff'}
-                  statusColor={urgent ? '#dc2626' : '#2563eb'}
-                  href="/staff/docs" btnColor={urgent ? '#dc2626' : '#2563eb'}
+                  statusLabel={statusText}
+                  statusBg={p.bg} statusColor={p.color}
+                  href="/staff/docs" btnColor={p.dot}
                 />
               )
             })}
