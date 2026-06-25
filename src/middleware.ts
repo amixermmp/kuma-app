@@ -1,4 +1,3 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const PUBLIC_PATHS = ['/', '/staff/login', '/owner/login', '/bike']
@@ -12,7 +11,7 @@ function isPublicPath(pathname: string) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Public routes — skip Supabase entirely
+  // Public routes — pass through
   if (isPublicPath(pathname)) {
     return NextResponse.next()
   }
@@ -26,33 +25,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Owner/admin routes — check Supabase auth
-  let supabaseResponse = NextResponse.next({ request })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll() },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setAll(cookiesToSet: { name: string; value: string; options: any }[]) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.redirect(new URL('/owner/login', request.url))
-  }
-
-  return supabaseResponse
+  // Owner/admin routes — let page handle its own Supabase auth check
+  return NextResponse.next()
 }
 
 export const config = {
