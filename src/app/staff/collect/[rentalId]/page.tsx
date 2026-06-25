@@ -7,11 +7,12 @@ export const dynamic = 'force-dynamic'
 
 const MONTH_NAMES = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-export default async function CollectRentPage({ params }: { params: { rentalId: string } }) {
+export default async function CollectRentPage({ params }: { params: Promise<{ rentalId: string }> }) {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) redirect('/staff/login')
 
+  const { rentalId } = await params
   const supabase = createAdminClient()
 
   const [{ data: rental }, { data: collections }] = await Promise.all([
@@ -22,13 +23,13 @@ export default async function CollectRentPage({ params }: { params: { rentalId: 
         bikes(id, license_plate, brand, model),
         customers(id, name, phone, workplace)
       `)
-      .eq('id', params.rentalId)
+      .eq('id', rentalId)
       .in('status', ['active', 'extended'])
       .single(),
     supabase
       .from('monthly_collections')
       .select('*')
-      .eq('rental_id', params.rentalId)
+      .eq('rental_id', rentalId)
       .order('created_at', { ascending: true }),
   ])
 
@@ -50,11 +51,18 @@ export default async function CollectRentPage({ params }: { params: { rentalId: 
 
   const monthlyRate = rental.daily_rate * 30
   const totalCollected = (collections ?? []).reduce((s, c) => s + Number(c.amount_paid), 0)
-  const alreadyCollectedThisPeriod = (collections ?? []).length >= currentPeriodNum
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Find current period record
+  const currentPeriodRecord = (collections ?? []).find(c => c.period_label === periodLabel)
+  const currentPaidAmt = currentPeriodRecord ? Number(currentPeriodRecord.amount_paid) : 0
+  const fullyPaid = currentPeriodRecord?.status === 'paid'
+
+  // Overdue: past due date and not fully paid
+  const isOverdue = !fullyPaid && now > dueDate
+
   return (
     <CollectRentForm
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       rental={rental as any}
       collections={(collections ?? []) as any[]}
       staffId={staffId}
@@ -63,7 +71,9 @@ export default async function CollectRentPage({ params }: { params: { rentalId: 
       dueDate={dueDate.toISOString().split('T')[0]}
       monthlyRate={monthlyRate}
       totalCollected={totalCollected}
-      alreadyCollected={alreadyCollectedThisPeriod}
+      currentPaidAmt={currentPaidAmt}
+      fullyPaid={fullyPaid}
+      isOverdue={isOverdue}
     />
   )
 }
