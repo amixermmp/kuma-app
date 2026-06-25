@@ -23,6 +23,7 @@ type DocRecord = { doc_type: string; doc_photo_url: string | null; expiry_date: 
 type BranchSettings = {
   terms_photo_url: string | null
   manual_photo_url: string | null
+  contract_photo_url: string | null
   contact_line: string | null
   contact_phone: string | null
 }
@@ -305,18 +306,25 @@ export default function BikePublicClient({
               expiryDate={docMap['pob']?.expiry_date}
               onView={() => setViewDoc({ url: docMap['pob'].doc_photo_url!, label: 'พ.ร.บ. ประกันภัย' })}
             />
+            {settings?.contract_photo_url && (
+              <DocRow
+                icon="📝" title="สัญญาการเช่า"
+                photoUrl={settings.contract_photo_url}
+                onView={() => setViewDoc({ url: settings!.contract_photo_url!, label: 'สัญญาการเช่า' })}
+              />
+            )}
             {settings?.terms_photo_url && (
               <DocRow
-                icon="📋" title="เงื่อนไขการใช้งาน"
+                icon="📋" title="ข้อกำหนดการใช้รถ"
                 photoUrl={settings.terms_photo_url}
-                onView={() => setViewDoc({ url: settings!.terms_photo_url!, label: 'เงื่อนไขการใช้งาน' })}
+                onView={() => setViewDoc({ url: settings!.terms_photo_url!, label: 'ข้อกำหนดการใช้รถ' })}
               />
             )}
             {settings?.manual_photo_url && (
               <DocRow
-                icon="📖" title="คู่มือการใช้งาน"
+                icon="📖" title="คู่มือเมื่อเกิดเหตุ"
                 photoUrl={settings.manual_photo_url}
-                onView={() => setViewDoc({ url: settings!.manual_photo_url!, label: 'คู่มือการใช้งาน' })}
+                onView={() => setViewDoc({ url: settings!.manual_photo_url!, label: 'คู่มือเมื่อเกิดเหตุ' })}
               />
             )}
           </div>

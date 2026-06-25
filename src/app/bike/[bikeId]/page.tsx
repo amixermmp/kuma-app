@@ -27,7 +27,7 @@ export default async function BikePublicPage({
       .eq('bike_id', params.bikeId),
     supabase
       .from('branch_settings')
-      .select('terms_photo_url, manual_photo_url, contact_line, contact_phone')
+      .select('terms_photo_url, manual_photo_url, contract_photo_url, contact_line, contact_phone')
       .eq('branch_id', BRANCH_ID)
       .maybeSingle(),
   ])

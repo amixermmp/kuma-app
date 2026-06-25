@@ -13,11 +13,13 @@ export default async function SettingsPage() {
 
   const admin = createAdminClient()
 
-  const [shopRes, staffRes, branchRes, promoRes] = await Promise.all([
+  const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
+  const [shopRes, staffRes, branchRes, promoRes, branchDocRes] = await Promise.all([
     admin.from('shop_settings').select('*').limit(1).maybeSingle(),
     admin.from('staff').select('id, name, pin, branch_id, is_active, branches(name)').order('name'),
     admin.from('branches').select('id, name').order('name'),
     admin.from('promotions').select('id, name, code, description, discount_type, discount_value, min_days, bonus_days, is_active').order('created_at'),
+    admin.from('branch_settings').select('terms_photo_url, manual_photo_url, contract_photo_url').eq('branch_id', BRANCH_ID).maybeSingle(),
   ])
 
   return (
@@ -36,6 +38,11 @@ export default async function SettingsPage() {
         staff={(staffRes.data ?? []) as any[]}
         branches={branchRes.data ?? []}
         promotions={promoRes.data ?? []}
+        branchDocs={{
+          terms_photo_url: branchDocRes.data?.terms_photo_url ?? null,
+          manual_photo_url: branchDocRes.data?.manual_photo_url ?? null,
+          contract_photo_url: (branchDocRes.data as any)?.contract_photo_url ?? null,
+        }}
       />
     </div>
   )
