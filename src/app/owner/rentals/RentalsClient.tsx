@@ -242,7 +242,14 @@ export default function RentalsClient({
             : dailyList.map(r => {
               const bike = r.bikes ?? {}
               const customer = r.customers ?? {}
-              const photos = Array.isArray(r.send_photos) && r.send_photos.length > 0 ? r.send_photos : null
+              const photoList: Photo[] = r.send_photos
+                ? Array.isArray(r.send_photos)
+                  ? r.send_photos.filter((p: Photo) => p?.url)
+                  : Object.entries(r.send_photos as Record<string, string>)
+                      .filter(([, url]) => url)
+                      .map(([label, url]) => ({ url, label }))
+                : []
+              const photos = photoList.length > 0 ? photoList : null
               const isOverdue = r.status === 'overdue' || new Date(r.expected_end_datetime) < new Date()
               return (
                 <div key={r.id} style={{
@@ -327,7 +334,14 @@ export default function RentalsClient({
             : monthlyList.map(r => {
               const bike = r.bikes ?? {}
               const customer = r.customers ?? {}
-              const photos = Array.isArray(r.send_photos) && r.send_photos.length > 0 ? r.send_photos : null
+              const photoList: Photo[] = r.send_photos
+                ? Array.isArray(r.send_photos)
+                  ? r.send_photos.filter((p: Photo) => p?.url)
+                  : Object.entries(r.send_photos as Record<string, string>)
+                      .filter(([, url]) => url)
+                      .map(([label, url]) => ({ url, label }))
+                : []
+              const photos = photoList.length > 0 ? photoList : null
               return (
                 <div key={r.id} style={{
                   background: '#fff', borderRadius: '14px',
