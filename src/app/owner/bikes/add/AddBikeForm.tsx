@@ -7,11 +7,11 @@ import PhotoUpload from '@/components/PhotoUpload'
 
 
 type Branch = { id: string; name: string }
-type Routine = { task_name: string; interval_km: string; interval_days: string }
+type Routine = { task_name: string; interval_km: string; interval_days: string; last_done_date: string }
 
 const DEFAULT_ROUTINES: Routine[] = [
-  { task_name: 'เปลี่ยนน้ำมันเครื่อง', interval_km: '1000', interval_days: '90' },
-  { task_name: 'เปลี่ยนน้ำมันเฟืองท้าย', interval_km: '3000', interval_days: '180' },
+  { task_name: 'เปลี่ยนน้ำมันเครื่อง', interval_km: '1000', interval_days: '90', last_done_date: '' },
+  { task_name: 'เปลี่ยนน้ำมันเฟืองท้าย', interval_km: '3000', interval_days: '180', last_done_date: '' },
 ]
 
 export default function AddBikeForm({ ownerId, branches }: { ownerId: string; branches: Branch[] }) {
@@ -40,7 +40,7 @@ export default function AddBikeForm({ ownerId, branches }: { ownerId: string; br
 
   const updateRoutine = (i: number, field: keyof Routine, val: string) =>
     setRoutines(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r))
-  const addRoutine = () => setRoutines(prev => [...prev, { task_name: '', interval_km: '', interval_days: '' }])
+  const addRoutine = () => setRoutines(prev => [...prev, { task_name: '', interval_km: '', interval_days: '', last_done_date: '' }])
   const removeRoutine = (i: number) => setRoutines(prev => prev.filter((_, idx) => idx !== i))
 
   const handleSubmit = async () => {
@@ -80,6 +80,7 @@ export default function AddBikeForm({ ownerId, branches }: { ownerId: string; br
               task_name: r.task_name.trim(),
               interval_km: r.interval_km ? parseInt(r.interval_km) : null,
               interval_days: r.interval_days ? parseInt(r.interval_days) : null,
+              last_done_date: r.last_done_date || null,
             })),
         }),
       })
@@ -248,7 +249,7 @@ export default function AddBikeForm({ ownerId, branches }: { ownerId: string; br
                   style={{ color: '#dc2626', background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', padding: '0 4px' }}>×</button>
               )}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0', padding: '8px 14px 12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0', padding: '8px 14px 4px' }}>
               <div style={{ paddingRight: '8px' }}>
                 <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>ทุก กี่ กม.</div>
                 <input className="field-input" type="number" placeholder="1000"
@@ -259,6 +260,11 @@ export default function AddBikeForm({ ownerId, branches }: { ownerId: string; br
                 <input className="field-input" type="number" placeholder="90"
                   value={r.interval_days} onChange={e => updateRoutine(i, 'interval_days', e.target.value)} />
               </div>
+            </div>
+            <div style={{ padding: '0 14px 12px' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>ทำล่าสุดเมื่อ (วันที่)</div>
+              <input className="field-input" type="date"
+                value={r.last_done_date} onChange={e => updateRoutine(i, 'last_done_date', e.target.value)} />
             </div>
           </div>
         ))}

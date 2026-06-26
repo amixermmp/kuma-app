@@ -80,17 +80,21 @@ export async function POST(request: NextRequest) {
   // Create routines
   if (Array.isArray(routines) && routines.length > 0) {
     const routineInserts = routines.map((r: {
-      task_name: string; interval_km: number | null; interval_days: number | null
+      task_name: string; interval_km: number | null; interval_days: number | null; last_done_date: string | null
     }) => {
       const nextDueKm = r.interval_km ? (odometer ?? 0) + r.interval_km : null
-      const nextDueDate = r.interval_days
-        ? new Date(Date.now() + r.interval_days * 86_400_000).toISOString().split('T')[0]
-        : null
+      let nextDueDate: string | null = null
+      if (r.interval_days) {
+        const base = r.last_done_date ? new Date(r.last_done_date) : new Date()
+        base.setDate(base.getDate() + r.interval_days)
+        nextDueDate = base.toISOString().split('T')[0]
+      }
       return {
         bike_id: bikeId,
         task_name: r.task_name,
         interval_km: r.interval_km ?? null,
         interval_days: r.interval_days ?? null,
+        last_done_date: r.last_done_date ?? null,
         next_due_km: nextDueKm,
         next_due_date: nextDueDate,
       }
