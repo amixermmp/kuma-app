@@ -28,7 +28,7 @@ export default function AddBikeForm({ ownerId, branches }: { ownerId: string; br
   const [photoUrl, setPhotoUrl] = useState('')
   const [dailyRate, setDailyRate] = useState('')
   const [monthlyRate, setMonthlyRate] = useState('')
-  const [depositAmount, setDepositAmount] = useState('')
+
   const [regPhotoUrl, setRegPhotoUrl] = useState('')
   const [taxPhotoUrl, setTaxPhotoUrl] = useState('')
   const [taxExpiry, setTaxExpiry] = useState('')
@@ -68,7 +68,7 @@ export default function AddBikeForm({ ownerId, branches }: { ownerId: string; br
           photo_url: photoUrl || null,
           daily_rate: parseFloat(dailyRate),
           monthly_rate: monthlyRate ? parseFloat(monthlyRate) : null,
-          deposit_amount: depositAmount ? parseFloat(depositAmount) : 0,
+          deposit_amount: 0,
           docs: {
             registration: { photo_url: regPhotoUrl || null },
             tax: { photo_url: taxPhotoUrl || null, expiry_date: taxExpiry || null },
@@ -173,22 +173,17 @@ export default function AddBikeForm({ ownerId, branches }: { ownerId: string; br
         </div>
 
         {/* ราคา */}
-        <div className="card-title" style={{ padding: '12px 0 8px' }}>ราคาและค่ามัดจำ</div>
+        <div className="card-title" style={{ padding: '12px 0 8px' }}>ราคา</div>
         <div className="card">
           <div className="field-row">
             <label className="field-label">ราคา/วัน *</label>
             <input className="field-input" type="number" placeholder="250 บาท"
               value={dailyRate} onChange={e => setDailyRate(e.target.value)} />
           </div>
-          <div className="field-row">
+          <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">ราคา/เดือน</label>
             <input className="field-input" type="number" placeholder="3,000 บาท"
               value={monthlyRate} onChange={e => setMonthlyRate(e.target.value)} />
-          </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">ค่ามัดจำ</label>
-            <input className="field-input" type="number" placeholder="3,000 บาท"
-              value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
           </div>
         </div>
 
