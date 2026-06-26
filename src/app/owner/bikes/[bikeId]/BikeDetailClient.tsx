@@ -24,6 +24,16 @@ type Bike = {
 type DocRecord = { doc_type: string; doc_photo_url: string | null; expiry_date: string | null }
 type Branch = { id: string; name: string }
 type Stats = { totalRevenue: number; rentalCount: number; lastRental: string | null }
+type Routine = {
+  id: string
+  task_name: string
+  interval_km: number | null
+  interval_days: number | null
+  last_done_date: string | null
+  last_done_km: number | null
+  next_due_km: number | null
+  next_due_date: string | null
+}
 
 const STATUS_LABEL: Record<string, string> = {
   available: '🟢 ว่าง',
@@ -69,11 +79,12 @@ function DocStatusRow({ icon, name, expiry, hasPhoto }: { icon: string; name: st
   )
 }
 
-export default function BikeDetailClient({ bike, docMap, branches, stats }: {
+export default function BikeDetailClient({ bike, docMap, branches, stats, routines }: {
   bike: Bike
   docMap: Record<string, DocRecord>
   branches: Branch[]
   stats: Stats
+  routines: Routine[]
 }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -96,6 +107,55 @@ export default function BikeDetailClient({ bike, docMap, branches, stats }: {
   const [branchId, setBranchId] = useState(bike.branch_id)
   const [branchSaving, setBranchSaving] = useState(false)
   const [branchMsg, setBranchMsg] = useState('')
+
+  // Routine editor
+  const [routineList, setRoutineList] = useState<Routine[]>(routines)
+  const [editingRoutine, setEditingRoutine] = useState<string | null>(null)
+  const [routineForm, setRoutineForm] = useState<{ last_done_date: string; interval_days: string; interval_km: string }>({ last_done_date: '', interval_days: '', interval_km: '' })
+  const [routineSaving, setRoutineSaving] = useState(false)
+  const [routineMsg, setRoutineMsg] = useState('')
+
+  const openRoutineEdit = (r: Routine) => {
+    setEditingRoutine(r.id)
+    setRoutineForm({
+      last_done_date: r.last_done_date ?? '',
+      interval_days: String(r.interval_days ?? ''),
+      interval_km: String(r.interval_km ?? ''),
+    })
+    setRoutineMsg('')
+  }
+
+  const saveRoutine = async (r: Routine) => {
+    setRoutineSaving(true)
+    setRoutineMsg('')
+    const res = await fetch(`/api/owner/bikes/${bike.id}/routine`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_name: r.task_name,
+        last_done_date: routineForm.last_done_date || null,
+        interval_days: routineForm.interval_days ? parseInt(routineForm.interval_days) : null,
+        interval_km: routineForm.interval_km ? parseInt(routineForm.interval_km) : null,
+      }),
+    })
+    const data = await res.json()
+    setRoutineSaving(false)
+    if (res.ok) {
+      setRoutineMsg('✅ บันทึกแล้ว')
+      setEditingRoutine(null)
+      // อัปเดต local state
+      setRoutineList(prev => prev.map(x => x.id === r.id ? {
+        ...x,
+        last_done_date: routineForm.last_done_date || null,
+        interval_days: routineForm.interval_days ? parseInt(routineForm.interval_days) : null,
+        interval_km: routineForm.interval_km ? parseInt(routineForm.interval_km) : null,
+        next_due_date: data.next_due_date ?? x.next_due_date,
+      } : x))
+      setTimeout(() => setRoutineMsg(''), 3000)
+    } else {
+      setRoutineMsg('❌ ' + (data.error ?? 'เกิดข้อผิดพลาด'))
+    }
+  }
 
   // Delete
   const [showDelete, setShowDelete] = useState(false)
@@ -291,6 +351,97 @@ export default function BikeDetailClient({ bike, docMap, branches, stats }: {
           <DocStatusRow icon="💰" name="ภาษีประจำปี" expiry={docMap['tax']?.expiry_date} hasPhoto={!!docMap['tax']?.doc_photo_url} />
           <DocStatusRow icon="📘" name="สำเนาหน้าเล่มทะเบียน" hasPhoto={!!docMap['registration']?.doc_photo_url} />
         </div>
+
+        {/* ── งานรูทีน ── */}
+        {routineList.length > 0 && (
+          <div className="card" style={{ borderTop: '3px solid #b45309' }}>
+            <div className="card-title" style={{ color: '#b45309' }}>🛢️ งานรูทีน</div>
+            {routineMsg && (
+              <div style={{ fontSize: '12px', marginBottom: '10px', color: routineMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{routineMsg}</div>
+            )}
+            {routineList.map(r => {
+              const daysLeft = r.next_due_date ? daysUntil(r.next_due_date) : null
+              const kmLeft = r.next_due_km != null ? r.next_due_km - bike.odometer : null
+              const overdue = (daysLeft != null && daysLeft <= 0) || (kmLeft != null && kmLeft <= 0)
+              const warning = !overdue && ((daysLeft != null && daysLeft <= 14) || (kmLeft != null && kmLeft <= 500))
+              const urgencyColor = overdue ? '#dc2626' : warning ? '#ca8a04' : '#16a34a'
+              const urgencyBg = overdue ? '#fee2e2' : warning ? '#fef9c3' : '#dcfce7'
+              const isEditing = editingRoutine === r.id
+
+              return (
+                <div key={r.id} style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '14px', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{r.task_name}</div>
+                    <button onClick={() => isEditing ? setEditingRoutine(null) : openRoutineEdit(r)}
+                      style={{ background: isEditing ? '#f3f4f6' : '#fef3c7', color: isEditing ? '#374151' : '#b45309', border: 'none', borderRadius: '8px', padding: '4px 10px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                      {isEditing ? 'ยกเลิก' : '✏️ แก้ไข'}
+                    </button>
+                  </div>
+
+                  {/* สถานะ urgency */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                    {daysLeft != null && (
+                      <span style={{ background: urgencyBg, color: urgencyColor, fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px' }}>
+                        {overdue && daysLeft != null && daysLeft <= 0 ? `🚨 เลยกำหนด ${Math.abs(daysLeft)} วัน` : `📅 ${daysLeft} วัน`}
+                      </span>
+                    )}
+                    {kmLeft != null && (
+                      <span style={{ background: urgencyBg, color: urgencyColor, fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px' }}>
+                        {kmLeft <= 0 ? `🚨 เลยกำหนด ${Math.abs(kmLeft).toLocaleString()} กม.` : `🛣️ อีก ${kmLeft.toLocaleString()} กม.`}
+                      </span>
+                    )}
+                    {daysLeft == null && kmLeft == null && (
+                      <span style={{ background: '#f3f4f6', color: '#9ca3af', fontSize: '11px', padding: '3px 8px', borderRadius: '20px' }}>— ยังไม่ตั้งค่า</span>
+                    )}
+                  </div>
+
+                  {/* ข้อมูล */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', fontSize: '12px', color: '#64748b', marginBottom: '6px' }}>
+                    {r.interval_km && <span>ทุก {r.interval_km.toLocaleString()} กม.</span>}
+                    {r.interval_days && <span>ทุก {r.interval_days} วัน</span>}
+                    {r.last_done_date && <span>ทำล่าสุด: {new Date(r.last_done_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                    {r.last_done_km && <span>ไมล์ล่าสุด: {r.last_done_km.toLocaleString()} กม.</span>}
+                    {r.next_due_date && <span>ครบกำหนด: {new Date(r.next_due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                    {r.next_due_km && <span>ครบที่: {r.next_due_km.toLocaleString()} กม.</span>}
+                  </div>
+
+                  {/* Form แก้ไข */}
+                  {isEditing && (
+                    <div style={{ background: '#fffbeb', borderRadius: '10px', padding: '12px', marginTop: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                        <div>
+                          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>ทุกกี่กิโลเมตร</div>
+                          <input className="field-input" type="number" placeholder="เช่น 1000"
+                            value={routineForm.interval_km}
+                            onChange={e => setRoutineForm(f => ({ ...f, interval_km: e.target.value }))}
+                            style={{ fontSize: '13px', padding: '8px' }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>ทุกกี่วัน</div>
+                          <input className="field-input" type="number" placeholder="เช่น 90"
+                            value={routineForm.interval_days}
+                            onChange={e => setRoutineForm(f => ({ ...f, interval_days: e.target.value }))}
+                            style={{ fontSize: '13px', padding: '8px' }} />
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: '10px' }}>
+                        <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>วันที่ทำล่าสุด</div>
+                        <input className="field-input" type="date"
+                          value={routineForm.last_done_date}
+                          onChange={e => setRoutineForm(f => ({ ...f, last_done_date: e.target.value }))}
+                          style={{ fontSize: '13px', padding: '8px' }} />
+                      </div>
+                      <button onClick={() => saveRoutine(r)} disabled={routineSaving}
+                        style={{ background: '#b45309', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', opacity: routineSaving ? .7 : 1, width: '100%' }}>
+                        {routineSaving ? '⏳ กำลังบันทึก...' : '💾 บันทึกการตั้งค่า'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* ── สถิติ ── */}
         <div className="card">

@@ -29,6 +29,7 @@ export default async function StaffHomePage() {
     { count: monthlyCount },
     { count: docsCount },
     { count: sendCount },
+    { data: routineData },
   ] = await Promise.all([
     supabase.from('staff').select('name, branches(name)').eq('id', staffId).single(),
 
@@ -50,12 +51,27 @@ export default async function StaffHomePage() {
 
     supabase.from('bookings').select('id', { count: 'exact', head: true })
       .eq('status', 'confirmed').gte('start_datetime', in2hAgo).lte('start_datetime', in24hIso),
+
+    supabase.from('bike_routines')
+      .select('next_due_km, next_due_date, bikes(odometer)'),
   ])
+
+  // นับ routine ที่ถึงกำหนดหรือใกล้ถึงกำหนด (500 กม. / 14 วัน)
+  const routineCount = (routineData ?? []).filter(r => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const odometer = (r.bikes as any)?.odometer ?? 0
+    if (r.next_due_km != null && odometer >= r.next_due_km - 500) return true
+    if (r.next_due_date) {
+      const days = Math.ceil((new Date(r.next_due_date).getTime() - Date.now()) / 86_400_000)
+      if (days <= 14) return true
+    }
+    return false
+  }).length
 
   const staffName = staffRow?.name ?? 'Staff'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const branchName = (staffRow as any)?.branches?.name ?? 'Kuma Bikes'
-  const totalJobs = (overdueCount ?? 0) + (dueSoonCount ?? 0) + (repairCount ?? 0) + (monthlyCount ?? 0) + (docsCount ?? 0) + (sendCount ?? 0)
+  const totalJobs = (overdueCount ?? 0) + (dueSoonCount ?? 0) + (repairCount ?? 0) + (monthlyCount ?? 0) + (docsCount ?? 0) + (sendCount ?? 0) + routineCount
 
   return (
     <div className="app-wrap">
@@ -142,6 +158,7 @@ export default async function StaffHomePage() {
                 {(repairCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#d97706', fontWeight: 600 }}>🔧 ซ่อม {repairCount}</span>}
                 {(monthlyCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 600 }}>💰 รายเดือน {monthlyCount}</span>}
                 {(docsCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#2563eb', fontWeight: 600 }}>📋 เอกสาร {docsCount}</span>}
+                {routineCount > 0 && <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 600 }}>🛢️ รูทีน {routineCount}</span>}
               </div>
             )}
           </div>
