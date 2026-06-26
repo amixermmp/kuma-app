@@ -153,10 +153,11 @@ export default async function StaffHomePage() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           {([
-            { icon: '🔍', label: 'ค้นหารถ',  href: '/staff/search' },
-            { icon: '🛵', label: 'รวมรถ',     href: '/staff/fleet' },
-            { icon: '🔧', label: 'แจ้งรถเสีย', href: '/staff/broken' },
-            { icon: '📄', label: 'งานเอกสาร', href: '/staff/docs' },
+            { icon: '🔍', label: 'ค้นหารถ',    href: '/staff/search' },
+            { icon: '🛵', label: 'รวมรถ',       href: '/staff/fleet' },
+            { icon: '🔧', label: 'แจ้งรถเสีย',  href: '/staff/broken' },
+            { icon: '📄', label: 'งานเอกสาร',  href: '/staff/docs' },
+            { icon: '🛢️', label: 'งานรูทีน',   href: '/staff/routine' },
           ] as const).map(({ icon, label, href }) => (
             <Link key={href} href={href} style={{
               display: 'flex',
