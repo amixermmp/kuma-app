@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 
+type Bike = { id: string; license_plate: string; brand: string; model: string }
 type DiscountType = 'percent' | 'fixed' | 'bonus_days' | 'flat_rate'
 
 const TYPES: { type: DiscountType; icon: string; label: string; sub: string }[] = [
@@ -11,7 +12,7 @@ const TYPES: { type: DiscountType; icon: string; label: string; sub: string }[] 
   { type: 'flat_rate',  icon: '🏷️', label: 'ราคาพิเศษ/วัน', sub: 'เช่น ฿150/วัน' },
 ]
 
-export default function CreatePromoForm() {
+export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
   const [name, setName]           = useState('')
   const [description, setDesc]    = useState('')
   const [type, setType]           = useState<DiscountType>('percent')
@@ -19,10 +20,15 @@ export default function CreatePromoForm() {
   const [minDays, setMinDays]     = useState('')
   const [bonusDays, setBonusDays] = useState('')
   const [code, setCode]           = useState('')
-  const [isActive, setIsActive]   = useState(true)
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState('')
-  const [success, setSuccess]     = useState(false)
+  const [isActive, setIsActive]         = useState(true)
+  const [eligibleIds, setEligibleIds]   = useState<string[]>([]) // empty = ทุกคัน
+  const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState('')
+  const [success, setSuccess]           = useState(false)
+
+  const toggleBike = (id: string) =>
+    setEligibleIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  const allChecked = eligibleIds.length === 0
 
   const randomCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -55,6 +61,7 @@ export default function CreatePromoForm() {
         bonus_days: bonusDays ? parseInt(bonusDays) : null,
         code: code.trim().toUpperCase() || null,
         is_active: isActive,
+        eligible_bike_ids: eligibleIds.length > 0 ? eligibleIds : null,
       }),
     })
     const data = await res.json()
@@ -175,6 +182,71 @@ export default function CreatePromoForm() {
           </div>
         </div>
       </div>
+
+      {/* รถที่ร่วมรายการ */}
+      {bikes.length > 0 && (
+        <div className="card">
+          <div className="card-title">รถที่ร่วมรายการ</div>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px' }}>
+            {allChecked ? '✅ ทุกคัน (ค่าเริ่มต้น)' : `เลือกแล้ว ${eligibleIds.length} คัน`}
+          </div>
+
+          {/* ปุ่ม เลือกทั้งหมด / ล้าง */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+            <button
+              type="button"
+              onClick={() => setEligibleIds([])}
+              style={{
+                flex: 1, padding: '8px', border: `1.5px solid ${allChecked ? '#be185d' : '#e5e7eb'}`,
+                borderRadius: '8px', background: allChecked ? '#fff1f2' : '#fff',
+                color: allChecked ? '#be185d' : '#6b7280', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              ✅ ทุกคัน
+            </button>
+            <button
+              type="button"
+              onClick={() => setEligibleIds(bikes.map(b => b.id))}
+              style={{
+                flex: 1, padding: '8px', border: `1.5px solid ${!allChecked ? '#be185d' : '#e5e7eb'}`,
+                borderRadius: '8px', background: !allChecked ? '#fff1f2' : '#fff',
+                color: !allChecked ? '#be185d' : '#6b7280', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              เลือกเอง
+            </button>
+          </div>
+
+          {!allChecked && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {bikes.map(bike => {
+                const checked = eligibleIds.includes(bike.id)
+                return (
+                  <label key={bike.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
+                    padding: '10px 12px', borderRadius: '10px',
+                    border: `1.5px solid ${checked ? '#be185d' : '#e5e7eb'}`,
+                    background: checked ? '#fff1f2' : '#fff',
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleBike(bike.id)}
+                      style={{ width: '18px', height: '18px', accentColor: '#be185d', cursor: 'pointer' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                        {bike.brand} {bike.model}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#6b7280' }}>{bike.license_plate}</div>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Active toggle */}
       <div className="card" style={{ marginBottom: '12px' }}>

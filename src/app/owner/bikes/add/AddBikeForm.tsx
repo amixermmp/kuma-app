@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import PhotoUpload from '@/components/PhotoUpload'
 
-const BRAND_OPTIONS = ['Honda', 'Yamaha', 'Kawasaki', 'Suzuki', 'Triumph', 'Royal Enfield', 'อื่นๆ']
 
 type Branch = { id: string; name: string }
 type Routine = { task_name: string; interval_km: string; interval_days: string }
@@ -143,9 +142,8 @@ export default function AddBikeForm({ ownerId, branches }: { ownerId: string; br
           </div>
           <div className="field-row">
             <label className="field-label">ยี่ห้อ *</label>
-            <input className="field-input" type="text" placeholder="Honda / Yamaha…"
-              list="brands" value={brand} onChange={e => setBrand(e.target.value)} />
-            <datalist id="brands">{BRAND_OPTIONS.map(b => <option key={b} value={b} />)}</datalist>
+            <input className="field-input" type="text" placeholder="Honda / Yamaha / Kawasaki…"
+              value={brand} onChange={e => setBrand(e.target.value)} />
           </div>
           <div className="field-row">
             <label className="field-label">รุ่น *</label>

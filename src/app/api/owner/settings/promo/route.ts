@@ -11,6 +11,10 @@ export async function POST(request: Request) {
   if (!body.name || !body.discount_type) return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
 
   const admin = createAdminClient()
+  const eligibleBikeIds = Array.isArray(body.eligible_bike_ids) && body.eligible_bike_ids.length > 0
+    ? body.eligible_bike_ids
+    : null
+
   const { error } = await admin.from('promotions').insert({
     name: body.name,
     description: body.description ?? null,
@@ -20,6 +24,7 @@ export async function POST(request: Request) {
     bonus_days: body.bonus_days ?? null,
     code: body.code ?? null,
     is_active: body.is_active ?? true,
+    eligible_bike_ids: eligibleBikeIds,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

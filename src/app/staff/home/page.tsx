@@ -75,7 +75,6 @@ export default async function StaffHomePage() {
           </div>
           <div style={{ color: 'rgba(255,255,255,.65)', fontSize: '13px' }}>{branchName}</div>
         </div>
-        <Link href="/staff/settings" style={{ fontSize: '22px', textDecoration: 'none' }}>⚙️</Link>
       </div>
 
       <div style={{ padding: '16px' }}>
@@ -154,8 +153,8 @@ export default async function StaffHomePage() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           {([
-            { icon: '🔍', label: 'ค้นหารถ', href: '/staff/search' },
-            { icon: '📋', label: 'รายการรถ', href: '/staff/bikes' },
+            { icon: '🔍', label: 'ค้นหารถ',  href: '/staff/search' },
+            { icon: '🛵', label: 'รวมรถ',     href: '/staff/fleet' },
             { icon: '🔧', label: 'แจ้งรถเสีย', href: '/staff/broken' },
             { icon: '📄', label: 'งานเอกสาร', href: '/staff/docs' },
           ] as const).map(({ icon, label, href }) => (

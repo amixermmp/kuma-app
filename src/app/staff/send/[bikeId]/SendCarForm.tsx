@@ -6,6 +6,47 @@ import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
 import SignaturePad from '@/components/SignaturePad'
 
+// ── Success screen ───────────────────────────────────────────
+function SuccessScreen({ rentalId, type, bikeId }: { rentalId: string; type: 'daily' | 'monthly'; bikeId: string }) {
+  const invoiceHref = type === 'daily'
+    ? `/staff/invoice/${rentalId}`
+    : `/staff/invoice/monthly/${rentalId}`
+  return (
+    <div className="app-wrap">
+      <div className="app-header" style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
+        <Link href="/staff/home" className="app-header-back">←</Link>
+        <div><h1>ส่งรถสำเร็จ ✅</h1><div className="sub">บันทึกการเช่าเรียบร้อยแล้ว</div></div>
+      </div>
+      <div className="section-pad" style={{ textAlign: 'center', paddingTop: '40px' }}>
+        <div style={{ fontSize: '64px', marginBottom: '16px' }}>🛵</div>
+        <div style={{ fontSize: '18px', fontWeight: 800, color: '#16a34a', marginBottom: '8px' }}>ส่งรถให้ลูกค้าสำเร็จ!</div>
+        <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '32px' }}>
+          {type === 'daily' ? 'สัญญาเช่ารายวัน' : 'สัญญาเช่ารายเดือน'}ถูกบันทึกแล้ว
+        </div>
+        <Link href={invoiceHref} style={{
+          display: 'block', width: '100%', background: '#1e3a8a', color: '#fff',
+          borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
+          textDecoration: 'none', marginBottom: '12px',
+        }}>
+          🧾 ออกใบกำกับภาษี / ใบเสร็จ
+        </Link>
+        <Link href="/staff/home" style={{
+          display: 'block', width: '100%', background: '#f3f4f6', color: '#374151',
+          borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
+          textDecoration: 'none', marginBottom: '12px',
+        }}>
+          🏠 กลับหน้าหลัก
+        </Link>
+        <Link href={`/staff/bikes/${bikeId}/menu`} style={{
+          display: 'block', fontSize: '13px', color: '#9ca3af', textDecoration: 'none', marginTop: '8px',
+        }}>
+          ← กลับเมนูรถ
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 type Bike = {
   id: string
   license_plate: string
@@ -23,6 +64,7 @@ type Promotion = {
   description: string | null
   discount_type: string
   discount_value: number
+  eligible_bike_ids: string[] | null
 }
 
 type Props = {
@@ -94,6 +136,8 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [createdRentalId, setCreatedRentalId] = useState<string | null>(null)
+  const [createdType, setCreatedType] = useState<'daily' | 'monthly'>('daily')
 
   const folder = `send/${bike.id}`
 
@@ -115,7 +159,11 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
   const totalDays = startDatetime && endDatetime
     ? Math.max(1, Math.ceil((new Date(endDatetime).getTime() - new Date(startDatetime).getTime()) / 86_400_000))
     : 1
-  const selectedPromo = promotions.find(p => p.id === selectedPromoId)
+  // กรองเฉพาะโปรที่รถคันนี้ร่วมรายการ (eligible_bike_ids = null หมายถึงทุกคัน)
+  const eligiblePromos = promotions.filter(p =>
+    !p.eligible_bike_ids || p.eligible_bike_ids.includes(bike.id)
+  )
+  const selectedPromo = eligiblePromos.find(p => p.id === selectedPromoId)
   const discount = selectedPromo
     ? selectedPromo.discount_type === 'percent'
       ? (bike.daily_rate * totalDays) * (selectedPromo.discount_value / 100)
@@ -167,7 +215,8 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
-      router.push('/staff/home')
+      setCreatedType('daily')
+      setCreatedRentalId(data.rentalId ?? data.id ?? null)
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
     } finally {
@@ -201,12 +250,18 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
-      router.push(`/staff/bikes/${bike.id}/menu`)
+      setCreatedType('monthly')
+      setCreatedRentalId(data.rentalId ?? data.id ?? null)
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show success screen after rental created
+  if (createdRentalId) {
+    return <SuccessScreen rentalId={createdRentalId} type={createdType} bikeId={bike.id} />
   }
 
   const isMonthly = rentalType === 'month'
@@ -366,7 +421,7 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
           </div>
 
           {/* Promotions */}
-          {promotions.length > 0 && (
+          {eligiblePromos.length > 0 && (
             <div className="card">
               <div className="card-title">โปรโมชั่น</div>
               <label className="field-label">เลือกโปรโมชั่น (ถ้ามี)</label>
@@ -378,7 +433,7 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
                   color: !selectedPromoId ? '#fff' : '#6b7280',
                   borderColor: !selectedPromoId ? '#2563eb' : '#e5e7eb',
                 }}>ราคาปกติ</button>
-                {promotions.map(p => (
+                {eligiblePromos.map(p => (
                   <button key={p.id} onClick={() => setSelectedPromoId(p.id)} style={{
                     padding: '6px 16px', borderRadius: '20px', border: '1.5px solid',
                     fontSize: '13px', cursor: 'pointer', fontWeight: 600,

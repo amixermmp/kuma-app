@@ -1,12 +1,22 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import CreatePromoForm from './CreatePromoForm'
 import Link from 'next/link'
+
+export const dynamic = 'force-dynamic'
 
 export default async function CreatePromoPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/owner/login')
+
+  const admin = createAdminClient()
+  const { data: bikes } = await admin
+    .from('bikes')
+    .select('id, license_plate, brand, model')
+    .neq('status', 'retired')
+    .order('license_plate')
 
   return (
     <div className="app-wrap">
@@ -17,7 +27,7 @@ export default async function CreatePromoPage() {
           <div className="sub">ตั้งค่าเงื่อนไขการลดราคา</div>
         </div>
       </div>
-      <CreatePromoForm />
+      <CreatePromoForm bikes={bikes ?? []} />
     </div>
   )
 }

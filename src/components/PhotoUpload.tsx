@@ -90,7 +90,6 @@ export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove }: 
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         style={{ display: 'none' }}
         onChange={e => {
           const file = e.target.files?.[0]

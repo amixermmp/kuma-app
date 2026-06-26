@@ -20,7 +20,7 @@ export default async function SendCarPage({ params }: { params: { bikeId: string
       .single(),
     supabase
       .from('promotions')
-      .select('id, code, description, discount_type, discount_value')
+      .select('id, code, description, discount_type, discount_value, eligible_bike_ids')
       .eq('is_active', true)
       .order('created_at', { ascending: true }),
   ])

@@ -23,7 +23,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
   const staffName = cookieStore.get('kuma_staff_name')?.value ?? 'Staff'
 
   const supabase = createAdminClient()
-  const [{ data: bike }, { data: docs }, { data: routines }, { data: activeRental }] = await Promise.all([
+  const [{ data: bike }, { data: docs }, { data: routines }, { data: activeRental }, { data: activeMonthly }] = await Promise.all([
     supabase
       .from('bikes')
       .select('id, license_plate, brand, model, status, odometer, color, year, fuel_level')
@@ -44,6 +44,12 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
       .eq('bike_id', params.bikeId)
       .in('status', ['active', 'extended'])
       .maybeSingle(),
+    supabase
+      .from('monthly_rentals')
+      .select('id, customers(name)')
+      .eq('bike_id', params.bikeId)
+      .eq('status', 'active')
+      .maybeSingle(),
   ])
 
   if (!bike) notFound()
@@ -57,14 +63,19 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
     ),
   ].length
 
+  const rentalId = activeRental?.id ?? null
+  const monthlyRentalId = activeMonthly?.id ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const monthlyCustomerName = (activeMonthly?.customers as any)?.name ?? null
+  const isMonthlyRented = monthlyRentalId !== null
+
   const statusColor = STATUS_COLOR[bike.status] ?? '#6b7280'
   const statusLabel = STATUS_LABEL[bike.status] ?? bike.status
   const isAvailable = bike.status === 'available'
-  const isRented = bike.status === 'rented'
+  const isRented = bike.status === 'rented' && !monthlyRentalId
 
   const fuelLevel = bike.fuel_level ?? 0
   const fuelDots = Array.from({ length: 8 }, (_, i) => i < fuelLevel ? '●' : '○').join('')
-  const rentalId = activeRental?.id ?? null
 
   return (
     <div className="app-wrap">
@@ -175,6 +186,43 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
             </div>
           </div>
         </Link>
+
+        {/* Monthly rental buttons */}
+        {isMonthlyRented && monthlyRentalId && (
+          <>
+            <Link
+              href={`/staff/collect/${monthlyRentalId}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '16px',
+                background: '#7c3aed', borderRadius: '14px', padding: '18px 20px',
+                textDecoration: 'none',
+              }}
+            >
+              <span style={{ fontSize: '36px' }}>💰</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '16px', color: '#fff' }}>เก็บค่าเช่ารายเดือน</div>
+                <div style={{ fontSize: '12px', color: '#e9d5ff', marginTop: '2px' }}>
+                  {monthlyCustomerName ?? 'ผู้เช่า'} — รายเดือน
+                </div>
+              </div>
+            </Link>
+            <Link
+              href={`/staff/monthly/end/${monthlyRentalId}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '16px',
+                background: '#fff', border: '2px solid #dc2626',
+                borderRadius: '14px', padding: '18px 20px',
+                textDecoration: 'none',
+              }}
+            >
+              <span style={{ fontSize: '36px' }}>🚫</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '16px', color: '#dc2626' }}>สิ้นสุดสัญญา</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>คืนรถ — ปลดล็อครถ</div>
+              </div>
+            </Link>
+          </>
+        )}
 
         {/* เมนูรอง */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
