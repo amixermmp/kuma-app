@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { writeLog } from '@/lib/log'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ bikeId: string }> }) {
   const supabase = await createClient()
@@ -57,8 +58,24 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     admin.from('repair_jobs').delete().eq('bike_id', bikeId),
   ])
 
+  // ดึงข้อมูลรถก่อนลบ เพื่อ log
+  const { data: bike } = await admin
+    .from('bikes')
+    .select('license_plate, brand, model')
+    .eq('id', bikeId)
+    .single()
+
   const { error } = await admin.from('bikes').delete().eq('id', bikeId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await writeLog({
+    actorType: 'owner',
+    actorId: user.id,
+    actorName: user.email ?? 'Owner',
+    action: 'bike_deleted',
+    description: `ลบรถ ${bike?.license_plate ?? bikeId} (${bike?.brand ?? ''} ${bike?.model ?? ''}) ออกจากระบบถาวร`,
+    metadata: { bikeId, license_plate: bike?.license_plate },
+  })
 
   return NextResponse.json({ success: true })
 }
