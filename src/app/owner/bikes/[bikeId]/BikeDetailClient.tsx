@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 type Bike = {
   id: string
@@ -69,11 +70,13 @@ function DocStatusRow({ icon, name, expiry, hasPhoto }: { icon: string; name: st
   )
 }
 
-export default function BikeDetailClient({ bike, docMap, branches, stats }: {
+export default function BikeDetailClient({ bike, docMap, branches, stats, activeRentalId, activeMonthlyId }: {
   bike: Bike
   docMap: Record<string, DocRecord>
   branches: Branch[]
   stats: Stats
+  activeRentalId: string | null
+  activeMonthlyId: string | null
 }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -190,6 +193,66 @@ export default function BikeDetailClient({ bike, docMap, branches, stats }: {
 
       <div style={{ padding: '0 0 8px' }}>
 
+        {/* ── เมนูการดำเนินการ ── */}
+        <div className="card" style={{ borderTop: '3px solid #4f46e5' }}>
+          <div className="card-title" style={{ color: '#4f46e5' }}>⚡ การดำเนินการ</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+
+            {/* ส่งรถ — เฉพาะรถว่าง */}
+            {bike.status === 'available' ? (
+              <Link href={`/owner/bikes/${bike.id}/send`} style={{ textDecoration: 'none' }}>
+                <div style={{ background: '#eff6ff', borderRadius: '12px', padding: '14px 12px', textAlign: 'center', border: '1.5px solid #bfdbfe' }}>
+                  <div style={{ fontSize: '28px', marginBottom: '4px' }}>🛵</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1d4ed8' }}>ส่งรถ</div>
+                  <div style={{ fontSize: '10px', color: '#60a5fa', marginTop: '2px' }}>สร้างการเช่าใหม่</div>
+                </div>
+              </Link>
+            ) : (
+              <div style={{ background: '#f9fafb', borderRadius: '12px', padding: '14px 12px', textAlign: 'center', border: '1.5px solid #e5e7eb', opacity: 0.5 }}>
+                <div style={{ fontSize: '28px', marginBottom: '4px' }}>🛵</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#9ca3af' }}>ส่งรถ</div>
+                <div style={{ fontSize: '10px', color: '#d1d5db', marginTop: '2px' }}>รถไม่ว่าง</div>
+              </div>
+            )}
+
+            {/* รับรถคืน — เฉพาะรถที่เช่าอยู่ */}
+            {(activeRentalId || activeMonthlyId) ? (
+              <Link href="/owner/rentals" style={{ textDecoration: 'none' }}>
+                <div style={{ background: '#f0fdf4', borderRadius: '12px', padding: '14px 12px', textAlign: 'center', border: '1.5px solid #bbf7d0' }}>
+                  <div style={{ fontSize: '28px', marginBottom: '4px' }}>⬅️</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#15803d' }}>รับรถคืน</div>
+                  <div style={{ fontSize: '10px', color: '#4ade80', marginTop: '2px' }}>ไปหน้าประวัติการเช่า</div>
+                </div>
+              </Link>
+            ) : (
+              <div style={{ background: '#f9fafb', borderRadius: '12px', padding: '14px 12px', textAlign: 'center', border: '1.5px solid #e5e7eb', opacity: 0.5 }}>
+                <div style={{ fontSize: '28px', marginBottom: '4px' }}>⬅️</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#9ca3af' }}>รับรถคืน</div>
+                <div style={{ fontSize: '10px', color: '#d1d5db', marginTop: '2px' }}>ไม่มีการเช่าอยู่</div>
+              </div>
+            )}
+
+            {/* ทำงานรูทีน */}
+            <a href="#docs" style={{ textDecoration: 'none' }}>
+              <div style={{ background: '#fffbeb', borderRadius: '12px', padding: '14px 12px', textAlign: 'center', border: '1.5px solid #fde68a' }}>
+                <div style={{ fontSize: '28px', marginBottom: '4px' }}>🔧</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#b45309' }}>ทำงานรูทีน</div>
+                <div style={{ fontSize: '10px', color: '#fbbf24', marginTop: '2px' }}>ดูสถานะซ่อมบำรุง</div>
+              </div>
+            </a>
+
+            {/* งานเอกสาร */}
+            <a href="#docs" style={{ textDecoration: 'none' }}>
+              <div style={{ background: '#f5f3ff', borderRadius: '12px', padding: '14px 12px', textAlign: 'center', border: '1.5px solid #ddd6fe' }}>
+                <div style={{ fontSize: '28px', marginBottom: '4px' }}>📄</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#6d28d9' }}>งานเอกสาร</div>
+                <div style={{ fontSize: '10px', color: '#a78bfa', marginTop: '2px' }}>เช็คเอกสารรถ</div>
+              </div>
+            </a>
+
+          </div>
+        </div>
+
         {/* ── ข้อมูลรถ ── */}
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -281,7 +344,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats }: {
         </div>
 
         {/* ── สถานะเอกสาร ── */}
-        <div className="card">
+        <div className="card" id="docs">
           <div className="card-title">📄 สถานะเอกสาร</div>
           <DocStatusRow icon="🛡️" name="พ.ร.บ. รถจักรยานยนต์" expiry={docMap['pob']?.expiry_date} hasPhoto={!!docMap['pob']?.doc_photo_url} />
           <DocStatusRow icon="💰" name="ภาษีประจำปี" expiry={docMap['tax']?.expiry_date} hasPhoto={!!docMap['tax']?.doc_photo_url} />
