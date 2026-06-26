@@ -48,6 +48,15 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'ไม่สามารถลบรถที่มีการเช่าอยู่' }, { status: 400 })
   }
 
+  // Cascade delete related records first
+  await Promise.all([
+    admin.from('bike_documents').delete().eq('bike_id', bikeId),
+    admin.from('rentals').delete().eq('bike_id', bikeId),
+    admin.from('monthly_rentals').delete().eq('bike_id', bikeId),
+    admin.from('bookings').delete().eq('bike_id', bikeId),
+    admin.from('repair_jobs').delete().eq('bike_id', bikeId),
+  ])
+
   const { error } = await admin.from('bikes').delete().eq('id', bikeId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
