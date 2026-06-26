@@ -183,6 +183,8 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
   const [address, setAddress] = useState(shop.address ?? '')
   const [taxId, setTaxId] = useState(shop.tax_id ?? '')
   const [phone, setPhone] = useState(shop.phone ?? '')
+  const [logoUrl, setLogoUrl] = useState(shop.logo_url ?? '')
+  const [logoUploading, setLogoUploading] = useState(false)
   const [shopLoading, setShopLoading] = useState(false)
   const [shopMsg, setShopMsg] = useState('')
 
@@ -261,7 +263,7 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        shop_name: shopName, address, tax_id: taxId, phone,
+        shop_name: shopName, address, tax_id: taxId, phone, logo_url: logoUrl,
         overtime_rate: parseFloat(overtimeRate) || 50,
         hours_per_day: parseInt(hoursPerDay) || 5,
         doc_alert_days: parseInt(docDays) || 30,
@@ -325,6 +327,35 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
           </Field>
           <Field label="เบอร์โทรศัพท์">
             <input className="field-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="076-000-000" />
+          </Field>
+          <Field label="โลโก้ร้าน">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="logo" style={{ width: '64px', height: '64px', objectFit: 'contain', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#f9fafb' }} />
+              ) : (
+                <div style={{ width: '64px', height: '64px', borderRadius: '10px', border: '2px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', background: '#f9fafb' }}>🖼️</div>
+              )}
+              <label style={{ cursor: 'pointer' }}>
+                <input type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={async e => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    setLogoUploading(true)
+                    const fd = new FormData()
+                    fd.append('file', file)
+                    fd.append('folder', 'shop-logo')
+                    const res = await fetch('/api/owner/upload', { method: 'POST', body: fd })
+                    const data = await res.json()
+                    if (res.ok) setLogoUrl(data.url)
+                    setLogoUploading(false)
+                  }}
+                />
+                <span style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: 600 }}>
+                  {logoUploading ? '⏳ กำลังอัพโหลด...' : '📤 เปลี่ยนโลโก้'}
+                </span>
+              </label>
+            </div>
           </Field>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <SaveBtn loading={shopLoading} onClick={saveShop} />

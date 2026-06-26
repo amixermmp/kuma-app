@@ -1,6 +1,19 @@
 import Link from 'next/link'
+import { createAdminClient } from '@/lib/supabase/admin'
 
-export default function LandingPage() {
+export const dynamic = 'force-dynamic'
+
+export default async function LandingPage() {
+  const admin = createAdminClient()
+  const { data: shop } = await admin
+    .from('shop_settings')
+    .select('shop_name, logo_url')
+    .limit(1)
+    .maybeSingle()
+
+  const logoUrl = shop?.logo_url ?? null
+  const shopName = shop?.shop_name ?? 'Kuma Bikes'
+
   return (
     <div
       className="app-wrap"
@@ -14,8 +27,23 @@ export default function LandingPage() {
       }}
     >
       <div style={{ textAlign: 'center', color: '#fff', padding: '40px 24px' }}>
-        <div style={{ fontSize: '64px', marginBottom: '16px' }}>🛵</div>
-        <h1 style={{ fontSize: '28px', fontWeight: 800, margin: '0 0 8px' }}>Kuma Bikes</h1>
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoUrl}
+            alt={shopName}
+            style={{
+              width: '140px',
+              height: '140px',
+              objectFit: 'contain',
+              borderRadius: '24px',
+              marginBottom: '20px',
+            }}
+          />
+        ) : (
+          <div style={{ fontSize: '64px', marginBottom: '16px' }}>🛵</div>
+        )}
+        <h1 style={{ fontSize: '28px', fontWeight: 800, margin: '0 0 8px' }}>{shopName}</h1>
         <p style={{ fontSize: '15px', opacity: 0.7, margin: '0 0 48px' }}>
           ระบบบริหารจัดการมอเตอร์ไซค์ให้เช่า
         </p>
