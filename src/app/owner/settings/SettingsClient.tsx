@@ -347,7 +347,16 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
                     fd.append('folder', 'shop-logo')
                     const res = await fetch('/api/owner/upload', { method: 'POST', body: fd })
                     const data = await res.json()
-                    if (res.ok) setLogoUrl(data.url)
+                    if (res.ok) {
+                      setLogoUrl(data.url)
+                      // Auto-save logo_url immediately after upload
+                      await fetch('/api/owner/settings/shop', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ logo_url: data.url }),
+                      })
+                      setShopMsg('✅ บันทึกโลโก้แล้ว')
+                    }
                     setLogoUploading(false)
                   }}
                 />
