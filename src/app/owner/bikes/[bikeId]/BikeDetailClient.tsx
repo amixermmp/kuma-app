@@ -303,6 +303,35 @@ export default function BikeDetailClient({ bike, docMap, branches, stats }: {
           ))}
         </div>
 
+        {/* ── QR Code ── */}
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div className="card-title" style={{ textAlign: 'left' }}>🔲 QR Code รถ</div>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px', textAlign: 'left' }}>
+            สแกนเพื่อเข้าหน้าข้อมูลรถ — กดค้างที่รูปเพื่อบันทึก
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&data=${encodeURIComponent(`https://kuma-app.vercel.app/bike/${bike.id}`)}`}
+            alt="QR Code"
+            style={{ width: '220px', height: '220px', borderRadius: '12px', border: '1px solid #e5e7eb' }}
+          />
+          <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '10px', wordBreak: 'break-all' }}>
+            kuma-app.vercel.app/bike/{bike.id.slice(0, 8)}...
+          </div>
+          <a
+            href={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=20&data=${encodeURIComponent(`https://kuma-app.vercel.app/bike/${bike.id}`)}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'inline-block', marginTop: '14px',
+              background: '#1e40af', color: '#fff', textDecoration: 'none',
+              borderRadius: '10px', padding: '10px 24px', fontSize: '14px', fontWeight: 700,
+            }}
+          >
+            ⬇️ เปิดรูป QR ขนาดใหญ่
+          </a>
+        </div>
+
         {/* ── Danger Zone ── */}
         {bike.status !== 'inactive' && (
           <div className="card" style={{ border: '1.5px solid #dc2626' }}>
