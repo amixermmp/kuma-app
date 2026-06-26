@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { writeLog } from '@/lib/log'
 
 const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -104,6 +105,18 @@ export async function POST(request: NextRequest) {
       status: 'paid',
     })
   }
+
+  const { data: staffRow } = await supabase.from('staff').select('name').eq('id', staffId).single()
+  const staffName = staffRow?.name ?? staffId
+
+  await writeLog({
+    actorType: 'staff',
+    actorId: staffId,
+    actorName: staffName,
+    action: 'monthly_created',
+    description: `เช่ารายเดือน — ลูกค้า ${customer.name} (${customer.phone}) — ฿${monthlyRate.toLocaleString()}/เดือน`,
+    metadata: { rentalId: rental.id, bikeId, customerId, monthlyRate },
+  })
 
   return NextResponse.json({ success: true, rentalId: rental.id })
 }

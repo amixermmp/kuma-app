@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { writeLog } from '@/lib/log'
 
 const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -85,6 +86,19 @@ export async function POST(request: NextRequest) {
   if (bikeErr) {
     console.error('[rental/create] bike update error:', JSON.stringify(bikeErr))
   }
+
+  // Lookup staff name for log
+  const { data: staffRow } = await supabase.from('staff').select('name').eq('id', staffId).single()
+  const staffName = staffRow?.name ?? staffId
+
+  await writeLog({
+    actorType: 'staff',
+    actorId: staffId,
+    actorName: staffName,
+    action: 'rental_created',
+    description: `ส่งรถให้ลูกค้า ${customer.name} (${customer.phone}) — ฿${totalAmount?.toLocaleString() ?? 0} / ${totalDays} วัน`,
+    metadata: { rentalId: rental.id, bikeId, customerId, totalAmount, totalDays },
+  })
 
   return NextResponse.json({ success: true, rentalId: rental.id })
 }
