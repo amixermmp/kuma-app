@@ -1,6 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { writeLog } from '@/lib/log'
+
+function extractStoragePath(url: string): string | null {
+  try {
+    const match = url.match(/\/rental-photo\/(.+?)(?:\?|$)/)
+    return match ? match[1] : null
+  } catch {
+    return null
+  }
+}
+
+async function deletePhotosFromStorage(
+  admin: ReturnType<typeof createAdminClient>,
+  photos: unknown
+): Promise<number> {
+  if (!photos || !Array.isArray(photos)) return 0
+  const paths: string[] = []
+  for (const p of photos) {
+    if (p && typeof p === 'object' && 'url' in p && typeof p.url === 'string') {
+      const path = extractStoragePath(p.url)
+      if (path) paths.push(path)
+    }
+  }
+  if (paths.length > 0) {
+    await admin.storage.from('rental-photo').remove(paths)
+  }
+  return paths.length
+}
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -22,7 +50,17 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // Close the rental
+  // Get existing send_photos before clearing
+  const { data: existing } = await supabase
+    .from('rentals')
+    .select('send_photos, customers(name, phone), bikes(license_plate)')
+    .eq('id', rentalId)
+    .single()
+
+  // Delete send_photos from storage
+  const deleted = await deletePhotosFromStorage(supabase, existing?.send_photos)
+
+  // Close the rental + clear photos
   const { error: rentalErr } = await supabase
     .from('rentals')
     .update({
@@ -32,9 +70,10 @@ export async function POST(request: NextRequest) {
       return_fuel: returnFuel,
       damage_fee: damageFee ?? 0,
       damage_notes: damageNotes ?? null,
-      return_photos: returnPhotoUrl ? { return: returnPhotoUrl } : {},
+      return_photos: returnPhotoUrl ? [{ url: returnPhotoUrl, label: 'รูปรับคืน' }] : [],
       refund_amount: refundAmount,
       total_amount: finalRentAmount,
+      send_photos: [],
     })
     .eq('id', rentalId)
     .in('status', ['active', 'extended'])
@@ -52,6 +91,35 @@ export async function POST(request: NextRequest) {
       ...(returnOdometer ? { odometer: returnOdometer } : {}),
     })
     .eq('id', bikeId)
+
+  // Lookup staff name
+  const { data: staffRow } = await supabase.from('staff').select('name').eq('id', staffId).single()
+  const staffName = staffRow?.name ?? staffId
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const customerName = (existing?.customers as any)?.name ?? 'ลูกค้า'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const plate = (existing?.bikes as any)?.license_plate ?? ''
+
+  // Log staff return
+  await writeLog({
+    actorType: 'staff',
+    actorId: staffId,
+    actorName: staffName,
+    action: 'bike_returned',
+    description: `รับรถคืน ${plate} — ลูกค้า ${customerName}${damageFee > 0 ? ` • ค่าเสียหาย ฿${damageFee}` : ''}`,
+    metadata: { rentalId, bikeId, damageFee, refundAmount },
+  })
+
+  // Log system photo deletion
+  if (deleted > 0) {
+    await writeLog({
+      actorType: 'system',
+      actorName: 'System',
+      action: 'photos_deleted',
+      description: `ลบรูปส่งรถ ${deleted} ภาพ — rental ${plate} (${customerName})`,
+      metadata: { rentalId, bikeId, count: deleted },
+    })
+  }
 
   return NextResponse.json({ success: true })
 }
