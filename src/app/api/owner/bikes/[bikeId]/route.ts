@@ -27,3 +27,29 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bike
 
   return NextResponse.json({ success: true })
 }
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ bikeId: string }> }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { bikeId } = await params
+  const admin = createAdminClient()
+
+  // Block deletion if bike has active rentals
+  const { data: active } = await admin
+    .from('rentals')
+    .select('id')
+    .eq('bike_id', bikeId)
+    .in('status', ['active', 'extended'])
+    .maybeSingle()
+
+  if (active) {
+    return NextResponse.json({ error: 'ไม่สามารถลบรถที่มีการเช่าอยู่' }, { status: 400 })
+  }
+
+  const { error } = await admin.from('bikes').delete().eq('id', bikeId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
+}

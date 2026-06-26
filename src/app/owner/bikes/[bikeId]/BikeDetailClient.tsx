@@ -97,9 +97,11 @@ export default function BikeDetailClient({ bike, docMap, branches, stats }: {
   const [branchSaving, setBranchSaving] = useState(false)
   const [branchMsg, setBranchMsg] = useState('')
 
-  // Deactivate
-  const [showDeactivate, setShowDeactivate] = useState(false)
-  const [deactivating, setDeactivating] = useState(false)
+  // Delete
+  const [showDelete, setShowDelete] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   const statusColor = STATUS_COLOR[bike.status] ?? '#6b7280'
   const statusLabel = STATUS_LABEL[bike.status] ?? bike.status
@@ -148,15 +150,17 @@ export default function BikeDetailClient({ bike, docMap, branches, stats }: {
     setTimeout(() => setBranchMsg(''), 3000)
   }
 
-  const deactivate = async () => {
-    setDeactivating(true)
-    await fetch(`/api/owner/bikes/${bike.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'inactive' }),
-    })
-    setDeactivating(false)
-    router.push('/owner/bikes')
+  const deleteBike = async () => {
+    setDeleting(true)
+    setDeleteError('')
+    const res = await fetch(`/api/owner/bikes/${bike.id}`, { method: 'DELETE' })
+    setDeleting(false)
+    if (res.ok) {
+      router.push('/owner/bikes')
+    } else {
+      const d = await res.json()
+      setDeleteError(d.error ?? 'เกิดข้อผิดพลาด')
+    }
   }
 
   return (
@@ -333,30 +337,45 @@ export default function BikeDetailClient({ bike, docMap, branches, stats }: {
         </div>
 
         {/* ── Danger Zone ── */}
-        {bike.status !== 'inactive' && (
-          <div className="card" style={{ border: '1.5px solid #dc2626' }}>
-            <div className="card-title" style={{ color: '#dc2626' }}>⚠️ Danger Zone</div>
-            <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '14px' }}>
-              การเลิกใช้งานรถจะซ่อนรถจากระบบการเช่า แต่ยังเก็บประวัติและรายได้ไว้ครบถ้วน
-            </div>
-            {!showDeactivate ? (
-              <button onClick={() => setShowDeactivate(true)} style={{ background: '#fff', color: '#dc2626', border: '2px solid #dc2626', borderRadius: '8px', padding: '10px 18px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', width: '100%' }}>
-                🚫 เลิกใช้งานรถคันนี้
-              </button>
-            ) : (
-              <div style={{ background: '#fef2f2', borderRadius: '10px', padding: '14px' }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#dc2626', marginBottom: '8px' }}>ยืนยันการเลิกใช้งาน?</div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '14px' }}>รถ {bike.license_plate} จะถูกซ่อนออกจากระบบ</div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => setShowDeactivate(false)} style={{ flex: 1, padding: '10px', background: '#f3f4f6', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>ยกเลิก</button>
-                  <button onClick={deactivate} disabled={deactivating} style={{ flex: 1, padding: '10px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', opacity: deactivating ? .7 : 1 }}>
-                    {deactivating ? '⏳' : '🚫 ยืนยัน'}
-                  </button>
-                </div>
-              </div>
-            )}
+        <div className="card" style={{ border: '1.5px solid #dc2626' }}>
+          <div className="card-title" style={{ color: '#dc2626' }}>⚠️ Danger Zone</div>
+          <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '14px' }}>
+            การลบรถจะ<strong style={{ color: '#dc2626' }}>ลบข้อมูลออกจากระบบถาวร</strong> ไม่สามารถกู้คืนได้
           </div>
-        )}
+          {!showDelete ? (
+            <button onClick={() => { setShowDelete(true); setDeleteConfirm(''); setDeleteError('') }}
+              style={{ background: '#fff', color: '#dc2626', border: '2px solid #dc2626', borderRadius: '8px', padding: '10px 18px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', width: '100%' }}>
+              🗑️ ลบรถคันนี้ออกจากระบบ
+            </button>
+          ) : (
+            <div style={{ background: '#fef2f2', borderRadius: '10px', padding: '14px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#dc2626', marginBottom: '6px' }}>ยืนยันการลบ?</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px' }}>
+                รถ <strong>{bike.license_plate}</strong> จะถูกลบถาวร — พิมพ์ <strong>DELETE</strong> เพื่อยืนยัน
+              </div>
+              <input
+                type="text"
+                placeholder="พิมพ์ DELETE"
+                value={deleteConfirm}
+                onChange={e => setDeleteConfirm(e.target.value)}
+                style={{ width: '100%', padding: '10px', border: '1.5px solid #fca5a5', borderRadius: '8px', fontSize: '14px', fontWeight: 700, letterSpacing: '2px', marginBottom: '10px', boxSizing: 'border-box', outline: 'none', background: '#fff' }}
+              />
+              {deleteError && <div style={{ fontSize: '12px', color: '#dc2626', marginBottom: '10px' }}>❌ {deleteError}</div>}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => setShowDelete(false)}
+                  style={{ flex: 1, padding: '10px', background: '#f3f4f6', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={deleteBike}
+                  disabled={deleteConfirm !== 'DELETE' || deleting}
+                  style={{ flex: 1, padding: '10px', background: deleteConfirm === 'DELETE' ? '#dc2626' : '#fca5a5', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: deleteConfirm === 'DELETE' ? 'pointer' : 'not-allowed', opacity: deleting ? .7 : 1 }}>
+                  {deleting ? '⏳ กำลังลบ...' : '🗑️ ลบถาวร'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
       </div>
     </div>
