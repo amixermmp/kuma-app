@@ -156,11 +156,10 @@ export default async function JobsPage() {
       .order('created_at', { ascending: false })
       .limit(20),
 
-    // รูทีน — ถึงกำหนด
+    // รูทีน — ดึงทั้งหมดแล้ว filter ด้วย JS (km-based ต้องเทียบกับ odometer)
     supabase.from('bike_routines')
-      .select('id, type, next_due_km, next_due_date, bikes(id, license_plate, brand, model, odometer)')
-      .or(`next_due_date.lte.${today},next_due_km.lte.0`)
-      .limit(20),
+      .select('id, task_name, next_due_km, next_due_date, bikes(id, license_plate, brand, model, odometer)')
+      .limit(200),
 
     // เอกสาร — ใกล้หมดอายุ 30 วัน
     supabase.from('bike_documents')
@@ -187,11 +186,10 @@ export default async function JobsPage() {
       .limit(20),
   ])
 
-  // Filter routines that are actually overdue (km-based needs bike odometer)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const overdueRoutines = (routines ?? []).filter((r: any) => {
-    const bike = r.bikes
-    const kmOverdue = r.next_due_km != null && bike?.odometer != null && r.next_due_km <= bike.odometer
+    const odometer = r.bikes?.odometer ?? 0
+    const kmOverdue = r.next_due_km != null && odometer >= r.next_due_km
     const dateOverdue = r.next_due_date != null && r.next_due_date <= today
     return kmOverdue || dateOverdue
   })
@@ -381,7 +379,7 @@ export default async function JobsPage() {
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {overdueRoutines.map((r: any) => {
               const bike = r.bikes
-              const typeLabel = r.type ?? 'บำรุงรักษา'
+              const typeLabel = r.task_name ?? 'บำรุงรักษา'
               const kmOver = r.next_due_km != null && bike?.odometer != null
                 ? bike.odometer - r.next_due_km : null
               // คำนวณ days สำหรับ date-based routine (km-based ถือว่าเกินแล้ว = -1)
