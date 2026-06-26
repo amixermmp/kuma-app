@@ -113,12 +113,14 @@ function DocRow({
 }
 
 export default function BikePublicClient({
-  bike, docMap, settings, pinError = false,
+  bike, docMap, settings, pinError = false, rentalInfo = null, monthlyInfo = null,
 }: {
   bike: Bike
   docMap: Record<string, DocRecord>
   settings: BranchSettings | null
   pinError?: boolean
+  rentalInfo?: { type: 'daily'; expectedEnd: string | null } | null
+  monthlyInfo?: { paymentDay: number } | null
 }) {
   const [tab, setTab] = useState<'info' | 'rental' | 'docs'>('info')
   const [viewDoc, setViewDoc] = useState<{ url: string; label: string } | null>(null)
@@ -268,11 +270,44 @@ export default function BikePublicClient({
                 <div style={{ fontWeight: 700, fontSize: '16px', marginTop: '10px', color: '#1e293b' }}>รถว่าง</div>
                 <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>ไม่มีการเช่าที่ใช้งานอยู่</div>
               </>
-            ) : bike.status === 'rented' ? (
+            ) : bike.status === 'rented' && monthlyInfo ? (
+              <>
+                <div style={{ fontSize: '44px' }}>🔵</div>
+                <div style={{ fontWeight: 700, fontSize: '16px', marginTop: '10px', color: '#1e293b' }}>เช่ารายเดือน</div>
+                <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>รถคันนี้ถูกเช่าแบบรายเดือน</div>
+                <div style={{
+                  marginTop: '16px', background: '#eff6ff', border: '1px solid #bfdbfe',
+                  borderRadius: '10px', padding: '12px 16px', display: 'inline-block',
+                }}>
+                  <div style={{ fontSize: '11px', color: '#3b82f6', fontWeight: 600, marginBottom: '4px' }}>ชำระค่าเช่าทุกวันที่</div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, color: '#1e40af' }}>
+                    {monthlyInfo.paymentDay} ของเดือน
+                  </div>
+                </div>
+              </>
+            ) : bike.status === 'rented' && rentalInfo ? (
               <>
                 <div style={{ fontSize: '44px' }}>🔵</div>
                 <div style={{ fontWeight: 700, fontSize: '16px', marginTop: '10px', color: '#1e293b' }}>กำลังถูกเช่า</div>
                 <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>รถคันนี้ถูกเช่าอยู่ในขณะนี้</div>
+                {rentalInfo.expectedEnd && (
+                  <div style={{
+                    marginTop: '16px', background: '#fefce8', border: '1px solid #fde68a',
+                    borderRadius: '10px', padding: '12px 16px', display: 'inline-block',
+                  }}>
+                    <div style={{ fontSize: '11px', color: '#92400e', fontWeight: 600, marginBottom: '4px' }}>กำหนดคืนรถ</div>
+                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#78350f' }}>
+                      {new Date(rentalInfo.expectedEnd).toLocaleDateString('th-TH', {
+                        weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+                      })}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#92400e', marginTop: '2px' }}>
+                      {new Date(rentalInfo.expectedEnd).toLocaleTimeString('th-TH', {
+                        hour: '2-digit', minute: '2-digit',
+                      })} น.
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <>

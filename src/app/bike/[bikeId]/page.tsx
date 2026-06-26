@@ -32,13 +32,15 @@ export default async function BikePublicPage({
       .maybeSingle(),
     supabase
       .from('rentals')
-      .select('id')
+      .select('id, expected_end_datetime, status')
       .eq('bike_id', params.bikeId)
-      .eq('status', 'active')
+      .in('status', ['active', 'extended'])
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle(),
     supabase
       .from('monthly_rentals')
-      .select('id')
+      .select('id, start_date, payment_day')
       .eq('bike_id', params.bikeId)
       .eq('status', 'active')
       .maybeSingle(),
@@ -46,11 +48,33 @@ export default async function BikePublicPage({
 
   if (!bike) notFound()
 
+  // For extended daily rentals, get the latest extension date
+  let expectedEnd = activeRental?.expected_end_datetime ?? null
+  if (activeRental) {
+    const { data: latestExt } = await supabase
+      .from('rental_extensions')
+      .select('extended_until')
+      .eq('rental_id', activeRental.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (latestExt) expectedEnd = latestExt.extended_until
+  }
+
   // Derive effective status from rentals table (source of truth), not bikes.status which may lag
   const effectiveStatus = (activeRental || activeMonthly) ? 'rented' : bike.status
   const bikeWithStatus = { ...bike, status: effectiveStatus }
 
   const docMap = Object.fromEntries((docs ?? []).map(d => [d.doc_type, d]))
 
-  return <BikePublicClient bike={bikeWithStatus} docMap={docMap} settings={settings ?? null} pinError={searchParams.error === 'pin'} />
+  return (
+    <BikePublicClient
+      bike={bikeWithStatus}
+      docMap={docMap}
+      settings={settings ?? null}
+      pinError={searchParams.error === 'pin'}
+      rentalInfo={activeRental ? { type: 'daily', expectedEnd } : null}
+      monthlyInfo={activeMonthly ? { paymentDay: activeMonthly.payment_day } : null}
+    />
+  )
 }
