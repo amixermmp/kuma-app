@@ -15,7 +15,7 @@ export default async function BikePublicPage({
 }) {
   const supabase = createAdminClient()
 
-  const [{ data: bike }, { data: docs }, { data: settings }] = await Promise.all([
+  const [{ data: bike }, { data: docs }, { data: settings }, { data: activeRental }, { data: activeMonthly }] = await Promise.all([
     supabase
       .from('bikes')
       .select('id, license_plate, brand, model, year, color, photo_url, daily_rate, monthly_rate, deposit_amount, status, odometer, notes')
@@ -30,11 +30,27 @@ export default async function BikePublicPage({
       .select('terms_photo_url, manual_photo_url, contract_photo_url, contact_line, contact_phone')
       .eq('branch_id', BRANCH_ID)
       .maybeSingle(),
+    supabase
+      .from('rentals')
+      .select('id')
+      .eq('bike_id', params.bikeId)
+      .eq('status', 'active')
+      .maybeSingle(),
+    supabase
+      .from('monthly_rentals')
+      .select('id')
+      .eq('bike_id', params.bikeId)
+      .eq('status', 'active')
+      .maybeSingle(),
   ])
 
   if (!bike) notFound()
 
+  // Derive effective status from rentals table (source of truth), not bikes.status which may lag
+  const effectiveStatus = (activeRental || activeMonthly) ? 'rented' : bike.status
+  const bikeWithStatus = { ...bike, status: effectiveStatus }
+
   const docMap = Object.fromEntries((docs ?? []).map(d => [d.doc_type, d]))
 
-  return <BikePublicClient bike={bike} docMap={docMap} settings={settings ?? null} pinError={searchParams.error === 'pin'} />
+  return <BikePublicClient bike={bikeWithStatus} docMap={docMap} settings={settings ?? null} pinError={searchParams.error === 'pin'} />
 }

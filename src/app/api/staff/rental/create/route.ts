@@ -77,10 +77,14 @@ export async function POST(request: NextRequest) {
   }
 
   // Update bike status
-  await supabase
+  const { error: bikeErr } = await supabase
     .from('bikes')
-    .update({ status: 'rented', odometer: parseInt(odometer) || undefined })
+    .update({ status: 'rented', odometer: parseInt(odometer) || 0 })
     .eq('id', bikeId)
+
+  if (bikeErr) {
+    console.error('[rental/create] bike update error:', JSON.stringify(bikeErr))
+  }
 
   return NextResponse.json({ success: true, rentalId: rental.id })
 }
