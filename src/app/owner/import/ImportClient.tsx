@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import Link from 'next/link'
+import DocUploadSection from './DocUploadSection'
 
 type Branch = { id: string; name: string }
 
@@ -312,6 +313,14 @@ export default function ImportClient({ branches }: { branches: Branch[] }) {
             {loading ? '⏳ กำลัง import...' : `📥 Import รถ ${validRows.length} คัน`}
           </button>
         )}
+
+        {/* Divider */}
+        <div style={{ borderTop: '2px dashed #e5e7eb', paddingTop: '16px' }}>
+          <div style={{ fontWeight: 700, fontSize: '15px', color: '#111827', marginBottom: '12px' }}>
+            📄 อัพโหลดรูปเอกสาร (ภาษี / พรบ / หน้าเล่ม)
+          </div>
+          <DocUploadSection />
+        </div>
 
       </div>
     </div>
