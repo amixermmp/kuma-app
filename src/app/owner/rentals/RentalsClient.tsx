@@ -173,7 +173,7 @@ export default function RentalsClient({
         body: JSON.stringify({ rentalId: confirmEnd.id, type: confirmEnd.type }),
       })
       if (res.ok) {
-        setEnded(prev => new Set([...prev, confirmEnd.id]))
+        setEnded(prev => new Set(Array.from(prev).concat(confirmEnd.id)))
       } else {
         const d = await res.json()
         alert(d.error || 'เกิดข้อผิดพลาด')
