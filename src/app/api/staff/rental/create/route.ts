@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   const {
     bikeId, customer, startDatetime, endDatetime,
     dailyRate, totalDays, totalAmount, depositAmount,
-    discount, paymentMethod, fuelLevel, odometer, photos, signature,
+    discount, paymentMethod, fuelLevel, odometer, photos, signature, lockBike,
   } = body
 
   if (!bikeId || !customer?.name || !customer?.phone || !startDatetime || !endDatetime) {
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
   const newOdometer = parseInt(odometer) || 0
   const { error: bikeErr } = await supabase
     .from('bikes')
-    .update({ status: 'rented', odometer: newOdometer })
+    .update({ status: lockBike ? 'locked' : 'rented', odometer: newOdometer })
     .eq('id', bikeId)
 
   if (bikeErr) {

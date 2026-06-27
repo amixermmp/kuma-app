@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
   available: { label: 'ว่าง',     bg: '#f0fdf4', color: '#16a34a' },
   rented:    { label: 'เช่าอยู่', bg: '#fef2f2', color: '#dc2626' },
+  locked:    { label: '🔒 ล็อค',  bg: '#fef2f2', color: '#dc2626' },
   repair:    { label: 'ซ่อม',     bg: '#fffbeb', color: '#d97706' },
   inactive:  { label: 'ปิดใช้',   bg: '#f3f4f6', color: '#6b7280' },
 }
@@ -51,9 +52,9 @@ export default async function StaffBikesPage() {
 
   const available = (bikes ?? []).filter(b => b.status === 'available' && !bookedBikeIds.has(b.id))
   const booked    = (bikes ?? []).filter(b => b.status === 'available' && bookedBikeIds.has(b.id))
-  const rented    = (bikes ?? []).filter(b => b.status === 'rented')
+  const rented    = (bikes ?? []).filter(b => b.status === 'rented' || b.status === 'locked')
   const repair    = (bikes ?? []).filter(b => b.status === 'repair')
-  const other     = (bikes ?? []).filter(b => !['available','rented','repair'].includes(b.status))
+  const other     = (bikes ?? []).filter(b => !['available','rented','locked','repair'].includes(b.status))
 
   const allSorted = [...rented, ...booked, ...repair, ...available, ...other]
 
@@ -109,7 +110,7 @@ export default async function StaffBikesPage() {
                 background: '#fff', borderRadius: '14px',
                 boxShadow: '0 1px 4px rgba(0,0,0,.07)',
                 overflow: 'hidden', display: 'flex',
-                borderLeft: `5px solid ${isBooked ? '#7c3aed' : bike.status === 'rented' ? '#dc2626' : bike.status === 'repair' ? '#d97706' : '#16a34a'}`,
+                borderLeft: `5px solid ${isBooked ? '#7c3aed' : (bike.status === 'rented' || bike.status === 'locked') ? '#dc2626' : bike.status === 'repair' ? '#d97706' : '#16a34a'}`,
               }}>
                 <div style={{ flex: 1, padding: '13px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>

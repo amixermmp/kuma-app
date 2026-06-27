@@ -144,6 +144,7 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
   const [mSignature, setMSignature] = useState<string | null>(null)
   const [showMSignPad, setShowMSignPad] = useState(false)
 
+  const [lockBike, setLockBike] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [createdRentalId, setCreatedRentalId] = useState<string | null>(null)
@@ -221,6 +222,7 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
           depositAmount: parseFloat(depositAmount) || 0, discount, paymentMethod, fuelLevel,
           odometer: odometer || '0', photos,
           signature: signature ?? null,
+          lockBike,
         }),
       })
       const data = await res.json()
@@ -496,6 +498,36 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
           {showSignPad && (
             <SignaturePad onSave={setSignature} onClose={() => setShowSignPad(false)} />
           )}
+
+          {/* Lock bike option */}
+          <div
+            onClick={() => setLockBike(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '12px',
+              background: lockBike ? '#fef2f2' : '#f8fafc',
+              border: `1.5px solid ${lockBike ? '#fca5a5' : '#e2e8f0'}`,
+              borderRadius: '12px', padding: '14px 16px', cursor: 'pointer',
+              marginBottom: '12px',
+            }}
+          >
+            <div style={{
+              width: '22px', height: '22px', borderRadius: '6px',
+              background: lockBike ? '#dc2626' : '#fff',
+              border: `2px solid ${lockBike ? '#dc2626' : '#d1d5db'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              {lockBike && <span style={{ color: '#fff', fontSize: '14px', lineHeight: 1 }}>✓</span>}
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '14px', color: lockBike ? '#dc2626' : '#374151' }}>
+                🔒 ล็อครถ
+              </div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                ซ่อนรถจากรายการจนกว่าจะรับรถคืน
+              </div>
+            </div>
+          </div>
 
           {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px', color: '#dc2626', fontSize: '14px', marginBottom: '12px' }}>⚠️ {error}</div>}
 

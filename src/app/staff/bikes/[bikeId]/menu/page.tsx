@@ -8,12 +8,14 @@ export const dynamic = 'force-dynamic'
 const STATUS_LABEL: Record<string, string> = {
   available: 'ว่าง',
   rented: 'กำลังถูกเช่า',
+  locked: '🔒 ล็อค',
   repair: 'อยู่ระหว่างซ่อม',
   maintenance: 'อยู่ระหว่างซ่อม',
 }
 const STATUS_COLOR: Record<string, string> = {
   available: '#16a34a',
   rented: '#2563eb',
+  locked: '#dc2626',
   repair: '#dc2626',
   maintenance: '#dc2626',
 }
@@ -72,7 +74,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
   const statusColor = STATUS_COLOR[bike.status] ?? '#6b7280'
   const statusLabel = STATUS_LABEL[bike.status] ?? bike.status
   const isAvailable = bike.status === 'available'
-  const isRented = bike.status === 'rented' && !monthlyRentalId
+  const isRented = (bike.status === 'rented' || bike.status === 'locked') && !monthlyRentalId
 
   const fuelLevel = bike.fuel_level ?? 0
   const fuelDots = Array.from({ length: 8 }, (_, i) => i < fuelLevel ? '●' : '○').join('')
