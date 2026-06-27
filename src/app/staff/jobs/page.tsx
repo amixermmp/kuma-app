@@ -98,4 +98,20 @@ export default async function JobsPage() {
   const overdueRoutines = (routines ?? []).filter((r: any) => {
     const odometer = r.bikes?.odometer ?? 0
     const kmOverdue = r.next_due_km != null && odometer >= r.next_due_km
-    const dateOverdue = r.next_due_date != null && r.next_d
+    const dateOverdue = r.next_due_date != null && r.next_due_date <= today
+    return kmOverdue || dateOverdue
+  })
+
+  return (
+    <JobsClient
+      sendJobs={sendJobs ?? []}
+      overdueRentals={overdueRentals ?? []}
+      dueSoonRentals={dueSoonRentals ?? []}
+      activeRentals={activeRentals ?? []}
+      repairs={repairs ?? []}
+      overdueRoutines={overdueRoutines}
+      docsDue={docsDue ?? []}
+      monthlyDue={monthlyDue ?? []}
+    />
+  )
+}

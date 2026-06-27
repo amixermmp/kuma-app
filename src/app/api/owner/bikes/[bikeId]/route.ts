@@ -77,4 +77,5 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     metadata: { bikeId, license_plate: bike?.license_plate },
   })
 
-  return NextResponse.json({ succes
+  return NextResponse.json({ success: true })
+}
