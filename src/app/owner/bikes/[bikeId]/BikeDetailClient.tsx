@@ -105,6 +105,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
 
   // Branch transfer
   const [branchId, setBranchId] = useState(bike.branch_id)
+  const [transferRate, setTransferRate] = useState(String(bike.daily_rate))
   const [branchSaving, setBranchSaving] = useState(false)
   const [branchMsg, setBranchMsg] = useState('')
 
@@ -233,7 +234,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
     const res = await fetch(`/api/owner/bikes/${bike.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ branch_id: branchId }),
+      body: JSON.stringify({ branch_id: branchId, daily_rate: parseFloat(transferRate) || bike.daily_rate }),
     })
     setBranchSaving(false)
     setBranchMsg(res.ok ? '✅ ย้ายสาขาแล้ว' : '❌ เกิดข้อผิดพลาด')
@@ -386,6 +387,8 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
               <option key={b.id} value={b.id}>{b.name}{b.id === bike.branch_id ? ' (ปัจจุบัน)' : ''}</option>
             ))}
           </select>
+          <label className="field-label">ราคาเช่า/วัน ที่สาขาใหม่ (บาท)</label>
+          <input className="field-input" type="number" value={transferRate} onChange={e => setTransferRate(e.target.value)} style={{ marginBottom: '12px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button onClick={saveBranch} disabled={branchSaving || branchId === bike.branch_id} style={{
               background: branchId !== bike.branch_id ? '#0891b2' : '#e5e7eb',
