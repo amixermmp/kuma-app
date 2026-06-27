@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Bike = {
@@ -157,6 +157,37 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
     }
   }
 
+  // Photo upload
+  const [photoUrl, setPhotoUrl] = useState(bike.photo_url)
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  const handlePhotoUpload = async (file: File) => {
+    setPhotoUploading(true)
+    try {
+      const { compressImage } = await import('@/lib/compressImage')
+      const compressed = await compressImage(file, 200)
+      const fd = new FormData()
+      fd.append('file', new File([compressed], 'photo.jpg', { type: 'image/jpeg' }))
+      fd.append('folder', 'bikes')
+      const uploadRes = await fetch('/api/staff/upload', { method: 'POST', body: fd })
+      const uploadData = await uploadRes.json()
+      if (!uploadRes.ok) throw new Error(uploadData.error)
+
+      const saveRes = await fetch(`/api/owner/bikes/${bike.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo_url: uploadData.url }),
+      })
+      if (!saveRes.ok) throw new Error('save failed')
+      setPhotoUrl(uploadData.url)
+    } catch (err) {
+      console.error('Photo upload failed:', err)
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
   // Delete
   const [showDelete, setShowDelete] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -228,11 +259,35 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
 
       {/* Hero */}
       <div style={{ background: 'linear-gradient(160deg,#0f172a,#1e3a8a)', position: 'relative' }}>
-        {bike.photo_url ? (
-          <img src={bike.photo_url} alt={bike.brand} style={{ width: '100%', height: '200px', objectFit: 'cover', display: 'block' }} />
+        {photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photoUrl} alt={bike.brand} style={{ width: '100%', height: '200px', objectFit: 'cover', display: 'block' }} />
         ) : (
           <div style={{ height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '64px', color: 'rgba(255,255,255,.3)' }}>🛵</div>
         )}
+
+        {/* Upload photo button */}
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(f) }}
+        />
+        <button
+          onClick={() => photoInputRef.current?.click()}
+          disabled={photoUploading}
+          style={{
+            position: 'absolute', top: '10px', right: '10px',
+            background: 'rgba(0,0,0,0.55)', color: '#fff',
+            border: 'none', borderRadius: '20px',
+            padding: '6px 12px', fontSize: '12px', fontWeight: 700,
+            cursor: photoUploading ? 'default' : 'pointer',
+            display: 'flex', alignItems: 'center', gap: '5px',
+          }}
+        >
+          {photoUploading ? '⏳' : '📷'} {photoUploading ? 'กำลังอัปโหลด...' : photoUrl ? 'เปลี่ยนรูป' : 'เพิ่มรูป'}
+        </button>
         <div style={{ padding: '16px', color: '#fff' }}>
           <div style={{ fontSize: '24px', fontWeight: 900 }}>{bike.license_plate}</div>
           <div style={{ fontSize: '14px', opacity: .8, marginTop: '2px' }}>

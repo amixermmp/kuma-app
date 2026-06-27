@@ -120,10 +120,11 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
                 boxShadow: '0 1px 4px rgba(0,0,0,.07)',
                 border: `2px solid ${DOT_COLOR[bike.status]}22`,
               }}>
-                <div style={{ fontSize: '28px', textAlign: 'center', marginBottom: '8px',
-                  filter: bike.status === 'repair' || bike.status === 'retired' ? 'grayscale(.6)' : 'none' }}>
-                  🛵
-                </div>
+                {bike.photo_url
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={bike.photo_url} alt="" style={{ width: '100%', height: '70px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px', filter: bike.status === 'repair' || bike.status === 'retired' ? 'grayscale(.6)' : 'none' }} />
+                  : <div style={{ fontSize: '28px', textAlign: 'center', marginBottom: '8px', filter: bike.status === 'repair' || bike.status === 'retired' ? 'grayscale(.6)' : 'none' }}>🛵</div>
+                }
                 <div style={{ fontWeight: 800, fontSize: '14px', textAlign: 'center' }}>{bike.license_plate}</div>
                 <div style={{ fontSize: '11px', color: '#6b7280', textAlign: 'center', marginBottom: '6px' }}>
                   {bike.brand} {bike.model}
@@ -180,7 +181,11 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
                       }} />
 
                       {/* Icon */}
-                      <div style={{ fontSize: '22px', filter: isGray ? 'grayscale(.5)' : 'none', flexShrink: 0 }}>🛵</div>
+                      {bike.photo_url
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={bike.photo_url} alt="" style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0, filter: isGray ? 'grayscale(.5)' : 'none' }} />
+                        : <div style={{ fontSize: '22px', filter: isGray ? 'grayscale(.5)' : 'none', flexShrink: 0 }}>🛵</div>
+                      }
 
                       {/* Main info */}
                       <div style={{ flex: 1, minWidth: 0 }}>

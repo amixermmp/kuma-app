@@ -13,6 +13,7 @@ export type OwnerBike = {
   model: string
   year: number | null
   color: string | null
+  photo_url: string | null
   status: string
   daily_rate: number
   odometer: number
@@ -42,7 +43,7 @@ export default async function OwnerBikesPage() {
 
   const [bikesRes, docsRes, branchesRes, routinesRes] = await Promise.all([
     admin.from('bikes')
-      .select('id, license_plate, brand, model, year, color, status, daily_rate, odometer, notes, branch_id, branches(name)')
+      .select('id, license_plate, brand, model, year, color, photo_url, status, daily_rate, odometer, notes, branch_id, branches(name)')
       .order('license_plate'),
     admin.from('bike_documents')
       .select('bike_id, doc_type, expiry_date')
@@ -80,6 +81,7 @@ export default async function OwnerBikesPage() {
       model: b.model,
       year: b.year,
       color: b.color,
+      photo_url: b.photo_url ?? null,
       status: b.status,
       daily_rate: b.daily_rate,
       odometer: b.odometer,
