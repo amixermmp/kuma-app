@@ -361,7 +361,9 @@ export default function JobsClient({
             <SectionTitle>งานซ่อมบำรุงรูทีน 🔧🛢️</SectionTitle>
             {overdueRoutines.map((r: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
               const bike = r.bikes
-              const kmOver = r.next_due_km != null && bike?.odometer != null ? bike.odometer - r.next_due_km : null
+              const kmOver = r.next_due_km != null && bike?.odometer != null && bike.odometer >= r.next_due_km
+                ? bike.odometer - r.next_due_km
+                : null
               const days = kmOver != null ? -1 : (r.next_due_date ? daysUntil(r.next_due_date) : 0)
               const p = urgencyPalette(days)
               const badgeText = kmOver != null
