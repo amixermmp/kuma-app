@@ -278,4 +278,17 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           disabled={loading}
           style={{ width: '100%', opacity: loading ? 0.7 : 1 }}
         >
-          {loading ? '⏳ กำลังบันทึก...' : '✅ ยืนยันรับรถ
+          {loading ? '⏳ กำลังบันทึก...' : '✅ ยืนยันรับรถคืน'}
+        </button>
+
+        <button className="btn" style={{
+          width: '100%', marginTop: '8px',
+          background: 'transparent', border: '2px solid #7c3aed', color: '#7c3aed',
+        }}>
+          🧾 ออกใบกำกับภาษี
+        </button>
+
+      </div>
+    </div>
+  )
+}

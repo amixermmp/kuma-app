@@ -21,7 +21,9 @@ export default function TabBar() {
     return listenTabs(() => setTabs(getTabs()))
   }, [])
 
-  if (tabs.length === 0) return null
+  const isHome = pathname === '/staff/home'
+
+  if (tabs.length === 0 && isHome) return null
 
   return (
     <div style={{
@@ -34,6 +36,25 @@ export default function TabBar() {
       overflowX: 'auto',
       flexShrink: 0,
     }}>
+      {/* Home tab — always visible */}
+      <button
+        onClick={() => router.push('/staff/home')}
+        style={{
+          flexShrink: 0,
+          background: isHome ? '#1e40af' : '#eff6ff',
+          color: isHome ? '#fff' : '#1d4ed8',
+          border: 'none',
+          borderRadius: '20px',
+          padding: '4px 12px',
+          fontSize: '12px',
+          fontWeight: 700,
+          cursor: 'pointer',
+        }}
+        aria-label="กลับหน้าหลัก"
+      >
+        🏠
+      </button>
+
       {tabs.map(tab => {
         const isActive = pathname === tab.href
         const s = TYPE_STYLE[tab.type] ?? TYPE_STYLE.sendcar

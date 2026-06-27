@@ -210,4 +210,11 @@ export default async function StaffHomePage() {
             }}>
               <span style={{ fontSize: '22px' }}>{icon}</span>
               {label}
-            </Li
+            </Link>
+          ))}
+        </div>
+
+      </div>
+    </div>
+  )
+}

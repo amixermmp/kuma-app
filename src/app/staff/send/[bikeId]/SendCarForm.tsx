@@ -679,4 +679,16 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
             style={{
               width: '100%', padding: '16px', border: 'none', borderRadius: '12px',
               background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: '#fff',
-              fontSize: '16px'
+              fontSize: '16px', fontWeight: 700, cursor: 'pointer',
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading ? '⏳ กำลังบันทึก...' : '💾 บันทึกสัญญารายเดือน'}
+          </button>
+
+        </>)}
+
+      </div>
+    </div>
+  )
+}
