@@ -83,14 +83,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'บันทึกการเช่าไม่สำเร็จ' }, { status: 500 })
   }
 
-  // Update bike status
+  // Update bike status + odometer
+  const newOdometer = parseInt(odometer) || 0
   const { error: bikeErr } = await supabase
     .from('bikes')
-    .update({ status: 'rented', odometer: parseInt(odometer) || 0 })
+    .update({ status: 'rented', odometer: newOdometer })
     .eq('id', bikeId)
 
   if (bikeErr) {
     console.error('[rental/create] bike update error:', JSON.stringify(bikeErr))
+  }
+
+  // Recalculate next_due_km for routines that have never been done (last_done_km = null)
+  // and whose next_due_km is already passed by the new odometer reading.
+  // This prevents false alerts when a bike is first sent with a high odometer value.
+  if (newOdometer > 0) {
+    const { data: routines } = await supabase
+      .from('bike_routines')
+      .select('id, interval_km, next_due_km')
+      .eq('bike_id', bikeId)
+      .is('last_done_km', null)
+
+    for (const r of routines ?? []) {
+      if (r.interval_km && r.next_due_km != null && newOdometer >= r.next_due_km) {
+        await supabase
+          .from('bike_routines')
+          .update({ next_due_km: newOdometer + r.interval_km })
+          .eq('id', r.id)
+      }
+    }
   }
 
   // Lookup staff name for log
