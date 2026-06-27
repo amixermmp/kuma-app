@@ -20,6 +20,8 @@ const DOT_COLOR: Record<string, string> = {
   retired:   '#9ca3af',
 }
 
+type FilterKey = 'available' | 'rented' | 'repair' | 'doc' | 'routine' | null
+
 function docAlert(days: number | null): { label: string; color: string; bg: string } | null {
   if (days === null) return null
   if (days < 0)   return { label: `หมดอายุแล้ว`, color: '#b91c1c', bg: '#fee2e2' }
@@ -29,11 +31,14 @@ function docAlert(days: number | null): { label: string; color: string; bg: stri
 }
 
 export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]; branches: Branch[] }) {
-  const [search, setSearch]     = useState('')
-  const [branchId, setBranchId] = useState('all')
-  const [view, setView]         = useState<'list' | 'grid'>('list')
+  const [search, setSearch]       = useState('')
+  const [branchId, setBranchId]   = useState('all')
+  const [view, setView]           = useState<'list' | 'grid'>('list')
+  const [activeFilter, setFilter] = useState<FilterKey>(null)
 
-  const filtered = useMemo(() => {
+  const toggleFilter = (key: FilterKey) => setFilter(prev => prev === key ? null : key)
+
+  const baseFiltered = useMemo(() => {
     const q = search.toLowerCase()
     return bikes.filter(b => {
       if (branchId !== 'all' && b.branch_id !== branchId) return false
@@ -44,11 +49,19 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
     })
   }, [bikes, search, branchId])
 
+  const filtered = useMemo(() => {
+    if (!activeFilter) return baseFiltered
+    if (activeFilter === 'doc')     return baseFiltered.filter(b => b.has_doc_alert)
+    if (activeFilter === 'routine') return baseFiltered.filter(b => b.has_routine_alert)
+    return baseFiltered.filter(b => b.status === activeFilter)
+  }, [baseFiltered, activeFilter])
+
   const counts = {
-    available: filtered.filter(b => b.status === 'available').length,
-    rented:    filtered.filter(b => b.status === 'rented').length,
-    repair:    filtered.filter(b => b.status === 'repair').length,
-    retired:   filtered.filter(b => b.status === 'retired').length,
+    available: baseFiltered.filter(b => b.status === 'available').length,
+    rented:    baseFiltered.filter(b => b.status === 'rented').length,
+    repair:    baseFiltered.filter(b => b.status === 'repair').length,
+    doc:       baseFiltered.filter(b => b.has_doc_alert).length,
+    routine:   baseFiltered.filter(b => b.has_routine_alert).length,
   }
 
   const grouped = STATUS_ORDER.map(s => ({
@@ -89,19 +102,27 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
       {/* Status strip */}
       <div style={{ background: '#fff', display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
         {[
-          { key: 'available', label: 'ว่าง',     color: '#16a34a' },
-          { key: 'rented',    label: 'เช่าอยู่',  color: '#2563eb' },
-          { key: 'repair',    label: 'ซ่อม',      color: '#dc2626' },
-          { key: 'retired',   label: 'เลิกใช้',   color: '#9ca3af' },
-        ].map(({ key, label, color }, i, arr) => (
-          <div key={key} style={{
-            flex: 1, textAlign: 'center', padding: '10px',
-            borderRight: i < arr.length - 1 ? '1px solid #e5e7eb' : 'none',
-          }}>
-            <div style={{ fontSize: '18px', fontWeight: 800, color }}>{counts[key as keyof typeof counts]}</div>
-            <div style={{ fontSize: '10px', color: '#9ca3af' }}>{label}</div>
-          </div>
-        ))}
+          { key: 'available' as FilterKey, label: 'ว่าง',       color: '#16a34a', count: counts.available },
+          { key: 'rented'    as FilterKey, label: 'เช่าอยู่',   color: '#2563eb', count: counts.rented },
+          { key: 'repair'    as FilterKey, label: 'ซ่อม',       color: '#dc2626', count: counts.repair },
+          { key: 'doc'       as FilterKey, label: 'งานเอกสาร',  color: '#d97706', count: counts.doc },
+          { key: 'routine'   as FilterKey, label: 'งานรูทีน',   color: '#7c3aed', count: counts.routine },
+        ].map(({ key, label, color, count }, i, arr) => {
+          const active = activeFilter === key
+          return (
+            <div key={key as string} onClick={() => toggleFilter(key)} style={{
+              flex: 1, textAlign: 'center', padding: '10px',
+              borderRight: i < arr.length - 1 ? '1px solid #e5e7eb' : 'none',
+              cursor: 'pointer',
+              background: active ? `${color}15` : '#fff',
+              borderBottom: active ? `2px solid ${color}` : '2px solid transparent',
+              transition: 'background .1s',
+            }}>
+              <div style={{ fontSize: '18px', fontWeight: 800, color }}>{count}</div>
+              <div style={{ fontSize: '10px', color: active ? color : '#9ca3af', fontWeight: active ? 700 : 400 }}>{label}</div>
+            </div>
+          )
+        })}
       </div>
 
       {filtered.length === 0 && (

@@ -26,6 +26,8 @@ export type OwnerBike = {
   days_until_pob: number | null
   last_oil_date: string | null
   last_gear_date: string | null
+  has_doc_alert: boolean
+  has_routine_alert: boolean
 }
 
 function daysUntil(dateStr: string | null | undefined): number | null {
@@ -50,9 +52,7 @@ export default async function OwnerBikesPage() {
       .in('doc_type', ['tax', 'pob']),
     admin.from('branches').select('id, name').order('name'),
     admin.from('bike_routines')
-      .select('bike_id, task_name, last_done_date')
-      .in('task_name', ['เปลี่ยนน้ำมันเครื่อง', 'เปลี่ยนน้ำมันเฟืองท้าย'])
-      .not('last_done_date', 'is', null),
+      .select('bike_id, task_name, next_due_date, next_due_km, last_done_date'),
   ])
 
   // Map expiry dates per bike
@@ -63,17 +63,31 @@ export default async function OwnerBikesPage() {
     if (d.doc_type === 'pob') docExpiryMap[d.bike_id].pob = d.expiry_date
   }
 
-  // Map last routine dates per bike
-  const routineMap: Record<string, { oil?: string | null; gear?: string | null }> = {}
+  // Map routines per bike
+  const routinesByBike: Record<string, { next_due_date: string | null; next_due_km: number | null; task_name: string; last_done_date: string | null }[]> = {}
   for (const r of routinesRes.data ?? []) {
-    if (!routineMap[r.bike_id]) routineMap[r.bike_id] = {}
-    if (r.task_name === 'เปลี่ยนน้ำมันเครื่อง') routineMap[r.bike_id].oil = r.last_done_date
-    if (r.task_name === 'เปลี่ยนน้ำมันเฟืองท้าย') routineMap[r.bike_id].gear = r.last_done_date
+    if (!routinesByBike[r.bike_id]) routinesByBike[r.bike_id] = []
+    routinesByBike[r.bike_id].push(r)
   }
+
+  const todayStr = new Date().toISOString().split('T')[0]
 
   const bikes: OwnerBike[] = (bikesRes.data ?? []).map(b => {
     const branch = Array.isArray(b.branches) ? b.branches[0] : b.branches as { name: string } | null
     const expiry = docExpiryMap[b.id] ?? {}
+    const taxDays = daysUntil(expiry.tax)
+    const pobDays = daysUntil(expiry.pob)
+
+    const bikeRoutines = routinesByBike[b.id] ?? []
+    const oilRoutine  = bikeRoutines.find(r => r.task_name === 'เปลี่ยนน้ำมันเครื่อง')
+    const gearRoutine = bikeRoutines.find(r => r.task_name === 'เปลี่ยนน้ำมันเฟืองท้าย')
+
+    const has_doc_alert = (taxDays !== null && taxDays <= 30) || (pobDays !== null && pobDays <= 30)
+    const has_routine_alert = bikeRoutines.some(r =>
+      (r.next_due_date != null && r.next_due_date <= todayStr) ||
+      (r.next_due_km != null && (b.odometer ?? 0) >= r.next_due_km)
+    )
+
     return {
       id: b.id,
       license_plate: b.license_plate,
@@ -90,10 +104,12 @@ export default async function OwnerBikesPage() {
       branch_name: branch?.name ?? '—',
       return_date: null,
       customer_name: null,
-      days_until_tax: daysUntil(expiry.tax),
-      days_until_pob: daysUntil(expiry.pob),
-      last_oil_date: routineMap[b.id]?.oil ?? null,
-      last_gear_date: routineMap[b.id]?.gear ?? null,
+      days_until_tax: taxDays,
+      days_until_pob: pobDays,
+      last_oil_date: oilRoutine?.last_done_date ?? null,
+      last_gear_date: gearRoutine?.last_done_date ?? null,
+      has_doc_alert,
+      has_routine_alert,
     }
   })
 
