@@ -20,7 +20,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ rental
         id, start_datetime, end_datetime, total_days, daily_rate,
         total_amount, deposit_amount, discount, payment_method, created_at,
         bikes(license_plate, brand, model),
-        customers(name, phone, hotel)
+        customers(name, phone, workplace)
       `)
       .eq('id', rentalId)
       .single(),

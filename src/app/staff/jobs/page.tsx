@@ -386,7 +386,7 @@ export default async function JobsPage() {
               const days = kmOver != null ? -1 : (r.next_due_date ? daysUntil(r.next_due_date) : 0)
               const p = urgencyPalette(days)
               const badgeText = kmOver != null
-                ? `🔴 เกิน ${kmOver.toLocaleString()} กม.`
+                ? (kmOver === 0 ? '🔴 ถึงกำหนดแล้ว!' : `🔴 เกิน ${kmOver.toLocaleString()} กม.`)
                 : days < 0 ? `🚨 เกินกำหนด` : `📅 อีก ${days} วัน`
               const statusText = days < 0 || kmOver != null ? '🔴 เกินกำหนด' : days <= 3 ? '🔴 เร่งด่วน' : '⚠️ ถึงกำหนด'
               return (
@@ -396,7 +396,7 @@ export default async function JobsPage() {
                   title={`${typeLabel} — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                   badge={badgeText}
                   badgeBg={p.bg} badgeColor={p.color}
-                  meta1={kmOver != null ? `📍 เกินกำหนด ${kmOver.toLocaleString()} กม.` : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
+                  meta1={kmOver != null ? (kmOver === 0 ? '📍 ถึงกำหนดพอดี!' : `📍 เกินกำหนด ${kmOver.toLocaleString()} กม.`) : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
                   statusLabel={statusText}
                   statusBg={p.bg} statusColor={p.color}
                   href="/staff/routine" btnColor={p.dot}

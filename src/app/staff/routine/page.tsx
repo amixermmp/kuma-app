@@ -39,6 +39,9 @@ function calcRoutineUrgency(r: Omit<RoutineItem, 'urgency' | 'due_reason'>, odom
     if (days <= 14) return { urgency: 'warning', due_reason: `อีก ${days} วันจะถึงกำหนด` }
   }
 
+  if (r.next_due_km == null && !r.next_due_date) {
+    return { urgency: 'ok', due_reason: 'ยังไม่ตั้งค่ากำหนด' }
+  }
   return { urgency: 'ok', due_reason: 'ปกติ' }
 }
 

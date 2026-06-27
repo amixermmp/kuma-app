@@ -138,7 +138,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
             <span className="info-key">วันที่คืนจริง</span>
             <span className="info-val" style={{ color: isLate ? '#dc2626' : '#16a34a' }}>
               {fmtDate(new Date().toISOString())}
-              {isLate ? ` (เกิน ${extraDays} วัน)` : ' (คืนตามกำหนด)'}
+              {isLate ? ` (เกิน ${extraDays} วัน)` : now < expectedMs - 3_600_000 ? ' (คืนก่อนกำหนด)' : ' (คืนตามกำหนด)'}
             </span>
           </div>
           <div className="info-row">

@@ -114,7 +114,7 @@ function StaffModal({ branches, onClose, onSaved, editing }: {
           <input className="field-input" value={name} onChange={e => setName(e.target.value)} placeholder="สมชาย มีดี" />
         </Field>
         <Field label="PIN (6 หลัก) *" hint="พนักงานใช้ PIN นี้ scan QR รถเพื่อเข้าระบบ">
-          <input className="field-input" type="number" value={pin} onChange={e => setPin(e.target.value.slice(0, 6))} placeholder="123456" />
+          <input className="field-input" type="password" inputMode="numeric" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="••••••" />
         </Field>
         <Field label="สาขา">
           <select className="field-input" value={branchId} onChange={e => setBranchId(e.target.value)}>
@@ -404,7 +404,6 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '14px', fontWeight: 600 }}>{b.name}</div>
             </div>
-            <span style={{ color: '#9ca3af', fontSize: '18px' }}>›</span>
           </div>
         ))}
         <div style={{ padding: '12px 16px' }}>

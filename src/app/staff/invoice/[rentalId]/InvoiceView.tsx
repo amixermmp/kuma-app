@@ -58,7 +58,7 @@ export default function InvoiceView({ rental, shop, type }: Props) {
 
   const [custName, setCustName]   = useState<string>(customer?.name ?? '')
   const [custAddr, setCustAddr]   = useState<string>(
-    isDaily ? (customer?.hotel ?? '') : (customer?.workplace ?? '')
+    customer?.workplace ?? ''
   )
   const [custId, setCustId]       = useState<string>(customer?.phone ?? '')
 

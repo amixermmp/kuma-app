@@ -55,7 +55,10 @@ export default async function OwnerDashboardPage({
   sevenDaysAgo.setDate(now.getDate() - 6)
   sevenDaysAgo.setHours(0, 0, 0, 0)
 
-  const [bikesRes, bookingsMonthRes, bookingsRecentRes, branchesRes, pendingRes] = await Promise.all([
+  const periodStartDate = periodStart.toISOString().split('T')[0]
+  const periodEndDate   = periodEnd.toISOString().split('T')[0]
+
+  const [bikesRes, bookingsMonthRes, bookingsRecentRes, branchesRes, pendingRes, rentalsMonthRes, monthlyRentalsRes, expensesRes] = await Promise.all([
     admin.from('bikes').select('id, status, branch_id, brand, model, license_plate'),
     admin.from('bookings')
       .select('id, branch_id, daily_rate, total_days, start_datetime, customer_name, bikes(license_plate, brand, model)')
@@ -72,6 +75,23 @@ export default async function OwnerDashboardPage({
       .select('id', { count: 'exact', head: true })
       .eq('status', 'confirmed')
       .lte('start_datetime', new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()),
+    // Walk-in daily rentals (not from bookings flow)
+    admin.from('rentals')
+      .select('total_amount, branch_id, start_datetime')
+      .in('status', ['active', 'completed'])
+      .gte('start_datetime', periodStart.toISOString())
+      .lte('start_datetime', periodEnd.toISOString()),
+    // Monthly rentals
+    admin.from('monthly_rentals')
+      .select('monthly_rate, branch_id, start_date')
+      .eq('status', 'active')
+      .gte('start_date', periodStartDate)
+      .lte('start_date', periodEndDate),
+    // Expenses
+    admin.from('expenses')
+      .select('amount')
+      .gte('expense_date', periodStartDate)
+      .lte('expense_date', periodEndDate),
   ])
 
   const bikes          = bikesRes.data ?? []
@@ -79,6 +99,9 @@ export default async function OwnerDashboardPage({
   const bookingsRecent = bookingsRecentRes.data ?? []
   const branches       = branchesRes.data ?? []
   const pendingCount   = pendingRes.count ?? 0
+  const rentalsMonth    = rentalsMonthRes.data ?? []
+  const monthlyRentals  = monthlyRentalsRes.data ?? []
+  const totalExpenses   = (expensesRes.data ?? []).reduce((s, e) => s + (Number(e.amount) || 0), 0)
 
   // Fleet stats
   const total       = bikes.length
@@ -87,9 +110,12 @@ export default async function OwnerDashboardPage({
   const repair      = bikes.filter(b => b.status === 'repair').length
   const utilization = total > 0 ? Math.round((rented / total) * 100) : 0
 
-  // Monthly revenue
-  const monthlyRevenue = bookingsMonth.reduce((s, b) => s + (b.daily_rate ?? 0) * (b.total_days ?? 0), 0)
-  const monthlyCount   = bookingsMonth.length
+  // Monthly revenue (bookings + walk-in rentals + monthly rentals)
+  const bookingsRevenue  = bookingsMonth.reduce((s, b) => s + (b.daily_rate ?? 0) * (b.total_days ?? 0), 0)
+  const rentalsRevenue   = rentalsMonth.reduce((s, r) => s + (r.total_amount ?? 0), 0)
+  const monthlyRentRev   = monthlyRentals.reduce((s, r) => s + (r.monthly_rate ?? 0), 0)
+  const monthlyRevenue   = bookingsRevenue + rentalsRevenue + monthlyRentRev
+  const monthlyCount     = bookingsMonth.length + rentalsMonth.length + monthlyRentals.length
 
   // 7-day bar chart
   const dayRevs: number[] = Array(7).fill(0)
@@ -98,6 +124,13 @@ export default async function OwnerDashboardPage({
     const idx = Math.floor((d.getTime() - sevenDaysAgo.getTime()) / (24 * 60 * 60 * 1000))
     if (idx >= 0 && idx < 7) {
       dayRevs[idx] += (bk.daily_rate ?? 0) * (bk.total_days ?? 0)
+    }
+  }
+  for (const r of rentalsMonth) {
+    const d = new Date(r.start_datetime)
+    const idx = Math.floor((d.getTime() - sevenDaysAgo.getTime()) / (24 * 60 * 60 * 1000))
+    if (idx >= 0 && idx < 7) {
+      dayRevs[idx] += r.total_amount ?? 0
     }
   }
   const maxRev = Math.max(...dayRevs, 1)
@@ -110,6 +143,16 @@ export default async function OwnerDashboardPage({
   for (const bk of bookingsMonth) {
     if (bk.branch_id && branchMap[bk.branch_id]) {
       branchMap[bk.branch_id].revenue += (bk.daily_rate ?? 0) * (bk.total_days ?? 0)
+    }
+  }
+  for (const r of rentalsMonth) {
+    if (r.branch_id && branchMap[r.branch_id]) {
+      branchMap[r.branch_id].revenue += r.total_amount ?? 0
+    }
+  }
+  for (const r of monthlyRentals) {
+    if (r.branch_id && branchMap[r.branch_id]) {
+      branchMap[r.branch_id].revenue += r.monthly_rate ?? 0
     }
   }
 
@@ -285,14 +328,18 @@ export default async function OwnerDashboardPage({
           </div>
           <div style={{ background: '#fef2f2', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
             <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>รายจ่าย</div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#dc2626' }}>฿0</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#dc2626' }}>{fmt(totalExpenses)}</div>
           </div>
         </div>
-        <div style={{ background: '#f0fdf4', borderRadius: '10px', padding: '12px', textAlign: 'center', marginBottom: '12px' }}>
-          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>กำไรสุทธิ (ประมาณ)</div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#16a34a' }}>{fmt(monthlyRevenue)}</div>
-        </div>
-        <div style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center' }}>ยังไม่มีข้อมูลรายจ่าย — กด "+ บันทึกค่าใช้จ่าย" เพื่อเพิ่ม</div>
+        {(() => {
+          const profit = monthlyRevenue - totalExpenses
+          return (
+            <div style={{ background: profit >= 0 ? '#f0fdf4' : '#fef2f2', borderRadius: '10px', padding: '12px', textAlign: 'center', marginBottom: '12px' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>กำไรสุทธิ (ประมาณ)</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: profit >= 0 ? '#16a34a' : '#dc2626' }}>{fmt(profit)}</div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Recent transactions */}

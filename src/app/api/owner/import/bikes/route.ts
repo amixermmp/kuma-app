@@ -10,6 +10,7 @@ type CsvRow = {
   year: string
   color: string
   daily_rate: string
+  monthly_rate: string
   tax_expiry: string
   pob_expiry: string
   oil_interval_km: string
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
         year: row.year ? parseInt(row.year) : null,
         color: row.color.trim() || null,
         daily_rate: parseFloat(row.daily_rate),
-        monthly_rate: null,
+        monthly_rate: row.monthly_rate ? parseFloat(row.monthly_rate) : null,
         deposit_amount: 0,
         odometer: 0,
         status: 'available',

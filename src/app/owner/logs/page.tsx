@@ -26,8 +26,9 @@ export default async function OwnerLogsPage({
     .order('created_at', { ascending: false })
     .limit(500)
 
-  if (from) query = query.gte('created_at', `${from}T00:00:00`)
-  if (to)   query = query.lte('created_at', `${to}T23:59:59`)
+  // Use Asia/Bangkok offset (+07:00) so date filter matches what the owner sees on screen
+  if (from) query = query.gte('created_at', `${from}T00:00:00+07:00`)
+  if (to)   query = query.lte('created_at', `${to}T23:59:59+07:00`)
 
   // ถ้าไม่ได้ filter ให้แสดงแค่ 90 วันย้อนหลัง
   if (!from && !to) {

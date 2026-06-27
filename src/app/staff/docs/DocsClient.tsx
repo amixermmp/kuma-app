@@ -103,7 +103,10 @@ function DocCard({ doc }: { doc: DocItem }) {
           <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">วันหมดอายุใหม่</label>
             <input className="field-input" type="date"
-              value={newExpiry} onChange={e => setNewExpiry(e.target.value)} />
+              value={newExpiry}
+              min={new Date().toISOString().split('T')[0]}
+              max={new Date(new Date().setFullYear(new Date().getFullYear() + 15)).toISOString().split('T')[0]}
+              onChange={e => setNewExpiry(e.target.value)} />
           </div>
           {error && <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '8px' }}>⚠️ {error}</div>}
           <button className="btn btn-success"

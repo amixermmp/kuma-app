@@ -21,6 +21,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
 
+  const REQUIRED_PHOTOS = ['id_card', 'selfie', 'with_bike', 'damage', 'payment']
+  const missingPhotos = REQUIRED_PHOTOS.filter(k => !photos?.[k])
+  if (missingPhotos.length > 0) {
+    return NextResponse.json({ error: 'กรุณาอัปโหลดรูปภาพให้ครบ (บัตร, รูปถ่าย, รถ, ตำหนิ, ชำระเงิน)' }, { status: 400 })
+  }
+
   const supabase = createAdminClient()
 
   // Find or create customer

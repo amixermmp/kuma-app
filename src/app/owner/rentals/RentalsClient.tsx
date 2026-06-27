@@ -207,7 +207,7 @@ export default function RentalsClient({
       <div className="app-header" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a8a)' }}>
         <Link href="/owner/dashboard" className="app-header-back">←</Link>
         <div style={{ flex: 1 }}>
-          <h1>ประวัติการเช่า</h1>
+          <h1>การเช่าที่ Active อยู่</h1>
           <div className="sub">
             รายวัน {dailyList.length} | รายเดือน {monthlyList.length}
           </div>

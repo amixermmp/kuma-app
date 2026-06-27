@@ -29,10 +29,11 @@ export default function ExpenseForm({ branches }: { branches: Branch[] }) {
   const [success,     setSuccess]     = useState(false)
 
   const handleSubmit = async () => {
+    setError(''); setSuccess(false)
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       setError('กรุณาระบุจำนวนเงิน'); return
     }
-    setLoading(true); setError(''); setSuccess(false)
+    setLoading(true)
     try {
       const res = await fetch('/api/owner/expenses/create', {
         method: 'POST',

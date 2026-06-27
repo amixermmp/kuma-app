@@ -14,6 +14,7 @@ type ParsedRow = {
   year: string
   color: string
   daily_rate: string
+  monthly_rate: string
   tax_expiry: string
   pob_expiry: string
   oil_interval_km: string
@@ -23,14 +24,14 @@ type ParsedRow = {
 
 const REQUIRED_HEADERS = [
   'branch_name', 'license_plate', 'brand', 'model',
-  'year', 'color', 'daily_rate',
+  'year', 'color', 'daily_rate', 'monthly_rate',
   'tax_expiry', 'pob_expiry',
   'oil_interval_km', 'gear_oil_interval_km',
 ]
 
 const TEMPLATE_CSV = [
   REQUIRED_HEADERS.join(','),
-  'สาขาหลัก,กขค 1234,Honda,PCX 160,2023,ขาว,250,2026-12-31,2026-06-30,1000,3000',
+  'สาขาหลัก,กขค 1234,Honda,PCX 160,2023,ขาว,250,4500,2026-12-31,2026-06-30,1000,3000',
 ].join('\n')
 
 function parseCsv(text: string): ParsedRow[] {
@@ -54,6 +55,7 @@ function parseCsv(text: string): ParsedRow[] {
       year: '',
       color: '',
       daily_rate: '',
+      monthly_rate: '',
       tax_expiry: '',
       pob_expiry: '',
       oil_interval_km: '',
@@ -228,7 +230,7 @@ export default function ImportClient({ branches }: { branches: Branch[] }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                 <thead>
                   <tr style={{ background: '#f9fafb' }}>
-                    {['สาขา', 'ทะเบียน', 'ยี่ห้อ', 'รุ่น', 'ปี', 'สี', 'ราคา/วัน'].map(h => (
+                    {['สาขา', 'ทะเบียน', 'ยี่ห้อ', 'รุ่น', 'ปี', 'สี', 'ราคา/วัน', 'ราคา/เดือน'].map(h => (
                       <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600, borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>
                         {h}
                       </th>
@@ -245,6 +247,7 @@ export default function ImportClient({ branches }: { branches: Branch[] }) {
                       <td style={{ padding: '8px 10px', color: '#374151' }}>{r.year}</td>
                       <td style={{ padding: '8px 10px', color: '#374151' }}>{r.color}</td>
                       <td style={{ padding: '8px 10px', color: '#374151' }}>฿{Number(r.daily_rate).toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', color: '#374151' }}>{r.monthly_rate ? `฿${Number(r.monthly_rate).toLocaleString()}` : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

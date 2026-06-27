@@ -261,7 +261,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
 
         {/* Job Tasks */}
         <Link
-          href="/staff/home"
+          href="/staff/jobs"
           style={{
             display: 'flex', alignItems: 'center', gap: '14px',
             background: '#faf5ff', border: '2px solid #7c3aed',
