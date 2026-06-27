@@ -37,14 +37,14 @@ export default async function JobsPage() {
     { data: monthlyDue },
     { data: sendJobs },
   ] = await Promise.all([
-    applyBranch(supabase.from('rentals')
+    applyBike(supabase.from('rentals')
       .select('id, expected_end_datetime, bikes(id, license_plate, brand, model), customers(name, phone)')
       .lt('expected_end_datetime', nowIso)
       .in('status', ['active', 'extended'])
       .order('expected_end_datetime', { ascending: true })
       .limit(20)),
 
-    applyBranch(supabase.from('rentals')
+    applyBike(supabase.from('rentals')
       .select('id, expected_end_datetime, bikes(id, license_plate, brand, model), customers(name, phone)')
       .gte('expected_end_datetime', nowIso)
       .lte('expected_end_datetime', in24h)
@@ -52,7 +52,7 @@ export default async function JobsPage() {
       .order('expected_end_datetime', { ascending: true })
       .limit(20)),
 
-    applyBranch(supabase.from('rentals')
+    applyBike(supabase.from('rentals')
       .select('id, start_datetime, expected_end_datetime, total_days, daily_rate, total_amount, bikes(id, license_plate, brand, model), customers(name, phone)')
       .in('status', ['active', 'extended'])
       .order('expected_end_datetime', { ascending: true })
@@ -98,20 +98,4 @@ export default async function JobsPage() {
   const overdueRoutines = (routines ?? []).filter((r: any) => {
     const odometer = r.bikes?.odometer ?? 0
     const kmOverdue = r.next_due_km != null && odometer >= r.next_due_km
-    const dateOverdue = r.next_due_date != null && r.next_due_date <= today
-    return kmOverdue || dateOverdue
-  })
-
-  return (
-    <JobsClient
-      sendJobs={sendJobs ?? []}
-      overdueRentals={overdueRentals ?? []}
-      dueSoonRentals={dueSoonRentals ?? []}
-      activeRentals={activeRentals ?? []}
-      repairs={repairs ?? []}
-      overdueRoutines={overdueRoutines}
-      docsDue={docsDue ?? []}
-      monthlyDue={monthlyDue ?? []}
-    />
-  )
-}
+    const dateOverdue = r.next_due_date != null && r.next_due_dat

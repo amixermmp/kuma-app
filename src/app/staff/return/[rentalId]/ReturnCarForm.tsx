@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
+import TabBar from '@/components/staff/TabBar'
+import { addTab } from '@/lib/tabStore'
 
 type Rental = {
   id: string
@@ -44,6 +46,14 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
   const router = useRouter()
   const bike = rental.bikes
   const customer = rental.customers
+
+  useEffect(() => {
+    addTab({
+      type: 'returncar',
+      title: `รับคืน ${bike.license_plate}`,
+      href: `/staff/return/${rental.id}`,
+    })
+  }, [rental.id, bike.license_plate])
 
   // Late/early calculation
   const now = Date.now()
@@ -110,6 +120,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           <div className="sub">{bike.license_plate} {bike.brand} {bike.model}</div>
         </div>
       </div>
+      <TabBar />
 
       <div className="section-pad">
 
@@ -267,17 +278,4 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           disabled={loading}
           style={{ width: '100%', opacity: loading ? 0.7 : 1 }}
         >
-          {loading ? '⏳ กำลังบันทึก...' : '✅ ยืนยันรับรถคืน'}
-        </button>
-
-        <button className="btn" style={{
-          width: '100%', marginTop: '8px',
-          background: 'transparent', border: '2px solid #7c3aed', color: '#7c3aed',
-        }}>
-          🧾 ออกใบกำกับภาษี
-        </button>
-
-      </div>
-    </div>
-  )
-}
+          {loading ? '⏳ กำลังบันทึก...' : '✅ ยืนยันรับรถ

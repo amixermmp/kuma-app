@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
 import SignaturePad from '@/components/SignaturePad'
+import TabBar from '@/components/staff/TabBar'
+import { addTab } from '@/lib/tabStore'
 
 // ── Success screen ───────────────────────────────────────────
 function SuccessScreen({ rentalId, type, bikeId }: { rentalId: string; type: 'daily' | 'monthly'; bikeId: string }) {
@@ -97,6 +99,14 @@ function todayLocal() {
 export default function SendCarForm({ bike, staffId, promotions }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  useEffect(() => {
+    addTab({
+      type: 'sendcar',
+      title: `ส่งรถ ${bike.license_plate}`,
+      href: `/staff/send/${bike.id}`,
+    })
+  }, [bike.id, bike.license_plate])
 
   const preFrom = searchParams.get('from')
   const preTo = searchParams.get('to')
@@ -277,6 +287,7 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
           <div className="sub">{bike.license_plate} {bike.brand} {bike.model}</div>
         </div>
       </div>
+      <TabBar />
 
       {/* Lock banner */}
       {isMonthly ? (
@@ -668,16 +679,4 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
             style={{
               width: '100%', padding: '16px', border: 'none', borderRadius: '12px',
               background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: '#fff',
-              fontSize: '16px', fontWeight: 700, cursor: 'pointer',
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading ? '⏳ กำลังบันทึก...' : '💾 บันทึกสัญญารายเดือน'}
-          </button>
-
-        </>)}
-
-      </div>
-    </div>
-  )
-}
+              fontSize: '16px'

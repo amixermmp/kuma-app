@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import TabBar from '@/components/staff/TabBar'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
 
@@ -108,6 +109,7 @@ export default async function StaffHomePage() {
           <div style={{ color: 'rgba(255,255,255,.65)', fontSize: '13px' }}>{branchName}</div>
         </div>
       </div>
+      <TabBar />
 
       <div style={{ padding: '16px' }}>
 
@@ -208,11 +210,4 @@ export default async function StaffHomePage() {
             }}>
               <span style={{ fontSize: '22px' }}>{icon}</span>
               {label}
-            </Link>
-          ))}
-        </div>
-
-      </div>
-    </div>
-  )
-}
+            </Li

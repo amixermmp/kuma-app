@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import TabBar from '@/components/staff/TabBar'
 
 // ── helpers ──────────────────────────────────────────────────
 function fmtDate(iso: string) {
@@ -173,6 +174,7 @@ export default function JobsClient({
           </div>
         )}
       </div>
+      <TabBar />
 
       {/* Tab chips */}
       <div style={{
@@ -372,78 +374,4 @@ export default function JobsClient({
                   title={`${r.task_name ?? 'บำรุงรักษา'} — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                   badge={badgeText} badgeBg={p.bg} badgeColor={p.color}
                   meta1={kmOver != null ? (kmOver === 0 ? '📍 ถึงกำหนดพอดี!' : `📍 เกินกำหนด ${kmOver.toLocaleString()} กม.`) : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
-                  statusLabel={statusText} statusBg={p.bg} statusColor={p.color}
-                  href="/staff/routine" btnColor={p.dot}
-                />
-              )
-            })}
-          </>
-        )}
-
-        {/* เอกสาร */}
-        {show('docs') && docsDue.length > 0 && (
-          <>
-            <SectionTitle>งานเอกสาร 📋✅</SectionTitle>
-            {docsDue.map((d: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-              const bike = d.bikes
-              const days = daysUntil(d.expiry_date)
-              const p = urgencyPalette(days)
-              const statusText = days < 0 ? '🔴 เกินกำหนด' : days <= 3 ? '🔴 เร่งด่วนมาก' : days <= 7 ? '🟠 เร่งด่วน' : days <= 14 ? '⚠️ ใกล้หมด' : '📋 แจ้งเตือน'
-              return (
-                <JobCard
-                  key={d.id} dotColor={p.dot}
-                  title={`ต่อ${DOC_LABEL[d.doc_type] ?? d.doc_type} — ${bike?.license_plate ?? ''}`}
-                  badge={days < 0 ? `🚨 เกินมา ${Math.abs(days)} วัน` : `📅 อีก ${days} วัน`}
-                  badgeBg={p.bg} badgeColor={p.color}
-                  meta1={`${bike?.brand ?? ''} ${bike?.model ?? ''}`}
-                  meta2={`หมดอายุ: ${fmtDate(d.expiry_date)}`}
-                  statusLabel={statusText} statusBg={p.bg} statusColor={p.color}
-                  href="/staff/docs" btnColor={p.dot}
-                />
-              )
-            })}
-          </>
-        )}
-
-        {/* รายเดือน */}
-        {show('monthly') && monthlyDue.length > 0 && (
-          <>
-            <SectionTitle>งานเก็บค่าเช่ารายเดือน 💰🗓️</SectionTitle>
-            {monthlyDue.map((p: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-              const mr = p.monthly_rentals
-              const bike = mr?.bikes
-              const customer = mr?.customers
-              const days = daysUntil(p.due_date)
-              const overdue = days < 0
-              return (
-                <JobCard
-                  key={p.id} dotColor="#7c3aed"
-                  title={`เก็บค่าเช่า — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
-                  badge={overdue ? `🔴 เกิน ${Math.abs(days)} วัน` : `🗓️ ครบ ${fmtDate(p.due_date)}`}
-                  badgeBg={overdue ? '#fef2f2' : '#faf5ff'} badgeColor={overdue ? '#dc2626' : '#7c3aed'}
-                  meta1={`👤 ${customer?.name ?? '—'}`}
-                  meta2={`💰 ฿${Number(p.amount).toLocaleString()}`}
-                  statusLabel={overdue ? '🔴 เกินกำหนด' : '🟣 รอเก็บเงิน'}
-                  statusBg={overdue ? '#fef2f2' : '#faf5ff'} statusColor={overdue ? '#dc2626' : '#7c3aed'}
-                  href={`/staff/collect/${mr?.id}`} btnColor="#7c3aed"
-                />
-              )
-            })}
-          </>
-        )}
-
-        {/* ถ้ากด tab แต่ไม่มีงานในหมวดนั้น */}
-        {tab !== 'all' && counts[tab as keyof typeof counts] === 0 && (
-          <div style={{
-            textAlign: 'center', padding: '48px 16px',
-            background: '#f9fafb', borderRadius: '12px',
-            color: '#9ca3af', fontSize: '14px', marginTop: '16px',
-          }}>
-            ✅ ไม่มีงานในหมวดนี้
-          </div>
-        )}
-
-      </div>
-    </div>
-  )
-}
+                  statusLabel={statusText} statusBg={p.bg} statusColor={p
