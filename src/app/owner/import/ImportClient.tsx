@@ -34,11 +34,57 @@ const TEMPLATE_CSV = [
   'สาขาหลัก,กขค 1234,Honda,PCX 160,2023,ขาว,250,4500,2026-12-31,2026-06-30,1000,3000',
 ].join('\n')
 
+// Proper CSV line parser — handles quoted fields and embedded commas
+function splitCsvLine(line: string): string[] {
+  const result: string[] = []
+  let cur = ''
+  let inQuote = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (ch === '"') {
+      if (inQuote && line[i + 1] === '"') { cur += '"'; i++ } // escaped quote
+      else inQuote = !inQuote
+    } else if (ch === ',' && !inQuote) {
+      result.push(cur.trim()); cur = ''
+    } else {
+      cur += ch
+    }
+  }
+  result.push(cur.trim())
+  return result
+}
+
+// Normalize date: accepts YYYY-MM-DD, DD/MM/YYYY, DD/MM/YY (Thai short year)
+function normalizeDate(raw: string): string {
+  const s = raw.trim()
+  if (!s) return ''
+  // Already ISO format YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const y = parseInt(s.slice(0, 4))
+    if (y > 2400) return `${y - 543}${s.slice(4)}` // BE → CE
+    return s
+  }
+  // DD/MM/YYYY or D/M/YYYY (4-digit year)
+  const m4 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (m4) {
+    let year = parseInt(m4[3])
+    if (year > 2400) year -= 543 // Buddhist Era
+    return `${year}-${m4[2].padStart(2, '0')}-${m4[1].padStart(2, '0')}`
+  }
+  // DD/MM/YY (2-digit year — Thai short form เช่น 70 = พ.ศ. 2570 = ค.ศ. 2027)
+  const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/)
+  if (m2) {
+    const year = parseInt(m2[3]) + 2500 - 543 // e.g. 70 → 2570 BE → 2027 CE
+    return `${year}-${m2[2].padStart(2, '0')}-${m2[1].padStart(2, '0')}`
+  }
+  return s
+}
+
 function parseCsv(text: string): ParsedRow[] {
   const lines = text.trim().split('\n').filter(l => l.trim())
   if (lines.length < 2) return []
 
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, '_'))
+  const headers = splitCsvLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, '_'))
 
   const missing = REQUIRED_HEADERS.filter(h => !headers.includes(h))
   if (missing.length > 0) {
@@ -46,7 +92,7 @@ function parseCsv(text: string): ParsedRow[] {
   }
 
   return lines.slice(1).map(line => {
-    const values = line.split(',').map(v => v.trim())
+    const values = splitCsvLine(line)
     const row: ParsedRow = {
       branch_name: '',
       license_plate: '',
@@ -62,7 +108,10 @@ function parseCsv(text: string): ParsedRow[] {
       gear_oil_interval_km: '',
     }
     headers.forEach((h, i) => {
-      if (h in row) (row as Record<string, string>)[h] = values[i] ?? ''
+      if (h in row) {
+        const v = values[i] ?? ''
+        ;(row as Record<string, string>)[h] = (h === 'tax_expiry' || h === 'pob_expiry') ? normalizeDate(v) : v
+      }
     })
 
     const errors: string[] = []

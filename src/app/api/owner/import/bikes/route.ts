@@ -44,12 +44,17 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    // Insert bike
-    const { data: bike, error: bikeErr } = await supabase
+    const plate = row.license_plate.trim()
+
+    // Try insert bike; if duplicate → look up existing bike id
+    let bikeId: string | null = null
+    let isNew = false
+
+    const { data: inserted, error: bikeErr } = await supabase
       .from('bikes')
       .insert({
         branch_id: branchId,
-        license_plate: row.license_plate.trim(),
+        license_plate: plate,
         brand: row.brand.trim(),
         model: row.model.trim(),
         year: row.year ? parseInt(row.year) : null,
@@ -64,51 +69,65 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (bikeErr) {
-      // Duplicate license plate or other error — skip
-      skipped.push(row.license_plate)
+      // Duplicate — find existing bike to update its documents
+      const { data: existing } = await supabase
+        .from('bikes')
+        .select('id')
+        .eq('license_plate', plate)
+        .single()
+      bikeId = existing?.id ?? null
+    } else {
+      bikeId = inserted.id
+      isNew = true
+    }
+
+    if (!bikeId) {
+      skipped.push(plate)
       continue
     }
 
-    const bikeId = bike.id
-
-    // Insert bike documents (tax + pob) if expiry dates provided
-    const docInserts = []
+    // Upsert documents (update expiry date even for existing bikes)
     if (row.tax_expiry?.trim()) {
-      docInserts.push({ bike_id: bikeId, doc_type: 'tax', expiry_date: row.tax_expiry.trim(), doc_photo_url: null })
+      await supabase.from('bike_documents').upsert(
+        { bike_id: bikeId, doc_type: 'tax', expiry_date: row.tax_expiry.trim() },
+        { onConflict: 'bike_id,doc_type', ignoreDuplicates: false }
+      )
     }
     if (row.pob_expiry?.trim()) {
-      docInserts.push({ bike_id: bikeId, doc_type: 'pob', expiry_date: row.pob_expiry.trim(), doc_photo_url: null })
-    }
-    if (docInserts.length > 0) {
-      await supabase.from('bike_documents').insert(docInserts)
+      await supabase.from('bike_documents').upsert(
+        { bike_id: bikeId, doc_type: 'pob', expiry_date: row.pob_expiry.trim() },
+        { onConflict: 'bike_id,doc_type', ignoreDuplicates: false }
+      )
     }
 
-    // Insert routines
-    const routineInserts = []
-    const oilKm = parseInt(row.oil_interval_km)
-    const gearKm = parseInt(row.gear_oil_interval_km)
-    if (!isNaN(oilKm) && oilKm > 0) {
-      routineInserts.push({
-        bike_id: bikeId,
-        task_name: 'เปลี่ยนน้ำมันเครื่อง',
-        interval_km: oilKm,
-        interval_days: null,
-        next_due_km: oilKm, // odometer starts at 0
-        next_due_date: null,
-      })
-    }
-    if (!isNaN(gearKm) && gearKm > 0) {
-      routineInserts.push({
-        bike_id: bikeId,
-        task_name: 'เปลี่ยนน้ำมันเฟืองท้าย',
-        interval_km: gearKm,
-        interval_days: null,
-        next_due_km: gearKm,
-        next_due_date: null,
-      })
-    }
-    if (routineInserts.length > 0) {
-      await supabase.from('bike_routines').insert(routineInserts)
+    // Insert routines only for new bikes
+    if (isNew) {
+      const routineInserts = []
+      const oilKm = parseInt(row.oil_interval_km)
+      const gearKm = parseInt(row.gear_oil_interval_km)
+      if (!isNaN(oilKm) && oilKm > 0) {
+        routineInserts.push({
+          bike_id: bikeId,
+          task_name: 'เปลี่ยนน้ำมันเครื่อง',
+          interval_km: oilKm,
+          interval_days: null,
+          next_due_km: oilKm,
+          next_due_date: null,
+        })
+      }
+      if (!isNaN(gearKm) && gearKm > 0) {
+        routineInserts.push({
+          bike_id: bikeId,
+          task_name: 'เปลี่ยนน้ำมันเฟืองท้าย',
+          interval_km: gearKm,
+          interval_days: null,
+          next_due_km: gearKm,
+          next_due_date: null,
+        })
+      }
+      if (routineInserts.length > 0) {
+        await supabase.from('bike_routines').insert(routineInserts)
+      }
     }
 
     imported++
