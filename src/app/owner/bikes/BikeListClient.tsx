@@ -30,6 +30,16 @@ function docAlert(days: number | null): { label: string; color: string; bg: stri
   return null
 }
 
+const today = new Date().toISOString().split('T')[0]
+
+function routineAlert(nextDueDate: string | null, lastDate: string | null): { label: string; color: string; bg: string } | null {
+  if (!lastDate) return null
+  if (nextDueDate && nextDueDate <= today) {
+    return { label: 'เกินกำหนด', color: '#b91c1c', bg: '#fee2e2' }
+  }
+  return { label: new Date(lastDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }), color: '#854d0e', bg: '#fefce8' }
+}
+
 export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]; branches: Branch[] }) {
   const [search, setSearch]       = useState('')
   const [branchId, setBranchId]   = useState('all')
@@ -235,16 +245,16 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
                               ⚠️ พรบ. {pobAlert.label}
                             </span>
                           )}
-                          {bike.last_oil_date && (
-                            <span style={{ fontSize: '10px', background: '#fefce8', color: '#854d0e', borderRadius: '4px', padding: '2px 6px' }}>
-                              🛢️ น้ำมัน {new Date(bike.last_oil_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
+                          {(() => { const a = routineAlert(bike.oil_next_due_date, bike.last_oil_date); return a ? (
+                            <span style={{ fontSize: '10px', background: a.bg, color: a.color, borderRadius: '4px', padding: '2px 6px', fontWeight: a.label === 'เกินกำหนด' ? 700 : 400 }}>
+                              🛢️ น้ำมัน {a.label}
                             </span>
-                          )}
-                          {bike.last_gear_date && (
-                            <span style={{ fontSize: '10px', background: '#f0fdf4', color: '#166534', borderRadius: '4px', padding: '2px 6px' }}>
-                              ⚙️ เฟือง {new Date(bike.last_gear_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
+                          ) : null })()}
+                          {(() => { const a = routineAlert(bike.gear_next_due_date, bike.last_gear_date); return a ? (
+                            <span style={{ fontSize: '10px', background: a.label === 'เกินกำหนด' ? '#fee2e2' : '#f0fdf4', color: a.label === 'เกินกำหนด' ? '#b91c1c' : '#166534', borderRadius: '4px', padding: '2px 6px', fontWeight: a.label === 'เกินกำหนด' ? 700 : 400 }}>
+                              ⚙️ เฟือง {a.label}
                             </span>
-                          )}
+                          ) : null })()}
                           {bike.notes && (
                             <span style={{ fontSize: '10px', background: '#fef2f2', color: '#dc2626', borderRadius: '4px', padding: '2px 6px' }}>
                               🔧 {bike.notes}

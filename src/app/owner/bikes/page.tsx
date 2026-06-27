@@ -26,6 +26,8 @@ export type OwnerBike = {
   days_until_pob: number | null
   last_oil_date: string | null
   last_gear_date: string | null
+  oil_next_due_date: string | null
+  gear_next_due_date: string | null
   has_doc_alert: boolean
   has_routine_alert: boolean
 }
@@ -108,6 +110,8 @@ export default async function OwnerBikesPage() {
       days_until_pob: pobDays,
       last_oil_date: oilRoutine?.last_done_date ?? null,
       last_gear_date: gearRoutine?.last_done_date ?? null,
+      oil_next_due_date: oilRoutine?.next_due_date ?? null,
+      gear_next_due_date: gearRoutine?.next_due_date ?? null,
       has_doc_alert,
       has_routine_alert,
     }
