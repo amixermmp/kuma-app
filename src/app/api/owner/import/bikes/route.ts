@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 type CsvRow = {
   branch_name: string
   license_plate: string
+  last_oil_change_date: string
   brand: string
   model: string
   year: string
@@ -106,11 +107,13 @@ export async function POST(request: NextRequest) {
       const oilKm = parseInt(row.oil_interval_km)
       const gearKm = parseInt(row.gear_oil_interval_km)
       if (!isNaN(oilKm) && oilKm > 0) {
+        const lastOilDate = row.last_oil_change_date?.trim() || null
         routineInserts.push({
           bike_id: bikeId,
           task_name: 'เปลี่ยนน้ำมันเครื่อง',
           interval_km: oilKm,
           interval_days: null,
+          last_done_date: lastOilDate,
           next_due_km: oilKm,
           next_due_date: null,
         })

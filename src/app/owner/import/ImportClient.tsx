@@ -9,6 +9,7 @@ type Branch = { id: string; name: string }
 type ParsedRow = {
   branch_name: string
   license_plate: string
+  last_oil_change_date: string
   brand: string
   model: string
   year: string
@@ -23,7 +24,7 @@ type ParsedRow = {
 }
 
 const REQUIRED_HEADERS = [
-  'branch_name', 'license_plate', 'brand', 'model',
+  'branch_name', 'license_plate', 'last_oil_change_date', 'brand', 'model',
   'year', 'color', 'daily_rate', 'monthly_rate',
   'tax_expiry', 'pob_expiry',
   'oil_interval_km', 'gear_oil_interval_km',
@@ -31,7 +32,7 @@ const REQUIRED_HEADERS = [
 
 const TEMPLATE_CSV = [
   REQUIRED_HEADERS.join(','),
-  'สาขาหลัก,กขค 1234,Honda,PCX 160,2023,ขาว,250,4500,2026-12-31,2026-06-30,1000,3000',
+  'สาขาหลัก,กขค 1234,2025-01-15,Honda,PCX 160,2023,ขาว,250,4500,2026-12-31,2026-06-30,1000,3000',
 ].join('\n')
 
 // Proper CSV line parser — handles quoted fields and embedded commas
@@ -96,6 +97,7 @@ function parseCsv(text: string): ParsedRow[] {
     const row: ParsedRow = {
       branch_name: '',
       license_plate: '',
+      last_oil_change_date: '',
       brand: '',
       model: '',
       year: '',
@@ -110,7 +112,8 @@ function parseCsv(text: string): ParsedRow[] {
     headers.forEach((h, i) => {
       if (h in row) {
         const v = values[i] ?? ''
-        ;(row as Record<string, string>)[h] = (h === 'tax_expiry' || h === 'pob_expiry') ? normalizeDate(v) : v
+        const isDateField = h === 'tax_expiry' || h === 'pob_expiry' || h === 'last_oil_change_date'
+        ;(row as Record<string, string>)[h] = isDateField ? normalizeDate(v) : v
       }
     })
 
