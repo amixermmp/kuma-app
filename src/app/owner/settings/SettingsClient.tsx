@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import Link from 'next/link'
 
 type Shop = Record<string, any>
-type Staff = { id: string; name: string; pin: string; branch_id: string | null; is_active: boolean; branches?: { name: string } | null }
+type Staff = { id: string; name: string; pin: string; branch_id: string | null; allowed_branch_ids: string[] | null; is_active: boolean; branches?: { name: string } | null }
 type Branch = { id: string; name: string }
 type Promo = { id: string; name: string | null; code: string | null; description: string | null; discount_type: string; discount_value: number; min_days: number | null; bonus_days: number | null; is_active: boolean }
 
@@ -69,16 +69,19 @@ function StaffModal({ branches, onClose, onSaved, editing }: {
 }) {
   const [name, setName] = useState(editing?.name ?? '')
   const [pin, setPin] = useState(editing?.pin ?? '')
-  const [branchId, setBranchId] = useState(editing?.branch_id ?? '')
+  const [allowedBranchIds, setAllowedBranchIds] = useState<string[]>(editing?.allowed_branch_ids ?? [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const toggleBranch = (id: string) =>
+    setAllowedBranchIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
   const save = async () => {
     if (!name.trim()) { setError('กรุณาใส่ชื่อ'); return }
     if (pin.length !== 6) { setError('PIN ต้องมี 6 หลัก'); return }
     setLoading(true); setError('')
     const url = editing ? `/api/owner/settings/staff/${editing.id}` : '/api/owner/settings/staff'
-    const payload = { name: name.trim(), pin, branch_id: branchId || null }
+    const payload = { name: name.trim(), pin, allowed_branch_ids: allowedBranchIds.length > 0 ? allowedBranchIds : null }
     const res = await fetch(url, {
       method: editing ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -86,10 +89,9 @@ function StaffModal({ branches, onClose, onSaved, editing }: {
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error ?? 'เกิดข้อผิดพลาด'); setLoading(false); return }
-    // return updated/new staff object for optimistic update
     const result: Staff = editing
       ? { ...editing, ...payload }
-      : { id: data.id ?? crypto.randomUUID(), ...payload, is_active: true, branches: null }
+      : { id: data.id ?? crypto.randomUUID(), ...payload, branch_id: null, is_active: true, branches: null }
     onSaved(result)
   }
 
@@ -116,12 +118,24 @@ function StaffModal({ branches, onClose, onSaved, editing }: {
         <Field label="PIN (6 หลัก) *" hint="พนักงานใช้ PIN นี้ scan QR รถเพื่อเข้าระบบ">
           <input className="field-input" type="password" inputMode="numeric" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="••••••" />
         </Field>
-        <Field label="สาขา">
-          <select className="field-input" value={branchId} onChange={e => setBranchId(e.target.value)}>
-            <option value="">ไม่ระบุสาขา</option>
-            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        </Field>
+        {branches.length > 0 && (
+          <Field label="สาขาที่เข้าถึงได้">
+            {branches.map(b => (
+              <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}>
+                <input
+                  type="checkbox"
+                  checked={allowedBranchIds.includes(b.id)}
+                  onChange={() => toggleBranch(b.id)}
+                  style={{ width: '18px', height: '18px', accentColor: '#7c3aed', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '14px', color: '#111827' }}>{b.name}</span>
+              </label>
+            ))}
+            <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px' }}>
+              ไม่เลือก = เข้าถึงได้ทุกสาขา
+            </div>
+          </Field>
+        )}
         {error && <div style={{ color: '#dc2626', fontSize: '13px', marginBottom: '12px' }}>⚠️ {error}</div>}
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={onClose} className="btn" style={{ flex: 1, background: '#f3f4f6', color: '#374151' }}>ยกเลิก</button>

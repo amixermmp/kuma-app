@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { name, pin, branch_id } = await request.json()
+  const { name, pin, allowed_branch_ids } = await request.json()
   if (!name || !pin || pin.length !== 6) return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
 
   const admin = createAdminClient()
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   const { data: existing } = await admin.from('staff').select('id').eq('pin', pin).maybeSingle()
   if (existing) return NextResponse.json({ error: 'PIN นี้มีพนักงานใช้อยู่แล้ว' }, { status: 400 })
 
-  const { data, error } = await admin.from('staff').insert({ name, pin, branch_id: branch_id || null, is_active: true }).select('id').single()
+  const { data, error } = await admin.from('staff').insert({ name, pin, allowed_branch_ids: allowed_branch_ids ?? null, is_active: true }).select('id').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ success: true, id: data.id })
