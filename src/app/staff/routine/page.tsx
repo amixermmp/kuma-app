@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
 import RoutineClient from './RoutineClient'
 
 export const dynamic = 'force-dynamic'
@@ -51,10 +52,20 @@ export default async function RoutinePage() {
   if (!staffId) redirect('/staff/login')
 
   const supabase = createAdminClient()
-  const { data: raw } = await supabase
+
+  const allowedBranchIds = await getStaffBranchIds(staffId)
+  const allowedBikeIds = await getAllowedBikeIds(allowedBranchIds)
+
+  let query = supabase
     .from('bike_routines')
     .select('*, bikes(license_plate, brand, model, odometer)')
     .order('next_due_date', { ascending: true, nullsFirst: true })
+
+  if (allowedBikeIds) {
+    query = query.in('bike_id', allowedBikeIds)
+  }
+
+  const { data: raw } = await query
 
   const routines: RoutineItem[] = (raw ?? []).map(r => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

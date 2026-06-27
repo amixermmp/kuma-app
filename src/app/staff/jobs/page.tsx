@@ -30,6 +30,7 @@ export default async function JobsPage() {
   const [
     { data: overdueRentals },
     { data: dueSoonRentals },
+    { data: activeRentals },
     { data: repairs },
     { data: routines },
     { data: docsDue },
@@ -50,6 +51,12 @@ export default async function JobsPage() {
       .in('status', ['active', 'extended'])
       .order('expected_end_datetime', { ascending: true })
       .limit(20)),
+
+    applyBranch(supabase.from('rentals')
+      .select('id, start_datetime, expected_end_datetime, total_days, daily_rate, total_amount, bikes(id, license_plate, brand, model), customers(name, phone)')
+      .in('status', ['active', 'extended'])
+      .order('expected_end_datetime', { ascending: true })
+      .limit(100)),
 
     applyBranch(supabase.from('repairs')
       .select('id, title, description, status, created_at, bikes(id, license_plate, brand, model)')
@@ -91,19 +98,4 @@ export default async function JobsPage() {
   const overdueRoutines = (routines ?? []).filter((r: any) => {
     const odometer = r.bikes?.odometer ?? 0
     const kmOverdue = r.next_due_km != null && odometer >= r.next_due_km
-    const dateOverdue = r.next_due_date != null && r.next_due_date <= today
-    return kmOverdue || dateOverdue
-  })
-
-  return (
-    <JobsClient
-      sendJobs={sendJobs ?? []}
-      overdueRentals={overdueRentals ?? []}
-      dueSoonRentals={dueSoonRentals ?? []}
-      repairs={repairs ?? []}
-      overdueRoutines={overdueRoutines}
-      docsDue={docsDue ?? []}
-      monthlyDue={monthlyDue ?? []}
-    />
-  )
-}
+    const dateOverdue = r.next_due_date != null && r.next_d

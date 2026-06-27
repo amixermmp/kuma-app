@@ -48,13 +48,14 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
   meta1, meta2, statusLabel, statusBg, statusColor,
-  href, btnColor,
+  href, btnColor, contractHref,
 }: {
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
   meta1: string; meta2?: string
   statusLabel: string; statusBg: string; statusColor: string
   href: string; btnColor?: string
+  contractHref?: string
 }) {
   return (
     <div style={{
@@ -77,12 +78,22 @@ function JobCard({
             fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px',
             background: statusBg, color: statusColor,
           }}>{statusLabel}</span>
-          <Link href={href} style={{
-            fontSize: '12px', fontWeight: 700, padding: '6px 14px', borderRadius: '8px',
-            background: btnColor ?? '#1d4ed8', color: '#fff', textDecoration: 'none',
-          }}>
-            เปิด →
-          </Link>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {contractHref && (
+              <Link href={contractHref} style={{
+                fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px',
+                background: '#f3f4f6', color: '#374151', textDecoration: 'none',
+              }}>
+                📄 สัญญา
+              </Link>
+            )}
+            <Link href={href} style={{
+              fontSize: '12px', fontWeight: 700, padding: '6px 14px', borderRadius: '8px',
+              background: btnColor ?? '#1d4ed8', color: '#fff', textDecoration: 'none',
+            }}>
+              เปิด →
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -90,11 +101,11 @@ function JobCard({
 }
 
 // ── types ────────────────────────────────────────────────────
-type Tab = 'all' | 'sendcar' | 'returncar' | 'broken' | 'routine' | 'docs' | 'monthly'
+type Tab = 'all' | 'sendcar' | 'returncar' | 'active' | 'broken' | 'routine' | 'docs' | 'monthly'
 
 // ── main component ───────────────────────────────────────────
 export default function JobsClient({
-  sendJobs, overdueRentals, dueSoonRentals, repairs,
+  sendJobs, overdueRentals, dueSoonRentals, activeRentals, repairs,
   overdueRoutines, docsDue, monthlyDue,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,6 +114,8 @@ export default function JobsClient({
   overdueRentals: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dueSoonRentals: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  activeRentals: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   repairs: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,9 +128,11 @@ export default function JobsClient({
   const [tab, setTab] = useState<Tab>('all')
 
   const returnJobs = [...overdueRentals, ...dueSoonRentals]
+  const nowMs = Date.now()
   const counts = {
     sendcar: sendJobs.length,
     returncar: returnJobs.length,
+    active: activeRentals.length,
     broken: repairs.length,
     routine: overdueRoutines.length,
     docs: docsDue.length,
@@ -129,6 +144,7 @@ export default function JobsClient({
     { key: 'all',      label: 'ทั้งหมด',  count: total,             bg: '#eef2ff', color: '#4f46e5' },
     { key: 'sendcar',  label: 'ส่งรถ',    count: counts.sendcar,    bg: '#f0fdfa', color: '#0891b2' },
     { key: 'returncar',label: 'รับคืน',   count: counts.returncar,  bg: '#fef2f2', color: '#dc2626' },
+    { key: 'active',   label: 'เช่าอยู่',  count: counts.active,     bg: '#f0fdf4', color: '#16a34a' },
     { key: 'broken',   label: 'รถเสีย',   count: counts.broken,     bg: '#fef2f2', color: '#dc2626' },
     { key: 'routine',  label: 'รูทีน',    count: counts.routine,    bg: '#fffbeb', color: '#d97706' },
     { key: 'docs',     label: 'เอกสาร',   count: counts.docs,       bg: '#eff6ff', color: '#2563eb' },
@@ -240,6 +256,7 @@ export default function JobsClient({
                   meta2={`⏱ เกินมา ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)} ${fmtTime(job.expected_end_datetime)}`}
                   statusLabel="🔴 เกินกำหนด" statusBg="#fef2f2" statusColor="#dc2626"
                   href={`/staff/return/${job.id}`} btnColor="#dc2626"
+                  contractHref={`/staff/contract/${job.id}`}
                 />
               )
             })}
@@ -257,6 +274,55 @@ export default function JobsClient({
                   statusLabel={urgent ? '⚠️ ใกล้ถึงกำหนด' : '📅 วันนี้'}
                   statusBg={urgent ? '#fffbeb' : '#f9fafb'} statusColor={urgent ? '#d97706' : '#6b7280'}
                   href={`/staff/return/${job.id}`} btnColor={urgent ? '#d97706' : '#4b5563'}
+                  contractHref={`/staff/contract/${job.id}`}
+                />
+              )
+            })}
+          </>
+        )}
+
+        {/* เช่าอยู่ */}
+        {show('active') && activeRentals.length > 0 && (
+          <>
+            <SectionTitle>รถที่เช่าอยู่ทั้งหมด 🛵✅</SectionTitle>
+            {activeRentals.map((job: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+              const bike = job.bikes
+              const endMs = new Date(job.expected_end_datetime).getTime()
+              const diffMs = endMs - nowMs
+              const isOverdue = diffMs < 0
+              const hrs = Math.abs(Math.floor(diffMs / 3_600_000))
+              const days = Math.floor(Math.abs(diffMs) / 86_400_000)
+
+              let badge = ''
+              let badgeBg = '#f0fdf4'
+              let badgeColor = '#16a34a'
+              let dotColor = '#16a34a'
+              let statusLabel = '🟢 เช่าอยู่'
+              let statusBg = '#f0fdf4'
+              let statusColor = '#16a34a'
+
+              if (isOverdue) {
+                badge = '🔴 เกิน ' + (hrs < 24 ? hrs + ' ชม.' : days + ' วัน')
+                badgeBg = '#fef2f2'; badgeColor = '#dc2626'; dotColor = '#dc2626'
+                statusLabel = '🔴 เกินกำหนด'; statusBg = '#fef2f2'; statusColor = '#dc2626'
+              } else if (diffMs < 24 * 3_600_000) {
+                badge = `⚠️ คืนวันนี้ ${fmtTime(job.expected_end_datetime)}`
+                badgeBg = '#fffbeb'; badgeColor = '#d97706'; dotColor = '#d97706'
+                statusLabel = '⚠️ ใกล้ครบกำหนด'; statusBg = '#fffbeb'; statusColor = '#d97706'
+              } else {
+                badge = `📅 คืน ${fmtDate(job.expected_end_datetime)}`
+              }
+
+              return (
+                <JobCard
+                  key={job.id} dotColor={dotColor}
+                  title={`${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
+                  badge={badge} badgeBg={badgeBg} badgeColor={badgeColor}
+                  meta1={`👤 ${job.customers?.name ?? '—'}${job.customers?.phone ? ` • ${job.customers.phone}` : ''}`}
+                  meta2={`📅 เช่า ${fmtDate(job.start_datetime)} · ${job.total_days} วัน · ฿${Number(job.total_amount).toLocaleString()}`}
+                  statusLabel={statusLabel} statusBg={statusBg} statusColor={statusColor}
+                  href={`/staff/return/${job.id}`} btnColor={isOverdue ? '#dc2626' : '#16a34a'}
+                  contractHref={`/staff/contract/${job.id}`}
                 />
               )
             })}
@@ -308,76 +374,3 @@ export default function JobsClient({
                   meta1={kmOver != null ? (kmOver === 0 ? '📍 ถึงกำหนดพอดี!' : `📍 เกินกำหนด ${kmOver.toLocaleString()} กม.`) : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
                   statusLabel={statusText} statusBg={p.bg} statusColor={p.color}
                   href="/staff/routine" btnColor={p.dot}
-                />
-              )
-            })}
-          </>
-        )}
-
-        {/* เอกสาร */}
-        {show('docs') && docsDue.length > 0 && (
-          <>
-            <SectionTitle>งานเอกสาร 📋✅</SectionTitle>
-            {docsDue.map((d: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-              const bike = d.bikes
-              const days = daysUntil(d.expiry_date)
-              const p = urgencyPalette(days)
-              const statusText = days < 0 ? '🔴 เกินกำหนด' : days <= 3 ? '🔴 เร่งด่วนมาก' : days <= 7 ? '🟠 เร่งด่วน' : days <= 14 ? '⚠️ ใกล้หมด' : '📋 แจ้งเตือน'
-              return (
-                <JobCard
-                  key={d.id} dotColor={p.dot}
-                  title={`ต่อ${DOC_LABEL[d.doc_type] ?? d.doc_type} — ${bike?.license_plate ?? ''}`}
-                  badge={days < 0 ? `🚨 เกินมา ${Math.abs(days)} วัน` : `📅 อีก ${days} วัน`}
-                  badgeBg={p.bg} badgeColor={p.color}
-                  meta1={`${bike?.brand ?? ''} ${bike?.model ?? ''}`}
-                  meta2={`หมดอายุ: ${fmtDate(d.expiry_date)}`}
-                  statusLabel={statusText} statusBg={p.bg} statusColor={p.color}
-                  href="/staff/docs" btnColor={p.dot}
-                />
-              )
-            })}
-          </>
-        )}
-
-        {/* รายเดือน */}
-        {show('monthly') && monthlyDue.length > 0 && (
-          <>
-            <SectionTitle>งานเก็บค่าเช่ารายเดือน 💰🗓️</SectionTitle>
-            {monthlyDue.map((p: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-              const mr = p.monthly_rentals
-              const bike = mr?.bikes
-              const customer = mr?.customers
-              const days = daysUntil(p.due_date)
-              const overdue = days < 0
-              return (
-                <JobCard
-                  key={p.id} dotColor="#7c3aed"
-                  title={`เก็บค่าเช่า — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
-                  badge={overdue ? `🔴 เกิน ${Math.abs(days)} วัน` : `🗓️ ครบ ${fmtDate(p.due_date)}`}
-                  badgeBg={overdue ? '#fef2f2' : '#faf5ff'} badgeColor={overdue ? '#dc2626' : '#7c3aed'}
-                  meta1={`👤 ${customer?.name ?? '—'}`}
-                  meta2={`💰 ฿${Number(p.amount).toLocaleString()}`}
-                  statusLabel={overdue ? '🔴 เกินกำหนด' : '🟣 รอเก็บเงิน'}
-                  statusBg={overdue ? '#fef2f2' : '#faf5ff'} statusColor={overdue ? '#dc2626' : '#7c3aed'}
-                  href={`/staff/collect/${mr?.id}`} btnColor="#7c3aed"
-                />
-              )
-            })}
-          </>
-        )}
-
-        {/* ถ้ากด tab แต่ไม่มีงานในหมวดนั้น */}
-        {tab !== 'all' && counts[tab as keyof typeof counts] === 0 && (
-          <div style={{
-            textAlign: 'center', padding: '48px 16px',
-            background: '#f9fafb', borderRadius: '12px',
-            color: '#9ca3af', fontSize: '14px', marginTop: '16px',
-          }}>
-            ✅ ไม่มีงานในหมวดนี้
-          </div>
-        )}
-
-      </div>
-    </div>
-  )
-}
