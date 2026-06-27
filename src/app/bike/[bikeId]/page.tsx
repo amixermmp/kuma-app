@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import BikePublicClient from './BikePublicClient'
 
 export const dynamic = 'force-dynamic'
@@ -11,6 +12,10 @@ export default async function BikePublicPage({
   params: { bikeId: string }
   searchParams: { error?: string }
 }) {
+  // If staff is already logged in, skip the public page entirely
+  const cookieStore = await cookies()
+  const staffId = cookieStore.get('kuma_staff_id')?.value
+  if (staffId) redirect(`/staff/bikes/${params.bikeId}/menu`)
   const supabase = createAdminClient()
 
   const [{ data: bike }, { data: docs }, { data: activeRental }, { data: activeMonthly }] = await Promise.all([
