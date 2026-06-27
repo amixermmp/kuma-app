@@ -1,11 +1,10 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
-
-const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
@@ -26,6 +25,7 @@ export default async function BookingConfirmPage({ params }: { params: { bikeId:
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) redirect('/staff/login')
 
+  const BRANCH_ID = await getStaffOwnBranchId(staffId)
   const supabase = createAdminClient()
 
   const [{ data: booking }, { data: settings }] = await Promise.all([

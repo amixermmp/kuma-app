@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-
-const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
+import { getStaffOwnBranchId } from '@/lib/staffBranch'
 
 function genRef() {
   const d = new Date()
@@ -26,6 +25,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
 
+  const BRANCH_ID = await getStaffOwnBranchId(staffId)
   const supabase = createAdminClient()
 
   // Check for conflicts before saving

@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
-const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
-
 export async function POST(request: NextRequest) {
   const supabaseAuth = await createClient()
   const { data: { user } } = await supabaseAuth.auth.getUser()
@@ -11,11 +9,14 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json()
   const {
+    branch_id: BRANCH_ID,
     license_plate, brand, model, year, color,
     odometer, notes, photo_url,
     daily_rate, monthly_rate, deposit_amount,
     docs, routines,
   } = body
+
+  if (!BRANCH_ID) return NextResponse.json({ error: 'Missing branch' }, { status: 400 })
 
   if (!license_plate || !brand || !model || !daily_rate) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })

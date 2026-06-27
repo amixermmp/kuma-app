@@ -9,7 +9,7 @@ type Branch = { id: string; name: string }
 type Promo = { id: string; name: string | null; code: string | null; description: string | null; discount_type: string; discount_value: number; min_days: number | null; bonus_days: number | null; is_active: boolean }
 
 type BranchDocs = { terms_photo_url: string | null; manual_photo_url: string | null; contract_photo_url: string | null }
-type Props = { shop: Shop; staff: Staff[]; branches: Branch[]; promotions: Promo[]; branchDocs: BranchDocs }
+type Props = { shop: Shop; staff: Staff[]; branches: Branch[]; promotions: Promo[]; branchId: string; branchDocs: BranchDocs }
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -190,7 +190,7 @@ function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: (bran
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-export default function SettingsClient({ shop, staff: initialStaff, branches: initialBranches, promotions: initialPromos, branchDocs }: Props) {
+export default function SettingsClient({ shop, staff: initialStaff, branches: initialBranches, promotions: initialPromos, branchId, branchDocs }: Props) {
 
   // ── Shop state ──
   const [shopName, setShopName] = useState(shop.shop_name ?? '')
@@ -240,7 +240,7 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
       const saveRes = await fetch('/api/owner/settings/branch-doc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ field, url: upData.url }),
+        body: JSON.stringify({ branch_id: branchId, field, url: upData.url }),
       })
       if (!saveRes.ok) throw new Error('บันทึกไม่สำเร็จ')
 
@@ -258,7 +258,7 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
     await fetch('/api/owner/settings/branch-doc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ field, url: null }),
+      body: JSON.stringify({ branch_id: branchId, field, url: null }),
     })
     setDocUrls(prev => ({ ...prev, [field]: null }))
   }

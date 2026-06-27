@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
 const ALLOWED_FIELDS = ['terms_photo_url', 'manual_photo_url', 'contract_photo_url']
 
 export async function POST(request: Request) {
@@ -10,7 +9,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { field, url } = await request.json()
+  const { branch_id: BRANCH_ID, field, url } = await request.json()
+  if (!BRANCH_ID) return NextResponse.json({ error: 'Missing branch' }, { status: 400 })
   if (!field || !ALLOWED_FIELDS.includes(field)) {
     return NextResponse.json({ error: 'Invalid field' }, { status: 400 })
   }

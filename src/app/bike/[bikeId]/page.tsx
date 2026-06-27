@@ -2,8 +2,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import BikePublicClient from './BikePublicClient'
 
-const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
-
 export const dynamic = 'force-dynamic'
 
 export default async function BikePublicPage({
@@ -15,21 +13,16 @@ export default async function BikePublicPage({
 }) {
   const supabase = createAdminClient()
 
-  const [{ data: bike }, { data: docs }, { data: settings }, { data: activeRental }, { data: activeMonthly }] = await Promise.all([
+  const [{ data: bike }, { data: docs }, { data: activeRental }, { data: activeMonthly }] = await Promise.all([
     supabase
       .from('bikes')
-      .select('id, license_plate, brand, model, year, color, photo_url, daily_rate, monthly_rate, deposit_amount, status, odometer, notes')
+      .select('id, branch_id, license_plate, brand, model, year, color, photo_url, daily_rate, monthly_rate, deposit_amount, status, odometer, notes')
       .eq('id', params.bikeId)
       .single(),
     supabase
       .from('bike_documents')
       .select('doc_type, doc_photo_url, expiry_date')
       .eq('bike_id', params.bikeId),
-    supabase
-      .from('branch_settings')
-      .select('terms_photo_url, manual_photo_url, contract_photo_url, contact_line, contact_phone')
-      .eq('branch_id', BRANCH_ID)
-      .maybeSingle(),
     supabase
       .from('rentals')
       .select('id, expected_end_datetime, status')
@@ -47,6 +40,12 @@ export default async function BikePublicPage({
   ])
 
   if (!bike) notFound()
+
+  const { data: settings } = await supabase
+    .from('branch_settings')
+    .select('terms_photo_url, manual_photo_url, contract_photo_url, contact_line, contact_phone')
+    .eq('branch_id', bike.branch_id)
+    .maybeSingle()
 
   // For extended daily rentals, get the latest extension date
   let expectedEnd = activeRental?.expected_end_datetime ?? null

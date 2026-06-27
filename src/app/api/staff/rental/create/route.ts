@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
-
-const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
+import { getStaffOwnBranchId } from '@/lib/staffBranch'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const BRANCH_ID = await getStaffOwnBranchId(staffId)
   const body = await request.json()
   const {
     bikeId, customer, startDatetime, endDatetime,

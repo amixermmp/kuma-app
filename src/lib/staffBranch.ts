@@ -1,6 +1,18 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
+ * Returns the staff member's own branch_id (the branch they belong to).
+ * Used when creating records that must be tagged to a specific branch.
+ * Throws if staffId is invalid.
+ */
+export async function getStaffOwnBranchId(staffId: string): Promise<string> {
+  const admin = createAdminClient()
+  const { data } = await admin.from('staff').select('branch_id').eq('id', staffId).single()
+  if (!data?.branch_id) throw new Error('Staff has no branch_id')
+  return data.branch_id
+}
+
+/**
  * Returns allowed_branch_ids for a staff member.
  * null = no restriction (see all branches)
  * string[] = only see these branches

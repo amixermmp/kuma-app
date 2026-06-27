@@ -3,8 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
 
-const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
-
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -18,10 +16,15 @@ export async function POST(request: NextRequest) {
   } = body
 
   if (!bikeId || !customerName || !customerPhone || !startDatetime || !endDatetime) {
-    return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
+    return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
 
   const admin = createAdminClient()
+
+  // Derive branch from the bike — source of truth
+  const { data: bikeRow } = await admin.from('bikes').select('branch_id').eq('id', bikeId).single()
+  if (!bikeRow?.branch_id) return NextResponse.json({ error: 'Branch not found' }, { status: 400 })
+  const BRANCH_ID = bikeRow.branch_id
 
   // Find or create customer
   let customerId: string
