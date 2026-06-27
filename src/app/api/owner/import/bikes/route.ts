@@ -39,11 +39,7 @@ export async function POST(request: NextRequest) {
   const skipped: string[] = []
 
   for (const row of rows) {
-    const branchId = branchMap.get(row.branch_name.trim())
-    if (!branchId) {
-      skipped.push(`${row.license_plate} (สาขา "${row.branch_name}" ไม่พบ)`)
-      continue
-    }
+    const branchId = row.branch_name?.trim() ? (branchMap.get(row.branch_name.trim()) ?? null) : null
 
     const plate = row.license_plate.trim()
 
@@ -99,6 +95,16 @@ export async function POST(request: NextRequest) {
         { bike_id: bikeId, doc_type: 'pob', expiry_date: row.pob_expiry.trim() },
         { onConflict: 'bike_id,doc_type', ignoreDuplicates: false }
       )
+    }
+
+    // Update last_done_date for engine oil routine (existing bikes too)
+    const lastOilDate = row.last_oil_change_date?.trim() || null
+    if (lastOilDate) {
+      await supabase
+        .from('bike_routines')
+        .update({ last_done_date: lastOilDate })
+        .eq('bike_id', bikeId)
+        .eq('task_name', 'เปลี่ยนน้ำมันเครื่อง')
     }
 
     // Insert routines only for new bikes

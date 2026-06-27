@@ -23,6 +23,8 @@ export type OwnerBike = {
   customer_name: string | null
   days_until_tax: number | null
   days_until_pob: number | null
+  last_oil_date: string | null
+  last_gear_date: string | null
 }
 
 function daysUntil(dateStr: string | null | undefined): number | null {
@@ -38,7 +40,7 @@ export default async function OwnerBikesPage() {
 
   const admin = createAdminClient()
 
-  const [bikesRes, docsRes, branchesRes] = await Promise.all([
+  const [bikesRes, docsRes, branchesRes, routinesRes] = await Promise.all([
     admin.from('bikes')
       .select('id, license_plate, brand, model, year, color, status, daily_rate, odometer, notes, branch_id, branches(name)')
       .order('license_plate'),
@@ -46,6 +48,10 @@ export default async function OwnerBikesPage() {
       .select('bike_id, doc_type, expiry_date')
       .in('doc_type', ['tax', 'pob']),
     admin.from('branches').select('id, name').order('name'),
+    admin.from('bike_routines')
+      .select('bike_id, task_name, last_done_date')
+      .in('task_name', ['เปลี่ยนน้ำมันเครื่อง', 'เปลี่ยนน้ำมันเฟืองท้าย'])
+      .not('last_done_date', 'is', null),
   ])
 
   // Map expiry dates per bike
@@ -54,6 +60,14 @@ export default async function OwnerBikesPage() {
     if (!docExpiryMap[d.bike_id]) docExpiryMap[d.bike_id] = {}
     if (d.doc_type === 'tax') docExpiryMap[d.bike_id].tax = d.expiry_date
     if (d.doc_type === 'pob') docExpiryMap[d.bike_id].pob = d.expiry_date
+  }
+
+  // Map last routine dates per bike
+  const routineMap: Record<string, { oil?: string | null; gear?: string | null }> = {}
+  for (const r of routinesRes.data ?? []) {
+    if (!routineMap[r.bike_id]) routineMap[r.bike_id] = {}
+    if (r.task_name === 'เปลี่ยนน้ำมันเครื่อง') routineMap[r.bike_id].oil = r.last_done_date
+    if (r.task_name === 'เปลี่ยนน้ำมันเฟืองท้าย') routineMap[r.bike_id].gear = r.last_done_date
   }
 
   const bikes: OwnerBike[] = (bikesRes.data ?? []).map(b => {
@@ -76,6 +90,8 @@ export default async function OwnerBikesPage() {
       customer_name: null,
       days_until_tax: daysUntil(expiry.tax),
       days_until_pob: daysUntil(expiry.pob),
+      last_oil_date: routineMap[b.id]?.oil ?? null,
+      last_gear_date: routineMap[b.id]?.gear ?? null,
     }
   })
 

@@ -209,6 +209,16 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
                               ⚠️ พรบ. {pobAlert.label}
                             </span>
                           )}
+                          {bike.last_oil_date && (
+                            <span style={{ fontSize: '10px', background: '#fefce8', color: '#854d0e', borderRadius: '4px', padding: '2px 6px' }}>
+                              🛢️ น้ำมัน {new Date(bike.last_oil_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
+                            </span>
+                          )}
+                          {bike.last_gear_date && (
+                            <span style={{ fontSize: '10px', background: '#f0fdf4', color: '#166534', borderRadius: '4px', padding: '2px 6px' }}>
+                              ⚙️ เฟือง {new Date(bike.last_gear_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
+                            </span>
+                          )}
                           {bike.notes && (
                             <span style={{ fontSize: '10px', background: '#fef2f2', color: '#dc2626', borderRadius: '4px', padding: '2px 6px' }}>
                               🔧 {bike.notes}

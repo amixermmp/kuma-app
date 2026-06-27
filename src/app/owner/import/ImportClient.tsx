@@ -32,7 +32,7 @@ const REQUIRED_HEADERS = [
 
 const TEMPLATE_CSV = [
   REQUIRED_HEADERS.join(','),
-  'สาขาหลัก,กขค 1234,2025-01-15,Honda,PCX 160,2023,ขาว,250,4500,2026-12-31,2026-06-30,1000,3000',
+  ',กขค 1234,2025-01-15,Honda,PCX 160,2023,ขาว,250,4500,2026-12-31,2026-06-30,1000,3000',
 ].join('\n')
 
 // Proper CSV line parser — handles quoted fields and embedded commas
@@ -122,7 +122,6 @@ function parseCsv(text: string): ParsedRow[] {
     if (!row.brand) errors.push('ไม่มียี่ห้อ')
     if (!row.model) errors.push('ไม่มีรุ่น')
     if (!row.daily_rate || isNaN(Number(row.daily_rate))) errors.push('ราคาต่อวันไม่ถูกต้อง')
-    if (!row.branch_name) errors.push('ไม่มีชื่อสาขา')
 
     if (errors.length > 0) row._error = errors.join(', ')
     return row
