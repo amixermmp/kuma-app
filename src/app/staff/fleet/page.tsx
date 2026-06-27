@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getStaffBranchIds } from '@/lib/staffBranch'
 import Link from 'next/link'
 import FleetClient from './FleetClient'
 
@@ -13,27 +14,28 @@ export default async function StaffFleetPage() {
 
   const supabase = createAdminClient()
 
-  // ดึง branch ของ staff
-  const { data: staffRow } = await supabase
-    .from('staff')
-    .select('branch_id, branches(name)')
-    .eq('id', staffId)
-    .single()
+  const allowedBranchIds = await getStaffBranchIds(staffId)
 
-  if (!staffRow?.branch_id) redirect('/staff/home')
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const branchName = (staffRow as any).branches?.name ?? 'สาขา'
-
-  // ดึงรถในสาขาเดียวกัน (ยกเว้น retired)
-  const { data: bikes } = await supabase
+  // ดึงรถตามสาขาที่อนุญาต
+  let bikeQuery = supabase
     .from('bikes')
     .select('id, license_plate, brand, model, color, year, status, daily_rate, photo_url')
-    .eq('branch_id', staffRow.branch_id)
     .neq('status', 'retired')
     .order('license_plate')
 
+  if (allowedBranchIds) {
+    bikeQuery = bikeQuery.in('branch_id', allowedBranchIds)
+  }
+
+  const { data: bikes } = await bikeQuery
   const list = bikes ?? []
+
+  // ชื่อสาขาสำหรับ header
+  let branchName = 'ทุกสาขา'
+  if (allowedBranchIds) {
+    const { data: branches } = await supabase.from('branches').select('name').in('id', allowedBranchIds)
+    branchName = branches?.map(b => b.name).join(', ') ?? 'สาขา'
+  }
 
   return (
     <div className="app-wrap">

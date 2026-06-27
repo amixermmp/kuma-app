@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,6 +22,20 @@ export default async function StaffHomePage() {
   const in30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const in2hAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString()
 
+  const allowedBranchIds = await getStaffBranchIds(staffId)
+  const allowedBikeIds = await getAllowedBikeIds(allowedBranchIds)
+
+  const applyBranch = <T extends object>(q: T) => {
+    let query = q as any
+    if (allowedBranchIds) query = query.in('branch_id', allowedBranchIds)
+    return query
+  }
+  const applyBike = <T extends object>(q: T) => {
+    let query = q as any
+    if (allowedBikeIds) query = query.in('bike_id', allowedBikeIds)
+    return query
+  }
+
   const [
     { data: staffRow },
     { count: overdueCount },
@@ -33,31 +48,32 @@ export default async function StaffHomePage() {
   ] = await Promise.all([
     supabase.from('staff').select('name, branches(name)').eq('id', staffId).single(),
 
-    supabase.from('rentals').select('id', { count: 'exact', head: true })
-      .lt('expected_end_datetime', nowIso).in('status', ['active', 'extended']),
+    applyBranch(supabase.from('rentals').select('id', { count: 'exact', head: true })
+      .lt('expected_end_datetime', nowIso).in('status', ['active', 'extended'])),
 
-    supabase.from('rentals').select('id', { count: 'exact', head: true })
+    applyBranch(supabase.from('rentals').select('id', { count: 'exact', head: true })
       .gte('expected_end_datetime', nowIso).lte('expected_end_datetime', in24hIso)
-      .in('status', ['active', 'extended']),
+      .in('status', ['active', 'extended'])),
 
-    supabase.from('repairs').select('id', { count: 'exact', head: true })
-      .in('status', ['pending', 'in_progress']),
+    applyBike(supabase.from('repairs').select('id', { count: 'exact', head: true })
+      .in('status', ['pending', 'in_progress'])),
 
-    supabase.from('monthly_payments').select('id', { count: 'exact', head: true })
-      .in('status', ['pending', 'overdue']).lte('due_date', in30days),
+    applyBike(supabase.from('monthly_payments').select('id', { count: 'exact', head: true })
+      .in('status', ['pending', 'overdue']).lte('due_date', in30days)),
 
-    supabase.from('bike_documents').select('id', { count: 'exact', head: true })
-      .lte('expiry_date', in30days).gte('expiry_date', today),
+    applyBike(supabase.from('bike_documents').select('id', { count: 'exact', head: true })
+      .lte('expiry_date', in30days).gte('expiry_date', today)),
 
-    supabase.from('bookings').select('id', { count: 'exact', head: true })
-      .eq('status', 'confirmed').gte('start_datetime', in2hAgo).lte('start_datetime', in24hIso),
+    applyBranch(supabase.from('bookings').select('id', { count: 'exact', head: true })
+      .eq('status', 'confirmed').gte('start_datetime', in2hAgo).lte('start_datetime', in24hIso)),
 
-    supabase.from('bike_routines')
-      .select('next_due_km, next_due_date, bikes(odometer)'),
+    applyBike(supabase.from('bike_routines')
+      .select('next_due_km, next_due_date, bikes(odometer)')),
   ])
 
   // นับ routine ที่ถึงกำหนดหรือใกล้ถึงกำหนด (500 กม. / 14 วัน)
-  const routineCount = (routineData ?? []).filter(r => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const routineCount = (routineData ?? []).filter((r: any) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const odometer = (r.bikes as any)?.odometer ?? 0
     if (r.next_due_km != null && odometer >= r.next_due_km - 500) return true
