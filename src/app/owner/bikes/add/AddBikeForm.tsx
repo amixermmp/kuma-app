@@ -10,8 +10,8 @@ type Branch = { id: string; name: string }
 type Routine = { task_name: string; interval_km: string; interval_days: string; last_done_date: string }
 
 const DEFAULT_ROUTINES: Routine[] = [
-  { task_name: 'เปลี่ยนน้ำมันเครื่อง', interval_km: '1000', interval_days: '90', last_done_date: '' },
-  { task_name: 'เปลี่ยนน้ำมันเฟืองท้าย', interval_km: '3000', interval_days: '180', last_done_date: '' },
+  { task_name: 'เปลี่ยนน้ำมันเครื่อง', interval_km: '1000', interval_days: '30', last_done_date: '' },
+  { task_name: 'เปลี่ยนน้ำมันเฟืองท้าย', interval_km: '3000', interval_days: '120', last_done_date: '' },
 ]
 
 export default function AddBikeForm({ ownerId, branches }: { ownerId: string; branches: Branch[] }) {

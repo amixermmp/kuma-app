@@ -14,8 +14,8 @@ type Routine = {
 }
 
 const DEFAULT_ROUTINES: Routine[] = [
-  { task_name: 'เปลี่ยนน้ำมันเครื่อง', interval_km: '1000', interval_days: '90' },
-  { task_name: 'เปลี่ยนน้ำมันเฟืองท้าย', interval_km: '3000', interval_days: '180' },
+  { task_name: 'เปลี่ยนน้ำมันเครื่อง', interval_km: '1000', interval_days: '30' },
+  { task_name: 'เปลี่ยนน้ำมันเฟืองท้าย', interval_km: '3000', interval_days: '120' },
 ]
 
 export default function AddBikeForm({ staffId }: { staffId: string }) {
