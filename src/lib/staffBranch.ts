@@ -7,9 +7,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
  */
 export async function getStaffOwnBranchId(staffId: string): Promise<string> {
   const admin = createAdminClient()
-  const { data } = await admin.from('staff').select('branch_id').eq('id', staffId).single()
-  if (!data?.branch_id) throw new Error('Staff has no branch_id')
-  return data.branch_id
+  const { data } = await admin.from('staff').select('branch_id, allowed_branch_ids').eq('id', staffId).single()
+  if (data?.branch_id) return data.branch_id
+  // Fallback: use first allowed branch if branch_id is not set
+  const ids = data?.allowed_branch_ids
+  if (Array.isArray(ids) && ids.length > 0) return ids[0]
+  throw new Error('Staff has no branch_id')
 }
 
 /**
