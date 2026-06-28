@@ -83,6 +83,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'บันทึกการเช่าไม่สำเร็จ' }, { status: 500 })
   }
 
+  // Cancel any active booking for this bike that overlaps with the rental period
+  await supabase
+    .from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('bike_id', bikeId)
+    .eq('status', 'confirmed')
+    .lt('start_datetime', new Date(endDatetime).toISOString())
+    .gt('end_datetime', new Date(startDatetime).toISOString())
+
   // Update bike status + odometer
   const newOdometer = parseInt(odometer) || 0
   const { error: bikeErr } = await supabase
