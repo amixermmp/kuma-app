@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
-
-const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
+import { getStaffOwnBranchId } from '@/lib/staffBranch'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -22,6 +21,13 @@ export async function POST(request: NextRequest) {
 
   if (!bikeId || !staffId || !customer?.name || !customer?.phone || !startDate || !monthlyRate) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
+  }
+
+  let BRANCH_ID: string
+  try {
+    BRANCH_ID = await getStaffOwnBranchId(staffId)
+  } catch {
+    return NextResponse.json({ error: 'ไม่พบสาขาของ Staff' }, { status: 400 })
   }
 
   const REQUIRED_PHOTOS = ['id_card', 'selfie', 'with_bike', 'damage', 'payment']

@@ -25,6 +25,13 @@ function SuccessScreen({ rentalId, type, bikeId }: { rentalId: string; type: 'da
         <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '32px' }}>
           {type === 'daily' ? 'สัญญาเช่ารายวัน' : 'สัญญาเช่ารายเดือน'}ถูกบันทึกแล้ว
         </div>
+        <Link href={`/staff/contract/${rentalId}`} style={{
+          display: 'block', width: '100%', background: '#4f46e5', color: '#fff',
+          borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
+          textDecoration: 'none', marginBottom: '12px',
+        }}>
+          📄 ดูสัญญา / ส่งให้ลูกค้า
+        </Link>
         <Link href={invoiceHref} style={{
           display: 'block', width: '100%', background: '#1e3a8a', color: '#fff',
           borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,

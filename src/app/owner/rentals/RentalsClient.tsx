@@ -307,6 +307,19 @@ export default function RentalsClient({
                           📷 รูป ({photos.length})
                         </button>
                       )}
+                      <Link
+                        href={`/contract/${r.id}`}
+                        target="_blank"
+                        style={{
+                          flex: 1, padding: '9px', borderRadius: '10px',
+                          background: '#f5f3ff', color: '#7c3aed',
+                          border: '1px solid #ddd6fe', fontSize: '13px',
+                          fontWeight: 600, cursor: 'pointer', textDecoration: 'none',
+                          textAlign: 'center',
+                        }}
+                      >
+                        📄 สัญญา
+                      </Link>
                       <button
                         onClick={() => setConfirmEnd({
                           id: r.id, type: 'daily',
@@ -392,6 +405,19 @@ export default function RentalsClient({
                           📷 รูป ({photos.length})
                         </button>
                       )}
+                      <Link
+                        href={`/contract/${r.id}`}
+                        target="_blank"
+                        style={{
+                          flex: 1, padding: '9px', borderRadius: '10px',
+                          background: '#f5f3ff', color: '#7c3aed',
+                          border: '1px solid #ddd6fe', fontSize: '13px',
+                          fontWeight: 600, cursor: 'pointer', textDecoration: 'none',
+                          textAlign: 'center',
+                        }}
+                      >
+                        📄 สัญญา
+                      </Link>
                       <button
                         onClick={() => setConfirmEnd({
                           id: r.id, type: 'monthly',
