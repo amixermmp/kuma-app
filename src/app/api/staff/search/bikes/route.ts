@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getStaffBranchIds } from '@/lib/staffBranch'
 
 const BUFFER_HOURS = 3
 
@@ -23,11 +24,20 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // Get all bikes
-  const { data: bikes } = await supabase
+  // Get staff's allowed branches
+  const allowedBranchIds = await getStaffBranchIds(staffId)
+
+  // Get bikes filtered to staff's branches
+  let bikesQuery = supabase
     .from('bikes')
     .select('id, license_plate, brand, model, color, year, daily_rate, odometer, status')
     .order('daily_rate', { ascending: true })
+
+  if (allowedBranchIds) {
+    bikesQuery = bikesQuery.in('branch_id', allowedBranchIds)
+  }
+
+  const { data: bikes } = await bikesQuery
 
   if (!bikes) return NextResponse.json({ bikes: [] })
 
