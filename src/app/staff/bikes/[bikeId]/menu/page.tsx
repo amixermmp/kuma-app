@@ -71,9 +71,10 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
   const monthlyCustomerName = (activeMonthly?.customers as any)?.name ?? null
   const isMonthlyRented = monthlyRentalId !== null
 
-  const statusColor = STATUS_COLOR[bike.status] ?? '#6b7280'
-  const statusLabel = STATUS_LABEL[bike.status] ?? bike.status
-  const isAvailable = bike.status === 'available'
+  // Monthly rental overrides the raw bike.status display
+  const statusColor = isMonthlyRented ? '#7c3aed' : (STATUS_COLOR[bike.status] ?? '#6b7280')
+  const statusLabel = isMonthlyRented ? '🔵 รายเดือน' : (STATUS_LABEL[bike.status] ?? bike.status)
+  const isAvailable = bike.status === 'available' && !isMonthlyRented
   const isRented = (bike.status === 'rented' || bike.status === 'locked') && !monthlyRentalId
 
   const fuelLevel = bike.fuel_level ?? 0
