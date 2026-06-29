@@ -33,6 +33,7 @@ export default function SearchPage() {
   const [from, setFrom] = useState(nowLocal())
   const [to, setTo] = useState(nowLocal(3 * 24 * 60 * 60 * 1000))
   const [priceFilter, setPriceFilter] = useState('ทุกราคา')
+  const [modelFilter, setModelFilter] = useState('ทุกรุ่น')
   const [results, setResults] = useState<BikeResult[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -46,6 +47,7 @@ export default function SearchPage() {
       )
       const data = await res.json()
       setResults(data.bikes ?? [])
+      setModelFilter('ทุกรุ่น')
       setSearched(true)
     } catch {
       setResults([])
@@ -56,10 +58,15 @@ export default function SearchPage() {
 
   const days = from && to ? daysBetween(from, to) : 0
 
+  const uniqueModels = results
+    ? [...new Set(results.map(b => `${b.brand} ${b.model}`))]
+    : []
+
   const filteredResults = results?.filter(b => {
-    if (priceFilter === '≤ 200') return b.daily_rate <= 200
-    if (priceFilter === '201–350') return b.daily_rate >= 201 && b.daily_rate <= 350
-    if (priceFilter === '> 350') return b.daily_rate > 350
+    if (priceFilter === '≤ 200' && b.daily_rate > 200) return false
+    if (priceFilter === '201–350' && (b.daily_rate < 201 || b.daily_rate > 350)) return false
+    if (priceFilter === '> 350' && b.daily_rate <= 350) return false
+    if (modelFilter !== 'ทุกรุ่น' && `${b.brand} ${b.model}` !== modelFilter) return false
     return true
   })
 
@@ -105,6 +112,15 @@ export default function SearchPage() {
               <option>≤ 200</option>
               <option>201–350</option>
               <option>{'> 350'}</option>
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label className="field-label">รุ่นรถ</label>
+            <select className="field-input"
+              value={modelFilter}
+              onChange={e => setModelFilter(e.target.value)}>
+              <option>ทุกรุ่น</option>
+              {uniqueModels.map(m => <option key={m}>{m}</option>)}
             </select>
           </div>
         </div>
