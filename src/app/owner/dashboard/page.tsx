@@ -58,7 +58,7 @@ export default async function OwnerDashboardPage({
   const periodStartDate = periodStart.toISOString().split('T')[0]
   const periodEndDate   = periodEnd.toISOString().split('T')[0]
 
-  const [bikesRes, bookingsMonthRes, bookingsRecentRes, branchesRes, pendingRes, rentalsMonthRes, monthlyRentalsRes, expensesRes] = await Promise.all([
+  const [bikesRes, bookingsMonthRes, bookingsRecentRes, branchesRes, pendingRes, rentalsMonthRes, monthlyRentalsRes, expensesRes, repairCostsRes] = await Promise.all([
     admin.from('bikes').select('id, status, branch_id, brand, model, license_plate'),
     admin.from('bookings')
       .select('id, branch_id, daily_rate, total_days, start_datetime, customer_name, bikes(license_plate, brand, model)')
@@ -92,6 +92,13 @@ export default async function OwnerDashboardPage({
       .select('amount')
       .gte('expense_date', periodStartDate)
       .lte('expense_date', periodEndDate),
+    // Repair costs
+    admin.from('repairs')
+      .select('repair_cost')
+      .eq('status', 'done')
+      .not('repair_cost', 'is', null)
+      .gte('resolved_at', periodStart.toISOString())
+      .lte('resolved_at', periodEnd.toISOString()),
   ])
 
   const bikes          = bikesRes.data ?? []
@@ -102,6 +109,7 @@ export default async function OwnerDashboardPage({
   const rentalsMonth    = rentalsMonthRes.data ?? []
   const monthlyRentals  = monthlyRentalsRes.data ?? []
   const totalExpenses   = (expensesRes.data ?? []).reduce((s, e) => s + (Number(e.amount) || 0), 0)
+                        + (repairCostsRes.data ?? []).reduce((s, r) => s + (Number(r.repair_cost) || 0), 0)
 
   // Fleet stats
   const total       = bikes.length
