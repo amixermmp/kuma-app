@@ -26,17 +26,27 @@ function calcUrgency(expiry: string | null): { urgency: DocItem['urgency']; days
   return { urgency: 'ok', days }
 }
 
-export default async function DocsPage() {
+export default async function DocsPage({
+  searchParams,
+}: {
+  searchParams: { bikeId?: string }
+}) {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) redirect('/staff/login')
 
   const supabase = createAdminClient()
-  const { data: rawDocs } = await supabase
+  let query = supabase
     .from('bike_documents')
     .select('id, bike_id, doc_type, expiry_date, doc_photo_url, notes, bikes(license_plate, brand, model)')
     .in('doc_type', ['tax', 'pob'])
     .order('expiry_date', { ascending: true, nullsFirst: true })
+
+  if (searchParams.bikeId) {
+    query = query.eq('bike_id', searchParams.bikeId)
+  }
+
+  const { data: rawDocs } = await query
 
   const docs: DocItem[] = (rawDocs ?? []).map(d => ({
     ...d,

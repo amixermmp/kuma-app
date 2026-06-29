@@ -402,7 +402,7 @@ export default function JobsClient({
                   meta1={`${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                   meta2={`หมดอายุ: ${fmtDate(d.expiry_date)}`}
                   statusLabel={statusText} statusBg={p.bg} statusColor={p.color}
-                  href="/staff/docs" btnColor={p.dot}
+                  href={`/staff/docs?bikeId=${d.bike_id}`} btnColor={p.dot}
                 />
               )
             })}
