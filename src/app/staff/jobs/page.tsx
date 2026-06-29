@@ -6,6 +6,22 @@ import JobsClient from './JobsClient'
 
 export const dynamic = 'force-dynamic'
 
+// Compute next due date from payment_day (day-of-month)
+function getNextDueDate(paymentDay: number): Date {
+  const now = new Date()
+  const todayNum = now.getDate()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+
+  // Try this month first
+  let due = new Date(year, month, paymentDay)
+  // If today >= due day, move to next month
+  if (todayNum >= paymentDay) {
+    due = new Date(year, month + 1, paymentDay)
+  }
+  return due
+}
+
 export default async function JobsPage() {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
@@ -36,6 +52,7 @@ export default async function JobsPage() {
     { data: docsDue },
     { data: monthlyDue },
     { data: sendJobs },
+    { data: allMonthlyActive },
   ] = await Promise.all([
     applyBike(supabase.from('rentals')
       .select('id, expected_end_datetime, bikes(id, license_plate, brand, model), customers(name, phone)')
@@ -74,7 +91,7 @@ export default async function JobsPage() {
           .limit(200)),
 
     applyBike(supabase.from('bike_documents')
-      .select('id, doc_type, expiry_date, bikes(id, license_plate, brand, model)')
+      .select('id, doc_type, expiry_date, bike_id, bikes(id, license_plate, brand, model)')
       .lte('expiry_date', in30days)
       .gte('expiry_date', today)
       .limit(20)),
@@ -92,6 +109,12 @@ export default async function JobsPage() {
       .lte('start_datetime', in24h)
       .order('start_datetime', { ascending: true })
       .limit(20)),
+
+    // All active monthly rentals — to compute upcoming due alerts
+    applyBike(supabase.from('monthly_rentals')
+      .select('id, bike_id, payment_day, monthly_rate, bikes(id, license_plate, brand, model), customers(name, phone)')
+      .eq('status', 'active')
+      .limit(100)),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,6 +124,20 @@ export default async function JobsPage() {
     const dateOverdue = r.next_due_date != null && r.next_due_date <= today
     return kmOverdue || dateOverdue
   })
+
+  // Compute "contact customer" alerts: monthly rentals due in 0–2 days
+  const todayDate = new Date()
+  todayDate.setHours(0, 0, 0, 0)
+  const in2days = new Date(todayDate.getTime() + 2 * 86_400_000)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const monthlyContactAlerts = (allMonthlyActive ?? []).map((mr: any) => {
+    const nextDue = getNextDueDate(mr.payment_day)
+    nextDue.setHours(0, 0, 0, 0)
+    const daysUntil = Math.round((nextDue.getTime() - todayDate.getTime()) / 86_400_000)
+    return { ...mr, nextDueDate: nextDue.toISOString().split('T')[0], daysUntil }
+  }).filter((mr: any) => mr.daysUntil >= 0 && mr.daysUntil <= 2)
+    .sort((a: any, b: any) => a.daysUntil - b.daysUntil)
 
   return (
     <JobsClient
@@ -112,6 +149,7 @@ export default async function JobsPage() {
       overdueRoutines={overdueRoutines}
       docsDue={docsDue ?? []}
       monthlyDue={monthlyDue ?? []}
+      monthlyContactAlerts={monthlyContactAlerts}
     />
   )
 }

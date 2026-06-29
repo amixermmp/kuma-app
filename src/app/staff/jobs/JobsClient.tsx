@@ -102,12 +102,12 @@ function JobCard({
 }
 
 // ── types ────────────────────────────────────────────────────
-type Tab = 'all' | 'sendcar' | 'returncar' | 'active' | 'broken' | 'routine' | 'docs' | 'monthly'
+type Tab = 'all' | 'sendcar' | 'returncar' | 'active' | 'broken' | 'routine' | 'docs' | 'monthly' | 'contact'
 
 // ── main component ───────────────────────────────────────────
 export default function JobsClient({
   sendJobs, overdueRentals, dueSoonRentals, activeRentals, repairs,
-  overdueRoutines, docsDue, monthlyDue,
+  overdueRoutines, docsDue, monthlyDue, monthlyContactAlerts,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sendJobs: any[]
@@ -125,31 +125,35 @@ export default function JobsClient({
   docsDue: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   monthlyDue: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  monthlyContactAlerts: any[]
 }) {
   const [tab, setTab] = useState<Tab>('all')
 
   const returnJobs = [...overdueRentals, ...dueSoonRentals]
   const nowMs = Date.now()
   const counts = {
-    sendcar: sendJobs.length,
+    sendcar:  sendJobs.length,
     returncar: returnJobs.length,
-    active: activeRentals.length,
-    broken: repairs.length,
-    routine: overdueRoutines.length,
-    docs: docsDue.length,
-    monthly: monthlyDue.length,
+    active:   activeRentals.length,
+    broken:   repairs.length,
+    routine:  overdueRoutines.length,
+    docs:     docsDue.length,
+    monthly:  monthlyDue.length,
+    contact:  monthlyContactAlerts.length,
   }
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
   const tabs: { key: Tab; label: string; count: number; bg: string; color: string }[] = [
-    { key: 'all',      label: 'ทั้งหมด',  count: total,             bg: '#eef2ff', color: '#4f46e5' },
-    { key: 'sendcar',  label: 'ส่งรถ',    count: counts.sendcar,    bg: '#f0fdfa', color: '#0891b2' },
-    { key: 'returncar',label: 'รับคืน',   count: counts.returncar,  bg: '#fef2f2', color: '#dc2626' },
-    { key: 'active',   label: 'เช่าอยู่',  count: counts.active,     bg: '#f0fdf4', color: '#16a34a' },
-    { key: 'broken',   label: 'รถเสีย',   count: counts.broken,     bg: '#fef2f2', color: '#dc2626' },
-    { key: 'routine',  label: 'รูทีน',    count: counts.routine,    bg: '#fffbeb', color: '#d97706' },
-    { key: 'docs',     label: 'เอกสาร',   count: counts.docs,       bg: '#eff6ff', color: '#2563eb' },
-    { key: 'monthly',  label: 'รายเดือน', count: counts.monthly,    bg: '#faf5ff', color: '#7c3aed' },
+    { key: 'all',      label: 'ทั้งหมด',       count: total,              bg: '#eef2ff', color: '#4f46e5' },
+    { key: 'contact',  label: 'ติดต่อลูกค้า',  count: counts.contact,     bg: '#fff7ed', color: '#ea580c' },
+    { key: 'sendcar',  label: 'ส่งรถ',          count: counts.sendcar,     bg: '#f0fdfa', color: '#0891b2' },
+    { key: 'returncar',label: 'รับคืน',         count: counts.returncar,   bg: '#fef2f2', color: '#dc2626' },
+    { key: 'active',   label: 'เช่าอยู่',       count: counts.active,      bg: '#f0fdf4', color: '#16a34a' },
+    { key: 'broken',   label: 'รถเสีย',         count: counts.broken,      bg: '#fef2f2', color: '#dc2626' },
+    { key: 'routine',  label: 'รูทีน',          count: counts.routine,     bg: '#fffbeb', color: '#d97706' },
+    { key: 'docs',     label: 'เอกสาร',         count: counts.docs,        bg: '#eff6ff', color: '#2563eb' },
+    { key: 'monthly',  label: 'รายเดือน',       count: counts.monthly,     bg: '#faf5ff', color: '#7c3aed' },
   ]
 
   const show = (key: Tab) => tab === 'all' || tab === key
@@ -214,6 +218,68 @@ export default function JobsClient({
           }}>
             ✅ ไม่มีงานค้างอยู่
           </div>
+        )}
+
+        {/* ติดต่อลูกค้า — ครบกำหนดรายเดือน */}
+        {show('contact') && monthlyContactAlerts.length > 0 && (
+          <>
+            <SectionTitle>📞 ติดต่อลูกค้า — ครบกำหนดรายเดือน</SectionTitle>
+            {monthlyContactAlerts.map((mr: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+              const bike = mr.bikes
+              const customer = mr.customers
+              const isToday = mr.daysUntil === 0
+              const isTomorrow = mr.daysUntil === 1
+              const badgeText = isToday ? '🔴 ครบกำหนดวันนี้!' : isTomorrow ? '🟠 ครบกำหนดพรุ่งนี้' : `⚠️ อีก ${mr.daysUntil} วัน`
+              const badgeBg = isToday ? '#fef2f2' : '#fff7ed'
+              const badgeColor = isToday ? '#dc2626' : '#ea580c'
+              const dotColor = isToday ? '#dc2626' : '#ea580c'
+              return (
+                <div key={mr.id} style={{
+                  background: '#fff', borderRadius: '12px', marginBottom: '10px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,.07)', overflow: 'hidden', display: 'flex',
+                }}>
+                  <div style={{ width: '5px', background: dotColor, flexShrink: 0 }} />
+                  <div style={{ flex: 1, padding: '12px 12px 10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                      <span style={{ fontWeight: 700, fontSize: '14px', color: '#111827', flex: 1 }}>
+                        📞 ติดต่อ — {bike?.license_plate ?? ''} {bike?.brand ?? ''} {bike?.model ?? ''}
+                      </span>
+                      <span style={{
+                        fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px',
+                        background: badgeBg, color: badgeColor, whiteSpace: 'nowrap', flexShrink: 0,
+                      }}>{badgeText}</span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '3px' }}>
+                      👤 {customer?.name ?? '—'}{customer?.phone ? ` • ${customer.phone}` : ''}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
+                      💰 ฿{Number(mr.monthly_rate).toLocaleString()}/เดือน • ครบวันที่ {mr.payment_day} ทุกเดือน
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                      <a href={`tel:${customer?.phone ?? ''}`} style={{
+                        fontSize: '12px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px',
+                        background: '#f0fdf4', color: '#16a34a', textDecoration: 'none', border: '1px solid #bbf7d0',
+                      }}>
+                        📱 โทร
+                      </a>
+                      <Link href={`/staff/collect/${mr.id}`} style={{
+                        fontSize: '12px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px',
+                        background: '#7c3aed', color: '#fff', textDecoration: 'none',
+                      }}>
+                        💰 ต่อสัญญา
+                      </Link>
+                      <Link href={`/staff/monthly/end/${mr.id}`} style={{
+                        fontSize: '12px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px',
+                        background: '#fef2f2', color: '#dc2626', textDecoration: 'none', border: '1px solid #fecaca',
+                      }}>
+                        🚫 คืนรถ
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </>
         )}
 
         {/* ส่งรถ */}
