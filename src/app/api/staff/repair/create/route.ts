@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     .insert({
       bike_id: bikeId,
       branch_id: BRANCH_ID,
+      title: description.substring(0, 100),
       description,
       status: 'in_progress',
     })
