@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ส่งรถ — Prototype</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Sarabun', sans-serif; background: #f1f5f9; color: #111827; }
+
+  .phone { max-width: 430px; margin: 0 auto; min-height: 100vh; background: #f1f5f9; }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #0f172a, #1e3a5f);
+    color: #fff; padding: 16px; position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .header-back { font-size: 20px; cursor: pointer; opacity: .7; }
+  .header h1 { font-size: 17px; font-weight: 800; margin-bottom: 2px; }
+  .header .sub { font-size: 12px; opacity: .7; }
+
+  /* Cards */
+  .section { padding: 12px 12px 0; }
+  .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.07); }
+  .card-title { font-size: 13px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; }
+
+  /* Fields */
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { display: block; font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 11px 13px; border: 1.5px solid #e5e7eb; border-radius: 10px;
+    font-size: 14px; font-family: inherit; background: #fff; color: #111827;
+    transition: border-color .15s;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: #3b82f6; }
+
+  /* Date row */
+  .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* Fuel bar */
+  .fuel-bar { display: flex; gap: 4px; margin-top: 8px; }
+  .fuel-seg {
+    flex: 1; height: 28px; border-radius: 4px; cursor: pointer;
+    background: #e5e7eb; transition: background .1s;
+  }
+  .fuel-seg.filled { background: #16a34a; }
+
+  /* Payment method */
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .pill {
+    padding: 7px 18px; border-radius: 20px; border: 1.5px solid #e5e7eb;
+    font-size: 13px; font-weight: 700; cursor: pointer; background: #fff; color: #6b7280;
+    transition: all .15s;
+  }
+  .pill.active { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PRICE BOX — big hero display
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .price-hero {
+    background: linear-gradient(135deg, #1d4ed8, #4f46e5);
+    border-radius: 16px; padding: 18px 16px; margin-bottom: 12px;
+    color: #fff;
+  }
+  .price-hero-days { font-size: 12px; opacity: .8; margin-bottom: 4px; }
+  .price-hero-amount { font-size: 36px; font-weight: 900; letter-spacing: -1px; margin-bottom: 8px; }
+  .price-hero-detail { font-size: 12px; opacity: .75; }
+
+  /* Breakdown lines */
+  .breakdown { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.2); }
+  .breakdown-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; margin-bottom: 6px;
+  }
+  .breakdown-row:last-child { margin-bottom: 0; }
+  .breakdown-row .label { opacity: .8; }
+  .breakdown-row .amount { font-weight: 700; }
+  .breakdown-row.total { border-top: 1px solid rgba(255,255,255,.2); padding-top: 8px; margin-top: 4px; font-size: 14px; }
+
+  /* Monthly choice prompt */
+  .monthly-prompt {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    border-radius: 14px; padding: 16px; margin-bottom: 12px; color: #fff;
+  }
+  .monthly-prompt .prompt-title { font-size: 14px; font-weight: 800; margin-bottom: 4px; }
+  .monthly-prompt .prompt-sub { font-size: 12px; opacity: .8; margin-bottom: 14px; }
+  .monthly-choice-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .monthly-choice-btn {
+    border: 2px solid rgba(255,255,255,.4); border-radius: 10px; padding: 12px 10px;
+    text-align: center; cursor: pointer; background: rgba(255,255,255,.1);
+    color: #fff; font-family: inherit; transition: all .15s;
+  }
+  .monthly-choice-btn.active {
+    background: rgba(255,255,255,.25); border-color: rgba(255,255,255,.9);
+  }
+  .monthly-choice-btn .choice-icon { font-size: 22px; margin-bottom: 4px; }
+  .monthly-choice-btn .choice-label { font-size: 12px; font-weight: 800; }
+  .monthly-choice-btn .choice-sub { font-size: 10px; opacity: .8; margin-top: 2px; }
+
+  /* Submit button */
+  .btn-submit {
+    width: 100%; padding: 16px; border: none; border-radius: 14px;
+    background: linear-gradient(135deg, #1d4ed8, #4f46e5);
+    color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;
+    font-family: inherit; margin-bottom: 24px; letter-spacing: .2px;
+    box-shadow: 0 4px 14px rgba(29,78,216,.35);
+  }
+  .btn-submit.monthly { background: linear-gradient(135deg, #7c3aed, #4f46e5); box-shadow: 0 4px 14px rgba(124,58,237,.35); }
+
+  /* Photo placeholder */
+  .photo-placeholder {
+    border: 2px dashed #d1d5db; border-radius: 10px; padding: 20px;
+    text-align: center; color: #9ca3af; font-size: 13px; cursor: pointer;
+    margin-top: 6px;
+  }
+
+  /* Sign area */
+  .sign-area {
+    border: 2px dashed #d1d5db; border-radius: 10px; padding: 28px;
+    text-align: center; color: #9ca3af; font-size: 14px; cursor: pointer;
+    margin-top: 6px; background: #fafafa;
+  }
+
+  /* Deposit field */
+  .deposit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* Hidden initially */
+  .hidden { display: none; }
+
+  /* Lock choice buttons */
+  .lock-choice {
+    border: 2px solid #e5e7eb; border-radius: 12px; padding: 14px 10px;
+    text-align: center; cursor: pointer; background: #f9fafb;
+    color: #374151; font-family: inherit; transition: all .15s;
+    width: 100%;
+  }
+  .lock-choice:hover { border-color: #9ca3af; background: #f3f4f6; }
+  .lock-choice.selected-yes {
+    background: #fef2f2; border-color: #ef4444; color: #dc2626;
+  }
+  .lock-choice.selected-no {
+    background: #f0fdf4; border-color: #22c55e; color: #15803d;
+  }
+
+  /* Info note */
+  .note {
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
+    padding: 10px 12px; font-size: 12px; color: #1d4ed8; margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-back">←</div>
+    <div>
+      <h1>ส่งรถ 🛵</h1>
+      <div class="sub">ชม 5201 • Honda PCX 160</div>
+    </div>
+  </div>
+
+  <div class="section" id="mainForm">
+
+    <!-- ① ข้อมูลลูกค้า -->
+    <div class="card">
+      <div class="card-title">ข้อมูลลูกค้า</div>
+      <div class="field">
+        <label>เบอร์โทรศัพท์ *</label>
+        <input type="tel" placeholder="081-234-5678" id="phone" />
+      </div>
+      <div class="field">
+        <label>ชื่อ - นามสกุล *</label>
+        <input type="text" placeholder="สมชาย ดีใจ" id="name" />
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>โรงแรม / ที่พัก</label>
+        <input type="text" placeholder="Nap Park Hotel" id="hotel" />
+      </div>
+    </div>
+
+    <!-- ② ช่วงเวลาเช่า -->
+    <div class="card">
+      <div class="card-title">ช่วงเวลาเช่า</div>
+      <div class="date-row" style="margin-bottom:14px">
+        <div class="field" style="margin-bottom:0">
+          <label>วันที่รับรถ *</label>
+          <input type="date" id="startDate" />
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>วันที่กำหนดคืน *</label>
+          <input type="date" id="endDate" />
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>เวลารับรถ</label>
+        <input type="time" id="startTime" value="10:00" />
+      </div>
+    </div>
+
+    <!-- ② ½ โปรโมชั่น — อยู่ใต้ช่วงเวลาเช่าทันที -->
+    <div class="card" id="promoCard">
+      <div class="card-title">โปรโมชั่น</div>
+      <div class="pill-row">
+        <button class="pill active" id="promoNone" onclick="selectPromo(this, null)">ราคาปกติ</button>
+        <button class="pill" id="promoStudent" onclick="selectPromo(this, 'student')">🎓 ราคานักศึกษา</button>
+      </div>
+      <div id="studentNote" style="display:none; margin-top:10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:8px 12px; font-size:12px; color:#1d4ed8;">
+        ลด ฿50/วัน จากราคารายวันปกติ — ไม่รวมค่าเช่ารายเดือน
+      </div>
+    </div>
+
+    <!-- ③ PRICE HERO — live calculator -->
+    <div class="price-hero" id="priceBox" style="display:none">
+      <div class="price-hero-days" id="priceDaysLabel">— วัน</div>
+      <div class="price-hero-amount" id="priceAmount">฿—</div>
+      <div class="price-hero-detail" id="priceDetail">เลือกวันที่เช่า</div>
+      <div class="breakdown" id="priceBreakdown"></div>
+    </div>
+
+    <!-- ④ Monthly choice (≥30 days) -->
+    <div class="monthly-prompt hidden" id="monthlyPrompt">
+      <div class="prompt-title">🗓️ เช่าระยะยาว — เลือกรูปแบบสัญญา</div>
+      <div class="prompt-sub">เช่ามากกว่า 30 วัน — ต้องการสัญญาแบบไหน?</div>
+      <div class="monthly-choice-row">
+        <button class="monthly-choice-btn active" id="btnOnetime" onclick="setContractType('onetime')">
+          <div class="choice-icon">💳</div>
+          <div class="choice-label">จ่ายครั้งเดียว</div>
+          <div class="choice-sub">คิดตามสูตรปกติ</div>
+        </button>
+        <button class="monthly-choice-btn" id="btnMonthly" onclick="setContractType('monthly')">
+          <div class="choice-icon">📋</div>
+          <div class="choice-label">สัญญารายเดือน</div>
+          <div class="choice-sub">จ่ายทุกเดือน</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Extra field for monthly contract -->
+    <div class="card hidden" id="monthlyContractCard">
+      <div class="card-title">รายละเอียดสัญญารายเดือน</div>
+      <div class="field">
+        <label>ราคาต่อเดือน (บาท) *</label>
+        <input type="number" placeholder="2590" id="mRate" value="2590" oninput="recalc()" />
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>ครบกำหนดชำระทุกวันที่</label>
+        <div style="background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:10px;">
+          <span style="font-size:20px">📅</span>
+          <div>
+            <div style="font-size:16px; font-weight:800; color:#15803d;" id="mPayDayDisplay">วันที่ 15</div>
+            <div style="font-size:11px; color:#6b7280; margin-top:2px;">ของทุกเดือน — ตามวันเริ่มสัญญา</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑤ รูปภาพ -->
+    <div class="card">
+      <div class="card-title">รูปภาพ</div>
+      <div class="field">
+        <label>📄 รูปบัตรประชาชน / พาสปอร์ต *</label>
+        <div class="photo-placeholder">📷 ถ่ายหรืออัพโหลด</div>
+      </div>
+      <div class="field">
+        <label>🤳 รูปคู่บัตร *</label>
+        <div class="photo-placeholder">📷 ลูกค้าถือบัตรให้เห็นหน้า</div>
+      </div>
+      <div class="field">
+        <label>🛵 รูปคู่รถ *</label>
+        <div class="photo-placeholder">📷 ลูกค้ายืนคู่รถก่อนรับ</div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>🔍 รูปตำหนิรถก่อนเช่า *</label>
+        <div class="photo-placeholder">📷 ถ่ายรอบคัน</div>
+      </div>
+    </div>
+
+    <!-- ⑥ รายละเอียดรถ -->
+    <div class="card">
+      <div class="card-title">สภาพรถตอนส่ง</div>
+      <div class="date-row" style="margin-bottom:14px">
+        <div class="field" style="margin-bottom:0">
+          <label>เลขไมล์</label>
+          <input type="number" placeholder="14230" />
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>ประเภทน้ำมัน</label>
+          <select>
+            <option>91</option>
+            <option>95</option>
+            <option>E20</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>ระดับน้ำมัน (<span id="fuelVal">5</span>/8)</label>
+        <div class="fuel-bar" id="fuelBar"></div>
+      </div>
+    </div>
+
+    <!-- ⑦ การชำระเงิน -->
+    <div class="card">
+      <div class="card-title">การชำระเงิน</div>
+      <div class="field">
+        <label>วิธีชำระ</label>
+        <div class="pill-row">
+          <button class="pill active" onclick="setPay(this,'cash')">💵 เงินสด</button>
+          <button class="pill" onclick="setPay(this,'transfer')">📱 สลิปโอน</button>
+        </div>
+      </div>
+      <div class="deposit-row">
+        <div class="field" style="margin-bottom:0">
+          <label>เงินมัดจำ (฿)</label>
+          <input type="number" placeholder="1000" value="1000" />
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>หลักฐานการชำระ</label>
+          <div class="photo-placeholder" style="padding:11px; font-size:12px">📷 อัพโหลด</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑨ ล็อครถ -->
+    <!-- รายวัน: ต้องเลือกอย่างใดอย่างหนึ่ง -->
+    <div class="card" id="lockCard">
+      <div class="card-title">🔒 ต้องการล็อคผลการค้นหาหรือไม่ <span style="color:#dc2626">*</span></div>
+      <div style="font-size:12px;color:#6b7280;margin-bottom:12px;">กรุณาเลือกอย่างใดอย่างหนึ่ง — ถ้าไม่เลือกจะบันทึกไม่ได้</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button id="lockYes" class="lock-choice" onclick="setLock(true)">
+          <div style="font-size:24px;margin-bottom:6px;">🔒</div>
+          <div style="font-size:13px;font-weight:800;">ล็อครถ</div>
+          <div style="font-size:11px;opacity:.75;margin-top:3px;">ซ่อนจากการค้นหา<br>จนกว่าจะรับรถคืน</div>
+        </button>
+        <button id="lockNo" class="lock-choice" onclick="setLock(false)">
+          <div style="font-size:24px;margin-bottom:6px;">🔓</div>
+          <div style="font-size:13px;font-weight:800;">ไม่ล็อค</div>
+          <div style="font-size:11px;opacity:.75;margin-top:3px;">รถยังแสดงในระบบ<br>ตามปกติ</div>
+        </button>
+      </div>
+      <div id="lockError" style="display:none;margin-top:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;font-size:12px;color:#dc2626;">
+        ⚠️ กรุณาเลือกว่าต้องการล็อครถหรือไม่
+      </div>
+    </div>
+
+    <!-- รายเดือน: auto lock info -->
+    <div class="hidden" id="lockMonthlyInfo" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#1d4ed8;">
+      🔒 รถจะถูกล็อคอัตโนมัติ — ไม่ปรากฏในการค้นหาจนกว่าจะกด "สิ้นสุดสัญญา"
+    </div>
+
+    <!-- ⑩ ลายเซ็น -->
+    <div class="card">
+      <div class="card-title">ลายเซ็นลูกค้า</div>
+      <div class="sign-area">✏️ แตะเพื่อเซ็นชื่อ</div>
+    </div>
+
+    <!-- Submit -->
+    <button class="btn-submit" id="submitBtn" onclick="handleSubmit()">
+      💾 บันทึกการเช่า
+    </button>
+
+  </div><!-- /section -->
+</div><!-- /phone -->
+
+<script>
+// ── Config (simulated bike data) ──────────────────────────
+const NDR = 250   // daily rate
+const MCR = 2590  // monthly rate
+
+let contractType = 'onetime'   // 'onetime' | 'monthly'
+let selectedPromo = null
+let fuelLevel = 5
+let lockBike = null  // null = ยังไม่เลือก, true = ล็อค, false = ไม่ล็อค
+
+// ── Fuel bar ──────────────────────────────────────────────
+const fuelBar = document.getElementById('fuelBar')
+for (let i = 0; i < 8; i++) {
+  const seg = document.createElement('div')
+  seg.className = 'fuel-seg' + (i < fuelLevel ? ' filled' : '')
+  seg.onclick = () => {
+    fuelLevel = i + 1
+    document.getElementById('fuelVal').textContent = fuelLevel
+    fuelBar.querySelectorAll('.fuel-seg').forEach((s, j) => {
+      s.classList.toggle('filled', j < fuelLevel)
+    })
+  }
+  fuelBar.appendChild(seg)
+}
+
+// ── Payment method ────────────────────────────────────────
+function setPay(btn, method) {
+  document.querySelectorAll('.pill').forEach(b => {
+    if (b.parentElement === btn.parentElement) b.classList.remove('active')
+  })
+  btn.classList.add('active')
+}
+
+function selectPromo(btn, promoId) {
+  selectedPromo = promoId
+  document.querySelectorAll('#promoCard .pill').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  document.getElementById('studentNote').style.display = promoId === 'student' ? 'block' : 'none'
+  recalc()
+}
+
+// ── Date inputs → init today + 3 days ─────────────────────
+function toLocalDateStr(d) {
+  return d.toISOString().split('T')[0]
+}
+const today = new Date()
+const inThree = new Date(today)
+inThree.setDate(inThree.getDate() + 3)
+document.getElementById('startDate').value = toLocalDateStr(today)
+document.getElementById('endDate').value = toLocalDateStr(inThree)
+document.getElementById('startDate').addEventListener('change', () => { updatePayDay(); recalc() })
+document.getElementById('endDate').addEventListener('change', recalc)
+
+function updatePayDay() {
+  const startStr = document.getElementById('startDate').value
+  if (!startStr) return
+  const day = new Date(startStr + 'T12:00:00').getDate()
+  const el = document.getElementById('mPayDayDisplay')
+  if (el) el.textContent = `วันที่ ${day}`
+}
+updatePayDay()
+document.getElementById('mRate').addEventListener('input', recalc)
+
+// ── Pricing formula ────────────────────────────────────────
+// Returns { months: [{label, days, price}], remainDays, remainPrice, total }
+function calcPrice(startStr, endStr, ndr, mcr) {
+  const start = new Date(startStr)
+  const end = new Date(endStr)
+  if (end <= start) return null
+
+  let cursor = new Date(start)
+  const months = []
+  let total = 0
+
+  // Break into calendar months
+  while (true) {
+    // Next month: same date next month
+    const next = new Date(cursor)
+    next.setMonth(next.getMonth() + 1)
+
+    if (next >= end) break
+
+    // Days in this month span
+    const rawDays = Math.round((next - cursor) / 86400000)
+    // Feb rule: min 30 days
+    const effectiveDays = Math.max(rawDays, 30)
+    const monthLabel = cursor.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+      + ' → ' + next.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+
+    months.push({ label: monthLabel, days: effectiveDays, price: mcr })
+    total += mcr
+
+    // Advance cursor to the adjusted end (account for Feb +days)
+    if (effectiveDays > rawDays) {
+      cursor = new Date(cursor)
+      cursor.setDate(cursor.getDate() + effectiveDays)
+    } else {
+      cursor = next
+    }
+  }
+
+  // Remaining days after last full month
+  const remainDays = Math.round((end - cursor) / 86400000)
+  let remainPrice = 0
+  if (remainDays > 0) {
+    const calcDays = Math.floor(remainDays / 7) * 5 + Math.min(remainDays % 7, 5)
+    const priceA = calcDays * ndr
+    remainPrice = Math.min(priceA, mcr)
+    total += remainPrice
+  }
+
+  return { months, remainDays, remainPrice, total }
+}
+
+// Simple daily (no months) with 5-day-cap formula
+function calcDailyOnly(days, ndr, mcr) {
+  const calcDays = Math.floor(days / 7) * 5 + Math.min(days % 7, 5)
+  const priceA = calcDays * ndr
+  return Math.min(priceA, mcr * Math.ceil(days / 30))  // no monthly cap for pure daily
+}
+
+// Effective daily rate (student gets -50/day, others full price)
+function effectiveNDR() {
+  return selectedPromo === 'student' ? NDR - 50 : NDR
+}
+
+// ── Main recalc ────────────────────────────────────────────
+function recalc() {
+  const startStr = document.getElementById('startDate').value
+  const endStr = document.getElementById('endDate').value
+  const priceBox = document.getElementById('priceBox')
+  const monthlyPrompt = document.getElementById('monthlyPrompt')
+  const monthlyContractCard = document.getElementById('monthlyContractCard')
+  const submitBtn = document.getElementById('submitBtn')
+
+  if (!startStr || !endStr) { priceBox.style.display = 'none'; return }
+
+  const start = new Date(startStr)
+  const end = new Date(endStr)
+  if (end <= start) { priceBox.style.display = 'none'; return }
+
+  const totalDays = Math.round((end - start) / 86400000)
+  priceBox.style.display = 'block'
+
+  document.getElementById('priceDaysLabel').textContent = `${totalDays} วัน`
+
+  if (totalDays >= 30) {
+    // Show monthly choice
+    monthlyPrompt.classList.remove('hidden')
+    if (contractType === 'monthly') {
+      monthlyContractCard.classList.remove('hidden')
+      submitBtn.className = 'btn-submit monthly'
+      submitBtn.textContent = '💾 บันทึกสัญญารายเดือน'
+      renderMonthlyContract(startStr, endStr, totalDays)
+    } else {
+      monthlyContractCard.classList.add('hidden')
+      submitBtn.className = 'btn-submit'
+      submitBtn.textContent = '💾 บันทึกการเช่า (จ่ายครั้งเดียว)'
+      renderOnetimeCalc(startStr, endStr, totalDays)
+    }
+  } else {
+    // Short rental — pure daily formula
+    monthlyPrompt.classList.add('hidden')
+    monthlyContractCard.classList.add('hidden')
+    submitBtn.className = 'btn-submit'
+    submitBtn.textContent = '💾 บันทึกการเช่า'
+    renderShortRental(totalDays)
+  }
+}
+
+function renderShortRental(totalDays) {
+  const ndr = effectiveNDR()
+  const calcDays = Math.floor(totalDays / 7) * 5 + Math.min(totalDays % 7, 5)
+  const total = calcDays * ndr
+  const discount = selectedPromo === 'student' ? calcDays * 50 : 0
+
+  document.getElementById('priceAmount').textContent = `฿${total.toLocaleString()}`
+
+  let detail = `฿${ndr.toLocaleString()}/วัน`
+  if (calcDays < totalDays) detail += ` × ${calcDays} วัน (${totalDays - calcDays} วันฟรี)`
+  else detail += ` × ${calcDays} วัน`
+  if (discount > 0) detail += ` • ลดนักศึกษา ฿${discount.toLocaleString()}`
+  document.getElementById('priceDetail').textContent = detail
+
+  let html = ''
+  if (totalDays >= 7) {
+    const freeWeeks = Math.floor(totalDays / 7)
+    html += `<div class="breakdown-row"><span class="label">🎁 ฟรี ${freeWeeks * 2} วัน (${freeWeeks} สัปดาห์ × 2 วัน)</span><span class="amount">—</span></div>`
+  }
+  if (discount > 0) {
+    html += `<div class="breakdown-row"><span class="label">🎓 ลดนักศึกษา (${calcDays} วัน × ฿50)</span><span class="amount">-฿${discount.toLocaleString()}</span></div>`
+    html += `<div class="breakdown-row total"><span class="label">รวมสุทธิ</span><span class="amount">฿${total.toLocaleString()}</span></div>`
+  }
+  document.getElementById('priceBreakdown').innerHTML = html
+}
+
+function renderOnetimeCalc(startStr, endStr, totalDays) {
+  const ndr = effectiveNDR()
+  const result = calcPrice(startStr, endStr, ndr, MCR)
+  if (!result) return
+
+  // For student: recalc remain price with discounted ndr, but MCR months stay the same
+  let studentMonthDiscount = 0  // MCR not discounted
+  let total = result.total
+  let studentRemainDiscount = 0
+  if (selectedPromo === 'student' && result.remainDays > 0) {
+    // result already used discounted ndr, so discount = calcDays * 50
+    const calcDays = Math.floor(result.remainDays / 7) * 5 + Math.min(result.remainDays % 7, 5)
+    studentRemainDiscount = calcDays * 50
+  }
+
+  document.getElementById('priceAmount').textContent = `฿${total.toLocaleString()}`
+  document.getElementById('priceDetail').textContent = `${result.months.length} เดือน + ${result.remainDays} วัน • คิดตามสูตร`
+
+  let html = ''
+  result.months.forEach((m, i) => {
+    html += `<div class="breakdown-row"><span class="label">📅 เดือน ${i+1} (${m.days} วัน)</span><span class="amount">฿${m.price.toLocaleString()}</span></div>`
+  })
+  if (result.remainDays > 0) {
+    const calcDays = Math.floor(result.remainDays / 7) * 5 + Math.min(result.remainDays % 7, 5)
+    html += `<div class="breakdown-row"><span class="label">📆 เศษ ${result.remainDays} วัน (คิด ${calcDays} วัน × ฿${ndr})</span><span class="amount">฿${result.remainPrice.toLocaleString()}</span></div>`
+  }
+  if (studentRemainDiscount > 0) {
+    html += `<div class="breakdown-row"><span class="label">🎓 ลดนักศึกษา (เฉพาะส่วนรายวัน)</span><span class="amount" style="color:#dc2626">รวมแล้ว</span></div>`
+  }
+  html += `<div class="breakdown-row total"><span class="label">รวมสุทธิ</span><span class="amount">฿${total.toLocaleString()}</span></div>`
+  document.getElementById('priceBreakdown').innerHTML = html
+}
+
+function renderMonthlyContract(startStr, endStr, totalDays) {
+  // Monthly contract: show MCR per month, no end date pricing
+  const mcr = parseFloat(document.getElementById('mRate').value) || MCR
+  const result = calcPrice(startStr, endStr, NDR, mcr)
+  if (!result) return
+
+  // For monthly contract display: just show per-month amount
+  document.getElementById('priceAmount').textContent = `฿${mcr.toLocaleString()}/เดือน`
+  document.getElementById('priceDetail').textContent = `จ่ายทุกเดือน • ไม่มีวันคืนรถอัตโนมัติ`
+  document.getElementById('priceBreakdown').innerHTML =
+    `<div class="breakdown-row"><span class="label">📋 วันเริ่มสัญญา</span><span class="amount">${new Date(startStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span></div>`
+    + `<div class="breakdown-row"><span class="label">🔄 ต่ออายุอัตโนมัติ</span><span class="amount">ทุกเดือน</span></div>`
+}
+
+// ── Lock choice ───────────────────────────────────────────
+function setLock(val) {
+  lockBike = val
+  const yes = document.getElementById('lockYes')
+  const no  = document.getElementById('lockNo')
+  yes.className = 'lock-choice' + (val === true  ? ' selected-yes' : '')
+  no.className  = 'lock-choice' + (val === false ? ' selected-no'  : '')
+  document.getElementById('lockError').style.display = 'none'
+}
+
+// Show/hide lock section based on contract type
+function updateLockVisibility() {
+  const isMonthlyContract = contractType === 'monthly'
+  document.getElementById('lockCard').style.display = isMonthlyContract ? 'none' : 'block'
+  document.getElementById('lockMonthlyInfo').style.display = isMonthlyContract ? 'block' : 'none'
+  if (isMonthlyContract) lockBike = true  // auto-lock for monthly
+}
+
+// ── Contract type toggle ──────────────────────────────────
+function setContractType(type) {
+  contractType = type
+  document.getElementById('btnOnetime').classList.toggle('active', type === 'onetime')
+  document.getElementById('btnMonthly').classList.toggle('active', type === 'monthly')
+  updateLockVisibility()
+  recalc()
+}
+
+// ── Submit ────────────────────────────────────────────────
+function handleSubmit() {
+  const name = document.getElementById('name').value.trim()
+  const phone = document.getElementById('phone').value.trim()
+  const startStr = document.getElementById('startDate').value
+  const endStr = document.getElementById('endDate').value
+
+  if (!name) { alert('กรุณาใส่ชื่อลูกค้า'); return }
+  if (!phone) { alert('กรุณาใส่เบอร์โทร'); return }
+  if (!startStr || !endStr) { alert('กรุณาเลือกช่วงวันเช่า'); return }
+
+  // Lock validation — required for daily only
+  if (contractType !== 'monthly' && lockBike === null) {
+    document.getElementById('lockError').style.display = 'block'
+    document.getElementById('lockCard').scrollIntoView({ behavior: 'smooth', block: 'center' })
+    return
+  }
+
+  const lockLabel = contractType === 'monthly' ? 'ล็อคอัตโนมัติ (รายเดือน)' : lockBike ? 'ล็อครถ' : 'ไม่ล็อค'
+  alert(`✅ Demo: บันทึกสำเร็จ!\n\nลูกค้า: ${name}\nเบอร์: ${phone}\nประเภท: ${contractType === 'monthly' ? 'สัญญารายเดือน' : 'เช่าปกติ'}\nล็อครถ: ${lockLabel}`)
+}
+
+// ── Init ──────────────────────────────────────────────────
+updateLockVisibility()
+recalc()
+</script>
+</body>
+</html>
