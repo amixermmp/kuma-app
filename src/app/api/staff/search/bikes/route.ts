@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
   if (!bikes) return NextResponse.json({ bikes: [] })
 
-  // Get rentals that conflict
+  // Get daily rentals that conflict
   const { data: rentalConflicts } = await supabase
     .from('rentals')
     .select('bike_id, start_datetime, expected_end_datetime')
@@ -57,7 +57,13 @@ export async function GET(request: NextRequest) {
     .lt('start_datetime', searchEnd.toISOString())
     .gt('end_datetime', bufferStart.toISOString())
 
-  // Map conflicts — rentals take priority over bookings
+  // Get active monthly rentals
+  const { data: monthlyConflicts } = await supabase
+    .from('monthly_rentals')
+    .select('bike_id')
+    .eq('status', 'active')
+
+  // Map conflicts
   const rentalMap = new Map<string, { start: string; end: string }>()
   for (const r of rentalConflicts ?? []) {
     rentalMap.set(r.bike_id, { start: r.start_datetime, end: r.expected_end_datetime })
@@ -69,6 +75,8 @@ export async function GET(request: NextRequest) {
       bookingMap.set(b.bike_id, { start: b.start_datetime, end: b.end_datetime })
     }
   }
+
+  const monthlySet = new Set((monthlyConflicts ?? []).map(m => m.bike_id))
 
   const fmt = (iso: string) => new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })
 
@@ -82,6 +90,9 @@ export async function GET(request: NextRequest) {
         ...bike, available: false, conflict_type: 'rented',
         conflict_reason: `มีการเช่า ${fmt(rental.start)}–${fmt(rental.end)}`,
       }
+    }
+    if (monthlySet.has(bike.id)) {
+      return { ...bike, available: false, conflict_type: 'rented', conflict_reason: 'เช่ารายเดือน' }
     }
     const booking = bookingMap.get(bike.id)
     if (booking) {
