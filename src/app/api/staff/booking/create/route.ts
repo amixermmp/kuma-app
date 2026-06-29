@@ -14,42 +14,54 @@ function genRef() {
 export async function POST(request: NextRequest) {
   const body = await request.json()
   const {
-    bikeId, staffId,
+    // specific bike booking (old flow / BookingForm)
+    bikeId,
+    // model-based booking (new flow / BookingModelForm)
+    requestedBrand,
+    requestedModel,
+    requestedDailyRate,
+    // common fields
+    staffId,
     customerName, customerPhone, customerHotel,
     startDatetime, endDatetime,
     totalDays, dailyRate, totalAmount, discount,
     source, promoId, notes,
   } = body
 
-  if (!bikeId || !staffId || !customerName || !customerPhone || !startDatetime || !endDatetime) {
+  if (!staffId || !customerName || !customerPhone || !startDatetime || !endDatetime) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
+  }
+
+  // Must have either a specific bikeId OR a requested model
+  if (!bikeId && (!requestedBrand || !requestedModel)) {
+    return NextResponse.json({ error: 'ต้องระบุรถหรือรุ่นที่ต้องการ' }, { status: 400 })
   }
 
   const BRANCH_ID = await getStaffOwnBranchId(staffId)
   const supabase = createAdminClient()
 
-  // Check for conflicts before saving
-  const bufferStart = new Date(new Date(startDatetime).getTime() - 3 * 3_600_000).toISOString()
-
-  const [{ data: rentalConflict }, { data: bookingConflict }] = await Promise.all([
-    supabase.from('rentals')
-      .select('id')
-      .eq('bike_id', bikeId)
-      .in('status', ['active', 'extended'])
-      .lt('start_datetime', endDatetime)
-      .gt('expected_end_datetime', bufferStart)
-      .maybeSingle(),
-    supabase.from('bookings')
-      .select('id')
-      .eq('bike_id', bikeId)
-      .eq('status', 'confirmed')
-      .lt('start_datetime', endDatetime)
-      .gt('end_datetime', bufferStart)
-      .maybeSingle(),
-  ])
-
-  if (rentalConflict || bookingConflict) {
-    return NextResponse.json({ error: 'รถถูกเช่าหรือจองในช่วงเวลานี้แล้ว' }, { status: 409 })
+  // If specific bike: check for conflicts
+  if (bikeId) {
+    const bufferStart = new Date(new Date(startDatetime).getTime() - 3 * 3_600_000).toISOString()
+    const [{ data: rentalConflict }, { data: bookingConflict }] = await Promise.all([
+      supabase.from('rentals')
+        .select('id')
+        .eq('bike_id', bikeId)
+        .in('status', ['active', 'extended'])
+        .lt('start_datetime', endDatetime)
+        .gt('expected_end_datetime', bufferStart)
+        .maybeSingle(),
+      supabase.from('bookings')
+        .select('id')
+        .eq('bike_id', bikeId)
+        .eq('status', 'confirmed')
+        .lt('start_datetime', endDatetime)
+        .gt('end_datetime', bufferStart)
+        .maybeSingle(),
+    ])
+    if (rentalConflict || bookingConflict) {
+      return NextResponse.json({ error: 'รถถูกเช่าหรือจองในช่วงเวลานี้แล้ว' }, { status: 409 })
+    }
   }
 
   const bookingRef = genRef()
@@ -58,7 +70,10 @@ export async function POST(request: NextRequest) {
     .from('bookings')
     .insert({
       branch_id: BRANCH_ID,
-      bike_id: bikeId,
+      bike_id: bikeId ?? null,
+      requested_brand: bikeId ? null : (requestedBrand ?? null),
+      requested_model: bikeId ? null : (requestedModel ?? null),
+      requested_daily_rate: bikeId ? null : (requestedDailyRate ?? dailyRate ?? null),
       staff_id: staffId,
       customer_name: customerName,
       customer_phone: customerPhone,

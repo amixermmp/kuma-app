@@ -132,10 +132,22 @@ type Bike = {
   odometer: number
 }
 
+type PrefillBooking = {
+  id: string
+  customer_name: string
+  customer_phone: string
+  customer_hotel: string | null
+  start_datetime: string
+  end_datetime: string
+  total_days: number
+  notes: string | null
+} | null
+
 type Props = {
   bike: Bike
   staffId: string
   promotions: unknown[] // kept for future use, not rendered in this form
+  prefillBooking?: PrefillBooking
 }
 
 type PhotoState = {
@@ -166,19 +178,27 @@ function nowTime() {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function SendCarForm({ bike, staffId }: Props) {
+export default function SendCarForm({ bike, staffId, prefillBooking }: Props) {
   useEffect(() => {
     addTab({ type: 'sendcar', title: `ส่งรถ ${bike.license_plate}`, href: `/staff/send/${bike.id}` })
   }, [bike.id, bike.license_plate])
 
   // ── Customer ──────────────────────────────────────────────────────────────
-  const [customerName,  setCustomerName]  = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [customerHotel, setCustomerHotel] = useState('')
+  const [customerName,  setCustomerName]  = useState(prefillBooking?.customer_name ?? '')
+  const [customerPhone, setCustomerPhone] = useState(prefillBooking?.customer_phone ?? '')
+  const [customerHotel, setCustomerHotel] = useState(prefillBooking?.customer_hotel ?? '')
 
   // ── Dates ─────────────────────────────────────────────────────────────────
-  const [startDate, setStartDate] = useState(todayLocal)
-  const [endDate,   setEndDate]   = useState(() => dateIn(3))
+  const [startDate, setStartDate] = useState(() =>
+    prefillBooking?.start_datetime
+      ? prefillBooking.start_datetime.split('T')[0]
+      : todayLocal()
+  )
+  const [endDate, setEndDate] = useState(() =>
+    prefillBooking?.end_datetime
+      ? prefillBooking.end_datetime.split('T')[0]
+      : dateIn(3)
+  )
   const [startTime, setStartTime] = useState(nowTime)
 
   // ── Promo ─────────────────────────────────────────────────────────────────
@@ -350,6 +370,14 @@ export default function SendCarForm({ bike, staffId }: Props) {
         if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
         setCreatedType('daily')
         setCreatedRentalId(data.rentalId ?? data.id ?? null)
+        // Close the source booking if came from assign flow
+        if (prefillBooking?.id) {
+          await fetch('/api/staff/booking/close', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookingId: prefillBooking.id }),
+          }).catch(() => {/* non-critical */})
+        }
       }
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
@@ -383,6 +411,16 @@ export default function SendCarForm({ bike, staffId }: Props) {
       <TabBar />
 
       <div className="section-pad">
+
+        {/* Booking pre-fill banner */}
+        {prefillBooking && (
+          <div style={{
+            background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px',
+            padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#15803d',
+          }}>
+            📋 <strong>มาจากการจอง</strong> — ข้อมูลลูกค้าถูกกรอกล่วงหน้าแล้ว แก้ไขได้ตามต้องการ
+          </div>
+        )}
 
         {/* ① ข้อมูลลูกค้า */}
         <div className="card">

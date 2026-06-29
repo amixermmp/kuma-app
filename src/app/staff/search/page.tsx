@@ -18,6 +18,16 @@ type BikeResult = {
   conflict_reason?: string
 }
 
+type ModelGroup = {
+  key: string
+  brand: string
+  model: string
+  daily_rate: number
+  availableCount: number
+  totalCount: number
+  bikes: BikeResult[]
+}
+
 function nowLocal(offsetMs = 0) {
   const d = new Date(Date.now() + offsetMs)
   d.setSeconds(0, 0)
@@ -29,11 +39,29 @@ function daysBetween(from: string, to: string) {
   return Math.max(1, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000))
 }
 
+function groupByModel(bikes: BikeResult[]): ModelGroup[] {
+  const map = new Map<string, ModelGroup>()
+  for (const bike of bikes) {
+    const key = `${bike.brand}__${bike.model}__${bike.daily_rate}`
+    if (!map.has(key)) {
+      map.set(key, { key, brand: bike.brand, model: bike.model, daily_rate: bike.daily_rate, availableCount: 0, totalCount: 0, bikes: [] })
+    }
+    const g = map.get(key)!
+    g.totalCount++
+    g.bikes.push(bike)
+    if (bike.available) g.availableCount++
+  }
+  // Sort: available first, then by daily_rate
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.availableCount > 0 && b.availableCount === 0) return -1
+    if (a.availableCount === 0 && b.availableCount > 0) return 1
+    return a.daily_rate - b.daily_rate
+  })
+}
+
 export default function SearchPage() {
   const [from, setFrom] = useState(nowLocal())
   const [to, setTo] = useState(nowLocal(3 * 24 * 60 * 60 * 1000))
-  const [priceFilter, setPriceFilter] = useState('ทุกราคา')
-  const [modelFilter, setModelFilter] = useState('ทุกรุ่น')
   const [results, setResults] = useState<BikeResult[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -47,7 +75,6 @@ export default function SearchPage() {
       )
       const data = await res.json()
       setResults(data.bikes ?? [])
-      setModelFilter('ทุกรุ่น')
       setSearched(true)
     } catch {
       setResults([])
@@ -57,21 +84,9 @@ export default function SearchPage() {
   }
 
   const days = from && to ? daysBetween(from, to) : 0
-
-  const uniqueModels = results
-    ? Array.from(new Set(results.map(b => `${b.brand} ${b.model}`)))
-    : []
-
-  const filteredResults = results?.filter(b => {
-    if (priceFilter === '≤ 200' && b.daily_rate > 200) return false
-    if (priceFilter === '201–350' && (b.daily_rate < 201 || b.daily_rate > 350)) return false
-    if (priceFilter === '> 350' && b.daily_rate <= 350) return false
-    if (modelFilter !== 'ทุกรุ่น' && `${b.brand} ${b.model}` !== modelFilter) return false
-    return true
-  })
-
-  const available = filteredResults?.filter(b => b.available) ?? []
-  const unavailable = filteredResults?.filter(b => !b.available) ?? []
+  const groups = results ? groupByModel(results) : []
+  const availableGroups = groups.filter(g => g.availableCount > 0)
+  const unavailableGroups = groups.filter(g => g.availableCount === 0)
 
   return (
     <div className="app-wrap">
@@ -80,8 +95,8 @@ export default function SearchPage() {
       <div className="app-header" style={{ background: '#0891b2' }}>
         <Link href="/staff/home" className="app-header-back">←</Link>
         <div>
-          <h1>ค้นหารถว่าง</h1>
-          <div className="sub">เลือกวันเวลาที่ต้องการเช่า</div>
+          <h1>จองรถ</h1>
+          <div className="sub">เลือกช่วงเวลาแล้วเลือกรุ่น</div>
         </div>
       </div>
 
@@ -100,34 +115,7 @@ export default function SearchPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div style={{ padding: '0 12px' }}>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-          <div style={{ flex: 1 }}>
-            <label className="field-label">ราคา (บาท/วัน)</label>
-            <select className="field-input"
-              value={priceFilter}
-              onChange={e => setPriceFilter(e.target.value)}>
-              <option>ทุกราคา</option>
-              <option>≤ 200</option>
-              <option>201–350</option>
-              <option>{'> 350'}</option>
-            </select>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label className="field-label">รุ่นรถ</label>
-            <select className="field-input"
-              value={modelFilter}
-              onChange={e => setModelFilter(e.target.value)}>
-              <option>ทุกรุ่น</option>
-              {uniqueModels.map(m => <option key={m}>{m}</option>)}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Search button */}
-      <div style={{ padding: '10px 12px 12px' }}>
+      <div style={{ padding: '0 12px 12px' }}>
         <button
           className="btn"
           style={{ background: '#0891b2', color: '#fff', width: '100%', opacity: loading ? 0.7 : 1 }}
@@ -139,20 +127,21 @@ export default function SearchPage() {
       </div>
 
       {/* Results */}
-      {searched && filteredResults && (
+      {searched && (
         <>
           <div className="divider" />
           <div style={{ padding: '12px 12px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: '13px', fontWeight: 700, color: '#4b5563' }}>
               ผลการค้นหา — <span style={{ color: '#0891b2' }}>{days} วัน</span>
             </div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>ว่าง {available.length} คัน</div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+              ว่าง {availableGroups.length} รุ่น
+            </div>
           </div>
 
           <div style={{ padding: '0 12px 80px' }}>
 
-            {/* Available bikes */}
-            {available.length === 0 && (
+            {availableGroups.length === 0 && (
               <div style={{
                 textAlign: 'center', padding: '24px', background: '#f9fafb',
                 borderRadius: '12px', color: '#9ca3af', fontSize: '14px', marginBottom: '12px',
@@ -160,76 +149,96 @@ export default function SearchPage() {
                 😔 ไม่มีรถว่างในช่วงเวลานี้
               </div>
             )}
-            {available.map(bike => (
-              <div key={bike.id} className="bike-result-card">
-                <div className="bike-result-img">🛵</div>
-                <div className="bike-result-info">
-                  <div className="bike-result-top">
-                    <div>
-                      <div className="bike-result-name">{bike.brand} {bike.model}</div>
-                      <div className="bike-result-plate">ทะเบียน {bike.license_plate}</div>
+
+            {/* Available model groups */}
+            {availableGroups.map(group => (
+              <div key={group.key} style={{
+                background: '#fff', borderRadius: '14px', marginBottom: '10px',
+                boxShadow: '0 1px 4px rgba(0,0,0,.08)', overflow: 'hidden',
+                border: '1px solid #e0f2fe',
+              }}>
+                <div style={{ padding: '14px 14px 10px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{
+                    width: '52px', height: '52px', borderRadius: '12px',
+                    background: '#f0f9ff', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', fontSize: '28px', flexShrink: 0,
+                  }}>🛵</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: '16px', color: '#0c4a6e' }}>
+                      {group.brand} {group.model}
                     </div>
-                    <span className="badge badge-green">ว่าง</span>
-                  </div>
-                  <div className="bike-result-meta">
-                    {(bike.color || bike.year) && (
-                      <span>🎨 {[bike.color, bike.year ? `ปี ${bike.year}` : null].filter(Boolean).join(' • ')}</span>
-                    )}
-                    <span>📍 {bike.odometer.toLocaleString()} กม.</span>
-                  </div>
-                  <div className="bike-result-footer">
-                    <div className="bike-result-price">
-                      ฿{bike.daily_rate.toLocaleString()}
-                      <span style={{ fontSize: '12px', fontWeight: 400, color: '#6b7280' }}>/วัน</span>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                      ฿{group.daily_rate.toLocaleString()}/วัน
                     </div>
-                    <div className="bike-result-total">
-                      รวม {days} วัน = <strong style={{ color: '#0891b2' }}>฿{(bike.daily_rate * days).toLocaleString()}</strong>
+                    <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{
+                        background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0',
+                        borderRadius: '20px', padding: '2px 10px', fontSize: '12px', fontWeight: 700,
+                      }}>
+                        ✅ ว่าง {group.availableCount} คัน
+                      </span>
+                      <span style={{
+                        background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb',
+                        borderRadius: '20px', padding: '2px 10px', fontSize: '12px',
+                      }}>
+                        รวม {group.totalCount} คัน
+                      </span>
                     </div>
-                    <Link
-                      href={`/staff/booking/${bike.id}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
-                      style={{ background: '#0891b2', textDecoration: 'none', padding: '5px 12px', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: 700 }}
-                    >
-                      จอง →
-                    </Link>
                   </div>
+                </div>
+
+                <div style={{
+                  borderTop: '1px solid #f0f9ff', padding: '10px 14px',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                  <div>
+                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#0891b2' }}>
+                      ฿{(group.daily_rate * days).toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                      ฿{group.daily_rate.toLocaleString()} × {days} วัน
+                    </div>
+                  </div>
+                  <Link
+                    href={`/staff/booking/model?brand=${encodeURIComponent(group.brand)}&model=${encodeURIComponent(group.model)}&rate=${group.daily_rate}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
+                    style={{
+                      background: '#0891b2', color: '#fff', textDecoration: 'none',
+                      padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 700,
+                    }}
+                  >
+                    จองรุ่นนี้ →
+                  </Link>
                 </div>
               </div>
             ))}
 
-            {/* Unavailable bikes */}
-            {unavailable.length > 0 && (
+            {/* Unavailable groups */}
+            {unavailableGroups.length > 0 && (
               <>
                 <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', padding: '8px 2px 6px', textTransform: 'uppercase', letterSpacing: '.5px' }}>
                   ไม่ว่างในช่วงเวลานี้
                 </div>
-                {unavailable.map(bike => (
-                  <div key={bike.id} className="bike-result-card" style={{ opacity: 0.55, pointerEvents: 'none' }}>
-                    <div className="bike-result-img" style={{ filter: 'grayscale(1)' }}>🛵</div>
-                    <div className="bike-result-info">
-                      <div className="bike-result-top">
-                        <div>
-                          <div className="bike-result-name">{bike.brand} {bike.model}</div>
-                          <div className="bike-result-plate">ทะเบียน {bike.license_plate}</div>
+                {unavailableGroups.map(group => (
+                  <div key={group.key} style={{
+                    background: '#f9fafb', borderRadius: '14px', marginBottom: '8px',
+                    border: '1px solid #e5e7eb', overflow: 'hidden', opacity: 0.6,
+                  }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ fontSize: '28px', filter: 'grayscale(1)' }}>🛵</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: '14px', color: '#374151' }}>
+                          {group.brand} {group.model}
                         </div>
-                        <span className="badge" style={{
-                          background: bike.conflict_type === 'booked' ? '#faf5ff' : '#fef2f2',
-                          color: bike.conflict_type === 'booked' ? '#7c3aed' : '#dc2626',
-                          border: `1px solid ${bike.conflict_type === 'booked' ? '#ddd6fe' : '#fecaca'}`,
-                          borderRadius: '20px', padding: '2px 10px', fontSize: '11px', fontWeight: 700,
-                        }}>
-                          {bike.conflict_type === 'repair' ? '🔧 ซ่อม' : bike.conflict_type === 'booked' ? '📅 ติดจอง' : '🔴 ถูกเช่า'}
-                        </span>
-                      </div>
-                      {(bike.color || bike.year) && (
-                        <div className="bike-result-meta">
-                          <span>🎨 {[bike.color, bike.year ? `ปี ${bike.year}` : null].filter(Boolean).join(' • ')}</span>
+                        <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
+                          ฿{group.daily_rate.toLocaleString()}/วัน • ไม่ว่างทุกคัน ({group.totalCount} คัน)
                         </div>
-                      )}
-                      <div style={{ fontSize: '12px', color: bike.conflict_type === 'booked' ? '#7c3aed' : '#dc2626', marginTop: '6px' }}>
-                        {bike.status === 'repair'
-                          ? '🔧 อยู่ระหว่างซ่อม'
-                          : `🔴 ${bike.conflict_reason ?? 'มีการเช่าในช่วงเวลานี้'}`}
                       </div>
+                      <span style={{
+                        background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca',
+                        borderRadius: '20px', padding: '3px 10px', fontSize: '11px', fontWeight: 700,
+                      }}>
+                        🔴 ไม่ว่าง
+                      </span>
                     </div>
                   </div>
                 ))}

@@ -224,18 +224,23 @@ export default function JobsClient({
               const bike = b.bikes
               const hrs = hoursUntil(b.start_datetime)
               const overdue = hrs < 0
+              // Show assigned bike plate or just the model type if not yet assigned
+              const bikeLabel = bike
+                ? `${bike.license_plate} ${bike.brand} ${bike.model}`
+                : `${b.requested_brand ?? ''} ${b.requested_model ?? ''} (ยังไม่ได้กำหนดรถ)`
               return (
                 <JobCard
                   key={b.id}
                   dotColor="#0891b2"
-                  title={`ส่งรถ — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
+                  title={`ส่งรถ — ${bikeLabel}`}
                   badge={overdue ? `🕐 เลยเวลา ${Math.abs(hrs)} ชม.` : hrs === 0 ? '🔔 ตอนนี้เลย!' : `⏰ อีก ${hrs} ชม.`}
                   badgeBg={overdue ? '#fef2f2' : '#f0fdfa'} badgeColor={overdue ? '#dc2626' : '#0891b2'}
                   meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
                   meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
-                  statusLabel={overdue ? '🔴 เลยเวลา' : '🔵 รอส่งรถ'}
-                  statusBg={overdue ? '#fef2f2' : '#f0fdfa'} statusColor={overdue ? '#dc2626' : '#0891b2'}
-                  href={`/staff/send/${bike?.id}`} btnColor="#0891b2"
+                  statusLabel={overdue ? '🔴 เลยเวลา' : bike ? '🔵 รอส่งรถ' : '🟡 ยังไม่ได้เลือกรถ'}
+                  statusBg={overdue ? '#fef2f2' : bike ? '#f0fdfa' : '#fffbeb'}
+                  statusColor={overdue ? '#dc2626' : bike ? '#0891b2' : '#d97706'}
+                  href={`/staff/assign/${b.id}`} btnColor="#0891b2"
                 />
               )
             })}

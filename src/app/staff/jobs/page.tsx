@@ -86,7 +86,7 @@ export default async function JobsPage() {
       .limit(20)),
 
     applyBranch(supabase.from('bookings')
-      .select('id, booking_ref, start_datetime, customer_name, customer_phone, total_days, daily_rate, bikes(id, license_plate, brand, model)')
+      .select('id, booking_ref, start_datetime, customer_name, customer_phone, total_days, daily_rate, requested_brand, requested_model, bikes(id, license_plate, brand, model)')
       .eq('status', 'confirmed')
       .gte('start_datetime', in2hAgo)
       .lte('start_datetime', in24h)

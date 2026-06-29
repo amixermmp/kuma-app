@@ -5,7 +5,13 @@ import SendCarForm from './SendCarForm'
 
 export const dynamic = 'force-dynamic'
 
-export default async function SendCarPage({ params }: { params: { bikeId: string } }) {
+export default async function SendCarPage({
+  params,
+  searchParams,
+}: {
+  params: { bikeId: string }
+  searchParams: { bookingId?: string }
+}) {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) redirect('/staff/login')
@@ -27,11 +33,24 @@ export default async function SendCarPage({ params }: { params: { bikeId: string
 
   if (!bike) redirect('/staff/home')
 
+  // Pre-fill from booking if coming from assign flow
+  let booking = null
+  if (searchParams.bookingId) {
+    const { data } = await supabase
+      .from('bookings')
+      .select('id, customer_name, customer_phone, customer_hotel, start_datetime, end_datetime, total_days, notes')
+      .eq('id', searchParams.bookingId)
+      .eq('status', 'confirmed')
+      .single()
+    booking = data ?? null
+  }
+
   return (
     <SendCarForm
       bike={bike}
       staffId={staffId}
       promotions={promotions ?? []}
+      prefillBooking={booking}
     />
   )
 }

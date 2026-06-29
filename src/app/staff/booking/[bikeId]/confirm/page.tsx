@@ -45,6 +45,9 @@ export default async function BookingConfirmPage({ params }: { params: { bikeId:
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bike = (booking as any).bikes
+  // For model-based bookings, bike may be null — use requested fields
+  const displayBrand = bike?.brand ?? booking.requested_brand ?? ''
+  const displayModel = bike?.model ?? booking.requested_model ?? ''
 
   return (
     <div className="app-wrap" style={{ background: '#f0f9ff' }}>
@@ -98,12 +101,18 @@ export default async function BookingConfirmPage({ params }: { params: { bikeId:
           <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px', borderBottom: '1px solid #f0f9ff' }}>
             <div style={{ fontSize: '44px' }}>🛵</div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: '18px', color: '#0c4a6e' }}>{bike.brand} {bike.model}</div>
-              <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
-                ทะเบียน {bike.license_plate}
-                {bike.color ? ` • ${bike.color}` : ''}
-                {bike.year ? ` • ปี ${bike.year}` : ''}
-              </div>
+              <div style={{ fontWeight: 800, fontSize: '18px', color: '#0c4a6e' }}>{displayBrand} {displayModel}</div>
+              {bike ? (
+                <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
+                  ทะเบียน {bike.license_plate}
+                  {bike.color ? ` • ${bike.color}` : ''}
+                  {bike.year ? ` • ปี ${bike.year}` : ''}
+                </div>
+              ) : (
+                <div style={{ fontSize: '12px', color: '#d97706', marginTop: '2px' }}>
+                  📋 รถคันที่ใช้จริงจะถูกกำหนดก่อนส่ง
+                </div>
+              )}
             </div>
           </div>
 
