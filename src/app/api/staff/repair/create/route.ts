@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
   const BRANCH_ID = await getStaffOwnBranchId(staffId)
 
-  const { bikeId, description, severity } = await request.json()
+  const { bikeId, description } = await request.json()
   if (!bikeId || !description) return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
 
   const supabase = createAdminClient()
@@ -20,10 +20,8 @@ export async function POST(request: NextRequest) {
     .insert({
       bike_id: bikeId,
       branch_id: BRANCH_ID,
-      reported_by: staffId,
       description,
-      severity: severity ?? 'medium',
-      status: 'in_repair',
+      status: 'in_progress',
     })
     .select('id')
     .single()
