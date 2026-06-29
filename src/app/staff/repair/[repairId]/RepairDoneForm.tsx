@@ -7,11 +7,9 @@ import PhotoUpload from '@/components/PhotoUpload'
 
 type Repair = {
   id: string
+  title: string
   description: string
-  severity: string
   status: string
-  location_note: string | null
-  photo_url: string | null
   created_at: string
   bikes: { id: string; license_plate: string; brand: string; model: string }
 }
@@ -28,7 +26,6 @@ function fmtDate(iso: string) {
 export default function RepairDoneForm({ repair }: Props) {
   const router = useRouter()
   const bike = repair.bikes
-  const isCritical = repair.severity === 'critical'
 
   const [repairShop, setRepairShop] = useState('')
   const [repairCost, setRepairCost] = useState('')
@@ -73,8 +70,8 @@ export default function RepairDoneForm({ repair }: Props) {
 
       <div className="section-pad">
         {/* Repair info */}
-        <div className="card" style={{ borderTop: `3px solid ${isCritical ? '#dc2626' : '#d97706'}` }}>
-          <div className="card-title" style={{ color: isCritical ? '#dc2626' : '#d97706' }}>
+        <div className="card" style={{ borderTop: '3px solid #d97706' }}>
+          <div className="card-title" style={{ color: '#d97706' }}>
             🔧 ส่งซ่อม — {bike.license_plate}
           </div>
           <div className="info-row">
@@ -85,32 +82,12 @@ export default function RepairDoneForm({ repair }: Props) {
             <span className="info-key">วันที่แจ้ง</span>
             <span className="info-val">{fmtDate(repair.created_at)}</span>
           </div>
-          {repair.location_note && (
-            <div className="info-row">
-              <span className="info-key">สถานที่</span>
-              <span className="info-val">{repair.location_note}</span>
-            </div>
-          )}
-          <div className="info-row">
-            <span className="info-key">ความรุนแรง</span>
-            <span className="info-val">
-              <span className={`badge ${isCritical ? 'badge-red' : 'badge-amber'}`}>
-                {isCritical ? '🔴 วิกฤต' : '⚠️ ปานกลาง'}
-              </span>
-            </span>
-          </div>
           <div className="info-row">
             <span className="info-key">สถานะ</span>
             <span className="info-val">
               <span className="badge badge-red">กำลังซ่อม</span>
             </span>
           </div>
-          {repair.photo_url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={repair.photo_url} alt="repair" style={{
-              width: '100%', borderRadius: '8px', marginTop: '10px', maxHeight: '180px', objectFit: 'cover',
-            }} />
-          )}
         </div>
 
         {/* Completion form */}
