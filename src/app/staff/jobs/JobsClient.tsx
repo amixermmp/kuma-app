@@ -377,7 +377,7 @@ export default function JobsClient({
                   badge={badgeText} badgeBg={p.bg} badgeColor={p.color}
                   meta1={kmOver != null ? (kmOver === 0 ? '📍 ถึงกำหนดพอดี!' : `📍 เกินกำหนด ${kmOver.toLocaleString()} กม.`) : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
                   statusLabel={statusText} statusBg={p.bg} statusColor={p.color}
-                  href="/staff/routine" btnColor={p.dot}
+                  href={`/staff/routine?id=${r.id}`} btnColor={p.dot}
                 />
               )
             })}

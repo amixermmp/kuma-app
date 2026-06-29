@@ -46,7 +46,8 @@ function calcRoutineUrgency(r: Omit<RoutineItem, 'urgency' | 'due_reason'>, odom
   return { urgency: 'ok', due_reason: 'ปกติ' }
 }
 
-export default async function RoutinePage() {
+export default async function RoutinePage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
+  const { id: filterRoutineId } = await searchParams
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) redirect('/staff/login')
@@ -74,5 +75,9 @@ export default async function RoutinePage() {
     return { ...r, bikes: bike, urgency, due_reason }
   })
 
-  return <RoutineClient routines={routines} />
+  const filtered = filterRoutineId
+    ? routines.filter(r => r.id === filterRoutineId)
+    : routines
+
+  return <RoutineClient routines={filtered} />
 }

@@ -579,7 +579,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                   <span>📅 แจ้ง: {new Date(r.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                   {r.resolved_at && <span>✅ เสร็จ: {new Date(r.resolved_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                   {r.repair_shop && <span>🏪 {r.repair_shop}</span>}
-                  {r.repair_cost != null && <span>💰 ฿{Number(r.repair_cost).toLocaleString()}</span>}
+                  {!!r.repair_cost && <span>💰 ฿{Number(r.repair_cost).toLocaleString()}</span>}
                 </div>
               </div>
             ))
