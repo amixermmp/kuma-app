@@ -12,6 +12,7 @@ const DOC_LABEL: Record<string, string> = {
   registration: 'หน้าเล่มรถ',
 }
 const DOC_ICON: Record<string, string> = { pob: '🛡️', tax: '💰', registration: '📗' }
+const DOC_TYPES = ['pob', 'tax'] as const
 
 function urgencyColor(u: DocItem['urgency']) {
   if (u === 'overdue' || u === 'critical') return '#dc2626'
@@ -125,15 +126,101 @@ function DocCard({ doc }: { doc: DocItem }) {
   )
 }
 
-export default function DocsClient({ docs }: { docs: DocItem[] }) {
+function AddDocCard({ bikeId, docType, onSaved }: { bikeId: string; docType: string; onSaved: () => void }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState('')
+  const [expiry, setExpiry] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSave = async () => {
+    if (!expiry) { setError('กรุณาระบุวันหมดอายุ'); return }
+    setLoading(true); setError('')
+    try {
+      const res = await fetch('/api/staff/docs/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bikeId, docType, expiryDate: expiry, photoUrl: photoUrl || null }),
+      })
+      if (!res.ok) { const d = await res.json(); setError(d.error); return }
+      onSaved()
+      router.refresh()
+    } catch { setError('เกิดข้อผิดพลาด') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="card" style={{ borderTop: '3px dashed #d1d5db', background: '#f9fafb' }}>
+      <div className="card-title" style={{ color: '#6b7280' }}>
+        {DOC_ICON[docType]} {DOC_LABEL[docType] ?? docType} — <span style={{ fontWeight: 400 }}>ยังไม่มีข้อมูล</span>
+      </div>
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          style={{
+            width: '100%', padding: '10px', border: '1.5px dashed #9ca3af',
+            borderRadius: '8px', background: '#fff', color: '#4b5563',
+            fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          ➕ เพิ่มข้อมูล{DOC_LABEL[docType] ?? docType}
+        </button>
+      ) : (
+        <div>
+          <div className="field-row">
+            <label className="field-label">อัพโหลดเอกสาร</label>
+            <PhotoUpload
+              icon={DOC_ICON[docType]}
+              hint={`อัพโหลด${DOC_LABEL[docType] ?? 'เอกสาร'}`}
+              folder={`docs/${bikeId}`}
+              onUpload={url => setPhotoUrl(url)}
+              onRemove={() => setPhotoUrl('')}
+            />
+          </div>
+          <div className="field-row" style={{ marginBottom: 0 }}>
+            <label className="field-label">วันหมดอายุ *</label>
+            <input className="field-input" type="date"
+              value={expiry}
+              onChange={e => setExpiry(e.target.value)} />
+          </div>
+          {error && <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '8px' }}>⚠️ {error}</div>}
+          <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+            <button onClick={() => setOpen(false)} style={{
+              flex: 1, padding: '10px', border: '1px solid #e5e7eb', borderRadius: '8px',
+              background: '#fff', color: '#6b7280', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>ยกเลิก</button>
+            <button onClick={handleSave} disabled={loading} style={{
+              flex: 2, padding: '10px', border: 'none', borderRadius: '8px',
+              background: '#0f766e', color: '#fff', fontSize: '14px', fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit', opacity: loading ? 0.7 : 1,
+            }}>
+              {loading ? '⏳ กำลังบันทึก...' : '✅ บันทึก'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function DocsClient({ docs, bikeId }: { docs: DocItem[]; bikeId: string | null }) {
   const urgent = docs.filter(d => d.urgency === 'overdue' || d.urgency === 'critical')
   const warning = docs.filter(d => d.urgency === 'warning')
   const ok = docs.filter(d => d.urgency === 'ok')
 
+  // ถ้าดู specific bike → หา type ที่ยังไม่มีในฐานข้อมูล
+  const existingTypes = new Set(docs.map(d => d.doc_type))
+  const missingTypes = bikeId ? DOC_TYPES.filter(t => !existingTypes.has(t)) : []
+  const [savedTypes, setSavedTypes] = useState<string[]>([])
+  const pendingMissing = missingTypes.filter(t => !savedTypes.includes(t))
+
+  const backHref = bikeId ? '/staff/jobs' : '/staff/home'
+
   return (
     <div className="app-wrap">
       <div className="app-header" style={{ background: '#0f766e' }}>
-        <Link href="/staff/home" className="app-header-back">←</Link>
+        <Link href={backHref} className="app-header-back">←</Link>
         <div>
           <h1>งานเอกสาร</h1>
           <div className="sub">ภาษี / พ.ร.บ. / ประกัน</div>
@@ -141,12 +228,31 @@ export default function DocsClient({ docs }: { docs: DocItem[] }) {
       </div>
 
       <div className="section-pad" style={{ paddingTop: '12px' }}>
-        {docs.length === 0 ? (
+        {/* เอกสารที่ยังไม่มี (เฉพาะตอน filter by bikeId) */}
+        {pendingMissing.length > 0 && (
+          <>
+            <div style={{
+              background: '#fefce8', border: '1px solid #fde047', borderRadius: '10px',
+              padding: '10px 14px', marginBottom: '4px', fontSize: '13px', color: '#854d0e',
+            }}>
+              ⚠️ รถคันนี้ยังไม่มีข้อมูล {pendingMissing.map(t => DOC_LABEL[t]).join(', ')}
+            </div>
+            {pendingMissing.map(t => (
+              <AddDocCard
+                key={t}
+                bikeId={bikeId!}
+                docType={t}
+                onSaved={() => setSavedTypes(prev => [...prev, t])}
+              />
+            ))}
+          </>
+        )}
+
+        {docs.length === 0 && pendingMissing.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af', fontSize: '14px' }}>
-            ยังไม่มีข้อมูลเอกสาร<br />
-            <span style={{ fontSize: '12px' }}>เพิ่มข้อมูลได้จากหน้ารายละเอียดรถ</span>
+            ยังไม่มีข้อมูลเอกสาร
           </div>
-        ) : (
+        ) : docs.length > 0 && (
           <>
             {urgent.length > 0 && (
               <div style={{

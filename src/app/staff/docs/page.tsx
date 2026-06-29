@@ -55,5 +55,5 @@ export default async function DocsPage({
     ...calcUrgency(d.expiry_date),
   }))
 
-  return <DocsClient docs={docs} />
+  return <DocsClient docs={docs} bikeId={searchParams.bikeId ?? null} />
 }
