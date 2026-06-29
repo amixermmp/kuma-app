@@ -21,7 +21,7 @@ export default async function BookingPage({
   const [{ data: bike }, { data: promotions }] = await Promise.all([
     supabase
       .from('bikes')
-      .select('id, license_plate, brand, model, color, year, daily_rate, deposit_amount, odometer')
+      .select('id, license_plate, brand, model, color, year, daily_rate, monthly_rate, deposit_amount, odometer')
       .eq('id', params.bikeId)
       .single(),
     supabase

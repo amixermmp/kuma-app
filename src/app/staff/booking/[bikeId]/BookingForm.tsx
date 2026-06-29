@@ -12,35 +12,82 @@ type Bike = {
   color: string | null
   year: number | null
   daily_rate: number
+  monthly_rate: number | null
   deposit_amount: number
   odometer: number
-}
-
-type Promotion = {
-  id: string
-  code: string
-  description: string | null
-  discount_type: string
-  discount_value: number
 }
 
 type Props = {
   bike: Bike
   staffId: string
-  promotions: Promotion[]
+  promotions: unknown[] // kept for API compat, not rendered
   preFrom: string | null
   preTo: string | null
 }
 
 const SOURCES = [
-  { key: 'line', label: '💬 LINE' },
+  { key: 'line',     label: '💬 LINE' },
   { key: 'facebook', label: '📘 Facebook' },
-  { key: 'phone', label: '📱 โทรศัพท์' },
-  { key: 'walkin', label: '🚶 Walk-in' },
+  { key: 'phone',    label: '📱 โทรศัพท์' },
+  { key: 'walkin',   label: '🚶 Walk-in' },
 ]
 
-function daysBetween(from: string, to: string) {
-  return Math.max(1, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000))
+// ── Pricing formula (same as SendCarForm) ─────────────────────────────────────
+function calcDailySegment(days: number, ndr: number, mcr: number) {
+  const calcDays = Math.floor(days / 7) * 5 + Math.min(days % 7, 5)
+  return { calcDays, price: Math.min(calcDays * ndr, mcr) }
+}
+
+function calcShortPrice(totalDays: number, ndr: number) {
+  const calcDays = Math.floor(totalDays / 7) * 5 + Math.min(totalDays % 7, 5)
+  return { calcDays, total: calcDays * ndr }
+}
+
+type MonthSegment = { label: string; days: number; price: number }
+type LongResult = {
+  months: MonthSegment[]
+  remainDays: number
+  remainPrice: number
+  calcRemainDays: number
+  total: number
+}
+
+function calcLongPrice(start: Date, end: Date, ndr: number, mcr: number): LongResult | null {
+  if (end <= start) return null
+  let cursor = new Date(start)
+  const months: MonthSegment[] = []
+  let total = 0
+
+  while (true) {
+    const next = new Date(cursor)
+    next.setMonth(next.getMonth() + 1)
+    if (next >= end) break
+
+    const rawDays = Math.round((next.getTime() - cursor.getTime()) / 86_400_000)
+    const effectiveDays = Math.max(rawDays, 30)
+    const label =
+      cursor.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) +
+      ' – ' +
+      next.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+
+    months.push({ label, days: effectiveDays, price: mcr })
+    total += mcr
+    cursor = effectiveDays > rawDays
+      ? new Date(cursor.getTime() + effectiveDays * 86_400_000)
+      : next
+  }
+
+  const remainDays = Math.round((end.getTime() - cursor.getTime()) / 86_400_000)
+  let remainPrice = 0
+  let calcRemainDays = 0
+  if (remainDays > 0) {
+    const seg = calcDailySegment(remainDays, ndr, mcr)
+    calcRemainDays = seg.calcDays
+    remainPrice = seg.price
+    total += remainPrice
+  }
+
+  return { months, remainDays, remainPrice, calcRemainDays, total }
 }
 
 function fmtDateShort(iso: string) {
@@ -49,29 +96,45 @@ function fmtDateShort(iso: string) {
   })
 }
 
-export default function BookingForm({ bike, staffId, promotions, preFrom, preTo }: Props) {
+export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
   const router = useRouter()
 
-  const [from, setFrom] = useState(preFrom ?? '')
-  const [to, setTo] = useState(preTo ?? '')
+  const [from, setFrom]                 = useState(preFrom ?? '')
+  const [to, setTo]                     = useState(preTo ?? '')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [customerHotel, setCustomerHotel] = useState('')
-  const [source, setSource] = useState('line')
-  const [selectedPromoId, setSelectedPromoId] = useState<string | null>(null)
-  const [notes, setNotes] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [source, setSource]             = useState('line')
+  const [studentPromo, setStudentPromo] = useState(false)
+  const [notes, setNotes]               = useState('')
+  const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState('')
 
-  const totalDays = from && to ? daysBetween(from, to) : 0
-  const selectedPromo = promotions.find(p => p.id === selectedPromoId)
-  const discount = selectedPromo
-    ? selectedPromo.discount_type === 'percent'
-      ? (bike.daily_rate * totalDays) * (selectedPromo.discount_value / 100)
-      : selectedPromo.discount_value
+  // ── Derived ──────────────────────────────────────────────────────────────
+  const startDt = from ? new Date(from) : null
+  const endDt   = to   ? new Date(to)   : null
+  const totalDays = startDt && endDt && endDt > startDt
+    ? Math.ceil((endDt.getTime() - startDt.getTime()) / 86_400_000)
     : 0
-  const totalAmount = Math.max(0, bike.daily_rate * totalDays - discount)
 
+  const ndr = studentPromo ? bike.daily_rate - 50 : bike.daily_rate
+  const mcr = bike.monthly_rate ?? bike.daily_rate * 30
+  const isLong = totalDays >= 30
+
+  const longResult  = isLong && startDt && endDt ? calcLongPrice(startDt, endDt, ndr, mcr) : null
+  const shortResult = !isLong && totalDays > 0 ? calcShortPrice(totalDays, ndr) : null
+
+  const totalAmount = isLong ? (longResult?.total ?? 0) : (shortResult?.total ?? 0)
+
+  // discount = diff from non-student price (for API record)
+  const normalTotal = isLong
+    ? (calcLongPrice(startDt!, endDt!, bike.daily_rate, mcr)?.total ?? 0)
+    : calcShortPrice(totalDays, bike.daily_rate).total
+  const discount = studentPromo ? Math.max(0, normalTotal - totalAmount) : 0
+
+  const freeWeeks = Math.floor(totalDays / 7)
+
+  // ── Customer lookup ──────────────────────────────────────────────────────
   const lookupCustomer = useCallback(async (phone: string) => {
     if (phone.replace(/\D/g, '').length < 9) return
     try {
@@ -84,11 +147,12 @@ export default function BookingForm({ bike, staffId, promotions, preFrom, preTo 
     } catch { /* silent */ }
   }, [])
 
+  // ── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!customerName.trim()) { setError('กรุณาใส่ชื่อลูกค้า'); return }
+    if (!customerName.trim())  { setError('กรุณาใส่ชื่อลูกค้า'); return }
     if (!customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
-    if (!from || !to) { setError('กรุณาเลือกวันเวลา'); return }
-    if (new Date(to) <= new Date(from)) { setError('วันคืนต้องหลังวันเช่า'); return }
+    if (!from || !to)          { setError('กรุณาเลือกวันเวลา'); return }
+    if (!endDt || !startDt || endDt <= startDt) { setError('วันคืนต้องหลังวันเช่า'); return }
 
     setLoading(true)
     setError('')
@@ -109,7 +173,7 @@ export default function BookingForm({ bike, staffId, promotions, preFrom, preTo 
           totalAmount,
           discount,
           source,
-          promoId: selectedPromoId,
+          promoId: null,
           notes: notes.trim() || null,
         }),
       })
@@ -151,7 +215,7 @@ export default function BookingForm({ bike, staffId, promotions, preFrom, preTo 
               {bike.color ? ` • ${bike.color}` : ''}
               {bike.year ? ` • ปี ${bike.year}` : ''}
             </div>
-            {from && to && (
+            {from && to && totalDays > 0 && (
               <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <span style={{ background: 'rgba(255,255,255,.2)', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 700 }}>
                   {fmtDateShort(from)} – {fmtDateShort(to)}
@@ -163,8 +227,10 @@ export default function BookingForm({ bike, staffId, promotions, preFrom, preTo 
             )}
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{ fontSize: '22px', fontWeight: 800 }}>฿{totalAmount.toLocaleString()}</div>
-            <div style={{ fontSize: '11px', opacity: 0.8 }}>฿{bike.daily_rate.toLocaleString()}/วัน</div>
+            <div style={{ fontSize: '22px', fontWeight: 800 }}>
+              {totalDays > 0 ? `฿${totalAmount.toLocaleString()}` : '฿—'}
+            </div>
+            <div style={{ fontSize: '11px', opacity: 0.8 }}>฿{ndr.toLocaleString()}/วัน</div>
           </div>
         </div>
 
@@ -182,6 +248,99 @@ export default function BookingForm({ bike, staffId, promotions, preFrom, preTo 
               <input className="field-input" type="datetime-local"
                 value={to} onChange={e => setTo(e.target.value)} />
             </div>
+          </div>
+        )}
+
+        {/* โปรโมชั่น — student promo */}
+        <div className="card">
+          <div className="card-title">โปรโมชั่น</div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => setStudentPromo(false)} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${!studentPromo ? '#0891b2' : '#e5e7eb'}`,
+              background: !studentPromo ? '#ecfeff' : '#fff',
+              color: !studentPromo ? '#0891b2' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>ราคาปกติ</button>
+            <button onClick={() => setStudentPromo(true)} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${studentPromo ? '#7c3aed' : '#e5e7eb'}`,
+              background: studentPromo ? '#f5f3ff' : '#fff',
+              color: studentPromo ? '#7c3aed' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>🎓 ราคานักศึกษา</button>
+          </div>
+          {studentPromo && (
+            <div style={{ marginTop: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#1d4ed8' }}>
+              ลด ฿50/วัน จากราคารายวันปกติ — ไม่รวมค่าเช่ารายเดือน
+            </div>
+          )}
+        </div>
+
+        {/* Price breakdown box */}
+        {totalDays > 0 && (
+          <div style={{
+            background: 'linear-gradient(135deg,#0891b2,#0e7490)',
+            borderRadius: '16px', padding: '18px 16px', marginBottom: '12px', color: '#fff',
+          }}>
+            <div style={{ fontSize: '12px', opacity: .8, marginBottom: '4px' }}>{totalDays} วัน</div>
+            <div style={{ fontSize: '36px', fontWeight: 900, letterSpacing: '-1px', marginBottom: '8px' }}>
+              ฿{totalAmount.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '12px', opacity: .75 }}>
+              {isLong
+                ? `${longResult?.months.length ?? 0} เดือน + ${longResult?.remainDays ?? 0} วัน • คิดตามสูตร`
+                : `฿${ndr.toLocaleString()}/วัน × ${shortResult?.calcDays ?? totalDays} วัน`
+                  + (freeWeeks > 0 ? ` (ฟรี ${freeWeeks * 2} วัน)` : '')}
+            </div>
+
+            {/* Breakdown — long */}
+            {isLong && longResult && (
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
+                {longResult.months.map((m, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ opacity: .8 }}>📅 เดือน {i + 1} ({m.days} วัน)</span>
+                    <span style={{ fontWeight: 700 }}>฿{m.price.toLocaleString()}</span>
+                  </div>
+                ))}
+                {longResult.remainDays > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ opacity: .8 }}>
+                      📆 เศษ {longResult.remainDays} วัน (คิด {longResult.calcRemainDays} วัน × ฿{ndr})
+                    </span>
+                    <span style={{ fontWeight: 700 }}>฿{longResult.remainPrice.toLocaleString()}</span>
+                  </div>
+                )}
+                {discount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ opacity: .8 }}>🎓 ส่วนลดนักศึกษา</span>
+                    <span style={{ fontWeight: 700 }}>-฿{discount.toLocaleString()}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
+                  <span>รวมสุทธิ</span>
+                  <span style={{ fontWeight: 900 }}>฿{totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Breakdown — short */}
+            {!isLong && shortResult && (freeWeeks > 0 || discount > 0) && (
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
+                {freeWeeks > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ opacity: .8 }}>🎁 ฟรี {freeWeeks * 2} วัน ({freeWeeks} สัปดาห์ × 2 วัน)</span>
+                    <span style={{ fontWeight: 700 }}>—</span>
+                  </div>
+                )}
+                {discount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                    <span style={{ opacity: .8 }}>🎓 ลดนักศึกษา ({shortResult.calcDays} วัน × ฿50)</span>
+                    <span style={{ fontWeight: 700 }}>-฿{discount.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -215,7 +374,7 @@ export default function BookingForm({ bike, staffId, promotions, preFrom, preTo 
             {SOURCES.map(s => (
               <button key={s.key} onClick={() => setSource(s.key)} style={{
                 padding: '8px 16px', borderRadius: '20px', border: '1.5px solid',
-                fontSize: '13px', cursor: 'pointer', fontWeight: 600,
+                fontSize: '13px', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
                 background: source === s.key ? '#0891b2' : '#fff',
                 color: source === s.key ? '#fff' : '#6b7280',
                 borderColor: source === s.key ? '#0891b2' : '#e5e7eb',
@@ -226,31 +385,6 @@ export default function BookingForm({ bike, staffId, promotions, preFrom, preTo 
           </div>
         </div>
 
-        {/* Promotions */}
-        {promotions.length > 0 && (
-          <div className="card">
-            <div className="card-title">โปรโมชั่น (ถ้ามี)</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              <button onClick={() => setSelectedPromoId(null)} style={{
-                padding: '8px 16px', borderRadius: '20px', border: '1.5px solid',
-                fontSize: '13px', cursor: 'pointer', fontWeight: 600,
-                background: !selectedPromoId ? '#0891b2' : '#fff',
-                color: !selectedPromoId ? '#fff' : '#6b7280',
-                borderColor: !selectedPromoId ? '#0891b2' : '#e5e7eb',
-              }}>ราคาปกติ</button>
-              {promotions.map(p => (
-                <button key={p.id} onClick={() => setSelectedPromoId(p.id)} style={{
-                  padding: '8px 16px', borderRadius: '20px', border: '1.5px solid',
-                  fontSize: '13px', cursor: 'pointer', fontWeight: 600,
-                  background: selectedPromoId === p.id ? '#0891b2' : '#fff',
-                  color: selectedPromoId === p.id ? '#fff' : '#6b7280',
-                  borderColor: selectedPromoId === p.id ? '#0891b2' : '#e5e7eb',
-                }}>{p.description ?? p.code}</button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Notes */}
         <div className="card">
           <div className="card-title">หมายเหตุ</div>
@@ -259,16 +393,6 @@ export default function BookingForm({ bike, staffId, promotions, preFrom, preTo 
             value={notes} onChange={e => setNotes(e.target.value)}
             style={{ resize: 'none' }}
           />
-        </div>
-
-        {/* Price summary */}
-        <div className="price-box" style={{ background: 'linear-gradient(135deg,#0891b2,#0e7490)' }}>
-          <div className="price-label">ยอดรวมการจอง</div>
-          <div className="price-amount">฿{totalAmount.toLocaleString()}</div>
-          <div className="price-detail">
-            {bike.brand} {bike.model} • {totalDays} วัน
-            {discount > 0 ? ` • ลด ฿${discount.toLocaleString()}` : ''}
-          </div>
         </div>
 
         <div style={{
@@ -295,8 +419,8 @@ export default function BookingForm({ bike, staffId, promotions, preFrom, preTo 
           style={{
             width: '100%', padding: '16px', border: 'none', borderRadius: '12px',
             background: '#0891b2', color: '#fff',
-            fontSize: '16px', fontWeight: 700, cursor: 'pointer',
-            opacity: loading ? 0.7 : 1,
+            fontSize: '16px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            opacity: loading ? 0.7 : 1, marginBottom: '24px',
           }}
         >
           {loading ? '⏳ กำลังบันทึก...' : '📅 ยืนยันการจอง'}
