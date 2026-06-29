@@ -49,7 +49,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
   meta1, meta2, statusLabel, statusBg, statusColor,
-  href, btnColor, btnLabel, contractHref,
+  href, btnColor, btnLabel, contractHref, onCancel, cancelDisabled,
 }: {
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
@@ -57,6 +57,8 @@ function JobCard({
   statusLabel: string; statusBg: string; statusColor: string
   href: string; btnColor?: string; btnLabel?: string
   contractHref?: string
+  onCancel?: () => void
+  cancelDisabled?: boolean
 }) {
   return (
     <div style={{
@@ -80,6 +82,17 @@ function JobCard({
             background: statusBg, color: statusColor,
           }}>{statusLabel}</span>
           <div style={{ display: 'flex', gap: '6px' }}>
+            {onCancel && (
+              <button onClick={onCancel} disabled={cancelDisabled} style={{
+                fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px',
+                background: cancelDisabled ? '#f9fafb' : '#fef2f2',
+                color: cancelDisabled ? '#9ca3af' : '#dc2626',
+                border: `1px solid ${cancelDisabled ? '#e5e7eb' : '#fecaca'}`,
+                cursor: cancelDisabled ? 'not-allowed' : 'pointer',
+              }}>
+                {cancelDisabled ? '⏳' : '🚫 ยกเลิก'}
+              </button>
+            )}
             {contractHref && (
               <Link href={contractHref} style={{
                 fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px',
@@ -131,11 +144,30 @@ export default function JobsClient({
   allMonthlyRentals: any[]
 }) {
   const [tab, setTab] = useState<Tab>('all')
+  const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set())
+  const [cancelling, setCancelling] = useState<string | null>(null)
+
+  const handleCancel = async (bookingId: string) => {
+    if (!window.confirm('ยืนยันยกเลิกการจองนี้?')) return
+    setCancelling(bookingId)
+    try {
+      await fetch('/api/staff/booking/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId }),
+      })
+      setCancelledIds(prev => new Set([...prev, bookingId]))
+    } finally {
+      setCancelling(null)
+    }
+  }
+
+  const visibleSendJobs = sendJobs.filter((b: any) => !cancelledIds.has(b.id)) // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const returnJobs = [...overdueRentals, ...dueSoonRentals]
   const nowMs = Date.now()
   const counts = {
-    sendcar:  sendJobs.length,
+    sendcar:  visibleSendJobs.length,
     returncar: returnJobs.length,
     active:   activeRentals.length,
     broken:   repairs.length,
@@ -286,30 +318,38 @@ export default function JobsClient({
         )}
 
         {/* ส่งรถ */}
-        {show('sendcar') && sendJobs.length > 0 && (
+        {show('sendcar') && visibleSendJobs.length > 0 && (
           <>
-            <SectionTitle>งานส่งรถ 🛵➡️ — วันนี้</SectionTitle>
-            {sendJobs.map((b: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            <SectionTitle>งานส่งรถ 🛵➡️</SectionTitle>
+            {visibleSendJobs.map((b: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
               const bike = b.bikes
               const hrs = hoursUntil(b.start_datetime)
-              const overdue = hrs < 0
-              // Show assigned bike plate or just the model type if not yet assigned
+              const isLate = hrs < 0
+              const absHrs = Math.abs(hrs)
               const bikeLabel = bike
                 ? `${bike.license_plate} ${bike.brand} ${bike.model}`
                 : `${b.requested_brand ?? ''} ${b.requested_model ?? ''} (ยังไม่ได้กำหนดรถ)`
+              const badge = isLate
+                ? (absHrs >= 24 ? `⚠️ ลูกค้าไม่มา ${Math.floor(absHrs / 24)} วัน` : `⚠️ เลยเวลา ${absHrs} ชม.`)
+                : hrs === 0 ? '🔔 ถึงเวลาแล้ว!' : `⏰ อีก ${hrs} ชม.`
+              const dotColor = isLate ? (absHrs >= 3 ? '#dc2626' : '#d97706') : '#0891b2'
+              const badgeBg = isLate ? '#fef2f2' : '#f0fdfa'
+              const badgeColor = isLate ? '#dc2626' : '#0891b2'
               return (
                 <JobCard
                   key={b.id}
-                  dotColor="#0891b2"
+                  dotColor={dotColor}
                   title={`ส่งรถ — ${bikeLabel}`}
-                  badge={overdue ? `🕐 เลยเวลา ${Math.abs(hrs)} ชม.` : hrs === 0 ? '🔔 ตอนนี้เลย!' : `⏰ อีก ${hrs} ชม.`}
-                  badgeBg={overdue ? '#fef2f2' : '#f0fdfa'} badgeColor={overdue ? '#dc2626' : '#0891b2'}
+                  badge={badge}
+                  badgeBg={badgeBg} badgeColor={badgeColor}
                   meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
                   meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
-                  statusLabel={overdue ? '🔴 เลยเวลา' : bike ? '🔵 รอส่งรถ' : '🟡 ยังไม่ได้เลือกรถ'}
-                  statusBg={overdue ? '#fef2f2' : bike ? '#f0fdfa' : '#fffbeb'}
-                  statusColor={overdue ? '#dc2626' : bike ? '#0891b2' : '#d97706'}
+                  statusLabel={isLate ? '⚠️ ลูกค้าไม่มา' : bike ? '🔵 รอส่งรถ' : '🟡 ยังไม่ได้เลือกรถ'}
+                  statusBg={isLate ? '#fef2f2' : bike ? '#f0fdfa' : '#fffbeb'}
+                  statusColor={isLate ? '#dc2626' : bike ? '#0891b2' : '#d97706'}
                   href={`/staff/assign/${b.id}`} btnColor="#0891b2"
+                  onCancel={() => handleCancel(b.id)}
+                  cancelDisabled={cancelling === b.id}
                 />
               )
             })}

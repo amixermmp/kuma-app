@@ -105,10 +105,8 @@ export default async function JobsPage() {
     applyBranch(supabase.from('bookings')
       .select('id, booking_ref, start_datetime, customer_name, customer_phone, total_days, daily_rate, requested_brand, requested_model, bikes(id, license_plate, brand, model)')
       .eq('status', 'confirmed')
-      .gte('start_datetime', in2hAgo)
-      .lte('start_datetime', in24h)
       .order('start_datetime', { ascending: true })
-      .limit(20)),
+      .limit(100)),
 
     // All active monthly rentals — to compute upcoming due alerts
     applyBike(supabase.from('monthly_rentals')

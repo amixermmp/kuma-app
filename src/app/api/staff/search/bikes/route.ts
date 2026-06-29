@@ -49,10 +49,10 @@ export async function GET(request: NextRequest) {
     .lt('start_datetime', searchEnd.toISOString())
     .gt('expected_end_datetime', bufferStart.toISOString())
 
-  // Get bookings that conflict
+  // Get bookings that conflict — split by specific-bike vs model-based
   const { data: bookingConflicts } = await supabase
     .from('bookings')
-    .select('bike_id, start_datetime, end_datetime')
+    .select('bike_id, requested_brand, requested_model, start_datetime, end_datetime')
     .in('status', ['confirmed'])
     .lt('start_datetime', searchEnd.toISOString())
     .gt('end_datetime', bufferStart.toISOString())
@@ -69,16 +69,27 @@ export async function GET(request: NextRequest) {
     rentalMap.set(r.bike_id, { start: r.start_datetime, end: r.expected_end_datetime })
   }
 
+  // Specific-bike bookings (bike_id is set)
   const bookingMap = new Map<string, { start: string; end: string }>()
+  // Model-based bookings (bike_id = null) — count per brand+model
+  const modelBookingCount = new Map<string, number>()
   for (const b of bookingConflicts ?? []) {
-    if (!rentalMap.has(b.bike_id)) {
-      bookingMap.set(b.bike_id, { start: b.start_datetime, end: b.end_datetime })
+    if (b.bike_id) {
+      if (!rentalMap.has(b.bike_id)) {
+        bookingMap.set(b.bike_id, { start: b.start_datetime, end: b.end_datetime })
+      }
+    } else if (b.requested_brand && b.requested_model) {
+      const key = `${b.requested_brand}__${b.requested_model}`
+      modelBookingCount.set(key, (modelBookingCount.get(key) ?? 0) + 1)
     }
   }
 
   const monthlySet = new Set((monthlyConflicts ?? []).map(m => m.bike_id))
 
   const fmt = (iso: string) => new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })
+
+  // Track how many "slots" each model-based booking has consumed
+  const modelBookingUsed = new Map<string, number>()
 
   const result = bikes.map(bike => {
     if (bike.status === 'repair') {
@@ -100,6 +111,14 @@ export async function GET(request: NextRequest) {
         ...bike, available: false, conflict_type: 'booked',
         conflict_reason: `ติดจอง ${fmt(booking.start)}–${fmt(booking.end)}`,
       }
+    }
+    // Check if a model-based booking consumes this available bike
+    const modelKey = `${bike.brand}__${bike.model}`
+    const booked = modelBookingCount.get(modelKey) ?? 0
+    const used = modelBookingUsed.get(modelKey) ?? 0
+    if (used < booked) {
+      modelBookingUsed.set(modelKey, used + 1)
+      return { ...bike, available: false, conflict_type: 'booked', conflict_reason: 'ถูกจองไว้แล้ว (รอกำหนดคัน)' }
     }
     return { ...bike, available: true, conflict_type: null }
   })
