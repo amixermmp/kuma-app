@@ -33,7 +33,6 @@ export default async function JobsPage() {
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
   const today = now.toISOString().split('T')[0]
   const in30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const in2hAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString()
 
   const allowedBranchIds = await getStaffBranchIds(staffId)
   const allowedBikeIds = await getAllowedBikeIds(allowedBranchIds)
@@ -168,7 +167,6 @@ export default async function JobsPage() {
       repairs={repairs ?? []}
       overdueRoutines={overdueRoutines}
       docsDue={docsDue ?? []}
-      monthlyDue={monthlyDue ?? []}
       monthlyContactAlerts={monthlyContactAlerts}
       allMonthlyRentals={allMonthlyRentals}
     />

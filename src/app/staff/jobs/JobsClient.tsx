@@ -120,7 +120,7 @@ type Tab = 'all' | 'sendcar' | 'returncar' | 'active' | 'broken' | 'routine' | '
 // ── main component ───────────────────────────────────────────
 export default function JobsClient({
   sendJobs, overdueRentals, dueSoonRentals, activeRentals, repairs,
-  overdueRoutines, docsDue, monthlyDue, monthlyContactAlerts, allMonthlyRentals,
+  overdueRoutines, docsDue, monthlyContactAlerts, allMonthlyRentals,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sendJobs: any[]
@@ -136,8 +136,6 @@ export default function JobsClient({
   overdueRoutines: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   docsDue: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  monthlyDue: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   monthlyContactAlerts: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,7 +154,7 @@ export default function JobsClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookingId }),
       })
-      setCancelledIds(prev => new Set([...prev, bookingId]))
+      setCancelledIds(prev => { const s = new Set(prev); s.add(bookingId); return s })
     } finally {
       setCancelling(null)
     }
