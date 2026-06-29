@@ -59,7 +59,7 @@ export default function SearchPage() {
   const days = from && to ? daysBetween(from, to) : 0
 
   const uniqueModels = results
-    ? [...new Set(results.map(b => `${b.brand} ${b.model}`))]
+    ? Array.from(new Set(results.map(b => `${b.brand} ${b.model}`)))
     : []
 
   const filteredResults = results?.filter(b => {

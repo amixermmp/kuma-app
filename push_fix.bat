@@ -1,7 +1,7 @@
 @echo off
 cd /d "C:\Users\Thugcom\Desktop\Kuma App"
 git add -A
-git commit -m "fix: exclude monthly rentals from search, persist form+signature, add model filter to search"
+git commit -m "fix: use Array.from(Set) for uniqueModels, TS target compatibility"
 git push
 echo.
 echo === Push done! Now run: vercel --prod ===
