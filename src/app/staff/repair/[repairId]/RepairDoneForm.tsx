@@ -26,8 +26,6 @@ export default function RepairDoneForm({ repair }: Props) {
   const router = useRouter()
   const bike = repair.bikes
 
-  const [repairShop, setRepairShop] = useState('')
-  const [repairCost, setRepairCost] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -38,12 +36,7 @@ export default function RepairDoneForm({ repair }: Props) {
       const res = await fetch('/api/staff/repair/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repairId: repair.id,
-          bikeId: bike.id,
-          repairShop: repairShop.trim() || null,
-          repairCost: repairCost ? parseFloat(repairCost) : null,
-        }),
+        body: JSON.stringify({ repairId: repair.id, bikeId: bike.id }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
@@ -84,26 +77,6 @@ export default function RepairDoneForm({ repair }: Props) {
             <span className="info-val">
               <span className="badge badge-red">กำลังซ่อม</span>
             </span>
-          </div>
-        </div>
-
-        {/* Completion form */}
-        <div className="card">
-          <div className="card-title">บันทึกผลการซ่อม</div>
-          <div className="field-row">
-            <label className="field-label">ร้านซ่อม</label>
-            <input className="field-input" type="text"
-              placeholder="ร้านซ่อมมอเตอร์ไซค์เจริญ"
-              value={repairShop}
-              onChange={e => setRepairShop(e.target.value)}
-            />
-          </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">ค่าซ่อม (บาท)</label>
-            <input className="field-input" type="number" placeholder="850"
-              value={repairCost}
-              onChange={e => setRepairCost(e.target.value)}
-            />
           </div>
         </div>
 
