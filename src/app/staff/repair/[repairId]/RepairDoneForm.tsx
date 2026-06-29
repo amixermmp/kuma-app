@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import PhotoUpload from '@/components/PhotoUpload'
 
 type Repair = {
   id: string
@@ -29,7 +28,6 @@ export default function RepairDoneForm({ repair }: Props) {
 
   const [repairShop, setRepairShop] = useState('')
   const [repairCost, setRepairCost] = useState('')
-  const [receiptUrl, setReceiptUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -45,7 +43,6 @@ export default function RepairDoneForm({ repair }: Props) {
           bikeId: bike.id,
           repairShop: repairShop.trim() || null,
           repairCost: repairCost ? parseFloat(repairCost) : null,
-          receiptUrl: receiptUrl || null,
         }),
       })
       const data = await res.json()
@@ -101,21 +98,11 @@ export default function RepairDoneForm({ repair }: Props) {
               onChange={e => setRepairShop(e.target.value)}
             />
           </div>
-          <div className="field-row">
+          <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">ค่าซ่อม (บาท)</label>
             <input className="field-input" type="number" placeholder="850"
               value={repairCost}
               onChange={e => setRepairCost(e.target.value)}
-            />
-          </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">อัพโหลดบิล / ใบเสร็จ</label>
-            <PhotoUpload
-              icon="🧾"
-              hint="อัพโหลดใบเสร็จค่าซ่อม"
-              folder={`repair/${bike.id}`}
-              onUpload={url => setReceiptUrl(url)}
-              onRemove={() => setReceiptUrl('')}
             />
           </div>
         </div>

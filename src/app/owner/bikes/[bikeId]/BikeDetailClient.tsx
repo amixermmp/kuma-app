@@ -35,6 +35,17 @@ type Routine = {
   next_due_date: string | null
 }
 
+type RepairRecord = {
+  id: string
+  title: string
+  description: string
+  status: string
+  created_at: string
+  resolved_at: string | null
+  repair_shop: string | null
+  repair_cost: number | null
+}
+
 const STATUS_LABEL: Record<string, string> = {
   available: '🟢 ว่าง',
   rented: '🔵 กำลังถูกเช่า',
@@ -79,12 +90,13 @@ function DocStatusRow({ icon, name, expiry, hasPhoto }: { icon: string; name: st
   )
 }
 
-export default function BikeDetailClient({ bike, docMap, branches, stats, routines }: {
+export default function BikeDetailClient({ bike, docMap, branches, stats, routines, repairs }: {
   bike: Bike
   docMap: Record<string, DocRecord>
   branches: Branch[]
   stats: Stats
   routines: Routine[]
+  repairs: RepairRecord[]
 }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -543,6 +555,35 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
           >
             ⬇️ เปิดรูป QR ขนาดใหญ่
           </a>
+        </div>
+
+        {/* ── ประวัติการซ่อม ── */}
+        <div className="card" style={{ borderTop: '3px solid #7c3aed' }}>
+          <div className="card-title" style={{ color: '#7c3aed' }}>🔧 ประวัติการซ่อม</div>
+          {repairs.length === 0 ? (
+            <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>ยังไม่มีประวัติการซ่อม</div>
+          ) : (
+            repairs.map((r, i) => (
+              <div key={r.id} style={{ borderBottom: i < repairs.length - 1 ? '1px solid #f1f5f9' : 'none', padding: '12px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', flex: 1, marginRight: '8px' }}>{r.description}</div>
+                  <span style={{
+                    background: r.status === 'done' ? '#dcfce7' : '#fee2e2',
+                    color: r.status === 'done' ? '#16a34a' : '#dc2626',
+                    fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', whiteSpace: 'nowrap',
+                  }}>
+                    {r.status === 'done' ? '✅ ซ่อมแล้ว' : '🔴 กำลังซ่อม'}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 12px', fontSize: '12px', color: '#64748b' }}>
+                  <span>📅 แจ้ง: {new Date(r.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                  {r.resolved_at && <span>✅ เสร็จ: {new Date(r.resolved_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                  {r.repair_shop && <span>🏪 {r.repair_shop}</span>}
+                  {r.repair_cost != null && <span>💰 ฿{Number(r.repair_cost).toLocaleString()}</span>}
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         {/* ── Danger Zone ── */}
