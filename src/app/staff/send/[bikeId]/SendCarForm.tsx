@@ -118,6 +118,8 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
   const preFrom = searchParams.get('from')
   const preTo = searchParams.get('to')
 
+  const STORAGE_KEY = `send_form_${bike.id}`
+
   const [rentalType, setRentalType] = useState<'day' | 'month'>('day')
 
   // ── Daily rental state ──────────────────────────────────────
@@ -156,6 +158,65 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
   const [error, setError] = useState('')
   const [createdRentalId, setCreatedRentalId] = useState<string | null>(null)
   const [createdType, setCreatedType] = useState<'daily' | 'monthly'>('daily')
+
+  // ── Restore form state from localStorage on mount ───────────
+  const [restored, setRestored] = useState(false)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const d = JSON.parse(saved)
+        if (d.rentalType) setRentalType(d.rentalType)
+        if (d.customerName) setCustomerName(d.customerName)
+        if (d.customerPhone) setCustomerPhone(d.customerPhone)
+        if (d.customerHotel) setCustomerHotel(d.customerHotel)
+        if (!preFrom && d.startDatetime) setStartDatetime(d.startDatetime)
+        if (!preTo && d.endDatetime) setEndDatetime(d.endDatetime)
+        if (d.odometer) setOdometer(d.odometer)
+        if (d.fuelLevel != null) setFuelLevel(d.fuelLevel)
+        if (d.paymentMethod) setPaymentMethod(d.paymentMethod)
+        if (d.depositAmount) setDepositAmount(d.depositAmount)
+        if (d.selectedPromoId) setSelectedPromoId(d.selectedPromoId)
+        if (d.photos) setPhotos(d.photos)
+        if (d.signature) setSignature(d.signature)
+        if (d.mName) setMName(d.mName)
+        if (d.mPhone) setMPhone(d.mPhone)
+        if (d.mAddress) setMAddress(d.mAddress)
+        if (d.mStartDate) setMStartDate(d.mStartDate)
+        if (d.mPaymentDay) setMPaymentDay(d.mPaymentDay)
+        if (d.mMonthlyRate) setMMonthlyRate(d.mMonthlyRate)
+        if (d.mDeposit) setMDeposit(d.mDeposit)
+        if (d.mOdometer) setMOdometer(d.mOdometer)
+        if (d.mFuelLevel != null) setMFuelLevel(d.mFuelLevel)
+        if (d.mPaymentMethod) setMPaymentMethod(d.mPaymentMethod)
+        if (d.mPhotos) setMPhotos(d.mPhotos)
+        if (d.mSignature) setMSignature(d.mSignature)
+      }
+    } catch { /* ignore */ }
+    setRestored(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── Save form state to localStorage whenever state changes ──
+  useEffect(() => {
+    if (!restored) return
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        rentalType, customerName, customerPhone, customerHotel,
+        startDatetime, endDatetime, odometer, fuelLevel,
+        paymentMethod, depositAmount, selectedPromoId, photos, signature,
+        mName, mPhone, mAddress, mStartDate, mPaymentDay,
+        mMonthlyRate, mDeposit, mOdometer, mFuelLevel, mPaymentMethod, mPhotos, mSignature,
+      }))
+    } catch { /* localStorage full */ }
+  }, [
+    restored, rentalType, customerName, customerPhone, customerHotel,
+    startDatetime, endDatetime, odometer, fuelLevel,
+    paymentMethod, depositAmount, selectedPromoId, photos, signature,
+    mName, mPhone, mAddress, mStartDate, mPaymentDay,
+    mMonthlyRate, mDeposit, mOdometer, mFuelLevel, mPaymentMethod, mPhotos, mSignature,
+    STORAGE_KEY,
+  ])
 
   const folder = `send/${bike.id}`
 
@@ -234,6 +295,7 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
+      localStorage.removeItem(STORAGE_KEY)
       setCreatedType('daily')
       setCreatedRentalId(data.rentalId ?? data.id ?? null)
     } catch {
@@ -269,6 +331,7 @@ export default function SendCarForm({ bike, staffId, promotions }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
+      localStorage.removeItem(STORAGE_KEY)
       setCreatedType('monthly')
       setCreatedRentalId(data.rentalId ?? data.id ?? null)
     } catch {
