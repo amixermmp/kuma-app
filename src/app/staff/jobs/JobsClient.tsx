@@ -49,13 +49,13 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
   meta1, meta2, statusLabel, statusBg, statusColor,
-  href, btnColor, contractHref,
+  href, btnColor, btnLabel, contractHref,
 }: {
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
   meta1: string; meta2?: string
   statusLabel: string; statusBg: string; statusColor: string
-  href: string; btnColor?: string
+  href: string; btnColor?: string; btnLabel?: string
   contractHref?: string
 }) {
   return (
@@ -92,7 +92,7 @@ function JobCard({
               fontSize: '12px', fontWeight: 700, padding: '6px 14px', borderRadius: '8px',
               background: btnColor ?? '#1d4ed8', color: '#fff', textDecoration: 'none',
             }}>
-              เปิด →
+              {btnLabel ?? 'เปิด →'}
             </Link>
           </div>
         </div>
@@ -107,7 +107,7 @@ type Tab = 'all' | 'sendcar' | 'returncar' | 'active' | 'broken' | 'routine' | '
 // ── main component ───────────────────────────────────────────
 export default function JobsClient({
   sendJobs, overdueRentals, dueSoonRentals, activeRentals, repairs,
-  overdueRoutines, docsDue, monthlyDue, monthlyContactAlerts,
+  overdueRoutines, docsDue, monthlyDue, monthlyContactAlerts, allMonthlyRentals,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sendJobs: any[]
@@ -127,6 +127,8 @@ export default function JobsClient({
   monthlyDue: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   monthlyContactAlerts: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  allMonthlyRentals: any[]
 }) {
   const [tab, setTab] = useState<Tab>('all')
 
@@ -139,7 +141,7 @@ export default function JobsClient({
     broken:   repairs.length,
     routine:  overdueRoutines.length,
     docs:     docsDue.length,
-    monthly:  monthlyDue.length,
+    monthly:  allMonthlyRentals.length,
     contact:  monthlyContactAlerts.length,
   }
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
@@ -227,12 +229,13 @@ export default function JobsClient({
             {monthlyContactAlerts.map((mr: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
               const bike = mr.bikes
               const customer = mr.customers
+              const isOverdue = mr.daysUntil < 0
               const isToday = mr.daysUntil === 0
               const isTomorrow = mr.daysUntil === 1
-              const badgeText = isToday ? '🔴 ครบกำหนดวันนี้!' : isTomorrow ? '🟠 ครบกำหนดพรุ่งนี้' : `⚠️ อีก ${mr.daysUntil} วัน`
-              const badgeBg = isToday ? '#fef2f2' : '#fff7ed'
-              const badgeColor = isToday ? '#dc2626' : '#ea580c'
-              const dotColor = isToday ? '#dc2626' : '#ea580c'
+              const badgeText = isOverdue ? '🔴 เกินกำหนดแล้ว!' : isToday ? '🔴 ครบกำหนดวันนี้!' : isTomorrow ? '🟠 ครบกำหนดพรุ่งนี้' : `⚠️ อีก ${mr.daysUntil} วัน`
+              const badgeBg = (isOverdue || isToday) ? '#fef2f2' : '#fff7ed'
+              const badgeColor = (isOverdue || isToday) ? '#dc2626' : '#ea580c'
+              const dotColor = (isOverdue || isToday) ? '#dc2626' : '#ea580c'
               return (
                 <div key={mr.id} style={{
                   background: '#fff', borderRadius: '12px', marginBottom: '10px',
@@ -480,27 +483,24 @@ export default function JobsClient({
           </>
         )}
 
-        {/* รายเดือน */}
-        {show('monthly') && monthlyDue.length > 0 && (
+        {/* รายเดือน — overview ทุกคัน */}
+        {show('monthly') && allMonthlyRentals.length > 0 && (
           <>
-            <SectionTitle>งานเก็บค่าเช่ารายเดือน 💰🗓️</SectionTitle>
-            {monthlyDue.map((p: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-              const mr = p.monthly_rentals
-              const bike = mr?.bikes
-              const customer = mr?.customers
-              const days = daysUntil(p.due_date)
-              const overdue = days < 0
+            <SectionTitle>รถรายเดือนทั้งหมด 🟣🗓️</SectionTitle>
+            {allMonthlyRentals.map((mr: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+              const bike = mr.bikes
+              const customer = mr.customers
               return (
                 <JobCard
-                  key={p.id} dotColor="#7c3aed"
-                  title={`เก็บค่าเช่า — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
-                  badge={overdue ? `🔴 เกิน ${Math.abs(days)} วัน` : `🗓️ ครบ ${fmtDate(p.due_date)}`}
-                  badgeBg={overdue ? '#fef2f2' : '#faf5ff'} badgeColor={overdue ? '#dc2626' : '#7c3aed'}
-                  meta1={`👤 ${customer?.name ?? '—'}`}
-                  meta2={`💰 ฿${Number(p.amount).toLocaleString()}`}
-                  statusLabel={overdue ? '🔴 เกินกำหนด' : '🟣 รอเก็บเงิน'}
-                  statusBg={overdue ? '#fef2f2' : '#faf5ff'} statusColor={overdue ? '#dc2626' : '#7c3aed'}
-                  href={`/staff/collect/${mr?.id}`} btnColor="#7c3aed"
+                  key={mr.id} dotColor="#7c3aed"
+                  title={`${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
+                  badge={`📅 ครบวันที่ ${mr.payment_day} ทุกเดือน`}
+                  badgeBg="#faf5ff" badgeColor="#7c3aed"
+                  meta1={`👤 ${customer?.name ?? '—'}${customer?.phone ? ` • ${customer.phone}` : ''}`}
+                  meta2={`💰 ฿${Number(mr.monthly_rate).toLocaleString()}/เดือน`}
+                  statusLabel="🟣 รายเดือน"
+                  statusBg="#faf5ff" statusColor="#7c3aed"
+                  href={`/staff/collect/${mr.id}`} btnColor="#7c3aed" btnLabel="📄 สัญญา"
                 />
               )
             })}

@@ -125,19 +125,41 @@ export default async function JobsPage() {
     return kmOverdue || dateOverdue
   })
 
-  // Compute "contact customer" alerts: monthly rentals due in 0–2 days
+  // Attach nextDueDate to all active monthly rentals
   const todayDate = new Date()
   todayDate.setHours(0, 0, 0, 0)
-  const in2days = new Date(todayDate.getTime() + 2 * 86_400_000)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const monthlyContactAlerts = (allMonthlyActive ?? []).map((mr: any) => {
+  const allMonthlyRentals = (allMonthlyActive ?? []).map((mr: any) => {
     const nextDue = getNextDueDate(mr.payment_day)
     nextDue.setHours(0, 0, 0, 0)
     const daysUntil = Math.round((nextDue.getTime() - todayDate.getTime()) / 86_400_000)
     return { ...mr, nextDueDate: nextDue.toISOString().split('T')[0], daysUntil }
-  }).filter((mr: any) => mr.daysUntil >= 0 && mr.daysUntil <= 2)
+  })
+
+  // Rental IDs that have actual overdue/unpaid payments in monthly_payments table
+  const overdueRentalIds = new Set(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (monthlyDue ?? []).filter((p: any) => p.status === 'overdue' || p.due_date < today)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((p: any) => p.monthly_rental_id).filter(Boolean)
+  )
+
+  // Near-due: 0–2 days from payment_day computation
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const nearDueAlerts = allMonthlyRentals
+    .filter((mr: any) => mr.daysUntil >= 0 && mr.daysUntil <= 2)
     .sort((a: any, b: any) => a.daysUntil - b.daysUntil)
+
+  const nearDueIds = new Set(nearDueAlerts.map((mr: any) => mr.id)) // eslint-disable-line @typescript-eslint/no-explicit-any
+
+  // Overdue: has unpaid payment record but isn't already in near-due
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const overdueAlerts = allMonthlyRentals
+    .filter((mr: any) => overdueRentalIds.has(mr.id) && !nearDueIds.has(mr.id))
+    .map((mr: any) => ({ ...mr, daysUntil: -1 })) // eslint-disable-line @typescript-eslint/no-explicit-any
+
+  const monthlyContactAlerts = [...overdueAlerts, ...nearDueAlerts]
 
   return (
     <JobsClient
@@ -150,6 +172,7 @@ export default async function JobsPage() {
       docsDue={docsDue ?? []}
       monthlyDue={monthlyDue ?? []}
       monthlyContactAlerts={monthlyContactAlerts}
+      allMonthlyRentals={allMonthlyRentals}
     />
   )
 }
