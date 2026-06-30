@@ -160,6 +160,26 @@ type PhotoState = {
   payment: string
 }
 
+// ── Draft persistence ─────────────────────────────────────────────────────────
+type DraftData = {
+  customerName: string; customerPhone: string; customerHotel: string
+  startDate: string; endDate: string; startTime: string
+  studentPromo: boolean; contractType: 'onetime' | 'monthly'; mMonthlyRate: string
+  odometer: string; fuelLevel: number; paymentMethod: 'cash' | 'transfer'
+  depositAmount: string; lockBike: boolean | null; signature: string | null
+  photos: PhotoState
+}
+function getDraft(key: string): DraftData | null {
+  if (typeof window === 'undefined') return null
+  try { return JSON.parse(sessionStorage.getItem(key) || 'null') } catch { return null }
+}
+function saveDraft(key: string, data: DraftData) {
+  try { sessionStorage.setItem(key, JSON.stringify(data)) } catch {}
+}
+function clearDraft(key: string) {
+  try { sessionStorage.removeItem(key) } catch {}
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function todayLocal() {
   const d = new Date()
@@ -181,58 +201,80 @@ function nowTime() {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom, prefillTo }: Props) {
+  const DRAFT_KEY = `send_draft_${bike.id}`
+
   useEffect(() => {
     addTab({ type: 'sendcar', title: `ส่งรถ ${bike.license_plate}`, href: `/staff/send/${bike.id}` })
   }, [bike.id, bike.license_plate])
 
+  // Load saved draft once (skip if from booking flow)
+  const [draft] = useState<DraftData | null>(() => prefillBooking ? null : getDraft(`send_draft_${bike.id}`))
+
   // ── Customer ──────────────────────────────────────────────────────────────
-  const [customerName,  setCustomerName]  = useState(prefillBooking?.customer_name ?? '')
-  const [customerPhone, setCustomerPhone] = useState(prefillBooking?.customer_phone ?? '')
-  const [customerHotel, setCustomerHotel] = useState(prefillBooking?.customer_hotel ?? '')
+  const [customerName,  setCustomerName]  = useState(draft?.customerName  ?? prefillBooking?.customer_name  ?? '')
+  const [customerPhone, setCustomerPhone] = useState(draft?.customerPhone ?? prefillBooking?.customer_phone ?? '')
+  const [customerHotel, setCustomerHotel] = useState(draft?.customerHotel ?? prefillBooking?.customer_hotel ?? '')
 
   // ── Dates ─────────────────────────────────────────────────────────────────
   const [startDate, setStartDate] = useState(() => {
+    if (draft?.startDate) return draft.startDate
     if (prefillBooking?.start_datetime) return prefillBooking.start_datetime.split('T')[0]
     if (prefillFrom) return prefillFrom.split('T')[0]
     return todayLocal()
   })
   const [endDate, setEndDate] = useState(() => {
+    if (draft?.endDate) return draft.endDate
     if (prefillBooking?.end_datetime) return prefillBooking.end_datetime.split('T')[0]
     if (prefillTo) return prefillTo.split('T')[0]
     return dateIn(1)
   })
   const [startTime, setStartTime] = useState(() => {
+    if (draft?.startTime) return draft.startTime
     if (prefillFrom?.includes('T')) return prefillFrom.split('T')[1].slice(0, 5)
     return nowTime()
   })
 
   // ── Promo ─────────────────────────────────────────────────────────────────
-  const [studentPromo, setStudentPromo] = useState(false)
+  const [studentPromo, setStudentPromo] = useState(draft?.studentPromo ?? false)
 
   // ── Long-rental contract type ─────────────────────────────────────────────
-  const [contractType,  setContractType]  = useState<'onetime' | 'monthly'>('onetime')
-  const [mMonthlyRate,  setMMonthlyRate]  = useState(String(bike.monthly_rate ?? ''))
+  const [contractType,  setContractType]  = useState<'onetime' | 'monthly'>(draft?.contractType ?? 'onetime')
+  const [mMonthlyRate,  setMMonthlyRate]  = useState(draft?.mMonthlyRate ?? String(bike.monthly_rate ?? ''))
 
   // ── Bike condition ────────────────────────────────────────────────────────
-  const [odometer,  setOdometer]  = useState(String(bike.odometer ?? ''))
-  const [fuelLevel, setFuelLevel] = useState(4)
+  const [odometer,  setOdometer]  = useState(draft?.odometer ?? String(bike.odometer ?? ''))
+  const [fuelLevel, setFuelLevel] = useState(draft?.fuelLevel ?? 4)
 
   // ── Payment ───────────────────────────────────────────────────────────────
-  const [paymentMethod,  setPaymentMethod]  = useState<'cash' | 'transfer'>('cash')
-  const [depositAmount,  setDepositAmount]  = useState(String(bike.deposit_amount ?? 0))
+  const [paymentMethod,  setPaymentMethod]  = useState<'cash' | 'transfer'>(draft?.paymentMethod ?? 'cash')
+  const [depositAmount,  setDepositAmount]  = useState(draft?.depositAmount ?? String(bike.deposit_amount ?? 0))
 
   // ── Photos ────────────────────────────────────────────────────────────────
-  const [photos, setPhotos] = useState<PhotoState>({
+  const [photos, setPhotos] = useState<PhotoState>(draft?.photos ?? {
     id_card: '', selfie: '', with_bike: '', damage: '', payment: '',
   })
 
   // ── Lock (daily only; monthly = auto-locked) ──────────────────────────────
-  const [lockBike,   setLockBike]   = useState<boolean | null>(null)
+  const [lockBike,   setLockBike]   = useState<boolean | null>(draft?.lockBike ?? null)
   const [lockError,  setLockError]  = useState(false)
 
   // ── Signature ─────────────────────────────────────────────────────────────
-  const [signature,    setSignature]    = useState<string | null>(null)
+  const [signature,    setSignature]    = useState<string | null>(draft?.signature ?? null)
   const [showSignPad,  setShowSignPad]  = useState(false)
+
+  // ── Auto-save draft ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (prefillBooking) return
+    saveDraft(DRAFT_KEY, {
+      customerName, customerPhone, customerHotel,
+      startDate, endDate, startTime,
+      studentPromo, contractType, mMonthlyRate,
+      odometer, fuelLevel, paymentMethod, depositAmount,
+      lockBike, signature, photos,
+    })
+  }, [DRAFT_KEY, customerName, customerPhone, customerHotel, startDate, endDate, startTime,
+      studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
+      depositAmount, lockBike, signature, photos, prefillBooking])
 
   // ── UI ────────────────────────────────────────────────────────────────────
   const [loading,         setLoading]         = useState(false)
@@ -339,6 +381,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         })
         const data = await res.json()
         if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
+        clearDraft(DRAFT_KEY)
         setCreatedType('monthly')
         setCreatedRentalId(data.rentalId ?? data.id ?? null)
 
@@ -373,6 +416,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         })
         const data = await res.json()
         if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
+        clearDraft(DRAFT_KEY)
         setCreatedType('daily')
         setCreatedRentalId(data.rentalId ?? data.id ?? null)
         // Close the source booking if came from assign flow
