@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
 import SignaturePad from '@/components/SignaturePad'
@@ -263,18 +263,30 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const [showSignPad,  setShowSignPad]  = useState(false)
 
   // ── Auto-save draft ───────────────────────────────────────────────────────
+  // Keep a ref to latest form data for immediate saves (avoids stale closure)
+  const latestDraft = useRef<DraftData>({
+    customerName, customerPhone, customerHotel, startDate, endDate, startTime,
+    studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
+    depositAmount, lockBike, signature, photos,
+  })
+  latestDraft.current = {
+    customerName, customerPhone, customerHotel, startDate, endDate, startTime,
+    studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
+    depositAmount, lockBike, signature, photos,
+  }
+
   useEffect(() => {
     if (prefillBooking) return
-    saveDraft(DRAFT_KEY, {
-      customerName, customerPhone, customerHotel,
-      startDate, endDate, startTime,
-      studentPromo, contractType, mMonthlyRate,
-      odometer, fuelLevel, paymentMethod, depositAmount,
-      lockBike, signature, photos,
-    })
+    saveDraft(DRAFT_KEY, latestDraft.current)
   }, [DRAFT_KEY, customerName, customerPhone, customerHotel, startDate, endDate, startTime,
       studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
       depositAmount, lockBike, signature, photos, prefillBooking])
+
+  // Save signature immediately (don't wait for effect — avoids race on tab switch)
+  const handleSaveSignature = useCallback((sig: string) => {
+    setSignature(sig)
+    if (!prefillBooking) saveDraft(DRAFT_KEY, { ...latestDraft.current, signature: sig })
+  }, [DRAFT_KEY, prefillBooking])
 
   // ── UI ────────────────────────────────────────────────────────────────────
   const [loading,         setLoading]         = useState(false)
@@ -839,7 +851,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         </div>
 
         {showSignPad && (
-          <SignaturePad onSave={setSignature} onClose={() => setShowSignPad(false)} />
+          <SignaturePad onSave={handleSaveSignature} onClose={() => setShowSignPad(false)} />
         )}
 
         {error && (
