@@ -24,6 +24,12 @@ function daysBetween(from: string, to: string) {
   return Math.max(1, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000))
 }
 
+// datetime-local values have no timezone — treat as Bangkok (+07:00) and convert to UTC ISO
+function bangkokToUTC(localStr: string) {
+  const s = localStr.length === 16 ? localStr + ':00' : localStr
+  return new Date(s + '+07:00').toISOString()
+}
+
 function fmtDateShort(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
     timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short',
@@ -77,8 +83,8 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim(),
           customerHotel: customerHotel.trim() || null,
-          startDatetime: from,
-          endDatetime: to,
+          startDatetime: bangkokToUTC(from),
+          endDatetime: bangkokToUTC(to),
           totalDays,
           dailyRate,
           totalAmount,

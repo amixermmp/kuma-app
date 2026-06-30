@@ -61,7 +61,7 @@ function groupByModel(bikes: BikeResult[]): ModelGroup[] {
 
 export default function SearchPage() {
   const [from, setFrom] = useState(nowLocal())
-  const [to, setTo] = useState(nowLocal(3 * 24 * 60 * 60 * 1000))
+  const [to, setTo] = useState(nowLocal(1 * 24 * 60 * 60 * 1000))
   const [results, setResults] = useState<BikeResult[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -106,12 +106,14 @@ export default function SearchPage() {
         <div className="field-row">
           <label className="field-label">📅 วันเริ่มเช่า</label>
           <input className="field-input" type="datetime-local"
-            value={from} onChange={e => setFrom(e.target.value)} />
+            value={from} min={nowLocal()}
+            onChange={e => { setFrom(e.target.value); if (e.target.value >= to) setTo(nowLocal(24 * 60 * 60 * 1000)) }} />
         </div>
         <div className="field-row" style={{ marginBottom: 0 }}>
           <label className="field-label">📅 วันที่คืนรถ</label>
           <input className="field-input" type="datetime-local"
-            value={to} onChange={e => setTo(e.target.value)} />
+            value={to} min={from || nowLocal()}
+            onChange={e => setTo(e.target.value)} />
         </div>
       </div>
 
