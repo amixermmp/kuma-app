@@ -201,15 +201,26 @@ export default function SearchPage() {
                       ฿{group.daily_rate.toLocaleString()} × {days} วัน
                     </div>
                   </div>
-                  <Link
-                    href={`/staff/booking/model?brand=${encodeURIComponent(group.brand)}&model=${encodeURIComponent(group.model)}&rate=${group.daily_rate}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
-                    style={{
-                      background: '#0891b2', color: '#fff', textDecoration: 'none',
-                      padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 700,
-                    }}
-                  >
-                    จองรุ่นนี้ →
-                  </Link>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <Link
+                      href={`/staff/walkin/model?brand=${encodeURIComponent(group.brand)}&model=${encodeURIComponent(group.model)}&rate=${group.daily_rate}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
+                      style={{
+                        background: '#16a34a', color: '#fff', textDecoration: 'none',
+                        padding: '10px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: 700,
+                      }}
+                    >
+                      🛵 ส่งรถเลย
+                    </Link>
+                    <Link
+                      href={`/staff/booking/model?brand=${encodeURIComponent(group.brand)}&model=${encodeURIComponent(group.model)}&rate=${group.daily_rate}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
+                      style={{
+                        background: '#0891b2', color: '#fff', textDecoration: 'none',
+                        padding: '10px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: 700,
+                      }}
+                    >
+                      📅 จองคิว
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}

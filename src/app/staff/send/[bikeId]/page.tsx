@@ -10,7 +10,7 @@ export default async function SendCarPage({
   searchParams,
 }: {
   params: { bikeId: string }
-  searchParams: { bookingId?: string }
+  searchParams: { bookingId?: string; from?: string; to?: string }
 }) {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
@@ -51,6 +51,8 @@ export default async function SendCarPage({
       staffId={staffId}
       promotions={promotions ?? []}
       prefillBooking={booking}
+      prefillFrom={searchParams.from}
+      prefillTo={searchParams.to}
     />
   )
 }

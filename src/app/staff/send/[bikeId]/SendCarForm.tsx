@@ -148,6 +148,8 @@ type Props = {
   staffId: string
   promotions: unknown[] // kept for future use, not rendered in this form
   prefillBooking?: PrefillBooking
+  prefillFrom?: string  // datetime-local Bangkok format e.g. "2026-07-01T10:00"
+  prefillTo?: string
 }
 
 type PhotoState = {
@@ -178,7 +180,7 @@ function nowTime() {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function SendCarForm({ bike, staffId, prefillBooking }: Props) {
+export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom, prefillTo }: Props) {
   useEffect(() => {
     addTab({ type: 'sendcar', title: `ส่งรถ ${bike.license_plate}`, href: `/staff/send/${bike.id}` })
   }, [bike.id, bike.license_plate])
@@ -189,17 +191,20 @@ export default function SendCarForm({ bike, staffId, prefillBooking }: Props) {
   const [customerHotel, setCustomerHotel] = useState(prefillBooking?.customer_hotel ?? '')
 
   // ── Dates ─────────────────────────────────────────────────────────────────
-  const [startDate, setStartDate] = useState(() =>
-    prefillBooking?.start_datetime
-      ? prefillBooking.start_datetime.split('T')[0]
-      : todayLocal()
-  )
-  const [endDate, setEndDate] = useState(() =>
-    prefillBooking?.end_datetime
-      ? prefillBooking.end_datetime.split('T')[0]
-      : dateIn(3)
-  )
-  const [startTime, setStartTime] = useState(nowTime)
+  const [startDate, setStartDate] = useState(() => {
+    if (prefillBooking?.start_datetime) return prefillBooking.start_datetime.split('T')[0]
+    if (prefillFrom) return prefillFrom.split('T')[0]
+    return todayLocal()
+  })
+  const [endDate, setEndDate] = useState(() => {
+    if (prefillBooking?.end_datetime) return prefillBooking.end_datetime.split('T')[0]
+    if (prefillTo) return prefillTo.split('T')[0]
+    return dateIn(1)
+  })
+  const [startTime, setStartTime] = useState(() => {
+    if (prefillFrom?.includes('T')) return prefillFrom.split('T')[1].slice(0, 5)
+    return nowTime()
+  })
 
   // ── Promo ─────────────────────────────────────────────────────────────────
   const [studentPromo, setStudentPromo] = useState(false)
