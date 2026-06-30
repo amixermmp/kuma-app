@@ -105,12 +105,19 @@ export async function POST(request: NextRequest) {
     updated_at: new Date().toISOString(),
   }).eq('id', bikeId)
 
-  // Record first payment
+  // Record first payment with correct due date
   if (paymentMethod) {
-    // first month payment note — stored as JSON in notes
+    const start = new Date(startDate)
+    const offset = paymentDay < start.getDate() ? 1 : 0
+    const firstDue = new Date(start)
+    firstDue.setMonth(firstDue.getMonth() + offset)
+    const daysInMonth = new Date(firstDue.getFullYear(), firstDue.getMonth() + 1, 0).getDate()
+    firstDue.setDate(Math.min(paymentDay, daysInMonth))
+    const firstDueDateStr = firstDue.toISOString().split('T')[0]
+
     await supabase.from('monthly_payments').insert({
       monthly_rental_id: rental.id,
-      due_date: startDate,
+      due_date: firstDueDateStr,
       paid_date: startDate,
       amount: monthlyRate,
       payment_method: paymentMethod,

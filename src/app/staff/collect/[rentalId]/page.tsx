@@ -8,8 +8,10 @@ export const dynamic = 'force-dynamic'
 const MONTH_NAMES = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
 function getDueDate(startDate: Date, periodIndex: number, paymentDay: number): Date {
+  // If payment_day < start day-of-month, first due date is in the next month
+  const offset = paymentDay < startDate.getDate() ? 1 : 0
   const d = new Date(startDate)
-  d.setMonth(d.getMonth() + periodIndex)
+  d.setMonth(d.getMonth() + periodIndex + offset)
   const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
   d.setDate(Math.min(paymentDay, daysInMonth))
   return d
