@@ -40,9 +40,10 @@ export async function POST(request: NextRequest) {
   const BRANCH_ID = await getStaffOwnBranchId(staffId)
   const supabase = createAdminClient()
 
+  const bufferStart = new Date(new Date(startDatetime).getTime() - 3 * 3_600_000).toISOString()
+
   // If specific bike: check for conflicts
   if (bikeId) {
-    const bufferStart = new Date(new Date(startDatetime).getTime() - 3 * 3_600_000).toISOString()
     const [{ data: rentalConflict }, { data: bookingConflict }] = await Promise.all([
       supabase.from('rentals')
         .select('id')
@@ -61,6 +62,49 @@ export async function POST(request: NextRequest) {
     ])
     if (rentalConflict || bookingConflict) {
       return NextResponse.json({ error: 'รถถูกเช่าหรือจองในช่วงเวลานี้แล้ว' }, { status: 409 })
+    }
+  }
+
+  // If model-based: verify there is at least one available bike of that model
+  if (!bikeId && requestedBrand && requestedModel) {
+    const [{ data: candidateBikes }, { data: rentalConflicts }, { data: bookingConflicts }, { data: monthlyConflicts }] = await Promise.all([
+      supabase.from('bikes')
+        .select('id, brand, model')
+        .eq('branch_id', BRANCH_ID)
+        .eq('brand', requestedBrand)
+        .eq('model', requestedModel)
+        .neq('status', 'repair'),
+      supabase.from('rentals')
+        .select('bike_id')
+        .in('status', ['active', 'extended'])
+        .lt('start_datetime', endDatetime)
+        .gt('expected_end_datetime', bufferStart),
+      supabase.from('bookings')
+        .select('bike_id, requested_brand, requested_model')
+        .eq('status', 'confirmed')
+        .lt('start_datetime', endDatetime)
+        .gt('end_datetime', bufferStart),
+      supabase.from('monthly_rentals')
+        .select('bike_id')
+        .eq('status', 'active'),
+    ])
+
+    const busyIds = new Set([
+      ...(rentalConflicts ?? []).map(r => r.bike_id),
+      ...(monthlyConflicts ?? []).map(m => m.bike_id),
+      ...(bookingConflicts ?? []).filter(b => b.bike_id).map(b => b.bike_id),
+    ])
+
+    // Count model-based bookings that consume available slots
+    const modelBookingCount = (bookingConflicts ?? [])
+      .filter(b => !b.bike_id && b.requested_brand === requestedBrand && b.requested_model === requestedModel)
+      .length
+
+    const freeBikes = (candidateBikes ?? []).filter(b => !busyIds.has(b.id))
+    const actualAvailable = freeBikes.length - modelBookingCount
+
+    if (actualAvailable <= 0) {
+      return NextResponse.json({ error: `ไม่มี ${requestedBrand} ${requestedModel} ว่างในช่วงเวลานี้ กรุณาเลือกรถรุ่นอื่น` }, { status: 409 })
     }
   }
 
