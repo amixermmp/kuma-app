@@ -14,7 +14,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 const STATUS_COLOR: Record<string, string> = {
   available: '#16a34a',
-  rented: '#2563eb',
+  rented: '#374151',
   locked: '#dc2626',
   repair: '#dc2626',
   maintenance: '#dc2626',
@@ -130,7 +130,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
           href={isAvailable ? `/staff/send/${bike.id}` : '#'}
           style={{
             display: 'flex', alignItems: 'center', gap: '16px',
-            background: isAvailable ? '#1d4ed8' : '#e2e8f0',
+            background: isAvailable ? '#111827' : '#e2e8f0',
             borderRadius: '14px', padding: '18px 20px',
             textDecoration: 'none', opacity: isAvailable ? 1 : 0.5,
             pointerEvents: isAvailable ? 'auto' : 'none',
@@ -141,7 +141,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
             <div style={{ fontWeight: 700, fontSize: '16px', color: isAvailable ? '#fff' : '#64748b' }}>
               ส่งรถให้ลูกค้า
             </div>
-            <div style={{ fontSize: '12px', color: isAvailable ? '#bfdbfe' : '#94a3b8', marginTop: '2px' }}>
+            <div style={{ fontSize: '12px', color: isAvailable ? '#e5e7eb' : '#94a3b8', marginTop: '2px' }}>
               บันทึกการเช่าใหม่ — ลูกค้ารับรถ
             </div>
           </div>
@@ -174,14 +174,14 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
           href={`/staff/search`}
           style={{
             display: 'flex', alignItems: 'center', gap: '16px',
-            background: '#fff', border: '2px solid #0891b2',
+            background: '#fff', border: '2px solid #111827',
             borderRadius: '14px', padding: '18px 20px',
             textDecoration: 'none',
           }}
         >
           <span style={{ fontSize: '36px' }}>🔍</span>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '16px', color: '#0e7490' }}>
+            <div style={{ fontWeight: 700, fontSize: '16px', color: '#111827' }}>
               ค้นหา & ลงคิวจอง
             </div>
             <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
@@ -278,13 +278,13 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
           <Link
             href={`/staff/docs?bikeId=${bike.id}`}
             style={{
-              background: '#eff6ff', border: '2px solid #bfdbfe',
+              background: '#f1f5f9', border: '2px solid #e5e7eb',
               borderRadius: '14px', padding: '16px',
               textDecoration: 'none',
             }}
           >
             <div style={{ fontSize: '28px', marginBottom: '6px' }}>📄</div>
-            <div style={{ fontWeight: 700, fontSize: '14px', color: '#1d4ed8' }}>งานเอกสาร</div>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>งานเอกสาร</div>
             <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>ภาษี, พรบ, ใบขับขี่</div>
           </Link>
 

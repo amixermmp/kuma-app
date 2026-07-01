@@ -125,7 +125,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
       <div className="section-pad">
 
         {/* Rental summary */}
-        <div className="card" style={{ borderTop: '3px solid #2563eb' }}>
+        <div className="card" style={{ borderTop: '3px solid #111827' }}>
           <div className="card-title">สรุปการเช่า</div>
           <div className="info-row">
             <span className="info-key">ผู้เช่า</span>
@@ -154,7 +154,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           </div>
           <div className="info-row">
             <span className="info-key">ค่าเช่าที่คิด</span>
-            <span className="info-val" style={{ color: '#2563eb' }}>
+            <span className="info-val" style={{ color: '#111827' }}>
               ฿{baseRent.toLocaleString()}
               {extraDays > 0 && (
                 <span style={{ fontSize: '11px', color: '#dc2626', marginLeft: '6px' }}>

@@ -191,7 +191,7 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
     <div className="app-wrap">
 
       {/* Header */}
-      <div className="app-header" style={{ background: '#0891b2' }}>
+      <div className="app-header" style={{ background: '#111827' }}>
         <Link href="/staff/search" className="app-header-back">←</Link>
         <div>
           <h1>จองคิว</h1>
@@ -203,7 +203,7 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
 
         {/* Bike summary */}
         <div style={{
-          background: 'linear-gradient(135deg,#0891b2,#0e7490)',
+          background: 'linear-gradient(135deg,#111827,#1e293b)',
           borderRadius: '14px', padding: '14px 16px', margin: '0 0 12px',
           color: '#fff', display: 'flex', alignItems: 'center', gap: '14px',
         }}>
@@ -257,9 +257,9 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => setStudentPromo(false)} style={{
               flex: 1, padding: '10px', borderRadius: '10px',
-              border: `2px solid ${!studentPromo ? '#0891b2' : '#e5e7eb'}`,
+              border: `2px solid ${!studentPromo ? '#111827' : '#e5e7eb'}`,
               background: !studentPromo ? '#ecfeff' : '#fff',
-              color: !studentPromo ? '#0891b2' : '#6b7280',
+              color: !studentPromo ? '#111827' : '#6b7280',
               fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
             }}>ราคาปกติ</button>
             <button onClick={() => setStudentPromo(true)} style={{
@@ -271,7 +271,7 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
             }}>🎓 ราคานักศึกษา</button>
           </div>
           {studentPromo && (
-            <div style={{ marginTop: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#1d4ed8' }}>
+            <div style={{ marginTop: '10px', background: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#374151' }}>
               ลด ฿50/วัน จากราคารายวันปกติ — ไม่รวมค่าเช่ารายเดือน
             </div>
           )}
@@ -280,7 +280,7 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
         {/* Price breakdown box */}
         {totalDays > 0 && (
           <div style={{
-            background: 'linear-gradient(135deg,#0891b2,#0e7490)',
+            background: 'linear-gradient(135deg,#111827,#1e293b)',
             borderRadius: '16px', padding: '18px 16px', marginBottom: '12px', color: '#fff',
           }}>
             <div style={{ fontSize: '12px', opacity: .8, marginBottom: '4px' }}>{totalDays} วัน</div>
@@ -375,9 +375,9 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
               <button key={s.key} onClick={() => setSource(s.key)} style={{
                 padding: '8px 16px', borderRadius: '20px', border: '1.5px solid',
                 fontSize: '13px', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
-                background: source === s.key ? '#0891b2' : '#fff',
+                background: source === s.key ? '#111827' : '#fff',
                 color: source === s.key ? '#fff' : '#6b7280',
-                borderColor: source === s.key ? '#0891b2' : '#e5e7eb',
+                borderColor: source === s.key ? '#111827' : '#e5e7eb',
               }}>
                 {s.label}
               </button>
@@ -396,7 +396,7 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
         </div>
 
         <div style={{
-          background: '#f0fdfa', border: '1px solid #99f6e4',
+          background: '#f9fafb', border: '1px solid #99f6e4',
           borderRadius: '10px', padding: '12px 14px', marginBottom: '12px',
           fontSize: '13px', color: '#0f766e',
         }}>
@@ -418,7 +418,7 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
           disabled={loading}
           style={{
             width: '100%', padding: '16px', border: 'none', borderRadius: '12px',
-            background: '#0891b2', color: '#fff',
+            background: '#111827', color: '#fff',
             fontSize: '16px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
             opacity: loading ? 0.7 : 1, marginBottom: '24px',
           }}

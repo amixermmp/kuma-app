@@ -61,7 +61,7 @@ export default async function StaffBikesPage() {
   return (
     <div className="app-wrap">
 
-      <div className="app-header" style={{ background: '#1e40af' }}>
+      <div className="app-header">
         <Link href="/staff/home" className="app-header-back">←</Link>
         <div>
           <h1>รายการรถ</h1>
@@ -76,7 +76,7 @@ export default async function StaffBikesPage() {
         borderBottom: '1px solid #e5e7eb',
       }}>
         {[
-          { label: 'ทั้งหมด', count: (bikes ?? []).length, bg: '#eff6ff', color: '#1d4ed8' },
+          { label: 'ทั้งหมด', count: (bikes ?? []).length, bg: '#f1f5f9', color: '#111827' },
           { label: 'ว่าง',    count: available.length,     bg: '#f0fdf4', color: '#16a34a' },
           { label: 'ติดจอง',  count: booked.length,        bg: '#faf5ff', color: '#7c3aed' },
           { label: 'เช่าอยู่', count: rented.length,       bg: '#fef2f2', color: '#dc2626' },

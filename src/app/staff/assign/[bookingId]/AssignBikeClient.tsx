@@ -68,7 +68,7 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
   return (
     <div className="app-wrap">
 
-      <div className="app-header" style={{ background: '#0891b2' }}>
+      <div className="app-header">
         <Link href="/staff/jobs" className="app-header-back">←</Link>
         <div>
           <h1>เลือกรถส่งลูกค้า</h1>
@@ -80,7 +80,7 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
 
         {/* Booking summary */}
         <div style={{
-          background: 'linear-gradient(135deg,#0891b2,#0e7490)',
+          background: '#111827',
           borderRadius: '14px', padding: '14px 16px', marginBottom: '12px', color: '#fff',
         }}>
           <div style={{ fontSize: '13px', opacity: 0.8, marginBottom: '2px' }}>
@@ -126,8 +126,8 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
                   key={bike.id}
                   onClick={() => setSelectedId(bike.id)}
                   style={{
-                    background: selected ? '#f0f9ff' : '#fff',
-                    border: `2px solid ${selected ? '#0891b2' : '#e5e7eb'}`,
+                    background: selected ? '#fff1f2' : '#fff',
+                    border: `2px solid ${selected ? '#e11d48' : '#e5e7eb'}`,
                     borderRadius: '12px', marginBottom: '8px', padding: '12px 14px',
                     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px',
                     transition: 'all .15s',
@@ -135,8 +135,8 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
                 >
                   <div style={{
                     width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
-                    border: `2px solid ${selected ? '#0891b2' : '#d1d5db'}`,
-                    background: selected ? '#0891b2' : '#fff',
+                    border: `2px solid ${selected ? '#e11d48' : '#d1d5db'}`,
+                    background: selected ? '#e11d48' : '#fff',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     {selected && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fff' }} />}
@@ -156,7 +156,7 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0891b2' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#e11d48' }}>
                       ฿{bike.daily_rate.toLocaleString()}
                     </div>
                     <div style={{ fontSize: '11px', color: '#9ca3af' }}>/วัน</div>
@@ -214,7 +214,7 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
           disabled={loading || !selectedId}
           style={{
             width: '100%', padding: '16px', border: 'none', borderRadius: '12px',
-            background: selectedId ? '#0891b2' : '#e5e7eb',
+            background: selectedId ? '#e11d48' : '#e5e7eb',
             color: selectedId ? '#fff' : '#9ca3af',
             fontSize: '16px', fontWeight: 700, cursor: selectedId ? 'pointer' : 'default',
             fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginTop: '16px', marginBottom: '24px',

@@ -112,7 +112,7 @@ export default function AddBikeForm({ staffId }: { staffId: string }) {
 
   return (
     <div className="app-wrap">
-      <div className="app-header" style={{ background: '#1d4ed8' }}>
+      <div className="app-header">
         <Link href="/staff/home" className="app-header-back">←</Link>
         <div>
           <h1>เพิ่มรถ</h1>

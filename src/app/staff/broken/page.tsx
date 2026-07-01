@@ -12,7 +12,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 const STATUS_COLOR: Record<string, string> = {
   available: '#16a34a',
-  rented: '#2563eb',
+  rented: '#374151',
   repair: '#dc2626',
 }
 

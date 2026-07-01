@@ -29,7 +29,7 @@ export default async function QRPage({ params }: { params: { bikeId: string } })
 
   return (
     <div className="app-wrap">
-      <div className="app-header" style={{ background: '#1d4ed8' }}>
+      <div className="app-header" style={{ background: '#111827' }}>
         <Link href="/staff/home" className="app-header-back">←</Link>
         <div>
           <h1>QR Code รถ</h1>
@@ -66,7 +66,7 @@ export default async function QRPage({ params }: { params: { bikeId: string } })
         </div>
 
         <a href={publicUrl} target="_blank" rel="noopener noreferrer"
-          style={{ fontSize: '12px', color: '#2563eb', wordBreak: 'break-all', display: 'block', margin: '0 0 20px' }}>
+          style={{ fontSize: '12px', color: '#374151', wordBreak: 'break-all', display: 'block', margin: '0 0 20px' }}>
           {publicUrl}
         </a>
 

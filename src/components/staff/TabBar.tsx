@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { getTabs, removeTab, listenTabs, StaffTab } from '@/lib/tabStore'
 
 const TYPE_STYLE: Record<string, { bg: string; color: string; activeBg: string }> = {
-  sendcar:  { bg: '#eff6ff', color: '#1d4ed8', activeBg: '#1d4ed8' },
+  sendcar:  { bg: '#f1f5f9', color: '#111827', activeBg: '#111827' },
   returncar:{ bg: '#fef2f2', color: '#dc2626', activeBg: '#dc2626' },
   rental:   { bg: '#f0fdf4', color: '#16a34a', activeBg: '#16a34a' },
   booking:  { bg: '#faf5ff', color: '#7c3aed', activeBg: '#7c3aed' },
@@ -41,8 +41,8 @@ export default function TabBar() {
         onClick={() => router.push('/staff/home')}
         style={{
           flexShrink: 0,
-          background: isHome ? '#1e40af' : '#eff6ff',
-          color: isHome ? '#fff' : '#1d4ed8',
+          background: isHome ? '#111827' : '#f1f5f9',
+          color: isHome ? '#fff' : '#374151',
           border: 'none',
           borderRadius: '20px',
           padding: '4px 12px',

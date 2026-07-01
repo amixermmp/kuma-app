@@ -46,7 +46,7 @@ export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove }: 
       <div className="upload-box" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <div style={{
           width: '20px', height: '20px', flexShrink: 0,
-          border: '2px solid #e5e7eb', borderTopColor: '#2563eb',
+          border: '2px solid #e5e7eb', borderTopColor: '#e11d48',
           borderRadius: '50%', animation: 'spin 0.7s linear infinite',
         }} />
         <span style={{ fontSize: '13px', color: '#6b7280' }}>บีบอัดและอัพโหลด…</span>

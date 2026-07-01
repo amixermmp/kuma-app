@@ -29,7 +29,7 @@ function urgencyPalette(days: number) {
   if (days <= 3)  return { dot: '#dc2626', bg: '#fef2f2', color: '#dc2626' }
   if (days <= 7)  return { dot: '#ea580c', bg: '#fff7ed', color: '#ea580c' }
   if (days <= 14) return { dot: '#d97706', bg: '#fffbeb', color: '#d97706' }
-  return           { dot: '#2563eb', bg: '#eff6ff', color: '#2563eb' }
+  return           { dot: '#374151', bg: '#f1f5f9', color: '#374151' }
 }
 
 const DOC_LABEL: Record<string, string> = { tax: 'ภาษีรถ', pob: 'พ.ร.บ.', insurance: 'ประกันภัย' }
@@ -103,7 +103,7 @@ function JobCard({
             )}
             <Link href={href} style={{
               fontSize: '12px', fontWeight: 700, padding: '6px 14px', borderRadius: '8px',
-              background: btnColor ?? '#1d4ed8', color: '#fff', textDecoration: 'none',
+              background: btnColor ?? '#111827', color: '#fff', textDecoration: 'none',
             }}>
               {btnLabel ?? 'เปิด →'}
             </Link>
@@ -177,14 +177,14 @@ export default function JobsClient({
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
   const tabs: { key: Tab; label: string; count: number; bg: string; color: string }[] = [
-    { key: 'all',      label: 'ทั้งหมด',       count: total,              bg: '#eef2ff', color: '#4f46e5' },
+    { key: 'all',      label: 'ทั้งหมด',       count: total,              bg: '#f1f5f9', color: '#111827' },
     { key: 'contact',  label: 'ติดต่อลูกค้า',  count: counts.contact,     bg: '#fff7ed', color: '#ea580c' },
-    { key: 'sendcar',  label: 'ส่งรถ',          count: counts.sendcar,     bg: '#f0fdfa', color: '#0891b2' },
+    { key: 'sendcar',  label: 'ส่งรถ',          count: counts.sendcar,     bg: '#f1f5f9', color: '#111827' },
     { key: 'returncar',label: 'รับคืน',         count: counts.returncar,   bg: '#fef2f2', color: '#dc2626' },
     { key: 'active',   label: 'เช่าอยู่',       count: counts.active,      bg: '#f0fdf4', color: '#16a34a' },
     { key: 'broken',   label: 'รถเสีย',         count: counts.broken,      bg: '#fef2f2', color: '#dc2626' },
     { key: 'routine',  label: 'รูทีน',          count: counts.routine,     bg: '#fffbeb', color: '#d97706' },
-    { key: 'docs',     label: 'เอกสาร',         count: counts.docs,        bg: '#eff6ff', color: '#2563eb' },
+    { key: 'docs',     label: 'เอกสาร',         count: counts.docs,        bg: '#f1f5f9', color: '#374151' },
     { key: 'monthly',  label: 'รายเดือน',       count: counts.monthly,     bg: '#faf5ff', color: '#7c3aed' },
   ]
 
@@ -194,7 +194,7 @@ export default function JobsClient({
     <div className="app-wrap">
 
       {/* Header */}
-      <div style={{ background: '#4f46e5', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ background: '#111827', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         <Link href="/staff/home" className="app-header-back">←</Link>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '17px', fontWeight: 700, color: '#fff' }}>📌 Job Tasks</div>
@@ -330,9 +330,9 @@ export default function JobsClient({
               const badge = isLate
                 ? (absHrs >= 24 ? `⚠️ ลูกค้าไม่มา ${Math.floor(absHrs / 24)} วัน` : `⚠️ เลยเวลา ${absHrs} ชม.`)
                 : hrs === 0 ? '🔔 ถึงเวลาแล้ว!' : `⏰ อีก ${hrs} ชม.`
-              const dotColor = isLate ? (absHrs >= 3 ? '#dc2626' : '#d97706') : '#0891b2'
-              const badgeBg = isLate ? '#fef2f2' : '#f0fdfa'
-              const badgeColor = isLate ? '#dc2626' : '#0891b2'
+              const dotColor = isLate ? (absHrs >= 3 ? '#dc2626' : '#d97706') : '#111827'
+              const badgeBg = isLate ? '#fef2f2' : '#f1f5f9'
+              const badgeColor = isLate ? '#dc2626' : '#111827'
               return (
                 <JobCard
                   key={b.id}
@@ -342,10 +342,10 @@ export default function JobsClient({
                   badgeBg={badgeBg} badgeColor={badgeColor}
                   meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
                   meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
-                  statusLabel={isLate ? '⚠️ ลูกค้าไม่มา' : bike ? '🔵 รอส่งรถ' : '🟡 ยังไม่ได้เลือกรถ'}
-                  statusBg={isLate ? '#fef2f2' : bike ? '#f0fdfa' : '#fffbeb'}
-                  statusColor={isLate ? '#dc2626' : bike ? '#0891b2' : '#d97706'}
-                  href={`/staff/assign/${b.id}`} btnColor="#0891b2"
+                  statusLabel={isLate ? '⚠️ ลูกค้าไม่มา' : bike ? '⬛ รอส่งรถ' : '🟡 ยังไม่ได้เลือกรถ'}
+                  statusBg={isLate ? '#fef2f2' : bike ? '#f1f5f9' : '#fffbeb'}
+                  statusColor={isLate ? '#dc2626' : bike ? '#111827' : '#d97706'}
+                  href={`/staff/assign/${b.id}`} btnColor="#111827"
                   onCancel={() => handleCancel(b.id)}
                   cancelDisabled={cancelling === b.id}
                 />

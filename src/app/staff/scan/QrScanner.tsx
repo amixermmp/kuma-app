@@ -144,7 +144,7 @@ export default function QrScanner() {
             />
             <button
               className="btn"
-              style={{ background: '#1e40af', color: '#fff', padding: '0 16px', flexShrink: 0 }}
+              style={{ background: '#e11d48', color: '#fff', padding: '0 16px', flexShrink: 0 }}
               onClick={e => {
                 const input = (e.currentTarget.previousElementSibling as HTMLInputElement)
                 const val = input?.value.trim()

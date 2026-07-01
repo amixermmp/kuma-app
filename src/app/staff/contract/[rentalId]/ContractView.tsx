@@ -40,7 +40,7 @@ export default function ContractView({ rental, shop }: { rental: any; shop: any 
 
       {/* Top bar */}
       <div className="no-print" style={{
-        background: '#4f46e5', padding: '12px 16px',
+        background: '#111827', padding: '12px 16px',
         display: 'flex', alignItems: 'center', gap: '10px',
       }}>
         <Link href="/staff/jobs" style={{
@@ -69,7 +69,7 @@ export default function ContractView({ rental, shop }: { rental: any; shop: any 
         <button
           onClick={() => window.print()}
           style={{
-            background: '#fff', color: '#4f46e5', border: 'none', borderRadius: '8px',
+            background: '#fff', color: '#111827', border: 'none', borderRadius: '8px',
             padding: '8px 16px', fontWeight: 700, fontSize: '13px', cursor: 'pointer',
           }}
         >

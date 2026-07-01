@@ -12,9 +12,9 @@ interface AppLayoutProps {
 }
 
 const headerGradients = {
-  blue:   'linear-gradient(135deg, #1d4ed8, #2563eb)',
+  blue:   '#111827',
   purple: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
-  dark:   'linear-gradient(160deg, #0f172a, #1e3a8a)',
+  dark:   '#111827',
   plain:  '#fff',
 }
 

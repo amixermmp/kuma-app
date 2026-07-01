@@ -102,7 +102,7 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
 
   const headerBg = isOverdue
     ? 'linear-gradient(135deg,#dc2626,#b91c1c)'
-    : 'linear-gradient(135deg,#7c3aed,#4f46e5)'
+    : '#111827'
 
   const monthsRented = periods.filter(p => p.fullyPaid).length
 

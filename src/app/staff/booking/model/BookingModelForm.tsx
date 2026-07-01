@@ -106,7 +106,7 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
   return (
     <div className="app-wrap">
 
-      <div className="app-header" style={{ background: '#0891b2' }}>
+      <div className="app-header" style={{ background: '#111827' }}>
         <Link href="/staff/search" className="app-header-back">←</Link>
         <div>
           <h1>จองคิว</h1>
@@ -118,7 +118,7 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
 
         {/* Bike model card */}
         <div style={{
-          background: 'linear-gradient(135deg,#0891b2,#0e7490)',
+          background: 'linear-gradient(135deg,#111827,#1e293b)',
           borderRadius: '14px', padding: '14px 16px', marginBottom: '12px',
           color: '#fff', display: 'flex', alignItems: 'center', gap: '14px',
         }}>
@@ -142,8 +142,8 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
 
         {/* Note about bike assignment */}
         <div style={{
-          background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px',
-          padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#1d4ed8',
+          background: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '10px',
+          padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#374151',
         }}>
           📋 รถคันที่ใช้จริงจะถูกกำหนดโดย Staff ก่อนส่งรถ
         </div>
@@ -179,9 +179,9 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
               <button key={s.key} onClick={() => setSource(s.key)} style={{
                 padding: '8px 16px', borderRadius: '20px', border: '1.5px solid',
                 fontSize: '13px', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
-                background: source === s.key ? '#0891b2' : '#fff',
+                background: source === s.key ? '#111827' : '#fff',
                 color: source === s.key ? '#fff' : '#6b7280',
-                borderColor: source === s.key ? '#0891b2' : '#e5e7eb',
+                borderColor: source === s.key ? '#111827' : '#e5e7eb',
               }}>
                 {s.label}
               </button>
@@ -213,7 +213,7 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
           disabled={loading}
           style={{
             width: '100%', padding: '16px', border: 'none', borderRadius: '12px',
-            background: '#0891b2', color: '#fff', fontSize: '16px', fontWeight: 700,
+            background: '#111827', color: '#fff', fontSize: '16px', fontWeight: 700,
             cursor: 'pointer', fontFamily: 'inherit',
             opacity: loading ? 0.7 : 1, marginBottom: '24px',
           }}

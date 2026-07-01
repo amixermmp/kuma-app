@@ -152,7 +152,7 @@ export default function StaffLoginPage() {
         className="app-wrap"
         style={{
           minHeight: '100vh',
-          background: 'linear-gradient(160deg, #0f172a 0%, #1e3a8a 55%, #2563eb 100%)',
+          background: '#111827',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',

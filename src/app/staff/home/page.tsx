@@ -95,7 +95,7 @@ export default async function StaffHomePage() {
 
       {/* Header */}
       <div style={{
-        background: '#1e40af',
+        background: '#111827',
         padding: '16px',
         display: 'flex',
         alignItems: 'center',
@@ -116,7 +116,7 @@ export default async function StaffHomePage() {
         {/* QR Scan */}
         <Link href="/staff/scan" style={{
           display: 'block',
-          background: 'linear-gradient(135deg,#1e40af,#1d4ed8)',
+          background: '#e11d48',
           borderRadius: '16px',
           padding: '24px',
           textAlign: 'center',
@@ -134,10 +134,10 @@ export default async function StaffHomePage() {
           <div style={{
             borderRadius: '16px', overflow: 'hidden',
             boxShadow: '0 2px 8px rgba(0,0,0,.08)',
-            border: totalJobs > 0 ? '1.5px solid #e0e7ff' : '1.5px solid #e5e7eb',
+            border: totalJobs > 0 ? '1.5px solid #e5e7eb' : '1.5px solid #e5e7eb',
           }}>
             <div style={{
-              background: totalJobs > 0 ? 'linear-gradient(135deg,#4f46e5,#6366f1)' : '#f9fafb',
+              background: totalJobs > 0 ? '#111827' : '#f9fafb',
               padding: '16px 18px',
               display: 'flex', alignItems: 'center', gap: '14px',
             }}>
@@ -171,11 +171,11 @@ export default async function StaffHomePage() {
                 background: '#fff', padding: '10px 18px',
                 display: 'flex', gap: '8px', flexWrap: 'wrap',
               }}>
-                {(sendCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#0891b2', fontWeight: 600 }}>🛵➡️ ส่งรถ {sendCount}</span>}
+                {(sendCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#111827', fontWeight: 600 }}>🛵➡️ ส่งรถ {sendCount}</span>}
                 {((overdueCount ?? 0) + (dueSoonCount ?? 0)) > 0 && <span style={{ fontSize: '12px', color: '#dc2626', fontWeight: 600 }}>⬅️ รับคืน {(overdueCount ?? 0) + (dueSoonCount ?? 0)}</span>}
                 {(repairCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#d97706', fontWeight: 600 }}>🔧 ซ่อม {repairCount}</span>}
                 {(monthlyCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 600 }}>💰 รายเดือน {monthlyCount}</span>}
-                {(docsCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#2563eb', fontWeight: 600 }}>📋 เอกสาร {docsCount}</span>}
+                {(docsCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#374151', fontWeight: 600 }}>📋 เอกสาร {docsCount}</span>}
                 {routineCount > 0 && <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 600 }}>🛢️ รูทีน {routineCount}</span>}
               </div>
             )}

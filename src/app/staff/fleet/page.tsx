@@ -39,7 +39,7 @@ export default async function StaffFleetPage() {
 
   return (
     <div className="app-wrap">
-      <div className="app-header" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a8a)' }}>
+      <div className="app-header">
         <Link href="/staff/home" className="app-header-back">←</Link>
         <div style={{ flex: 1 }}>
           <h1>รวมรถ</h1>

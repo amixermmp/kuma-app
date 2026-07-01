@@ -92,7 +92,7 @@ export default function SearchPage() {
     <div className="app-wrap">
 
       {/* Header */}
-      <div className="app-header" style={{ background: '#0891b2' }}>
+      <div className="app-header">
         <Link href="/staff/home" className="app-header-back">←</Link>
         <div>
           <h1>จองรถ</h1>
@@ -120,7 +120,7 @@ export default function SearchPage() {
       <div style={{ padding: '0 12px 12px' }}>
         <button
           className="btn"
-          style={{ background: '#0891b2', color: '#fff', width: '100%', opacity: loading ? 0.7 : 1 }}
+          style={{ background: '#e11d48', color: '#fff', width: '100%', opacity: loading ? 0.7 : 1 }}
           onClick={handleSearch}
           disabled={loading || !from || !to}
         >
@@ -134,7 +134,7 @@ export default function SearchPage() {
           <div className="divider" />
           <div style={{ padding: '12px 12px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: '13px', fontWeight: 700, color: '#4b5563' }}>
-              ผลการค้นหา — <span style={{ color: '#0891b2' }}>{days} วัน</span>
+              ผลการค้นหา — <span style={{ color: '#e11d48' }}>{days} วัน</span>
             </div>
             <div style={{ fontSize: '12px', color: '#6b7280' }}>
               ว่าง {availableGroups.length} รุ่น
@@ -157,16 +157,16 @@ export default function SearchPage() {
               <div key={group.key} style={{
                 background: '#fff', borderRadius: '14px', marginBottom: '10px',
                 boxShadow: '0 1px 4px rgba(0,0,0,.08)', overflow: 'hidden',
-                border: '1px solid #e0f2fe',
+                border: '1px solid #e5e7eb',
               }}>
                 <div style={{ padding: '14px 14px 10px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                   <div style={{
                     width: '52px', height: '52px', borderRadius: '12px',
-                    background: '#f0f9ff', display: 'flex', alignItems: 'center',
+                    background: '#f1f5f9', display: 'flex', alignItems: 'center',
                     justifyContent: 'center', fontSize: '28px', flexShrink: 0,
                   }}>🛵</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: '16px', color: '#0c4a6e' }}>
+                    <div style={{ fontWeight: 800, fontSize: '16px', color: '#111827' }}>
                       {group.brand} {group.model}
                     </div>
                     <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
@@ -190,11 +190,11 @@ export default function SearchPage() {
                 </div>
 
                 <div style={{
-                  borderTop: '1px solid #f0f9ff', padding: '10px 14px',
+                  borderTop: '1px solid #e5e7eb', padding: '10px 14px',
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 }}>
                   <div>
-                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#0891b2' }}>
+                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>
                       ฿{(group.daily_rate * days).toLocaleString()}
                     </div>
                     <div style={{ fontSize: '11px', color: '#6b7280' }}>
@@ -214,7 +214,7 @@ export default function SearchPage() {
                     <Link
                       href={`/staff/booking/model?brand=${encodeURIComponent(group.brand)}&model=${encodeURIComponent(group.model)}&rate=${group.daily_rate}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
                       style={{
-                        background: '#0891b2', color: '#fff', textDecoration: 'none',
+                        background: '#e11d48', color: '#fff', textDecoration: 'none',
                         padding: '10px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: 700,
                       }}
                     >

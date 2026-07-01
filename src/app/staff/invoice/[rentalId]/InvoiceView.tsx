@@ -84,7 +84,7 @@ export default function InvoiceView({ rental, shop, type }: Props) {
       <div className="app-wrap">
 
         {/* Header — hidden on print */}
-        <div className="app-header no-print" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a8a)' }}>
+        <div className="app-header no-print">
           <Link href="/staff/home" className="app-header-back">←</Link>
           <div style={{ flex: 1 }}>
             <h1>ใบกำกับภาษี</h1>
@@ -108,7 +108,7 @@ export default function InvoiceView({ rental, shop, type }: Props) {
 
             {/* Shop header */}
             <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '16px', borderBottom: '2px solid #e5e7eb' }}>
-              <div style={{ fontSize: '20px', fontWeight: 800, color: '#1e3a8a' }}>{shopName}</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#111827' }}>{shopName}</div>
               {shop.address && (
                 <div style={{ color: '#6b7280', fontSize: '12px' }}>{shop.address}</div>
               )}
@@ -119,7 +119,7 @@ export default function InvoiceView({ rental, shop, type }: Props) {
                 <div style={{
                   background: '#f0f4ff', borderRadius: '6px', padding: '4px 12px',
                   display: 'inline-block', marginTop: '6px', fontSize: '12px',
-                  color: '#1e3a8a', fontWeight: 600,
+                  color: '#111827', fontWeight: 600,
                 }}>
                   เลขประจำตัวผู้เสียภาษี: {shop.tax_id}
                 </div>
@@ -211,7 +211,7 @@ export default function InvoiceView({ rental, shop, type }: Props) {
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 800, borderTop: '2px solid #e5e7eb', paddingTop: '8px', marginTop: '4px' }}>
                 <span>ยอดรวมทั้งสิ้น</span>
-                <span style={{ color: '#1e3a8a' }}>฿{totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                <span style={{ color: '#111827' }}>฿{totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
 
@@ -248,7 +248,7 @@ export default function InvoiceView({ rental, shop, type }: Props) {
             onClick={handlePrint}
             className="no-print"
             style={{
-              width: '100%', background: '#1e3a8a', color: '#fff', border: 'none',
+              width: '100%', background: '#111827', color: '#fff', border: 'none',
               borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
               cursor: 'pointer', marginBottom: '80px',
             }}

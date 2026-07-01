@@ -90,14 +90,14 @@ function SuccessScreen({ rentalId, type, bikeId }: { rentalId: string; type: 'da
           {type === 'daily' ? 'สัญญาเช่ารายวัน' : 'สัญญาเช่ารายเดือน'}ถูกบันทึกแล้ว
         </div>
         <Link href={`/staff/contract/${rentalId}`} style={{
-          display: 'block', width: '100%', background: '#4f46e5', color: '#fff',
+          display: 'block', width: '100%', background: '#111827', color: '#fff',
           borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
           textDecoration: 'none', marginBottom: '12px',
         }}>
           📄 ดูสัญญา / ส่งให้ลูกค้า
         </Link>
         <Link href={invoiceHref} style={{
-          display: 'block', width: '100%', background: '#1e3a8a', color: '#fff',
+          display: 'block', width: '100%', background: '#1e293b', color: '#fff',
           borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
           textDecoration: 'none', marginBottom: '12px',
         }}>
@@ -453,8 +453,8 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   }
 
   const headerBg = isMonthlyContract
-    ? 'linear-gradient(135deg,#7c3aed,#4f46e5)'
-    : 'linear-gradient(135deg,#1d4ed8,#2563eb)'
+    ? 'linear-gradient(135deg,#7c3aed,#111827)'
+    : 'linear-gradient(135deg,#111827,#374151)'
 
   const freeWeeks = Math.floor(totalDays / 7)
 
@@ -534,9 +534,9 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => setStudentPromo(false)} style={{
               flex: 1, padding: '10px', borderRadius: '10px',
-              border: `2px solid ${!studentPromo ? '#2563eb' : '#e5e7eb'}`,
-              background: !studentPromo ? '#eff6ff' : '#fff',
-              color: !studentPromo ? '#1d4ed8' : '#6b7280',
+              border: `2px solid ${!studentPromo ? '#374151' : '#e5e7eb'}`,
+              background: !studentPromo ? '#f1f5f9' : '#fff',
+              color: !studentPromo ? '#111827' : '#6b7280',
               fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
             }}>ราคาปกติ</button>
             <button onClick={() => setStudentPromo(true)} style={{
@@ -548,7 +548,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
             }}>🎓 ราคานักศึกษา</button>
           </div>
           {studentPromo && (
-            <div style={{ marginTop: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#1d4ed8' }}>
+            <div style={{ marginTop: '10px', background: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#111827' }}>
               ลด ฿50/วัน จากราคารายวันปกติ — ไม่รวมค่าเช่ารายเดือน
             </div>
           )}
@@ -558,8 +558,8 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         {totalDays > 0 && (
           <div style={{
             background: isMonthlyContract
-              ? 'linear-gradient(135deg,#7c3aed,#4f46e5)'
-              : 'linear-gradient(135deg,#1d4ed8,#4f46e5)',
+              ? 'linear-gradient(135deg,#7c3aed,#111827)'
+              : 'linear-gradient(135deg,#111827,#111827)',
             borderRadius: '16px', padding: '18px 16px', marginBottom: '12px', color: '#fff',
           }}>
             <div style={{ fontSize: '12px', opacity: .8, marginBottom: '4px' }}>
@@ -632,7 +632,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         {/* ④ Long rental: contract type choice */}
         {isLongRental && (
           <div style={{
-            background: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+            background: 'linear-gradient(135deg,#7c3aed,#111827)',
             borderRadius: '14px', padding: '16px', marginBottom: '12px', color: '#fff',
           }}>
             <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '4px' }}>
@@ -692,8 +692,8 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         {/* Monthly: auto-lock notice */}
         {isMonthlyContract && (
           <div style={{
-            background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px',
-            padding: '12px 14px', marginBottom: '12px', fontSize: '13px', color: '#1d4ed8',
+            background: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '12px',
+            padding: '12px 14px', marginBottom: '12px', fontSize: '13px', color: '#111827',
           }}>
             🔒 รถจะถูกล็อคอัตโนมัติ — ไม่ปรากฏในการค้นหาจนกว่าจะกด &quot;สิ้นสุดสัญญา&quot;
           </div>
@@ -755,9 +755,9 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
                 <button key={m} onClick={() => setPaymentMethod(m)} style={{
                   padding: '7px 18px', borderRadius: '20px', border: '1.5px solid',
                   fontSize: '13px', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
-                  background: paymentMethod === m ? '#1d4ed8' : '#fff',
+                  background: paymentMethod === m ? '#111827' : '#fff',
                   color: paymentMethod === m ? '#fff' : '#6b7280',
-                  borderColor: paymentMethod === m ? '#1d4ed8' : '#e5e7eb',
+                  borderColor: paymentMethod === m ? '#111827' : '#e5e7eb',
                 }}>
                   {m === 'cash' ? '💵 เงินสด' : '📱 สลิปโอน'}
                 </button>
@@ -869,8 +869,8 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
           style={{
             width: '100%', padding: '16px', border: 'none', borderRadius: '14px',
             background: isMonthlyContract
-              ? 'linear-gradient(135deg,#7c3aed,#4f46e5)'
-              : 'linear-gradient(135deg,#1d4ed8,#2563eb)',
+              ? 'linear-gradient(135deg,#7c3aed,#111827)'
+              : 'linear-gradient(135deg,#111827,#374151)',
             color: '#fff', fontSize: '16px', fontWeight: 800, cursor: 'pointer',
             opacity: loading ? 0.7 : 1, marginBottom: '24px', fontFamily: 'inherit',
             boxShadow: '0 4px 14px rgba(29,78,216,.3)',

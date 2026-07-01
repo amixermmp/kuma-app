@@ -39,7 +39,7 @@ export default function BottomNav() {
               gap: '2px',
               padding: '8px 4px',
               textDecoration: 'none',
-              color: active ? '#2563eb' : '#9ca3af',
+              color: active ? '#e11d48' : '#9ca3af',
             }}
           >
             <span style={{ fontSize: '22px', lineHeight: 1 }}>{item.icon}</span>
