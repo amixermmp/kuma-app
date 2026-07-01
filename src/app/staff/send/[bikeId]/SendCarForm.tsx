@@ -293,13 +293,39 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const [error,           setError]           = useState('')
   const [createdRentalId, setCreatedRentalId] = useState<string | null>(null)
   const [createdType,     setCreatedType]     = useState<'daily' | 'monthly'>('daily')
+  const [ocrLoading,      setOcrLoading]      = useState(false)
+  const [ocrDone,         setOcrDone]         = useState(false)
 
   const folder = `send/${bike.id}`
 
-  const setPhoto  = useCallback((key: keyof PhotoState) => (url: string) =>
+  const setPhoto = useCallback((key: keyof PhotoState) => (url: string) =>
     setPhotos(prev => ({ ...prev, [key]: url })), [])
   const clearPhoto = useCallback((key: keyof PhotoState) => () =>
     setPhotos(prev => ({ ...prev, [key]: '' })), [])
+
+  // OCR บัตรประชาชน — auto-fill ชื่อลูกค้า
+  const handleIdCardUpload = useCallback(async (url: string) => {
+    setPhoto('id_card')(url)
+    if (customerName) return // มีชื่อแล้ว ไม่ต้อง OCR
+    setOcrLoading(true)
+    setOcrDone(false)
+    try {
+      const res = await fetch('/api/staff/ocr-id', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: url }),
+      })
+      const data = await res.json()
+      if (data.name) {
+        setCustomerName(data.name)
+        setOcrDone(true)
+      }
+    } catch {
+      // ไม่ต้องแสดง error — staff กรอกเองได้
+    } finally {
+      setOcrLoading(false)
+    }
+  }, [customerName, setPhoto])
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const startDt = new Date(`${startDate}T${startTime}:00`)
@@ -495,9 +521,13 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
             />
           </div>
           <div className="field-row">
-            <label className="field-label">ชื่อ - นามสกุล *</label>
+            <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              ชื่อ - นามสกุล *
+              {ocrLoading && <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 400 }}>⏳ กำลังอ่านบัตร...</span>}
+              {ocrDone    && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 400 }}>✓ อ่านชื่อแล้ว</span>}
+            </label>
             <input className="field-input" type="text" placeholder="สมชาย ดีใจ"
-              value={customerName} onChange={e => setCustomerName(e.target.value)} />
+              value={customerName} onChange={e => { setCustomerName(e.target.value); setOcrDone(false) }} />
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">โรงแรม / ที่พัก</label>
@@ -705,7 +735,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
           <div className="field-row">
             <label className="field-label">📄 รูปบัตรประชาชน / พาสปอร์ต *</label>
             <PhotoUpload icon="🪪" hint="ถ่ายรูปหรืออัพโหลดบัตร" folder={folder}
-              onUpload={setPhoto('id_card')} onRemove={clearPhoto('id_card')} />
+              onUpload={handleIdCardUpload} onRemove={clearPhoto('id_card')} />
           </div>
           <div className="field-row">
             <label className="field-label">🤳 รูปคู่บัตรประชาชน *</label>
