@@ -295,6 +295,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const [createdType,     setCreatedType]     = useState<'daily' | 'monthly'>('daily')
   const [ocrLoading,      setOcrLoading]      = useState(false)
   const [ocrDone,         setOcrDone]         = useState(false)
+  const [ocrError,        setOcrError]        = useState('')
 
   const folder = `send/${bike.id}`
 
@@ -309,6 +310,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
     if (customerName) return // มีชื่อแล้ว ไม่ต้อง OCR
     setOcrLoading(true)
     setOcrDone(false)
+    setOcrError('')
     try {
       const res = await fetch('/api/staff/ocr-id', {
         method: 'POST',
@@ -319,9 +321,13 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
       if (data.name) {
         setCustomerName(data.name)
         setOcrDone(true)
+      } else if (data.error) {
+        setOcrError(`OCR: ${data.detail ?? data.error}`)
+      } else {
+        setOcrError('อ่านชื่อไม่ได้ — กรอกเองคับ')
       }
-    } catch {
-      // ไม่ต้องแสดง error — staff กรอกเองได้
+    } catch (e) {
+      setOcrError(`OCR error: ${String(e)}`)
     } finally {
       setOcrLoading(false)
     }
@@ -525,9 +531,10 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
               ชื่อ - นามสกุล *
               {ocrLoading && <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 400 }}>⏳ กำลังอ่านบัตร...</span>}
               {ocrDone    && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 400 }}>✓ อ่านชื่อแล้ว</span>}
+              {ocrError   && <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 400 }}>{ocrError}</span>}
             </label>
             <input className="field-input" type="text" placeholder="สมชาย ดีใจ"
-              value={customerName} onChange={e => { setCustomerName(e.target.value); setOcrDone(false) }} />
+              value={customerName} onChange={e => { setCustomerName(e.target.value); setOcrDone(false); setOcrError('') }} />
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">โรงแรม / ที่พัก</label>
