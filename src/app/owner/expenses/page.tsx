@@ -44,7 +44,7 @@ export default async function ExpensesPage() {
 
   return (
     <div className="app-wrap">
-      <div className="app-header" style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}>
+      <div className="app-header" style={{ background: '#111827' }}>
         <Link href="/owner/dashboard" className="app-header-back">←</Link>
         <div>
           <h1>บันทึกค่าใช้จ่าย</h1>

@@ -82,7 +82,7 @@ export default function LogsClient({ logs, from, to, total }: {
 
   return (
     <div className="app-wrap">
-      <div className="app-header" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a8a)' }}>
+      <div className="app-header" style={{ background: '#111827' }}>
         <Link href="/owner/dashboard" className="app-header-back">←</Link>
         <div style={{ flex: 1 }}>
           <h1>Activity Log</h1>
@@ -111,7 +111,7 @@ export default function LogsClient({ logs, from, to, total }: {
           />
         </div>
         <button onClick={applyFilter} style={{
-          padding: '8px 16px', background: '#1d4ed8', color: '#fff',
+          padding: '8px 16px', background: '#e11d48', color: '#fff',
           border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
         }}>ค้นหา</button>
         {hasFilter && (
@@ -145,7 +145,7 @@ export default function LogsClient({ logs, from, to, total }: {
                   <div style={{
                     width: '36px', height: '36px', borderRadius: '50%',
                     background: log.actor_type === 'system' ? '#f1f5f9'
-                      : log.actor_type === 'owner' ? '#fef3c7' : '#eff6ff',
+                      : log.actor_type === 'owner' ? '#fef3c7' : '#f1f5f9',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '16px', flexShrink: 0,
                   }}>
@@ -164,9 +164,9 @@ export default function LogsClient({ logs, from, to, total }: {
                       <span style={{
                         fontSize: '10px', fontWeight: 700, padding: '1px 7px', borderRadius: '10px',
                         background: log.actor_type === 'system' ? '#f1f5f9'
-                          : log.actor_type === 'owner' ? '#fef3c7' : '#eff6ff',
+                          : log.actor_type === 'owner' ? '#fef3c7' : '#f1f5f9',
                         color: log.actor_type === 'system' ? '#6b7280'
-                          : log.actor_type === 'owner' ? '#92400e' : '#1d4ed8',
+                          : log.actor_type === 'owner' ? '#92400e' : '#374151',
                       }}>
                         {log.actor_name}
                       </span>

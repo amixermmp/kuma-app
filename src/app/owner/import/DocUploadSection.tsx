@@ -149,7 +149,7 @@ export default function DocUploadSection() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={item.preview} alt={item.file.name} style={{ width: '100%', aspectRatio: '3/4', objectFit: 'cover', display: 'block' }} />
                 <div style={{ padding: '6px 8px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#1e40af' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#374151' }}>
                     {item.docType ? DOC_TYPE_LABEL[item.docType] : '?'}
                   </div>
                   <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px' }}>{item.plate}</div>
@@ -169,7 +169,7 @@ export default function DocUploadSection() {
               onClick={handleUpload}
               disabled={loading}
               style={{
-                flex: 2, background: loading ? '#93c5fd' : '#1e40af', border: 'none',
+                flex: 2, background: loading ? '#d1d5db' : '#111827', border: 'none',
                 borderRadius: '12px', padding: '14px', fontWeight: 700, fontSize: '14px',
                 cursor: loading ? 'not-allowed' : 'pointer', color: '#fff',
               }}
@@ -203,7 +203,7 @@ export default function DocUploadSection() {
           )}
           <button
             onClick={() => setResult(null)}
-            style={{ marginTop: '14px', background: '#1e40af', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 24px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
+            style={{ marginTop: '14px', background: '#111827', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 24px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
           >
             Upload เพิ่ม
           </button>

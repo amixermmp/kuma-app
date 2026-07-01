@@ -97,7 +97,7 @@ export default function OwnerSendForm({ bike }: { bike: Bike }) {
 
   return (
     <div className="app-wrap">
-      <div className="app-header" style={{ background: 'linear-gradient(135deg,#1d4ed8,#4f46e5)' }}>
+      <div className="app-header" style={{ background: '#111827' }}>
         <Link href={`/owner/bikes/${bike.id}`} className="app-header-back">←</Link>
         <div>
           <h1>ส่งรถ</h1>
@@ -109,7 +109,7 @@ export default function OwnerSendForm({ bike }: { bike: Bike }) {
 
         {/* Bike summary */}
         <div style={{
-          background: 'linear-gradient(135deg,#1d4ed8,#4f46e5)',
+          background: '#111827',
           borderRadius: '14px', padding: '14px 16px', marginBottom: '12px',
           color: '#fff', display: 'flex', alignItems: 'center', gap: '14px',
         }}>
@@ -191,7 +191,7 @@ export default function OwnerSendForm({ bike }: { bike: Bike }) {
         </div>
 
         {/* สรุปราคา */}
-        <div className="price-box" style={{ background: 'linear-gradient(135deg,#1d4ed8,#4f46e5)' }}>
+        <div className="price-box">
           <div className="price-label">ยอดรวมการเช่า</div>
           <div className="price-amount">฿{totalAmount.toLocaleString()}</div>
           <div className="price-detail">{bike.brand} {bike.model} • {totalDays} วัน • ฿{bike.daily_rate.toLocaleString()}/วัน</div>
@@ -206,7 +206,7 @@ export default function OwnerSendForm({ bike }: { bike: Bike }) {
         <button
           onClick={handleSubmit}
           disabled={loading}
-          style={{ width: '100%', padding: '16px', border: 'none', borderRadius: '12px', background: '#1d4ed8', color: '#fff', fontSize: '16px', fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}
+          style={{ width: '100%', padding: '16px', border: 'none', borderRadius: '12px', background: '#e11d48', color: '#fff', fontSize: '16px', fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}
         >
           {loading ? '⏳ กำลังบันทึก...' : '✅ ยืนยันส่งรถ'}
         </button>

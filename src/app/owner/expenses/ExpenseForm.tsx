@@ -107,7 +107,7 @@ export default function ExpenseForm({ branches }: { branches: Branch[] }) {
         onClick={handleSubmit}
         disabled={loading}
         className="btn btn-primary"
-        style={{ width: '100%', marginTop: '12px', background: '#7c3aed', opacity: loading ? .7 : 1 }}
+        style={{ width: '100%', marginTop: '12px', opacity: loading ? .7 : 1 }}
       >
         {loading ? '⏳ กำลังบันทึก...' : '💾 บันทึกค่าใช้จ่าย'}
       </button>

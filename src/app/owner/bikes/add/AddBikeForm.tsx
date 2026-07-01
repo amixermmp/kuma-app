@@ -102,7 +102,7 @@ export default function AddBikeForm({ ownerId, branches }: { ownerId: string; br
 
   return (
     <div className="app-wrap">
-      <div className="app-header" style={{ background: '#4f46e5' }}>
+      <div className="app-header">
         <Link href="/owner/dashboard" className="app-header-back">←</Link>
         <div>
           <h1>เพิ่มรถ</h1>

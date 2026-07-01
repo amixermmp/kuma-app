@@ -55,7 +55,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 const STATUS_COLOR: Record<string, string> = {
   available: '#16a34a',
-  rented: '#2563eb',
+  rented: '#374151',
   repair: '#dc2626',
   maintenance: '#dc2626',
   inactive: '#6b7280',
@@ -271,7 +271,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
     <div style={{ paddingBottom: '80px' }}>
 
       {/* Hero */}
-      <div style={{ background: 'linear-gradient(160deg,#0f172a,#1e3a8a)', position: 'relative' }}>
+      <div style={{ background: '#111827', position: 'relative' }}>
         {photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={photoUrl} alt={bike.brand} style={{ width: '100%', height: '200px', objectFit: 'cover', display: 'block' }} />
@@ -307,7 +307,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
             {bike.brand} {bike.model}{bike.year ? ` • ปี ${bike.year}` : ''}{bike.color ? ` • ${bike.color}` : ''}
           </div>
           <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-            <span style={{ background: `${statusColor}33`, color: statusColor === '#16a34a' ? '#86efac' : statusColor === '#2563eb' ? '#93c5fd' : '#fca5a5', border: `1px solid ${statusColor}55`, borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 700 }}>
+            <span style={{ background: `${statusColor}33`, color: statusColor === '#16a34a' ? '#86efac' : statusColor === '#374151' ? '#d1d5db' : '#fca5a5', border: `1px solid ${statusColor}55`, borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 700 }}>
               {statusLabel}
             </span>
             <span style={{ background: 'rgba(255,255,255,.15)', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 600 }}>
@@ -327,14 +327,14 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <div className="card-title" style={{ margin: 0 }}>ข้อมูลรถ</div>
             {!editing ? (
-              <button onClick={() => setEditing(true)} style={{ background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={() => setEditing(true)} style={{ background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
                 ✏️ แก้ไข
               </button>
             ) : (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 {saveMsg && <span style={{ fontSize: '12px', color: saveMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{saveMsg}</span>}
                 <button onClick={() => setEditing(false)} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', cursor: 'pointer' }}>ยกเลิก</button>
-                <button onClick={saveEdit} disabled={saving} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', opacity: saving ? .7 : 1 }}>
+                <button onClick={saveEdit} disabled={saving} style={{ background: '#e11d48', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', opacity: saving ? .7 : 1 }}>
                   {saving ? '⏳' : '💾 บันทึก'}
                 </button>
               </div>
@@ -379,7 +379,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
               ].filter((r): r is [string, string] => r !== null).map(([k, v]) => (
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
                   <span style={{ fontSize: '13px', color: '#64748b' }}>{k}</span>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: k.startsWith('ราคา') ? '#2563eb' : '#1e293b' }}>{v}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: k.startsWith('ราคา') ? '#374151' : '#1e293b' }}>{v}</span>
                 </div>
               ))}
             </div>
@@ -387,11 +387,11 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
         </div>
 
         {/* ── ย้ายสาขา ── */}
-        <div className="card" style={{ borderTop: '3px solid #0891b2' }}>
-          <div className="card-title" style={{ color: '#0891b2' }}>🏢 สาขา</div>
+        <div className="card" style={{ borderTop: '3px solid #374151' }}>
+          <div className="card-title" style={{ color: '#374151' }}>🏢 สาขา</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', marginBottom: '12px' }}>
             <span style={{ fontSize: '13px', color: '#64748b' }}>สาขาปัจจุบัน</span>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#0891b2' }}>{bike.branch_name}</span>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>{bike.branch_name}</span>
           </div>
           <label className="field-label">ย้ายไปสาขา</label>
           <select className="field-input" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ marginBottom: '12px' }}>
@@ -403,7 +403,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
           <input className="field-input" type="number" value={transferRate} onChange={e => setTransferRate(e.target.value)} style={{ marginBottom: '12px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button onClick={saveBranch} disabled={branchSaving || branchId === bike.branch_id} style={{
-              background: branchId !== bike.branch_id ? '#0891b2' : '#e5e7eb',
+              background: branchId !== bike.branch_id ? '#e11d48' : '#e5e7eb',
               color: branchId !== bike.branch_id ? '#fff' : '#9ca3af',
               border: 'none', borderRadius: '8px', padding: '10px 18px',
               fontSize: '13px', fontWeight: 700, cursor: branchId !== bike.branch_id ? 'pointer' : 'default',
@@ -549,7 +549,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
             rel="noreferrer"
             style={{
               display: 'inline-block', marginTop: '14px',
-              background: '#1e40af', color: '#fff', textDecoration: 'none',
+              background: '#111827', color: '#fff', textDecoration: 'none',
               borderRadius: '10px', padding: '10px 24px', fontSize: '14px', fontWeight: 700,
             }}
           >
@@ -558,8 +558,8 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
         </div>
 
         {/* ── ประวัติการซ่อม ── */}
-        <div className="card" style={{ borderTop: '3px solid #7c3aed' }}>
-          <div className="card-title" style={{ color: '#7c3aed' }}>🔧 ประวัติการซ่อม</div>
+        <div className="card" style={{ borderTop: '3px solid #dc2626' }}>
+          <div className="card-title" style={{ color: '#dc2626' }}>🔧 ประวัติการซ่อม</div>
           {repairs.length === 0 ? (
             <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>ยังไม่มีประวัติการซ่อม</div>
           ) : (

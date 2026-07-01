@@ -77,7 +77,7 @@ export function PeriodSelector({ current, currentFrom, currentTo }: Props) {
             disabled={!from || !to}
             style={{
               background: from && to ? '#fff' : 'rgba(255,255,255,.3)',
-              color: from && to ? '#7c3aed' : 'rgba(255,255,255,.5)',
+              color: from && to ? '#111827' : 'rgba(255,255,255,.5)',
               border: 'none', borderRadius: '6px', padding: '6px',
               fontSize: '12px', fontWeight: 700, cursor: from && to ? 'pointer' : 'default',
             }}

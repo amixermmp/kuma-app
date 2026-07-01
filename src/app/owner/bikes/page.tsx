@@ -121,7 +121,7 @@ export default async function OwnerBikesPage() {
 
   return (
     <div className="app-wrap">
-      <div className="app-header" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a8a)' }}>
+      <div className="app-header" style={{ background: '#111827' }}>
         <Link href="/owner/dashboard" className="app-header-back">←</Link>
         <div style={{ flex: 1 }}>
           <h1>สต็อครถทั้งหมด</h1>

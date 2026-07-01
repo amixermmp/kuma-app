@@ -37,7 +37,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
 function SaveBtn({ loading, onClick, label = '💾 บันทึก' }: { loading: boolean; onClick: () => void; label?: string }) {
   return (
     <button onClick={onClick} disabled={loading} className="btn btn-primary"
-      style={{ background: '#7c3aed', opacity: loading ? .7 : 1 }}>
+      style={{ opacity: loading ? .7 : 1 }}>
       {loading ? '⏳...' : label}
     </button>
   )
@@ -47,7 +47,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
     <div onClick={onClick} style={{
       width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer',
-      background: on ? '#7c3aed' : '#d1d5db', position: 'relative', flexShrink: 0,
+      background: on ? '#111827' : '#d1d5db', position: 'relative', flexShrink: 0,
       transition: 'background .2s',
     }}>
       <div style={{
@@ -126,7 +126,7 @@ function StaffModal({ branches, onClose, onSaved, editing }: {
                   type="checkbox"
                   checked={allowedBranchIds.includes(b.id)}
                   onChange={() => toggleBranch(b.id)}
-                  style={{ width: '18px', height: '18px', accentColor: '#7c3aed', cursor: 'pointer' }}
+                  style={{ width: '18px', height: '18px', accentColor: '#e11d48', cursor: 'pointer' }}
                 />
                 <span style={{ fontSize: '14px', color: '#111827' }}>{b.name}</span>
               </label>
@@ -374,7 +374,7 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
                     setLogoUploading(false)
                   }}
                 />
-                <span style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: 600 }}>
+                <span style={{ background: '#f1f5f9', color: '#374151', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: 600 }}>
                   {logoUploading ? '⏳ กำลังอัพโหลด...' : '📤 เปลี่ยนโลโก้'}
                 </span>
               </label>
@@ -393,19 +393,19 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
           const branchName = (s as any).branches?.name
           return (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#7c3aed', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0 }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#111827', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0 }}>
                 {s.name[0]}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '14px', fontWeight: 600 }}>{s.name}</div>
                 <div style={{ fontSize: '11px', color: '#9ca3af' }}>PIN: {'•'.repeat(6)} {branchName ? `• ${branchName}` : ''}</div>
               </div>
-              <button onClick={() => setStaffModal(s)} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '13px', cursor: 'pointer' }}>แก้ไข</button>
+              <button onClick={() => setStaffModal(s)} style={{ background: 'none', border: 'none', color: '#374151', fontSize: '13px', cursor: 'pointer' }}>แก้ไข</button>
             </div>
           )
         })}
         <div style={{ padding: '12px 16px' }}>
-          <button onClick={() => setStaffModal('new')} className="btn" style={{ border: '1.5px solid #7c3aed', color: '#7c3aed', background: '#fff', width: '100%' }}>
+          <button onClick={() => setStaffModal('new')} className="btn" style={{ border: '1.5px solid #374151', color: '#374151', background: '#fff', width: '100%' }}>
             + เพิ่มพนักงาน
           </button>
         </div>
@@ -421,7 +421,7 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
           </div>
         ))}
         <div style={{ padding: '12px 16px' }}>
-          <button onClick={() => setBranchModal(true)} className="btn" style={{ border: '1.5px solid #7c3aed', color: '#7c3aed', background: '#fff', width: '100%' }}>
+          <button onClick={() => setBranchModal(true)} className="btn" style={{ border: '1.5px solid #374151', color: '#374151', background: '#fff', width: '100%' }}>
             + เพิ่มสาขา
           </button>
         </div>
@@ -470,7 +470,7 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
                     <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploading}
                       onChange={e => { const f = e.target.files?.[0]; if (f) uploadDoc(field, f) }} />
                     {uploading
-                      ? <><div style={{ width: '16px', height: '16px', border: '2px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} /><span style={{ fontSize: '13px', color: '#6b7280' }}>กำลังอัพโหลด...</span></>
+                      ? <><div style={{ width: '16px', height: '16px', border: '2px solid #e5e7eb', borderTopColor: '#e11d48', borderRadius: '50%', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} /><span style={{ fontSize: '13px', color: '#6b7280' }}>กำลังอัพโหลด...</span></>
                       : <><span style={{ fontSize: '20px' }}>⬆️</span><span style={{ fontSize: '13px', color: '#6b7280' }}>แตะเพื่ออัพโหลด {label}</span></>
                     }
                   </label>
@@ -493,7 +493,7 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
               <Toggle on={p.is_active} onClick={() => togglePromo(p.id, p.is_active)} />
             </div>
           ))}
-          <Link href="/owner/settings/promos/create" className="btn" style={{ display: 'block', textAlign: 'center', marginTop: '12px', border: '1.5px solid #7c3aed', color: '#7c3aed', background: '#fff', textDecoration: 'none' }}>
+          <Link href="/owner/settings/promos/create" className="btn" style={{ display: 'block', textAlign: 'center', marginTop: '12px', border: '1.5px solid #374151', color: '#374151', background: '#fff', textDecoration: 'none' }}>
             + สร้างโปรโมชั่นใหม่
           </Link>
         </div>

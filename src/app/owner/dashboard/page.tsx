@@ -182,7 +182,7 @@ export default async function OwnerDashboardPage({
     <div className="app-wrap">
 
       {/* Header */}
-      <div className="app-header" style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', alignItems: 'center' }}>
+      <div className="app-header" style={{ background: '#111827', alignItems: 'center' }}>
         <div style={{ flex: 1 }}>
           <h1>Dashboard</h1>
           <div className="sub">ภาพรวมธุรกิจ — {periodLabel}</div>
@@ -200,7 +200,7 @@ export default async function OwnerDashboardPage({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '16px 16px 0' }}>
         {([
           { icon: '💰', val: fmt(monthlyRevenue), lbl: `รายได้${periodLabel}`,  border: '#16a34a', color: '#16a34a' },
-          { icon: '📋', val: String(monthlyCount), lbl: `รายการเช่า${periodLabel}`, border: '#2563eb', color: '#2563eb' },
+          { icon: '📋', val: String(monthlyCount), lbl: `รายการเช่า${periodLabel}`, border: '#374151', color: '#374151' },
           { icon: '🛵', val: `${utilization}%`,    lbl: 'อัตราการใช้งานรถ',     border: '#d97706', color: '#d97706' },
           { icon: '📌', val: String(pendingCount),  lbl: 'งานค้างทั้งหมด',       border: '#dc2626', color: '#dc2626' },
         ] as const).map(({ icon, val, lbl, border, color }) => (
@@ -233,7 +233,7 @@ export default async function OwnerDashboardPage({
                 )}
                 <div style={{
                   width: '100%', borderRadius: '4px 4px 0 0',
-                  background: isToday ? '#4f46e5' : '#bfdbfe',
+                  background: isToday ? '#e11d48' : '#e5e7eb',
                   height: `${heightPct}%`, minHeight: '4px',
                 }} />
                 <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: isToday ? 700 : 400 }}>
@@ -251,7 +251,7 @@ export default async function OwnerDashboardPage({
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
           {([
             { label: 'ว่าง',    count: available, bg: '#f0fdf4', color: '#16a34a' },
-            { label: 'เช่าอยู่', count: rented,    bg: '#eff6ff', color: '#2563eb' },
+            { label: 'เช่าอยู่', count: rented,    bg: '#f1f5f9', color: '#374151' },
             { label: 'ซ่อม',    count: repair,    bg: '#fef2f2', color: '#dc2626' },
           ] as const).map(({ label, count, bg, color }) => (
             <div key={label} style={{ flex: 1, background: bg, borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
@@ -293,7 +293,7 @@ export default async function OwnerDashboardPage({
                     <td style={{ padding: '8px 8px 8px 0', color: '#6b7280' }}>{d.bikeCount} คัน</td>
                     <td style={{ padding: '8px 0' }}>
                       <div style={{ background: '#e5e7eb', borderRadius: '4px', height: '6px', width: '60px' }}>
-                        <div style={{ background: '#4f46e5', height: '100%', width: `${branchUtil}%`, borderRadius: '4px' }} />
+                        <div style={{ background: '#111827', height: '100%', width: `${branchUtil}%`, borderRadius: '4px' }} />
                       </div>
                     </td>
                   </tr>
@@ -325,7 +325,7 @@ export default async function OwnerDashboardPage({
       <div style={{ margin: '0 16px 16px', background: '#fff', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>💹 รายรับ vs รายจ่าย</div>
-          <button style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '4px 10px', fontSize: '12px', color: '#2563eb', cursor: 'pointer' }}>
+          <button style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '4px 10px', fontSize: '12px', color: '#374151', cursor: 'pointer' }}>
             + บันทึกค่าใช้จ่าย
           </button>
         </div>
@@ -377,12 +377,12 @@ export default async function OwnerDashboardPage({
       {/* Management links */}
       <div style={{ margin: '0 16px 80px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {([
-          { icon: '➕', label: 'เพิ่มรถคันใหม่',     sub: 'ลงทะเบียนรถและสร้าง QR Code',       href: '/owner/bikes/add',  color: '#4f46e5' },
-          { icon: '🛵', label: 'รายการรถทั้งหมด',  sub: 'ดู/แก้ไขข้อมูลรถทุกสาขา',           href: '/owner/bikes',      color: '#0891b2' },
+          { icon: '➕', label: 'เพิ่มรถคันใหม่',     sub: 'ลงทะเบียนรถและสร้าง QR Code',       href: '/owner/bikes/add',  color: '#111827' },
+          { icon: '🛵', label: 'รายการรถทั้งหมด',  sub: 'ดู/แก้ไขข้อมูลรถทุกสาขา',           href: '/owner/bikes',      color: '#374151' },
           { icon: '📋', label: 'ประวัติการเช่า',   sub: 'การเช่าที่ active อยู่ + คืนรถ',      href: '/owner/rentals',    color: '#059669' },
-          { icon: '📜', label: 'Activity Log',    sub: 'ใครทำอะไร เมื่อไหร่ในระบบ',           href: '/owner/logs',       color: '#0369a1' },
+          { icon: '📜', label: 'Activity Log',    sub: 'ใครทำอะไร เมื่อไหร่ในระบบ',           href: '/owner/logs',       color: '#374151' },
           { icon: '💸', label: 'บันทึกค่าใช้จ่าย', sub: 'รายจ่ายประจำเดือนของร้าน',           href: '/owner/expenses',   color: '#dc2626' },
-          { icon: '⚙️', label: 'ตั้งค่าระบบ',      sub: 'พนักงาน, สาขา, โปรโมชั่น',          href: '/owner/settings',   color: '#7c3aed' },
+          { icon: '⚙️', label: 'ตั้งค่าระบบ',      sub: 'พนักงาน, สาขา, โปรโมชั่น',          href: '/owner/settings',   color: '#374151' },
         ] as const).map(({ icon, label, sub, href, color }) => (
           <Link key={href} href={href} style={{ textDecoration: 'none' }}>
             <div style={{

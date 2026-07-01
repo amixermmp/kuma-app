@@ -91,8 +91,8 @@ export default function StaffLoginPage() {
           transition: background 0.12s, border-color 0.12s, transform 0.12s;
         }
         .sl-dot.filled {
-          background: #fff;
-          border-color: #fff;
+          background: #e11d48;
+          border-color: #e11d48;
           animation: dot-pop 0.2s ease;
         }
         .sl-dot.error {
@@ -132,11 +132,11 @@ export default function StaffLoginPage() {
           font-size: 22px;
         }
         .sl-key.ok-key {
-          background: rgba(255,255,255,0.18);
-          border-color: rgba(255,255,255,0.3);
+          background: #e11d48;
+          border-color: #e11d48;
           font-size: 20px;
         }
-        .sl-key.ok-key:active { background: rgba(255,255,255,0.35); }
+        .sl-key.ok-key:active { background: #be123c; }
         .sl-spinner {
           width: 20px; height: 20px;
           border: 2px solid rgba(255,255,255,0.3);
@@ -164,19 +164,19 @@ export default function StaffLoginPage() {
 
           {/* Logo */}
           <div style={{
-            width: '80px', height: '80px', borderRadius: '24px',
-            background: 'rgba(255,255,255,0.12)',
-            border: '1.5px solid rgba(255,255,255,0.2)',
+            width: '72px', height: '72px', borderRadius: '20px',
+            background: '#e11d48',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '38px', margin: '0 auto 20px',
+            fontSize: '34px', margin: '0 auto 20px',
           }}>
-            👤
+            🛵
           </div>
 
           <div style={{ color: '#fff', marginBottom: '36px' }}>
-            <div style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '0.5px' }}>Staff Portal</div>
-            <div style={{ fontSize: '13px', opacity: 0.55, marginTop: '6px' }}>
-              Kuma Bikes · กรอก PIN 6 หลัก
+            <div style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase' }}>Staff Portal</div>
+            <div style={{ width: '24px', height: '2px', background: '#e11d48', borderRadius: '1px', margin: '10px auto 10px' }} />
+            <div style={{ fontSize: '13px', opacity: 0.45, marginTop: '4px' }}>
+              กรอก PIN 6 หลักเพื่อเข้าสู่ระบบ
             </div>
           </div>
 

@@ -188,8 +188,8 @@ export default function RentalsClient({
 
   const statusBadge = (status: string) => {
     const map: Record<string, { label: string; color: string; bg: string }> = {
-      active:   { label: 'กำลังเช่า', color: '#2563eb', bg: '#eff6ff' },
-      extended: { label: 'ต่อเวลา',   color: '#7c3aed', bg: '#f5f3ff' },
+      active:   { label: 'กำลังเช่า', color: '#374151', bg: '#f1f5f9' },
+      extended: { label: 'ต่อเวลา',   color: '#374151', bg: '#f1f5f9' },
       overdue:  { label: 'เกินกำหนด', color: '#dc2626', bg: '#fef2f2' },
     }
     const s = map[status] ?? { label: status, color: '#6b7280', bg: '#f3f4f6' }
@@ -204,7 +204,7 @@ export default function RentalsClient({
   return (
     <div className="app-wrap">
       {/* Header */}
-      <div className="app-header" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a8a)' }}>
+      <div className="app-header" style={{ background: '#111827' }}>
         <Link href="/owner/dashboard" className="app-header-back">←</Link>
         <div style={{ flex: 1 }}>
           <h1>การเช่าที่ Active อยู่</h1>
@@ -223,8 +223,8 @@ export default function RentalsClient({
             style={{
               flex: 1, padding: '12px', border: 'none', cursor: 'pointer',
               background: 'transparent',
-              borderBottom: tab === t ? '2px solid #1e3a8a' : '2px solid transparent',
-              color: tab === t ? '#1e3a8a' : '#6b7280',
+              borderBottom: tab === t ? '2px solid #111827' : '2px solid transparent',
+              color: tab === t ? '#111827' : '#6b7280',
               fontWeight: tab === t ? 700 : 400, fontSize: '14px',
             }}
           >
@@ -299,8 +299,8 @@ export default function RentalsClient({
                           onClick={() => setViewPhotos(photos)}
                           style={{
                             flex: 1, padding: '9px', borderRadius: '10px',
-                            background: '#eff6ff', color: '#2563eb',
-                            border: '1px solid #bfdbfe', fontSize: '13px',
+                            background: '#f1f5f9', color: '#374151',
+                            border: '1px solid #e5e7eb', fontSize: '13px',
                             fontWeight: 600, cursor: 'pointer',
                           }}
                         >
@@ -312,8 +312,8 @@ export default function RentalsClient({
                         target="_blank"
                         style={{
                           flex: 1, padding: '9px', borderRadius: '10px',
-                          background: '#f5f3ff', color: '#7c3aed',
-                          border: '1px solid #ddd6fe', fontSize: '13px',
+                          background: '#f1f5f9', color: '#374151',
+                          border: '1px solid #e5e7eb', fontSize: '13px',
                           fontWeight: 600, cursor: 'pointer', textDecoration: 'none',
                           textAlign: 'center',
                         }}
@@ -397,8 +397,8 @@ export default function RentalsClient({
                           onClick={() => setViewPhotos(photos)}
                           style={{
                             flex: 1, padding: '9px', borderRadius: '10px',
-                            background: '#eff6ff', color: '#2563eb',
-                            border: '1px solid #bfdbfe', fontSize: '13px',
+                            background: '#f1f5f9', color: '#374151',
+                            border: '1px solid #e5e7eb', fontSize: '13px',
                             fontWeight: 600, cursor: 'pointer',
                           }}
                         >
@@ -410,8 +410,8 @@ export default function RentalsClient({
                         target="_blank"
                         style={{
                           flex: 1, padding: '9px', borderRadius: '10px',
-                          background: '#f5f3ff', color: '#7c3aed',
-                          border: '1px solid #ddd6fe', fontSize: '13px',
+                          background: '#f1f5f9', color: '#374151',
+                          border: '1px solid #e5e7eb', fontSize: '13px',
                           fontWeight: 600, cursor: 'pointer', textDecoration: 'none',
                           textAlign: 'center',
                         }}

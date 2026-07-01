@@ -188,7 +188,7 @@ export default function ImportClient({ branches }: { branches: Branch[] }) {
 
   return (
     <div className="app-wrap">
-      <div className="app-header" style={{ background: 'linear-gradient(135deg,#1e40af,#1d4ed8)' }}>
+      <div className="app-header" style={{ background: '#111827' }}>
         <Link href="/owner/bikes" className="app-header-back">←</Link>
         <div>
           <h1>นำเข้าข้อมูลรถ</h1>
@@ -199,8 +199,8 @@ export default function ImportClient({ branches }: { branches: Branch[] }) {
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
         {/* สาขาในระบบ */}
-        <div style={{ background: '#eff6ff', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>
-          <div style={{ fontWeight: 700, color: '#1e40af', marginBottom: '8px' }}>📋 สาขาในระบบ (ใส่ชื่อให้ตรง)</div>
+        <div style={{ background: '#f1f5f9', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>
+          <div style={{ fontWeight: 700, color: '#374151', marginBottom: '8px' }}>📋 สาขาในระบบ (ใส่ชื่อให้ตรง)</div>
           {branches.map(b => (
             <div key={b.id} style={{ color: '#374151', padding: '2px 0' }}>• {b.name}</div>
           ))}
@@ -242,11 +242,11 @@ export default function ImportClient({ branches }: { branches: Branch[] }) {
 
         {/* File loaded indicator */}
         {fileName && rows.length > 0 && !result && (
-          <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '12px', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ background: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '20px' }}>📄</span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: '13px', color: '#0369a1' }}>{fileName}</div>
-              <div style={{ fontSize: '12px', color: '#0891b2' }}>
+              <div style={{ fontWeight: 600, fontSize: '13px', color: '#374151' }}>{fileName}</div>
+              <div style={{ fontSize: '12px', color: '#374151' }}>
                 พบ {rows.length} แถว — ✅ {validRows.length} พร้อม import, ❌ {errorRows.length} มีข้อผิดพลาด
               </div>
             </div>
@@ -333,7 +333,7 @@ export default function ImportClient({ branches }: { branches: Branch[] }) {
             )}
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px', justifyContent: 'center' }}>
               <Link href="/owner/bikes" style={{
-                background: '#1e40af', color: '#fff', borderRadius: '10px',
+                background: '#111827', color: '#fff', borderRadius: '10px',
                 padding: '10px 20px', textDecoration: 'none', fontWeight: 600, fontSize: '14px',
               }}>
                 ดูรายการรถ →
@@ -357,7 +357,7 @@ export default function ImportClient({ branches }: { branches: Branch[] }) {
             onClick={handleImport}
             disabled={loading}
             style={{
-              background: loading ? '#93c5fd' : '#1e40af',
+              background: loading ? '#d1d5db' : '#111827',
               color: '#fff', border: 'none', borderRadius: '14px',
               padding: '16px', fontWeight: 700, fontSize: '16px',
               cursor: loading ? 'not-allowed' : 'pointer',

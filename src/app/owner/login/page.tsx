@@ -63,8 +63,8 @@ export default function OwnerLoginPage() {
           padding: 15px;
           border-radius: 14px;
           border: none;
-          background: #fff;
-          color: #4f46e5;
+          background: #e11d48;
+          color: #fff;
           font-size: 16px;
           font-weight: 800;
           cursor: pointer;
@@ -88,7 +88,7 @@ export default function OwnerLoginPage() {
         className="app-wrap"
         style={{
           minHeight: '100vh',
-          background: 'linear-gradient(160deg, #1e1035 0%, #4f46e5 60%, #7c3aed 100%)',
+          background: '#111827',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -101,17 +101,17 @@ export default function OwnerLoginPage() {
           {/* Header */}
           <div style={{ textAlign: 'center', color: '#fff', marginBottom: '36px' }}>
             <div style={{
-              width: '80px', height: '80px', borderRadius: '24px',
-              background: 'rgba(255,255,255,0.12)',
-              border: '1.5px solid rgba(255,255,255,0.2)',
+              width: '72px', height: '72px', borderRadius: '20px',
+              background: '#e11d48',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '38px', margin: '0 auto 20px',
+              fontSize: '34px', margin: '0 auto 20px',
             }}>
               👑
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '0.5px' }}>Owner Portal</div>
-            <div style={{ fontSize: '13px', opacity: 0.55, marginTop: '6px' }}>
-              Kuma Bikes · เข้าสู่ระบบเจ้าของ
+            <div style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase' }}>Owner Portal</div>
+            <div style={{ width: '24px', height: '2px', background: '#e11d48', borderRadius: '1px', margin: '10px auto' }} />
+            <div style={{ fontSize: '13px', opacity: 0.4, marginTop: '4px' }}>
+              เข้าสู่ระบบด้วยอีเมลและรหัสผ่าน
             </div>
           </div>
 

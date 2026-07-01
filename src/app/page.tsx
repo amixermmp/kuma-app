@@ -20,60 +20,107 @@ export default async function LandingPage() {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
         minHeight: '100vh',
-        background: 'linear-gradient(135deg,#1e1b4b,#312e81)',
+        background: '#111827',
       }}
     >
-      <div style={{ textAlign: 'center', color: '#fff', padding: '40px 24px' }}>
+      {/* Top section — logo + brand */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '48px 32px 32px',
+        textAlign: 'center',
+      }}>
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={logoUrl}
             alt={shopName}
             style={{
-              width: '140px',
-              height: '140px',
+              width: '96px',
+              height: '96px',
               objectFit: 'contain',
-              borderRadius: '24px',
+              borderRadius: '22px',
               marginBottom: '20px',
+              border: '2px solid rgba(255,255,255,.1)',
             }}
           />
         ) : (
-          <div style={{ fontSize: '64px', marginBottom: '16px' }}>🛵</div>
+          <div style={{
+            width: '88px',
+            height: '88px',
+            background: '#e11d48',
+            borderRadius: '22px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '42px',
+            marginBottom: '20px',
+          }}>
+            🛵
+          </div>
         )}
-        <h1 style={{ fontSize: '28px', fontWeight: 800, margin: '0 0 8px' }}>{shopName}</h1>
-        <p style={{ fontSize: '15px', opacity: 0.7, margin: '0 0 48px' }}>
-          ระบบบริหารจัดการมอเตอร์ไซค์ให้เช่า
+
+        <h1 style={{
+          fontSize: '26px',
+          fontWeight: 900,
+          color: '#fff',
+          margin: '0 0 4px',
+          letterSpacing: '1px',
+        }}>
+          {shopName.toUpperCase()}
+        </h1>
+        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,.4)', margin: 0, letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+          Rental Management System
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '260px', margin: '0 auto' }}>
-          <Link
-            href="/staff/login"
-            className="btn"
-            style={{
-              background: '#fff',
-              color: '#312e81',
-              fontSize: '15px',
-              textDecoration: 'none',
-            }}
-          >
-            👤 Staff Login
-          </Link>
-          <Link
-            href="/owner/login"
-            className="btn"
-            style={{
-              background: 'rgba(255,255,255,.15)',
-              color: '#fff',
-              fontSize: '15px',
-              textDecoration: 'none',
-              border: '1px solid rgba(255,255,255,.3)',
-            }}
-          >
-            👑 Owner Login
-          </Link>
-        </div>
+
+        {/* Divider */}
+        <div style={{ width: '32px', height: '3px', background: '#e11d48', borderRadius: '2px', margin: '28px auto 0' }} />
+      </div>
+
+      {/* Bottom section — buttons */}
+      <div style={{ padding: '0 24px 48px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <Link
+          href="/staff/login"
+          style={{
+            display: 'block',
+            padding: '16px',
+            background: '#e11d48',
+            borderRadius: '12px',
+            textAlign: 'center',
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: '15px',
+            textDecoration: 'none',
+            letterSpacing: '.3px',
+          }}
+        >
+          Staff Login
+        </Link>
+        <Link
+          href="/owner/login"
+          style={{
+            display: 'block',
+            padding: '16px',
+            background: 'transparent',
+            borderRadius: '12px',
+            textAlign: 'center',
+            color: 'rgba(255,255,255,.65)',
+            fontWeight: 600,
+            fontSize: '15px',
+            textDecoration: 'none',
+            border: '1.5px solid rgba(255,255,255,.15)',
+            letterSpacing: '.3px',
+          }}
+        >
+          Owner Login
+        </Link>
+        <p style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,.2)', margin: '8px 0 0' }}>
+          © 2025 {shopName}
+        </p>
       </div>
     </div>
   )

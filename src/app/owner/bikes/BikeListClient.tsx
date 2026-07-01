@@ -15,7 +15,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 const DOT_COLOR: Record<string, string> = {
   available: '#16a34a',
-  rented:    '#2563eb',
+  rented:    '#374151',
   repair:    '#dc2626',
   retired:   '#9ca3af',
 }
@@ -102,7 +102,7 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
           {(['list', 'grid'] as const).map(v => (
             <button key={v} onClick={() => setView(v)} style={{
               padding: '7px 10px', border: 'none', cursor: 'pointer', fontSize: '14px',
-              background: view === v ? '#1e3a8a' : '#fff',
+              background: view === v ? '#111827' : '#fff',
               color: view === v ? '#fff' : '#9ca3af',
             }}>{v === 'list' ? '☰' : '⊞'}</button>
           ))}
@@ -113,10 +113,10 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
       <div style={{ background: '#fff', display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
         {[
           { key: 'available' as FilterKey, label: 'ว่าง',       color: '#16a34a', count: counts.available },
-          { key: 'rented'    as FilterKey, label: 'เช่าอยู่',   color: '#2563eb', count: counts.rented },
+          { key: 'rented'    as FilterKey, label: 'เช่าอยู่',   color: '#374151', count: counts.rented },
           { key: 'repair'    as FilterKey, label: 'ซ่อม',       color: '#dc2626', count: counts.repair },
           { key: 'doc'       as FilterKey, label: 'งานเอกสาร',  color: '#d97706', count: counts.doc },
-          { key: 'routine'   as FilterKey, label: 'งานรูทีน',   color: '#7c3aed', count: counts.routine },
+          { key: 'routine'   as FilterKey, label: 'งานรูทีน',   color: '#b45309', count: counts.routine },
         ].map(({ key, label, color, count }, i, arr) => {
           const active = activeFilter === key
           return (
@@ -168,7 +168,7 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
                   }}>{STATUS_LABEL[bike.status]}</span>
                 </div>
                 {bike.return_date && (
-                  <div style={{ fontSize: '10px', color: '#2563eb', textAlign: 'center', marginTop: '4px' }}>
+                  <div style={{ fontSize: '10px', color: '#374151', textAlign: 'center', marginTop: '4px' }}>
                     คืน {new Date(bike.return_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
                   </div>
                 )}
@@ -231,7 +231,7 @@ export default function BikeListClient({ bikes, branches }: { bikes: OwnerBike[]
                             {bike.branch_name}
                           </span>
                           {bike.return_date && (
-                            <span style={{ fontSize: '10px', background: '#eff6ff', color: '#2563eb', borderRadius: '4px', padding: '2px 6px' }}>
+                            <span style={{ fontSize: '10px', background: '#f1f5f9', color: '#374151', borderRadius: '4px', padding: '2px 6px' }}>
                               คืน {new Date(bike.return_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
                             </span>
                           )}

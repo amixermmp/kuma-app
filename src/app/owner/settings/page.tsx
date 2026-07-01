@@ -29,7 +29,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="app-wrap">
-      <div className="app-header" style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}>
+      <div className="app-header" style={{ background: '#111827' }}>
         <Link href="/owner/dashboard" className="app-header-back">←</Link>
         <div style={{ flex: 1 }}>
           <h1>ตั้งค่าระบบ</h1>

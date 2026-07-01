@@ -74,7 +74,7 @@ export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
       <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎁</div>
       <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>บันทึกโปรโมชั่นแล้ว!</div>
       <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px' }}>{name} — {previewLabel()}</div>
-      <a href="/owner/settings" className="btn btn-primary" style={{ display: 'inline-block', background: '#7c3aed', textDecoration: 'none' }}>
+      <a href="/owner/settings" className="btn btn-primary" style={{ display: 'inline-block', textDecoration: 'none' }}>
         ← กลับ Settings
       </a>
     </div>
@@ -257,7 +257,7 @@ export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
           </div>
           <div onClick={() => setIsActive(!isActive)} style={{
             width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer',
-            background: isActive ? '#7c3aed' : '#d1d5db', position: 'relative',
+            background: isActive ? '#111827' : '#d1d5db', position: 'relative',
           }}>
             <div style={{
               position: 'absolute', top: '3px', left: isActive ? '23px' : '3px',
