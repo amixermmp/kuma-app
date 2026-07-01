@@ -139,18 +139,20 @@ function RoutineCard({ r }: { r: RoutineItem }) {
   )
 }
 
-export default function RoutineClient({ routines }: { routines: RoutineItem[] }) {
+export default function RoutineClient({ routines, backHref = '/staff/home' }: { routines: RoutineItem[]; backHref?: string }) {
   const overdue = routines.filter(r => r.urgency === 'overdue')
   const warning = routines.filter(r => r.urgency === 'warning')
   const ok = routines.filter(r => r.urgency === 'ok')
 
+  const bike = routines[0]?.bikes
+
   return (
     <div className="app-wrap">
       <div className="app-header" style={{ background: '#92400e' }}>
-        <Link href="/staff/home" className="app-header-back">←</Link>
+        <Link href={backHref} className="app-header-back">←</Link>
         <div>
           <h1>งานซ่อมบำรุงรูทีน</h1>
-          <div className="sub">การบำรุงรักษาประจำ</div>
+          <div className="sub">{bike ? `${bike.license_plate} ${bike.brand} ${bike.model}` : 'การบำรุงรักษาประจำ'}</div>
         </div>
       </div>
 

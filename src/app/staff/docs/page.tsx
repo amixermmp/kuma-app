@@ -1,7 +1,9 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import DocsClient from './DocsClient'
+import BikeSelectClient from '@/components/staff/BikeSelectClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,22 +31,45 @@ function calcUrgency(expiry: string | null): { urgency: DocItem['urgency']; days
 export default async function DocsPage({
   searchParams,
 }: {
-  searchParams: { bikeId?: string }
+  searchParams: Promise<{ bikeId?: string }>
 }) {
+  const { bikeId } = await searchParams
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) redirect('/staff/login')
 
   const supabase = createAdminClient()
+
+  // ถ้าไม่มี bikeId → แสดงหน้าเลือกรถ
+  if (!bikeId) {
+    const { data: bikes } = await supabase
+      .from('bikes')
+      .select('id, license_plate, brand, model, status')
+      .order('license_plate')
+
+    return (
+      <div className="app-wrap">
+        <div className="app-header" style={{ background: '#0f766e' }}>
+          <Link href="/staff/home" className="app-header-back">←</Link>
+          <div>
+            <h1>งานเอกสาร</h1>
+            <div className="sub">เลือกรถที่ต้องการจัดการ</div>
+          </div>
+        </div>
+        <BikeSelectClient
+          bikes={bikes ?? []}
+          hrefTemplate="/staff/docs?bikeId={id}"
+        />
+      </div>
+    )
+  }
+
   let query = supabase
     .from('bike_documents')
     .select('id, bike_id, doc_type, expiry_date, doc_photo_url, notes, bikes(license_plate, brand, model)')
     .in('doc_type', ['tax', 'pob'])
     .order('expiry_date', { ascending: true, nullsFirst: true })
-
-  if (searchParams.bikeId) {
-    query = query.eq('bike_id', searchParams.bikeId)
-  }
+    .eq('bike_id', bikeId)
 
   const { data: rawDocs } = await query
 
@@ -55,5 +80,5 @@ export default async function DocsPage({
     ...calcUrgency(d.expiry_date),
   }))
 
-  return <DocsClient docs={docs} bikeId={searchParams.bikeId ?? null} />
+  return <DocsClient docs={docs} bikeId={bikeId} backHref="/staff/docs" />
 }

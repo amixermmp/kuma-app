@@ -204,7 +204,7 @@ function AddDocCard({ bikeId, docType, onSaved }: { bikeId: string; docType: str
   )
 }
 
-export default function DocsClient({ docs, bikeId }: { docs: DocItem[]; bikeId: string | null }) {
+export default function DocsClient({ docs, bikeId, backHref }: { docs: DocItem[]; bikeId: string | null; backHref?: string }) {
   const urgent = docs.filter(d => d.urgency === 'overdue' || d.urgency === 'critical')
   const warning = docs.filter(d => d.urgency === 'warning')
   const ok = docs.filter(d => d.urgency === 'ok')
@@ -215,15 +215,18 @@ export default function DocsClient({ docs, bikeId }: { docs: DocItem[]; bikeId: 
   const [savedTypes, setSavedTypes] = useState<string[]>([])
   const pendingMissing = missingTypes.filter(t => !savedTypes.includes(t))
 
-  const backHref = bikeId ? '/staff/jobs' : '/staff/home'
+  const resolvedBackHref = backHref ?? (bikeId ? '/staff/jobs' : '/staff/home')
+
+  // แสดงชื่อรถใน subtitle (จาก doc แรกที่มีข้อมูล)
+  const bike = docs[0]?.bikes
 
   return (
     <div className="app-wrap">
       <div className="app-header" style={{ background: '#0f766e' }}>
-        <Link href={backHref} className="app-header-back">←</Link>
+        <Link href={resolvedBackHref} className="app-header-back">←</Link>
         <div>
           <h1>งานเอกสาร</h1>
-          <div className="sub">ภาษี / พ.ร.บ. / ประกัน</div>
+          <div className="sub">{bike ? `${bike.license_plate} ${bike.brand} ${bike.model}` : 'ภาษี / พ.ร.บ. / ประกัน'}</div>
         </div>
       </div>
 

@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
 import RoutineClient from './RoutineClient'
+import BikeSelectClient from '@/components/staff/BikeSelectClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +56,37 @@ export default async function RoutinePage({ searchParams }: { searchParams: Prom
 
   const supabase = createAdminClient()
 
+  // ถ้าไม่มี bikeId และไม่มี routineId → แสดงหน้าเลือกรถ
+  if (!filterBikeId && !filterRoutineId) {
+    const allowedBranchIds = await getStaffBranchIds(staffId)
+    const allowedBikeIds = await getAllowedBikeIds(allowedBranchIds)
+
+    let bikeQuery = supabase
+      .from('bikes')
+      .select('id, license_plate, brand, model, status')
+      .order('license_plate')
+    if (allowedBikeIds) {
+      bikeQuery = bikeQuery.in('id', allowedBikeIds)
+    }
+    const { data: bikes } = await bikeQuery
+
+    return (
+      <div className="app-wrap">
+        <div className="app-header" style={{ background: '#92400e' }}>
+          <Link href="/staff/home" className="app-header-back">←</Link>
+          <div>
+            <h1>งานรูทีน</h1>
+            <div className="sub">เลือกรถที่ต้องการจัดการ</div>
+          </div>
+        </div>
+        <BikeSelectClient
+          bikes={bikes ?? []}
+          hrefTemplate="/staff/routine?bikeId={id}"
+        />
+      </div>
+    )
+  }
+
   const allowedBranchIds = await getStaffBranchIds(staffId)
   const allowedBikeIds = await getAllowedBikeIds(allowedBranchIds)
 
@@ -82,5 +115,5 @@ export default async function RoutinePage({ searchParams }: { searchParams: Prom
     ? routines.filter(r => r.id === filterRoutineId)
     : routines
 
-  return <RoutineClient routines={filtered} />
+  return <RoutineClient routines={filtered} backHref={filterBikeId ? '/staff/routine' : '/staff/home'} />
 }
