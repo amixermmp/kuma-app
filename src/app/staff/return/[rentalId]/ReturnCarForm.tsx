@@ -64,7 +64,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
 
   const [checklist, setChecklist] = useState<boolean[]>(CHECKLIST.map(() => true))
   const [odometer, setOdometer] = useState('')
-  const [fuelLevel, setFuelLevel] = useState(4)
+  const [fuelLevel, setFuelLevel] = useState(8)
   const [photoUrl, setPhotoUrl] = useState('')
   const [damageFee, setDamageFee] = useState('0')
   const [damageNotes, setDamageNotes] = useState('')

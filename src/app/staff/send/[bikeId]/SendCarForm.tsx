@@ -243,7 +243,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
 
   // ── Bike condition ────────────────────────────────────────────────────────
   const [odometer,  setOdometer]  = useState(draft?.odometer ?? String(bike.odometer ?? ''))
-  const [fuelLevel, setFuelLevel] = useState(draft?.fuelLevel ?? 4)
+  const [fuelLevel, setFuelLevel] = useState(draft?.fuelLevel ?? 8)
 
   // ── Payment ───────────────────────────────────────────────────────────────
   const [paymentMethod,  setPaymentMethod]  = useState<'cash' | 'transfer'>(draft?.paymentMethod ?? 'cash')
