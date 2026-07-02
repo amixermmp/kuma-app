@@ -26,25 +26,35 @@ export async function POST(request: NextRequest) {
 
   const now = new Date().toISOString()
 
-  // End rental + free bike in parallel
-  const [{ error: updateRentalErr }, { error: updateBikeErr }] = await Promise.all([
-    supabase
-      .from('monthly_rentals')
-      .update({
-        status: 'ended',
-        end_date: now.split('T')[0],
-        return_photos: returnPhotos ?? [],
-        notes: returnNote ?? null,
-      })
-      .eq('id', monthlyRentalId),
-    supabase
+  // End rental
+  const { error: updateRentalErr } = await supabase
+    .from('monthly_rentals')
+    .update({
+      status: 'ended',
+      end_date: now.split('T')[0],
+      return_photos: returnPhotos ?? [],
+      notes: returnNote ?? null,
+    })
+    .eq('id', monthlyRentalId)
+
+  // Only free the bike if no other active monthly rental exists for it
+  const { count } = await supabase
+    .from('monthly_rentals')
+    .select('id', { count: 'exact', head: true })
+    .eq('bike_id', rental.bike_id)
+    .eq('status', 'active')
+
+  let updateBikeErr = null
+  if ((count ?? 0) === 0) {
+    const { error } = await supabase
       .from('bikes')
       .update({
         status: 'available',
         ...(returnOdometer ? { odometer: returnOdometer } : {}),
       })
-      .eq('id', rental.bike_id),
-  ])
+      .eq('id', rental.bike_id)
+    updateBikeErr = error
+  }
 
   if (updateRentalErr) {
     console.error('End monthly rental error:', updateRentalErr.message)
