@@ -95,6 +95,9 @@ export async function GET(request: NextRequest) {
     if (bike.status === 'repair') {
       return { ...bike, available: false, conflict_type: 'repair', conflict_reason: 'อยู่ระหว่างซ่อม' }
     }
+    if (bike.status === 'locked') {
+      return { ...bike, available: false, conflict_type: 'locked', conflict_reason: 'ล็อคไว้' }
+    }
     const rental = rentalMap.get(bike.id)
     if (rental) {
       return {
