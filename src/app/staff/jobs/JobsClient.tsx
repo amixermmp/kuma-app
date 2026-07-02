@@ -49,7 +49,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
   meta1, meta2, statusLabel, statusBg, statusColor,
-  href, btnColor, btnLabel, contractHref, onCancel, cancelDisabled,
+  href, btnColor, btnLabel, contractHref, extendHref, onCancel, cancelDisabled,
 }: {
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
@@ -57,6 +57,7 @@ function JobCard({
   statusLabel: string; statusBg: string; statusColor: string
   href: string; btnColor?: string; btnLabel?: string
   contractHref?: string
+  extendHref?: string
   onCancel?: () => void
   cancelDisabled?: boolean
 }) {
@@ -99,6 +100,15 @@ function JobCard({
                 background: '#f3f4f6', color: '#374151', textDecoration: 'none',
               }}>
                 📄 สัญญา
+              </Link>
+            )}
+            {extendHref && (
+              <Link href={extendHref} style={{
+                fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px',
+                background: '#fffbeb', color: '#d97706', textDecoration: 'none',
+                border: '1px solid #fde68a',
+              }}>
+                ⏱ ต่อเวลา
               </Link>
             )}
             <Link href={href} style={{
@@ -371,6 +381,7 @@ export default function JobsClient({
                   statusLabel="🔴 เกินกำหนด" statusBg="#fef2f2" statusColor="#dc2626"
                   href={`/staff/return/${job.id}`} btnColor="#dc2626"
                   contractHref={`/staff/contract/${job.id}`}
+                  extendHref={`/staff/extend/${job.id}`}
                 />
               )
             })}

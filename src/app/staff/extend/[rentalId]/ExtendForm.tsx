@@ -34,17 +34,19 @@ export default function ExtendForm({ rental }: Props) {
 
   const [unit, setUnit] = useState<'day' | 'hour'>('day')
   const [amount, setAmount] = useState(1)
+  const [studentPromo, setStudentPromo] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const hourlyRate = Math.round(rental.daily_rate / 5) // 5 hrs = 1 day
+  const HOURLY_RATE = 50
+  const dayRate = studentPromo ? rental.daily_rate - 50 : rental.daily_rate
   const chargeAsDay = unit === 'hour' && amount > 5
 
   const extraCharge = useMemo(() => {
-    if (unit === 'day') return amount * rental.daily_rate
-    if (chargeAsDay) return rental.daily_rate
-    return amount * hourlyRate
-  }, [unit, amount, rental.daily_rate, chargeAsDay, hourlyRate])
+    if (unit === 'day') return amount * dayRate
+    if (chargeAsDay) return dayRate
+    return amount * HOURLY_RATE
+  }, [unit, amount, dayRate, chargeAsDay])
 
   const newEndDate = useMemo(() => {
     const base = new Date(rental.expected_end_datetime)
@@ -151,7 +153,33 @@ export default function ExtendForm({ rental }: Props) {
               background: '#fffbeb', borderRadius: '8px', padding: '10px',
               fontSize: '13px', color: '#92400e', textAlign: 'center', marginTop: '12px',
             }}>
-              ⚠️ เกิน 5 ชม. คิดเป็นราคา 1 วัน (฿{rental.daily_rate.toLocaleString()})
+              ⚠️ เกิน 5 ชม. คิดเป็นราคา 1 วัน (฿{dayRate.toLocaleString()})
+            </div>
+          )}
+        </div>
+
+        {/* Student promo */}
+        <div className="card">
+          <div className="card-title">ราคา</div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => setStudentPromo(false)} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${!studentPromo ? '#374151' : '#e5e7eb'}`,
+              background: !studentPromo ? '#f1f5f9' : '#fff',
+              color: !studentPromo ? '#111827' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>ราคาปกติ</button>
+            <button onClick={() => setStudentPromo(true)} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${studentPromo ? '#7c3aed' : '#e5e7eb'}`,
+              background: studentPromo ? '#f5f3ff' : '#fff',
+              color: studentPromo ? '#7c3aed' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>🎓 ราคานักศึกษา</button>
+          </div>
+          {studentPromo && (
+            <div style={{ marginTop: '10px', background: '#f5f3ff', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#7c3aed' }}>
+              ลด ฿50/วัน — ราคารายวัน ฿{dayRate.toLocaleString()}
             </div>
           )}
         </div>
@@ -166,10 +194,10 @@ export default function ExtendForm({ rental }: Props) {
           <div className="price-amount">฿{extraCharge.toLocaleString()}</div>
           <div className="price-detail">
             {unit === 'day'
-              ? `฿${rental.daily_rate.toLocaleString()}/วัน × ${amount} วัน`
+              ? `฿${dayRate.toLocaleString()}/วัน × ${amount} วัน`
               : chargeAsDay
-                ? `คิดเต็มวัน ฿${rental.daily_rate.toLocaleString()}`
-                : `฿${hourlyRate.toLocaleString()}/ชม. × ${amount} ชม.`}
+                ? `คิดเต็มวัน ฿${dayRate.toLocaleString()}`
+                : `฿${HOURLY_RATE}/ชม. × ${amount} ชม.`}
           </div>
         </div>
 
