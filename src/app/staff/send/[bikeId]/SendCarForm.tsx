@@ -196,7 +196,11 @@ function dateIn(days: number) {
 
 function nowTime() {
   const d = new Date()
-  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+  const h = d.getHours()
+  const rawM = d.getMinutes()
+  const m = Math.round(rawM / 15) * 15
+  if (m === 60) return `${((h + 1) % 24).toString().padStart(2, '0')}:00`
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -238,7 +242,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const [studentPromo, setStudentPromo] = useState(draft?.studentPromo ?? false)
 
   // ── Long-rental contract type ─────────────────────────────────────────────
-  const [contractType,  setContractType]  = useState<'onetime' | 'monthly'>(draft?.contractType ?? 'onetime')
+  const [contractType,  setContractType]  = useState<'onetime' | 'monthly'>(draft?.contractType ?? 'monthly')
   const [mMonthlyRate,  setMMonthlyRate]  = useState(draft?.mMonthlyRate ?? String(bike.monthly_rate ?? ''))
 
   // ── Bike condition ────────────────────────────────────────────────────────
@@ -560,8 +564,26 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">เวลารับรถ</label>
-            <input className="field-input" type="time"
-              value={startTime} onChange={e => setStartTime(e.target.value)} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <select
+                className="field-input" style={{ flex: 1 }}
+                value={startTime.split(':')[0] ?? '08'}
+                onChange={e => setStartTime(e.target.value + ':' + (startTime.split(':')[1] ?? '00'))}
+              >
+                {Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')).map(h => (
+                  <option key={h} value={h}>{h} น.</option>
+                ))}
+              </select>
+              <select
+                className="field-input" style={{ flex: 1 }}
+                value={startTime.split(':')[1] ?? '00'}
+                onChange={e => setStartTime((startTime.split(':')[0] ?? '08') + ':' + e.target.value)}
+              >
+                {['00', '15', '30', '45'].map(m => (
+                  <option key={m} value={m}>{m} นาที</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 

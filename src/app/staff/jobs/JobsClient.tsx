@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import TabBar from '@/components/staff/TabBar'
 
 // ── helpers ──────────────────────────────────────────────────
@@ -49,7 +50,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
   meta1, meta2, statusLabel, statusBg, statusColor,
-  href, btnColor, btnLabel, contractHref, extendHref, swapHref, onCancel, cancelDisabled,
+  href, btnColor, btnLabel, contractHref, extendHref, swapHref, cardHref, onCancel, cancelDisabled,
 }: {
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
@@ -59,14 +60,20 @@ function JobCard({
   contractHref?: string
   extendHref?: string
   swapHref?: string
+  cardHref?: string
   onCancel?: () => void
   cancelDisabled?: boolean
 }) {
+  const router = useRouter()
   return (
-    <div style={{
-      background: '#fff', borderRadius: '12px', marginBottom: '10px',
-      boxShadow: '0 1px 3px rgba(0,0,0,.07)', overflow: 'hidden', display: 'flex',
-    }}>
+    <div
+      onClick={() => { if (cardHref) router.push(cardHref) }}
+      style={{
+        background: '#fff', borderRadius: '12px', marginBottom: '10px',
+        boxShadow: '0 1px 3px rgba(0,0,0,.07)', overflow: 'hidden', display: 'flex',
+        cursor: cardHref ? 'pointer' : 'default',
+      }}
+    >
       <div style={{ width: '5px', background: dotColor, flexShrink: 0 }} />
       <div style={{ flex: 1, padding: '12px 12px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
@@ -83,7 +90,7 @@ function JobCard({
             fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px',
             background: statusBg, color: statusColor,
           }}>{statusLabel}</span>
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', gap: '6px' }} onClick={e => e.stopPropagation()}>
             {onCancel && (
               <button onClick={onCancel} disabled={cancelDisabled} style={{
                 fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px',
@@ -366,6 +373,7 @@ export default function JobsClient({
                   statusBg={isLate ? '#fef2f2' : bike ? '#f1f5f9' : '#fffbeb'}
                   statusColor={isLate ? '#dc2626' : bike ? '#111827' : '#d97706'}
                   href={`/staff/assign/${b.id}`} btnColor="#111827"
+                  cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                   onCancel={() => handleCancel(b.id)}
                   cancelDisabled={cancelling === b.id}
                 />
@@ -390,6 +398,7 @@ export default function JobsClient({
                   meta2={`⏱ เกินมา ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)} ${fmtTime(job.expected_end_datetime)}`}
                   statusLabel="🔴 เกินกำหนด" statusBg="#fef2f2" statusColor="#dc2626"
                   href={`/staff/return/${job.id}`} btnColor="#dc2626"
+                  cardHref={`/staff/bikes/${bike.id}/menu`}
                   contractHref={`/staff/contract/${job.id}`}
                   extendHref={`/staff/extend/${job.id}`}
                 />
@@ -409,6 +418,7 @@ export default function JobsClient({
                   statusLabel={urgent ? '⚠️ ใกล้ถึงกำหนด' : '📅 วันนี้'}
                   statusBg={urgent ? '#fffbeb' : '#f9fafb'} statusColor={urgent ? '#d97706' : '#6b7280'}
                   href={`/staff/return/${job.id}`} btnColor={urgent ? '#d97706' : '#4b5563'}
+                  cardHref={`/staff/bikes/${bike.id}/menu`}
                   contractHref={`/staff/contract/${job.id}`}
                 />
               )
@@ -457,6 +467,7 @@ export default function JobsClient({
                   meta2={`📅 เช่า ${fmtDate(job.start_datetime)} · ${job.total_days} วัน · ฿${Number(job.total_amount).toLocaleString()}`}
                   statusLabel={statusLabel} statusBg={statusBg} statusColor={statusColor}
                   href={`/staff/return/${job.id}`} btnColor={isOverdue ? '#dc2626' : '#16a34a'}
+                  cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                   contractHref={`/staff/contract/${job.id}`}
                 />
               )
@@ -482,6 +493,7 @@ export default function JobsClient({
                   statusLabel={isPending ? '🔴 รอดำเนินการ' : '🔧 กำลังซ่อม'}
                   statusBg={isPending ? '#fef2f2' : '#fffbeb'} statusColor={isPending ? '#dc2626' : '#d97706'}
                   href={`/staff/repair/${r.id}`} btnColor={isPending ? '#dc2626' : '#d97706'}
+                  cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                 />
               )
             })}
@@ -511,6 +523,7 @@ export default function JobsClient({
                   meta1={kmOver != null ? (kmOver === 0 ? '📍 ถึงกำหนดพอดี!' : `📍 เกินกำหนด ${kmOver.toLocaleString()} กม.`) : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
                   statusLabel={statusText} statusBg={p.bg} statusColor={p.color}
                   href={`/staff/routine?id=${r.id}`} btnColor={p.dot}
+                  cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                 />
               )
             })}
@@ -536,6 +549,7 @@ export default function JobsClient({
                   meta2={`หมดอายุ: ${fmtDate(d.expiry_date)}`}
                   statusLabel={statusText} statusBg={p.bg} statusColor={p.color}
                   href={`/staff/docs?bikeId=${d.bike_id}`} btnColor={p.dot}
+                  cardHref={d.bike_id ? `/staff/bikes/${d.bike_id}/menu` : undefined}
                 />
               )
             })}
@@ -560,6 +574,7 @@ export default function JobsClient({
                   statusLabel="🟣 รายเดือน"
                   statusBg="#faf5ff" statusColor="#7c3aed"
                   href={`/staff/collect/${mr.id}`} btnColor="#7c3aed" btnLabel="📄 สัญญา"
+                  cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                   swapHref={`/staff/monthly-swap/${mr.id}`}
                 />
               )
