@@ -50,5 +50,14 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: 'บันทึกไม่สำเร็จ: ' + error.message }, { status: 500 })
 
+  // Mark any existing pending/overdue records for this period as paid
+  if (status === 'paid') {
+    await supabase.from('monthly_payments')
+      .update({ status: 'paid' })
+      .eq('monthly_rental_id', monthlyRentalId)
+      .eq('due_date', dueDate)
+      .in('status', ['pending', 'overdue'])
+  }
+
   return NextResponse.json({ success: true, status })
 }

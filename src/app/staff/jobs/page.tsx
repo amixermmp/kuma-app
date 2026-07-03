@@ -142,10 +142,27 @@ export default async function JobsPage() {
       .map((p: any) => p.monthly_rental_id).filter(Boolean)
   )
 
-  // Near-due: 0–2 days from payment_day computation
+  // Check which near-due rentals already have a paid payment for their upcoming due date
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nearDueAlerts = allMonthlyRentals
-    .filter((mr: any) => mr.daysUntil >= 0 && mr.daysUntil <= 2)
+  const nearDueCandidates = allMonthlyRentals.filter((mr: any) => mr.daysUntil >= 0 && mr.daysUntil <= 2)
+  const nearDueDates = [...new Set(nearDueCandidates.map((mr: any) => mr.nextDueDate as string))] // eslint-disable-line @typescript-eslint/no-explicit-any
+  let paidThisCycleIds = new Set<string>()
+  if (nearDueDates.length > 0) {
+    const { data: paidPayments } = await supabase
+      .from('monthly_payments')
+      .select('monthly_rental_id')
+      .eq('status', 'paid')
+      .in('due_date', nearDueDates)
+    paidThisCycleIds = new Set(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (paidPayments ?? []).map((p: any) => p.monthly_rental_id).filter(Boolean)
+    )
+  }
+
+  // Near-due: 0–2 days from payment_day computation, excluding already-paid periods
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const nearDueAlerts = nearDueCandidates
+    .filter((mr: any) => !paidThisCycleIds.has(mr.id))
     .sort((a: any, b: any) => a.daysUntil - b.daysUntil)
 
   const nearDueIds = new Set(nearDueAlerts.map((mr: any) => mr.id)) // eslint-disable-line @typescript-eslint/no-explicit-any
