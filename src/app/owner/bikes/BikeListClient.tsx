@@ -6,17 +6,19 @@ import type { OwnerBike } from './page'
 
 type Branch = { id: string; name: string }
 
-const STATUS_ORDER = ['available', 'rented', 'repair', 'retired']
+const STATUS_ORDER = ['available', 'rented', 'repair', 'locked', 'retired']
 const STATUS_LABEL: Record<string, string> = {
   available: '🟢 ว่าง',
   rented:    '🔵 เช่าอยู่',
   repair:    '🔴 ซ่อม',
+  locked:    '🔒 ล็อค',
   retired:   '⚫ เลิกใช้',
 }
 const DOT_COLOR: Record<string, string> = {
   available: '#16a34a',
   rented:    '#374151',
   repair:    '#dc2626',
+  locked:    '#7c3aed',
   retired:   '#9ca3af',
 }
 
