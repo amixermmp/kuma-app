@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getStaffOwnBranchId } from '@/lib/staffBranch'
+import { getStaffBranchIds } from '@/lib/staffBranch'
 import SwapForm from './SwapForm'
 
 export const dynamic = 'force-dynamic'
@@ -34,14 +34,8 @@ export default async function MonthlySwapPage({ params }: { params: Promise<{ re
     .order('license_plate')
 
   // Verify staff has access to this branch
-  let staffBranchId: string
-  try {
-    staffBranchId = await getStaffOwnBranchId(staffId)
-  } catch {
-    redirect('/staff/login')
-  }
-
-  if (staffBranchId !== rental.branch_id) notFound()
+  const allowedBranchIds = await getStaffBranchIds(staffId)
+  if (allowedBranchIds !== null && !allowedBranchIds.includes(rental.branch_id)) notFound()
 
   return (
     <SwapForm
