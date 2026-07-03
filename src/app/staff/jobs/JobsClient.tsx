@@ -58,6 +58,7 @@ function JobCard({
   href: string; btnColor?: string; btnLabel?: string
   contractHref?: string
   extendHref?: string
+  swapHref?: string
   onCancel?: () => void
   cancelDisabled?: boolean
 }) {
@@ -109,6 +110,15 @@ function JobCard({
                 border: '1px solid #fde68a',
               }}>
                 ⏱ ต่อเวลา
+              </Link>
+            )}
+            {swapHref && (
+              <Link href={swapHref} style={{
+                fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px',
+                background: '#faf5ff', color: '#7c3aed', textDecoration: 'none',
+                border: '1px solid #ddd6fe',
+              }}>
+                🔄 สลับรถ
               </Link>
             )}
             <Link href={href} style={{
@@ -550,6 +560,7 @@ export default function JobsClient({
                   statusLabel="🟣 รายเดือน"
                   statusBg="#faf5ff" statusColor="#7c3aed"
                   href={`/staff/collect/${mr.id}`} btnColor="#7c3aed" btnLabel="📄 สัญญา"
+                  swapHref={`/staff/monthly-swap/${mr.id}`}
                 />
               )
             })}
