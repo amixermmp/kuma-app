@@ -68,15 +68,19 @@ function daysUntil(dateStr: string | null | undefined): number | null {
 
 function DocStatusRow({ icon, name, expiry, hasPhoto }: { icon: string; name: string; expiry?: string | null; hasPhoto: boolean }) {
   const days = daysUntil(expiry)
-  const badge = !hasPhoto
-    ? { bg: '#f3f4f6', color: '#9ca3af', label: '— ไม่มี' }
-    : days == null
-      ? { bg: '#dcfce7', color: '#16a34a', label: '✅ มีแล้ว' }
+  // ถ้ามีวันหมดอายุ → แสดง expiry status เสมอ (ไม่สนว่ามีรูปไหม)
+  // ถ้าไม่มีวันหมดอายุ → ดูจาก hasPhoto
+  const badge = expiry
+    ? days == null
+      ? { bg: '#dcfce7', color: '#16a34a', label: '✅ ปกติ' }
       : days < 0
         ? { bg: '#fee2e2', color: '#dc2626', label: `🚨 หมดแล้ว` }
         : days <= 30
           ? { bg: '#fef9c3', color: '#ca8a04', label: `⚠️ ${days} วัน` }
           : { bg: '#dcfce7', color: '#16a34a', label: `✅ ปกติ` }
+    : !hasPhoto
+      ? { bg: '#f3f4f6', color: '#9ca3af', label: '— ไม่มี' }
+      : { bg: '#dcfce7', color: '#16a34a', label: '✅ มีแล้ว' }
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
@@ -114,6 +118,33 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
   const [odometer, setOdometer] = useState(String(bike.odometer))
   const [notes, setNotes] = useState(bike.notes ?? '')
   const [licensePlate, setLicensePlate] = useState(bike.license_plate)
+
+  // Doc expiry editor
+  const [editingDocs, setEditingDocs] = useState(false)
+  const [pobExpiry, setPobExpiry] = useState(docMap['pob']?.expiry_date ?? '')
+  const [taxExpiry, setTaxExpiry] = useState(docMap['tax']?.expiry_date ?? '')
+  const [docSaving, setDocSaving] = useState(false)
+  const [docMsg, setDocMsg] = useState('')
+
+  const saveDocs = async () => {
+    setDocSaving(true)
+    setDocMsg('')
+    const res = await fetch(`/api/owner/bikes/${bike.id}/docs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pob_expiry: pobExpiry || null, tax_expiry: taxExpiry || null }),
+    })
+    setDocSaving(false)
+    if (res.ok) {
+      setDocMsg('✅ บันทึกแล้ว')
+      setEditingDocs(false)
+      router.refresh()
+    } else {
+      const d = await res.json()
+      setDocMsg('❌ ' + (d.error ?? 'เกิดข้อผิดพลาด'))
+    }
+    setTimeout(() => setDocMsg(''), 3000)
+  }
 
   // Branch transfer
   const [branchId, setBranchId] = useState(bike.branch_id)
@@ -416,9 +447,36 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
 
         {/* ── สถานะเอกสาร ── */}
         <div className="card" id="docs">
-          <div className="card-title">📄 สถานะเอกสาร</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div className="card-title" style={{ margin: 0 }}>📄 สถานะเอกสาร</div>
+            {!editingDocs ? (
+              <button onClick={() => setEditingDocs(true)} style={{ background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                ✏️ แก้ไข
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {docMsg && <span style={{ fontSize: '12px', color: docMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{docMsg}</span>}
+                <button onClick={() => setEditingDocs(false)} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', cursor: 'pointer' }}>ยกเลิก</button>
+                <button onClick={saveDocs} disabled={docSaving} style={{ background: '#e11d48', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', opacity: docSaving ? .7 : 1 }}>
+                  {docSaving ? '⏳' : '💾 บันทึก'}
+                </button>
+              </div>
+            )}
+          </div>
           <DocStatusRow icon="🛡️" name="พ.ร.บ. รถจักรยานยนต์" expiry={docMap['pob']?.expiry_date} hasPhoto={!!docMap['pob']?.doc_photo_url} />
+          {editingDocs && (
+            <div className="field-row" style={{ marginLeft: '40px', marginBottom: '12px' }}>
+              <label className="field-label" style={{ fontSize: '11px' }}>วันหมดอายุ พ.ร.บ.</label>
+              <input className="field-input" type="date" value={pobExpiry} onChange={e => setPobExpiry(e.target.value)} style={{ fontSize: '13px', padding: '8px' }} />
+            </div>
+          )}
           <DocStatusRow icon="💰" name="ภาษีประจำปี" expiry={docMap['tax']?.expiry_date} hasPhoto={!!docMap['tax']?.doc_photo_url} />
+          {editingDocs && (
+            <div className="field-row" style={{ marginLeft: '40px', marginBottom: '12px' }}>
+              <label className="field-label" style={{ fontSize: '11px' }}>วันหมดอายุภาษี</label>
+              <input className="field-input" type="date" value={taxExpiry} onChange={e => setTaxExpiry(e.target.value)} style={{ fontSize: '13px', padding: '8px' }} />
+            </div>
+          )}
           <DocStatusRow icon="📘" name="สำเนาหน้าเล่มทะเบียน" hasPhoto={!!docMap['registration']?.doc_photo_url} />
         </div>
 

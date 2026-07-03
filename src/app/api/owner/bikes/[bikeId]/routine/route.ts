@@ -24,19 +24,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const admin = createAdminClient()
 
-  const { error } = await admin
+  const payload = {
+    last_done_date: last_done_date ?? null,
+    interval_days: interval_days ? Number(interval_days) : null,
+    interval_km: interval_km ? Number(interval_km) : null,
+    next_due_date,
+  }
+
+  // SELECT first to avoid needing a unique constraint
+  const { data: existing } = await admin
     .from('bike_routines')
-    .upsert(
-      {
-        bike_id: bikeId,
-        task_name,
-        last_done_date: last_done_date ?? null,
-        interval_days: interval_days ? Number(interval_days) : null,
-        interval_km: interval_km ? Number(interval_km) : null,
-        next_due_date,
-      },
-      { onConflict: 'bike_id,task_name' }
-    )
+    .select('id')
+    .eq('bike_id', bikeId)
+    .eq('task_name', task_name)
+    .maybeSingle()
+
+  let error
+  if (existing) {
+    ;({ error } = await admin.from('bike_routines').update(payload).eq('id', existing.id))
+  } else {
+    ;({ error } = await admin.from('bike_routines').insert({ bike_id: bikeId, task_name, ...payload }))
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
