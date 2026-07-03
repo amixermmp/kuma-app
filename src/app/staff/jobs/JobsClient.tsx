@@ -49,7 +49,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
   meta1, meta2, statusLabel, statusBg, statusColor,
-  href, btnColor, btnLabel, contractHref, extendHref, onCancel, cancelDisabled,
+  href, btnColor, btnLabel, contractHref, extendHref, swapHref, onCancel, cancelDisabled,
 }: {
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
