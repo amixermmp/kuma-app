@@ -22,6 +22,7 @@ export default async function StaffHomePage() {
   const today = nowIso.split('T')[0]
   const in30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const in2hAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString()
+  const in2days = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
   const allowedBranchIds = await getStaffBranchIds(staffId)
   const allowedBikeIds = await getAllowedBikeIds(allowedBranchIds)
@@ -42,7 +43,7 @@ export default async function StaffHomePage() {
     { count: overdueCount },
     { count: dueSoonCount },
     { count: repairCount },
-    { count: monthlyCount },
+    { count: contactCount },
     { count: docsCount },
     { count: sendCount },
     { data: routineData },
@@ -59,8 +60,9 @@ export default async function StaffHomePage() {
     applyBike(supabase.from('repairs').select('id', { count: 'exact', head: true })
       .in('status', ['pending', 'in_progress'])),
 
+    // ติดต่อลูกค้า: รายเดือนที่ค้างหรือครบกำหนดใน 2 วัน (เหมือน jobs page)
     applyBike(supabase.from('monthly_payments').select('id', { count: 'exact', head: true })
-      .in('status', ['pending', 'overdue']).lte('due_date', in30days)),
+      .in('status', ['pending', 'overdue']).lte('due_date', in2days)),
 
     applyBike(supabase.from('bike_documents').select('id', { count: 'exact', head: true })
       .lte('expiry_date', in30days).gte('expiry_date', today)),
@@ -72,23 +74,21 @@ export default async function StaffHomePage() {
       .select('next_due_km, next_due_date, bikes(odometer)')),
   ])
 
-  // นับ routine ที่ถึงกำหนดหรือใกล้ถึงกำหนด (500 กม. / 14 วัน)
+  // นับ routine ที่เลยกำหนดหรือใกล้ถึงกำหนด 7 วัน (เหมือน jobs page)
+  const in7days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const routineCount = (routineData ?? []).filter((r: any) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const odometer = (r.bikes as any)?.odometer ?? 0
-    if (r.next_due_km != null && odometer >= r.next_due_km - 500) return true
-    if (r.next_due_date) {
-      const days = Math.ceil((new Date(r.next_due_date).getTime() - Date.now()) / 86_400_000)
-      if (days <= 14) return true
-    }
+    if (r.next_due_km != null && odometer >= r.next_due_km) return true
+    if (r.next_due_date && r.next_due_date <= in7days) return true
     return false
   }).length
 
   const staffName = staffRow?.name ?? 'Staff'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const branchName = (staffRow as any)?.branches?.name ?? 'Kuma Bikes'
-  const totalJobs = (overdueCount ?? 0) + (dueSoonCount ?? 0) + (repairCount ?? 0) + (monthlyCount ?? 0) + (docsCount ?? 0) + (sendCount ?? 0) + routineCount
+  const totalJobs = (overdueCount ?? 0) + (dueSoonCount ?? 0) + (repairCount ?? 0) + (contactCount ?? 0) + (docsCount ?? 0) + (sendCount ?? 0) + routineCount
 
   return (
     <div className="app-wrap">
@@ -174,7 +174,7 @@ export default async function StaffHomePage() {
                 {(sendCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#111827', fontWeight: 600 }}>🛵➡️ ส่งรถ {sendCount}</span>}
                 {((overdueCount ?? 0) + (dueSoonCount ?? 0)) > 0 && <span style={{ fontSize: '12px', color: '#dc2626', fontWeight: 600 }}>⬅️ รับคืน {(overdueCount ?? 0) + (dueSoonCount ?? 0)}</span>}
                 {(repairCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#d97706', fontWeight: 600 }}>🔧 ซ่อม {repairCount}</span>}
-                {(monthlyCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 600 }}>💰 รายเดือน {monthlyCount}</span>}
+                {(contactCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 600 }}>💰 ติดต่อลูกค้า {contactCount}</span>}
                 {(docsCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#374151', fontWeight: 600 }}>📋 เอกสาร {docsCount}</span>}
                 {routineCount > 0 && <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 600 }}>🛢️ รูทีน {routineCount}</span>}
               </div>

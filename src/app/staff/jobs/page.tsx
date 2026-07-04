@@ -114,12 +114,20 @@ export default async function JobsPage() {
       .limit(100)),
   ])
 
+  const in7days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const overdueRoutines = (routines ?? []).filter((r: any) => {
     const odometer = r.bikes?.odometer ?? 0
-    const kmOverdue = r.next_due_km != null && odometer >= r.next_due_km
-    const dateOverdue = r.next_due_date != null && r.next_due_date <= today
-    return kmOverdue || dateOverdue
+    // km-based: แจ้งเมื่อเลยกำหนดแล้ว
+    if (r.next_due_km != null && odometer >= r.next_due_km) return true
+    // date-based: แจ้งก่อน 7 วัน
+    if (r.next_due_date != null && r.next_due_date <= in7days) return true
+    return false
+  }).sort((a: any, b: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    // เรียงจากเร่งด่วนที่สุดก่อน
+    const dA = a.next_due_date ?? '9999-99-99'
+    const dB = b.next_due_date ?? '9999-99-99'
+    return dA.localeCompare(dB)
   })
 
   // Attach nextDueDate to all active monthly rentals

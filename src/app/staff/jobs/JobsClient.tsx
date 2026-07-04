@@ -514,8 +514,13 @@ export default function JobsClient({
               const p = urgencyPalette(days)
               const badgeText = kmOver != null
                 ? (kmOver === 0 ? '🔴 ถึงกำหนดแล้ว!' : `🔴 เกิน ${kmOver.toLocaleString()} กม.`)
-                : days < 0 ? '🚨 เกินกำหนด' : `📅 อีก ${days} วัน`
-              const statusText = days < 0 || kmOver != null ? '🔴 เกินกำหนด' : days <= 3 ? '🔴 เร่งด่วน' : '⚠️ ถึงกำหนด'
+                : days < 0 ? '🚨 เกินกำหนด' : days === 0 ? '🔴 ครบกำหนดวันนี้!' : `📅 อีก ${days} วัน`
+              const statusText = (days < 0 || kmOver != null)
+                ? '🔴 เกินกำหนด'
+                : days === 0 ? '🔴 ครบวันนี้'
+                : days <= 3 ? '🔴 เร่งด่วน'
+                : days <= 7 ? '🟠 ใกล้ถึงกำหนด'
+                : '⚠️ แจ้งเตือนล่วงหน้า'
               return (
                 <JobCard
                   key={r.id} dotColor={p.dot}
