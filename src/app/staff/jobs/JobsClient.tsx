@@ -201,7 +201,8 @@ export default function JobsClient({
     monthly:  allMonthlyRentals.length,
     contact:  monthlyContactAlerts.length,
   }
-  const total = Object.values(counts).reduce((a, b) => a + b, 0)
+  // monthly = overview only, not a task → exclude from total badge
+  const total = counts.sendcar + counts.returncar + counts.active + counts.broken + counts.routine + counts.docs + counts.contact
 
   const tabs: { key: Tab; label: string; count: number; bg: string; color: string }[] = [
     { key: 'all',      label: 'ทั้งหมด',       count: total,              bg: '#f1f5f9', color: '#111827' },
