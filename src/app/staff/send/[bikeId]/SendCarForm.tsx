@@ -434,8 +434,8 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         setCreatedRentalId(data.rentalId ?? data.id ?? null)
 
       } else {
-        const startDatetime = `${startDate}T${startTime}:00`
-        const endDatetime   = `${endDate}T${startTime}:00`
+        const startDatetime = `${startDate}T${startTime}:00+07:00`
+        const endDatetime   = `${endDate}T${startTime}:00+07:00`
         const res = await fetch('/api/staff/rental/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
