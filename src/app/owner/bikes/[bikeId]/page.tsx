@@ -36,7 +36,7 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
       .eq('bike_id', bikeId)
       .order('task_name'),
     admin.from('repairs')
-      .select('id, title, description, status, created_at, resolved_at, repair_shop, repair_cost')
+      .select('id, title, description, notes, status, created_at, resolved_at, repair_shop, repair_cost')
       .eq('bike_id', bikeId)
       .order('created_at', { ascending: false }),
   ])

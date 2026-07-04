@@ -26,6 +26,7 @@ export default function RepairDoneForm({ repair }: Props) {
   const router = useRouter()
   const bike = repair.bikes
 
+  const [repairNotes, setRepairNotes] = useState('')
   const [repairShop, setRepairShop] = useState('')
   const [repairCost, setRepairCost] = useState('')
   const [loading, setLoading] = useState(false)
@@ -41,6 +42,7 @@ export default function RepairDoneForm({ repair }: Props) {
         body: JSON.stringify({
           repairId: repair.id,
           bikeId: bike.id,
+          repairNotes: repairNotes.trim() || null,
           repairShop: repairShop.trim() || null,
           repairCost: repairCost ? parseFloat(repairCost) : null,
         }),
@@ -89,6 +91,14 @@ export default function RepairDoneForm({ repair }: Props) {
 
         <div className="card">
           <div className="card-title">บันทึกผลการซ่อม</div>
+          <div className="field-row">
+            <label className="field-label">รายละเอียดงานซ่อม *</label>
+            <textarea className="field-input" rows={3}
+              placeholder="เช่น เปลี่ยนยาง เปลี่ยนน้ำมันเครื่อง ซ่อมไฟหน้า..."
+              value={repairNotes}
+              onChange={e => setRepairNotes(e.target.value)}
+            />
+          </div>
           <div className="field-row">
             <label className="field-label">ร้านซ่อม</label>
             <input className="field-input" type="text"

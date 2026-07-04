@@ -39,6 +39,7 @@ type RepairRecord = {
   id: string
   title: string
   description: string
+  notes: string | null
   status: string
   created_at: string
   resolved_at: string | null
@@ -633,6 +634,11 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                     {r.status === 'done' ? '✅ ซ่อมแล้ว' : '🔴 กำลังซ่อม'}
                   </span>
                 </div>
+                {r.notes && (
+                  <div style={{ fontSize: '12px', color: '#374151', marginBottom: '6px', background: '#f8fafc', borderRadius: '6px', padding: '6px 8px' }}>
+                    🔧 {r.notes}
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 12px', fontSize: '12px', color: '#64748b' }}>
                   <span>📅 แจ้ง: {new Date(r.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                   {r.resolved_at && <span>✅ เสร็จ: {new Date(r.resolved_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}

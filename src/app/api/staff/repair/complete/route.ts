@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { repairId, bikeId, repairShop, repairCost } = await request.json()
+  const { repairId, bikeId, repairNotes, repairShop, repairCost } = await request.json()
   if (!repairId || !bikeId) return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
 
   const supabase = createAdminClient()
@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     .from('repairs')
     .update({
       status: 'done',
+      notes: repairNotes ?? null,
       repair_shop: repairShop ?? null,
       repair_cost: repairCost ?? null,
       resolved_at: new Date().toISOString(),
