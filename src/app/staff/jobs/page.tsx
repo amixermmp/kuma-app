@@ -145,7 +145,7 @@ export default async function JobsPage() {
   // Check which near-due rentals already have a paid payment for their upcoming due date
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nearDueCandidates = allMonthlyRentals.filter((mr: any) => mr.daysUntil >= 0 && mr.daysUntil <= 2)
-  const nearDueDates = [...new Set(nearDueCandidates.map((mr: any) => mr.nextDueDate as string))] // eslint-disable-line @typescript-eslint/no-explicit-any
+  const nearDueDates = Array.from(new Set<string>(nearDueCandidates.map((mr: any) => mr.nextDueDate as string))) // eslint-disable-line @typescript-eslint/no-explicit-any
   let paidThisCycleIds = new Set<string>()
   if (nearDueDates.length > 0) {
     const { data: paidPayments } = await supabase
