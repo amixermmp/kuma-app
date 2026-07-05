@@ -232,33 +232,18 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           </div>
         </div>
 
-        {/* Financial summary */}
-        <div className="card">
-          <div className="card-title">สรุปการเงิน</div>
-          <div className="info-row">
-            <span className="info-key">ค่าเช่า</span>
-            <span className="info-val">฿{baseRent.toLocaleString()}</span>
+        {/* Deposit refund */}
+        <div style={{
+          background: '#f0fdf4', border: '2px solid #bbf7d0',
+          borderRadius: '14px', padding: '18px 20px', marginBottom: '12px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div>
+            <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>💰 คืนเงินมัดจำให้ลูกค้า</div>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>ยอดมัดจำที่รับไว้ตอนส่งรถ</div>
           </div>
-          <div className="info-row">
-            <span className="info-key">ค่าเสียหาย</span>
-            <span className="info-val" style={{ color: damage > 0 ? '#dc2626' : 'inherit' }}>
-              ฿{damage.toLocaleString()}
-            </span>
-          </div>
-          <div className="info-row">
-            <span className="info-key">เงินมัดจำที่รับไว้</span>
-            <span className="info-val">฿{rental.deposit_amount.toLocaleString()}</span>
-          </div>
-          <div className="info-row" style={{ borderTop: '2px solid #e5e7eb', paddingTop: '10px', marginTop: '2px' }}>
-            <span className="info-key" style={{ fontWeight: 700 }}>
-              {refund >= 0 ? 'คืนเงินลูกค้า' : 'ลูกค้าต้องจ่ายเพิ่ม'}
-            </span>
-            <span className="info-val" style={{
-              color: refund >= 0 ? '#16a34a' : '#dc2626',
-              fontSize: '20px', fontWeight: 800,
-            }}>
-              ฿{Math.abs(refund).toLocaleString()}
-            </span>
+          <div style={{ fontSize: '28px', fontWeight: 900, color: '#15803d' }}>
+            ฿{rental.deposit_amount.toLocaleString()}
           </div>
         </div>
 
