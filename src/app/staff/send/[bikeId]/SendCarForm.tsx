@@ -163,7 +163,7 @@ type PhotoState = {
 // ── Draft persistence ─────────────────────────────────────────────────────────
 type DraftData = {
   customerName: string; customerPhone: string; customerHotel: string
-  startDate: string; endDate: string; startTime: string; endTime: string
+  startDate: string; endDate: string; startTime: string
   studentPromo: boolean; contractType: 'onetime' | 'monthly'; mMonthlyRate: string
   odometer: string; fuelLevel: number; paymentMethod: 'cash' | 'transfer'
   depositAmount: string; lockBike: boolean | null; signature: string | null
@@ -237,15 +237,6 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
     if (prefillFrom?.includes('T')) return prefillFrom.split('T')[1].slice(0, 5)
     return nowTime()
   })
-  const [endTime, setEndTime] = useState(() => {
-    if (draft?.endTime) return draft.endTime
-    if (prefillTo?.includes('T')) return prefillTo.split('T')[1].slice(0, 5)
-    // default: same as startTime = no extra hours
-    if (draft?.startTime) return draft.startTime
-    if (prefillFrom?.includes('T')) return prefillFrom.split('T')[1].slice(0, 5)
-    return nowTime()
-  })
-
   // ── Promo ─────────────────────────────────────────────────────────────────
   const [studentPromo, setStudentPromo] = useState(draft?.studentPromo ?? false)
 
@@ -277,12 +268,12 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   // ── Auto-save draft ───────────────────────────────────────────────────────
   // Keep a ref to latest form data for immediate saves (avoids stale closure)
   const latestDraft = useRef<DraftData>({
-    customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
+    customerName, customerPhone, customerHotel, startDate, endDate, startTime,
     studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
     depositAmount, lockBike, signature, photos,
   })
   latestDraft.current = {
-    customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
+    customerName, customerPhone, customerHotel, startDate, endDate, startTime,
     studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
     depositAmount, lockBike, signature, photos,
   }
@@ -290,7 +281,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   useEffect(() => {
     if (prefillBooking) return
     saveDraft(DRAFT_KEY, latestDraft.current)
-  }, [DRAFT_KEY, customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
+  }, [DRAFT_KEY, customerName, customerPhone, customerHotel, startDate, endDate, startTime,
       studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
       depositAmount, lockBike, signature, photos, prefillBooking])
 
@@ -346,22 +337,16 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   }, [customerName, setPhoto])
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const HOURLY_RATE = 50
   const startDt    = new Date(`${startDate}T${startTime}:00`)
-  const endDt      = new Date(`${endDate}T${endTime}:00`)
+  const endDt      = new Date(`${endDate}T${startTime}:00`)
   const validDates = startDate && endDate && endDt > startDt
 
-  // Duration breakdown
+  // Duration — pure day count (no end time picker; overtime handled at return)
   const totalMs        = validDates ? endDt.getTime() - startDt.getTime() : 0
-  const fullDays       = Math.floor(totalMs / 86_400_000)
-  const extraMs        = totalMs % 86_400_000
-  const extraHours     = extraMs > 0 ? Math.ceil(extraMs / 3_600_000) : 0
-  const extraHoursIsDay = extraHours >= 5        // 5+ ชั่วโมง = 1 วันเต็ม
-  const billingDays    = extraHoursIsDay ? fullDays + 1 : fullDays
-  const extraHourCharge = (!extraHoursIsDay && extraHours > 0) ? extraHours * HOURLY_RATE : 0
-  const totalDays      = billingDays
+  const totalDays      = Math.floor(totalMs / 86_400_000)
+  const billingDays    = totalDays
 
-  // For long rental pricing: use billingDays-rounded end
+  // For long rental pricing
   const billingEndDt   = new Date(startDt.getTime() + billingDays * 86_400_000)
 
   const isLongRental      = totalDays >= 30
@@ -374,14 +359,13 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const shortResult = !isLongRental ? calcShortPrice(totalDays, ndr) : null
 
   const daysTotal  = isLongRental ? (longResult?.total ?? 0) : (shortResult?.total ?? 0)
-  const totalAmount = isMonthlyContract ? mcr : daysTotal + extraHourCharge
+  const totalAmount = isMonthlyContract ? mcr : daysTotal
 
   // Discount = difference from non-student price (for record-keeping)
   const normalDaysTotal = isLongRental
     ? (calcLongPrice(startDt, billingEndDt, bike.daily_rate, mcr)?.total ?? 0)
     : calcShortPrice(totalDays, bike.daily_rate).total
-  const normalTotal = normalDaysTotal + (!extraHoursIsDay ? extraHours * HOURLY_RATE : 0)
-  const discount = studentPromo ? Math.max(0, normalTotal - totalAmount) : 0
+  const discount = studentPromo ? Math.max(0, normalDaysTotal - daysTotal) : 0
 
   // Payment day for monthly = same day as start date
   const paymentDay = startDate
@@ -454,7 +438,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
 
       } else {
         const startDatetime = `${startDate}T${startTime}:00+07:00`
-        const endDatetime   = `${endDate}T${endTime}:00+07:00`
+        const endDatetime   = `${endDate}T${startTime}:00+07:00`
         const res = await fetch('/api/staff/rental/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -605,39 +589,12 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
             </div>
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">เวลาคืนรถ</label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <select
-                className="field-input" style={{ flex: 1 }}
-                value={endTime.split(':')[0] ?? '08'}
-                onChange={e => setEndTime(e.target.value + ':' + (endTime.split(':')[1] ?? '00'))}
-              >
-                {Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')).map(h => (
-                  <option key={h} value={h}>{h} น.</option>
-                ))}
-              </select>
-              <select
-                className="field-input" style={{ flex: 1 }}
-                value={endTime.split(':')[1] ?? '00'}
-                onChange={e => setEndTime((endTime.split(':')[0] ?? '08') + ':' + e.target.value)}
-              >
-                {['00', '15', '30', '45'].map(m => (
-                  <option key={m} value={m}>{m} นาที</option>
-                ))}
-              </select>
+            <div style={{
+              background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px',
+              padding: '10px 12px', fontSize: '12px', color: '#15803d',
+            }}>
+              ⏱️ เวลาคืนรถ = เวลารับรถ + จำนวนวัน — ค่าล่วงเวลาคำนวณตอนรับรถคืนอัตโนมัติ
             </div>
-            {/* Extra hours indicator */}
-            {extraHours > 0 && (
-              <div style={{
-                marginTop: '8px', padding: '8px 12px', borderRadius: '8px', fontSize: '12px',
-                background: extraHoursIsDay ? '#fef2f2' : '#fffbeb',
-                color: extraHoursIsDay ? '#dc2626' : '#92400e',
-              }}>
-                {extraHoursIsDay
-                  ? `⚠️ +${extraHours} ชม. ≥ 5 ชม. → นับเป็น 1 วัน (รวม ${billingDays} วัน)`
-                  : `⏱️ +${extraHours} ชม. × ฿${HOURLY_RATE} = ฿${extraHourCharge.toLocaleString()}`}
-              </div>
-            )}
           </div>
         </div>
 
@@ -668,7 +625,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         </div>
 
         {/* ③ Price hero */}
-        {(totalDays > 0 || extraHourCharge > 0) && (
+        {totalDays > 0 && (
           <div style={{
             background: isMonthlyContract
               ? 'linear-gradient(135deg,#7c3aed,#111827)'
@@ -676,11 +633,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
             borderRadius: '16px', padding: '18px 16px', marginBottom: '12px', color: '#fff',
           }}>
             <div style={{ fontSize: '12px', opacity: .8, marginBottom: '4px' }}>
-              {isMonthlyContract ? 'สัญญารายเดือน'
-                : fullDays > 0 && extraHours > 0
-                  ? `${fullDays} วัน + ${extraHours} ชม.${extraHoursIsDay ? ' (→ 1 วัน)' : ''}`
-                  : fullDays > 0 ? `${fullDays} วัน`
-                  : `${extraHours} ชั่วโมง`}
+              {isMonthlyContract ? 'สัญญารายเดือน' : `${totalDays} วัน`}
             </div>
             <div style={{ fontSize: '36px', fontWeight: 900, letterSpacing: '-1px', marginBottom: '8px' }}>
               {isMonthlyContract
@@ -692,11 +645,8 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
                 ? `จ่ายทุกวันที่ ${paymentDay} ของเดือน`
                 : isLongRental
                   ? `${longResult?.months.length ?? 0} เดือน + ${longResult?.remainDays ?? 0} วัน • คิดตามสูตร`
-                  : totalDays > 0
-                    ? `฿${ndr.toLocaleString()}/วัน × ${shortResult?.calcDays ?? totalDays} วัน`
+                  : `฿${ndr.toLocaleString()}/วัน × ${shortResult?.calcDays ?? totalDays} วัน`
                       + (freeWeeks > 0 ? ` (ฟรี ${freeWeeks * 2} วัน)` : '')
-                      + (extraHourCharge > 0 ? ` + ${extraHours} ชม. × ฿${HOURLY_RATE}` : '')
-                    : `฿${HOURLY_RATE}/ชม. × ${extraHours} ชม.`}
             </div>
 
             {/* Breakdown — long rental onetime */}
@@ -730,18 +680,12 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
             )}
 
             {/* Breakdown — short rental */}
-            {!isLongRental && shortResult && (freeWeeks > 0 || discount > 0 || extraHourCharge > 0) && (
+            {!isLongRental && shortResult && (freeWeeks > 0 || discount > 0) && (
               <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
                 {freeWeeks > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
                     <span style={{ opacity: .8 }}>🎁 ฟรี {freeWeeks * 2} วัน ({freeWeeks} สัปดาห์ × 2 วัน)</span>
                     <span style={{ fontWeight: 700 }}>—</span>
-                  </div>
-                )}
-                {extraHourCharge > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ opacity: .8 }}>⏱️ ค่าล่วงเวลา {extraHours} ชม. × ฿{HOURLY_RATE}</span>
-                    <span style={{ fontWeight: 700 }}>฿{extraHourCharge.toLocaleString()}</span>
                   </div>
                 )}
                 {discount > 0 && (

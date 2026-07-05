@@ -55,12 +55,19 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
     })
   }, [rental.id, bike.license_plate])
 
-  // Late/early calculation
+  // Overtime — grace period 0–30 นาที = ฟรี, หลังจากนั้นคิดเป็นชั่วโมง
+  const HOURLY_RATE = 50
   const now = Date.now()
   const expectedMs = new Date(rental.expected_end_datetime).getTime()
   const isLate = now > expectedMs
-  const extraDays = isLate ? Math.ceil((now - expectedMs) / 86_400_000) : 0
-  const baseRent = rental.total_amount + extraDays * rental.daily_rate
+  const lateMs = Math.max(0, now - expectedMs)
+  const lateMinutes = lateMs / 60_000
+  // 0–30 min grace → 0 ชั่วโมง; เกิน 30 นาที → ปัดขึ้นเต็มชั่วโมง
+  const lateHours = lateMinutes <= 30 ? 0 : Math.ceil(lateMs / 3_600_000)
+  const lateChargeIsDay = lateHours >= 5
+  const overtimeCharge = lateHours === 0 ? 0
+    : lateChargeIsDay ? Math.ceil(lateHours / 24) * rental.daily_rate
+    : lateHours * HOURLY_RATE
 
   const [checklist, setChecklist] = useState<boolean[]>(CHECKLIST.map(() => true))
   const [odometer, setOdometer] = useState('')
@@ -72,7 +79,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
   const [error, setError] = useState('')
 
   const damage = parseFloat(damageFee) || 0
-  const refund = rental.deposit_amount - baseRent - damage
+  const netRefund = rental.deposit_amount - overtimeCharge - damage
 
   const toggleCheck = useCallback((i: number) => {
     setChecklist(prev => prev.map((v, idx) => idx === i ? !v : v))
@@ -94,9 +101,10 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           damageFee: damage,
           damageNotes: damageNotes.trim() || null,
           returnPhotoUrl: photoUrl || null,
-          refundAmount: refund,
+          refundAmount: netRefund,
           checklistPassed: checklist,
-          finalRentAmount: baseRent,
+          finalRentAmount: rental.total_amount,
+          overtimeCharge,
         }),
       })
       const data = await res.json()
@@ -147,21 +155,18 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           </div>
           <div className="info-row">
             <span className="info-key">วันที่คืนจริง</span>
-            <span className="info-val" style={{ color: isLate ? '#dc2626' : '#16a34a' }}>
+            <span className="info-val" style={{ color: lateHours > 0 ? '#dc2626' : '#16a34a' }}>
               {fmtDate(new Date().toISOString())}
-              {isLate ? ` (เกิน ${extraDays} วัน)` : now < expectedMs - 3_600_000 ? ' (คืนก่อนกำหนด)' : ' (คืนตามกำหนด)'}
+              {lateHours > 0
+                ? ` (เกิน ${lateHours} ชม.)`
+                : lateMinutes > 0 && lateMinutes <= 30
+                  ? ' (เกินนิดหน่อย — ยังอยู่ในเกรซ)'
+                  : now < expectedMs - 3_600_000 ? ' (คืนก่อนกำหนด)' : ' (คืนตามกำหนด)'}
             </span>
           </div>
           <div className="info-row">
-            <span className="info-key">ค่าเช่าที่คิด</span>
-            <span className="info-val" style={{ color: '#111827' }}>
-              ฿{baseRent.toLocaleString()}
-              {extraDays > 0 && (
-                <span style={{ fontSize: '11px', color: '#dc2626', marginLeft: '6px' }}>
-                  (+{extraDays} วัน × ฿{rental.daily_rate.toLocaleString()})
-                </span>
-              )}
-            </span>
+            <span className="info-key">ค่าเช่าที่ชำระแล้ว</span>
+            <span className="info-val">฿{rental.total_amount.toLocaleString()}</span>
           </div>
           <div className="info-row">
             <span className="info-key">เงินมัดจำ</span>
@@ -232,18 +237,49 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           </div>
         </div>
 
-        {/* Deposit refund */}
+        {/* Overtime charge */}
+        {lateHours > 0 && (
+          <div style={{
+            background: '#fef2f2', border: '2px solid #fecaca',
+            borderRadius: '14px', padding: '14px 18px', marginBottom: '10px',
+          }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#dc2626', marginBottom: '6px' }}>
+              ⏱ คืนรถช้า — ค่าล่วงเวลา
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', color: '#374151' }}>
+                {lateChargeIsDay
+                  ? `เกิน ${lateHours} ชม. → คิด ${Math.ceil(lateHours / 24)} วัน × ฿${rental.daily_rate.toLocaleString()}`
+                  : `เกิน ${lateHours} ชม. × ฿${HOURLY_RATE}/ชม.`}
+              </span>
+              <span style={{ fontSize: '20px', fontWeight: 900, color: '#dc2626' }}>
+                +฿{overtimeCharge.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Deposit refund / extra charge */}
         <div style={{
-          background: '#f0fdf4', border: '2px solid #bbf7d0',
+          background: netRefund >= 0 ? '#f0fdf4' : '#fff7ed',
+          border: `2px solid ${netRefund >= 0 ? '#bbf7d0' : '#fed7aa'}`,
           borderRadius: '14px', padding: '18px 20px', marginBottom: '12px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div>
-            <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>💰 คืนเงินมัดจำให้ลูกค้า</div>
-            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>ยอดมัดจำที่รับไว้ตอนส่งรถ</div>
+            <div style={{ fontSize: '13px', color: netRefund >= 0 ? '#16a34a' : '#ea580c', fontWeight: 600 }}>
+              {netRefund >= 0 ? '💰 คืนเงินมัดจำให้ลูกค้า' : '⚠️ มัดจำไม่พอ — เก็บเงินเพิ่ม'}
+            </div>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+              {netRefund >= 0
+                ? `มัดจำ ฿${rental.deposit_amount.toLocaleString()}`
+                  + (overtimeCharge > 0 ? ` − ล่วงเวลา ฿${overtimeCharge.toLocaleString()}` : '')
+                  + (damage > 0 ? ` − เสียหาย ฿${damage.toLocaleString()}` : '')
+                : `ค่าล่วงเวลา ฿${overtimeCharge.toLocaleString()} เกินมัดจำ ฿${rental.deposit_amount.toLocaleString()}`}
+            </div>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: 900, color: '#15803d' }}>
-            ฿{rental.deposit_amount.toLocaleString()}
+          <div style={{ fontSize: '28px', fontWeight: 900, color: netRefund >= 0 ? '#15803d' : '#ea580c' }}>
+            ฿{Math.abs(netRefund).toLocaleString()}
           </div>
         </div>
 
