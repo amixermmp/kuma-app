@@ -646,7 +646,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
                 : isLongRental
                   ? `${longResult?.months.length ?? 0} เดือน + ${longResult?.remainDays ?? 0} วัน • คิดตามสูตร`
                   : `฿${ndr.toLocaleString()}/วัน × ${shortResult?.calcDays ?? totalDays} วัน`
-                      + (freeWeeks > 0 ? ` (ฟรี ${freeWeeks * 2} วัน)` : '')
+                      + (freeWeeks > 0 ? ` (ฟรี ${freeWeeks * 2} วัน)` : '')}
             </div>
 
             {/* Breakdown — long rental onetime */}
