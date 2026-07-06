@@ -28,7 +28,33 @@ export default async function StaffFleetPage() {
   }
 
   const { data: bikes } = await bikeQuery
-  const list = bikes ?? []
+
+  // Cross-check: ถ้ารถมี monthly_rental active อยู่ แต่ status ยังเป็น available → แก้ในหน้านี้
+  // (และ patch ฐานข้อมูลไปด้วยเพื่อความถูกต้อง)
+  const bikeIds = (bikes ?? []).map((b: any) => b.id) // eslint-disable-line @typescript-eslint/no-explicit-any
+  let rentedByMonthly = new Set<string>()
+  if (bikeIds.length > 0) {
+    const { data: activeMonthly } = await supabase
+      .from('monthly_rentals')
+      .select('bike_id')
+      .eq('status', 'active')
+      .in('bike_id', bikeIds)
+    if (activeMonthly && activeMonthly.length > 0) {
+      rentedByMonthly = new Set(activeMonthly.map((r: any) => r.bike_id)) // eslint-disable-line @typescript-eslint/no-explicit-any
+      // Auto-heal: อัพเดท status ให้ถูกต้องในฐานข้อมูล
+      const staleIds = activeMonthly
+        .map((r: any) => r.bike_id) // eslint-disable-line @typescript-eslint/no-explicit-any
+        .filter((id: string) => bikes?.find((b: any) => b.id === id && b.status === 'available')) // eslint-disable-line @typescript-eslint/no-explicit-any
+      if (staleIds.length > 0) {
+        await supabase.from('bikes').update({ status: 'rented' }).in('id', staleIds)
+      }
+    }
+  }
+
+  const list = (bikes ?? []).map((b: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+    ...b,
+    status: rentedByMonthly.has(b.id) ? 'rented' : b.status,
+  }))
 
   // ชื่อสาขาสำหรับ header
   let branchName = 'ทุกสาขา'
