@@ -14,7 +14,7 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
   const { data: rental } = await supabase
     .from('rentals')
     .select(`
-      id, expected_end_datetime, total_amount, daily_rate, status,
+      id, expected_end_datetime, total_amount, daily_rate, outstanding_credit, status,
       bikes(id, license_plate, brand, model),
       customers(id, name)
     `)
@@ -25,5 +25,4 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
   if (!rental) redirect('/staff/home')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <ExtendForm rental={rental as any} staffId={staffId} />
-}
+  return <ExtendForm rental={rental as any} sta

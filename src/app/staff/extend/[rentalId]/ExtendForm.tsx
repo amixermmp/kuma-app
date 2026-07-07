@@ -9,6 +9,7 @@ type Rental = {
   expected_end_datetime: string
   total_amount: number
   daily_rate: number
+  outstanding_credit: number
   status: string
   bikes: { id: string; license_plate: string; brand: string; model: string }
   customers: { id: string; name: string }
@@ -32,42 +33,50 @@ export default function ExtendForm({ rental }: Props) {
   const bike = rental.bikes
   const customer = rental.customers
 
-  const [unit, setUnit] = useState<'day' | 'hour'>('day')
-  const [amount, setAmount] = useState(1)
-  const [studentPromo, setStudentPromo] = useState(false)
+  const [payment, setPayment] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const HOURLY_RATE = 50
-  const dayRate = studentPromo ? rental.daily_rate - 50 : rental.daily_rate
-  const chargeAsDay = unit === 'hour' && amount > 5
+  const paymentNum = parseFloat(payment) || 0
+  const existingCredit = rental.outstanding_credit ?? 0
+  const totalAvailable = existingCredit + paymentNum
+  const daysCovered = totalAvailable > 0 ? Math.floor(totalAvailable / rental.daily_rate) : 0
+  const newCredit = totalAvailable > 0 ? totalAvailable % rental.daily_rate : existingCredit
 
-  const extraCharge = useMemo(() => {
-    if (unit === 'day') return amount * dayRate
-    if (chargeAsDay) return dayRate
-    return amount * HOURLY_RATE
-  }, [unit, amount, dayRate, chargeAsDay])
+  const newEnd = useMemo(() => {
+    const d = new Date(rental.expected_end_datetime)
+    d.setDate(d.getDate() + daysCovered)
+    return d
+  }, [rental.expected_end_datetime, daysCovered])
 
-  const newEndDate = useMemo(() => {
-    const base = new Date(rental.expected_end_datetime)
-    if (unit === 'day') base.setDate(base.getDate() + amount)
-    else base.setHours(base.getHours() + (chargeAsDay ? amount : amount))
-    return base
-  }, [rental.expected_end_datetime, unit, amount, chargeAsDay])
+  const now = Date.now()
+  const expectedMs = new Date(rental.expected_end_datetime).getTime()
+  const overdueDaysNow = now > expectedMs
+    ? Math.ceil((now - expectedMs) / 86_400_000)
+    : 0
+
+  const newEndMs = newEnd.getTime()
+  const stillOverdueDays = daysCovered > 0 && now > newEndMs
+    ? Math.ceil((now - newEndMs) / 86_400_000)
+    : 0
+  const aheadDays = daysCovered > 0 && newEndMs > now
+    ? Math.floor((newEndMs - now) / 86_400_000)
+    : 0
 
   const handleSubmit = async () => {
+    if (paymentNum <= 0) { setError('กรุณาใส่จำนวนเงิน'); return }
     setLoading(true)
     setError('')
     try {
+      // daysCovered = 0 → บันทึกเครดิต แต่ไม่เลื่อน expected_end
       const res = await fetch('/api/staff/rental/extend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rentalId: rental.id,
-          unit,
-          amount,
-          extraCharge,
-          newEndDatetime: newEndDate.toISOString(),
+          payment: paymentNum,
+          newEndDatetime: daysCovered > 0 ? newEnd.toISOString() : rental.expected_end_datetime,
+          newCredit,
         }),
       })
       const data = await res.json()
@@ -94,8 +103,8 @@ export default function ExtendForm({ rental }: Props) {
 
       <div className="section-pad">
 
-        {/* Current rental */}
-        <div className="card" style={{ borderTop: '3px solid #d97706' }}>
+        {/* Current rental info */}
+        <div className="card" style={{ borderTop: `3px solid ${overdueDaysNow > 0 ? '#dc2626' : '#d97706'}` }}>
           <div className="card-title">การเช่าปัจจุบัน</div>
           <div className="info-row">
             <span className="info-key">ผู้เช่า</span>
@@ -103,127 +112,102 @@ export default function ExtendForm({ rental }: Props) {
           </div>
           <div className="info-row">
             <span className="info-key">กำหนดคืนเดิม</span>
-            <span className="info-val" style={{ color: '#dc2626' }}>
+            <span className="info-val" style={{ color: overdueDaysNow > 0 ? '#dc2626' : 'inherit' }}>
               {fmtDate(rental.expected_end_datetime)}
+              {overdueDaysNow > 0 && ` (เกิน ${overdueDaysNow} วัน)`}
             </span>
           </div>
+          {existingCredit > 0 && (
+            <div className="info-row">
+              <span className="info-key">เครดิตค้างจากครั้งก่อน</span>
+              <span className="info-val" style={{ color: '#16a34a' }}>+฿{existingCredit.toLocaleString()}</span>
+            </div>
+          )}
           <div className="info-row">
-            <span className="info-key">ค่าเช่าปัจจุบัน</span>
-            <span className="info-val">฿{rental.total_amount.toLocaleString()}</span>
+            <span className="info-key">ราคา/วัน</span>
+            <span className="info-val">฿{rental.daily_rate.toLocaleString()}</span>
           </div>
         </div>
 
-        {/* Extend options */}
+        {/* Payment input */}
         <div className="card">
-          <div className="card-title">ต่อเวลาเป็น</div>
+          <div className="card-title">รับเงินจากลูกค้า</div>
 
-          {/* Unit toggle */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-            {(['day', 'hour'] as const).map(u => (
-              <button key={u} onClick={() => { setUnit(u); setAmount(u === 'day' ? 1 : 1) }} style={{
-                padding: '6px 20px', borderRadius: '20px',
-                border: '2px solid', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-                background: unit === u ? '#d97706' : '#fff',
-                color: unit === u ? '#fff' : '#6b7280',
-                borderColor: unit === u ? '#d97706' : '#e5e7eb',
-              }}>
-                {u === 'day' ? 'รายวัน' : 'รายชั่วโมง'}
-              </button>
-            ))}
-          </div>
-
-          {/* Stepper */}
-          <label className="field-label">
-            จำนวน{unit === 'day' ? 'วัน' : 'ชั่วโมง'}ที่ต้องการต่อ
-          </label>
-          <div className="time-stepper">
-            <button className="stepper-btn"
-              onClick={() => setAmount(a => Math.max(1, a - 1))}>−</button>
-            <div style={{ textAlign: 'center' }}>
-              <div className="stepper-val">{amount}</div>
-              <div className="stepper-unit">{unit === 'day' ? 'วัน' : 'ชม.'}</div>
-            </div>
-            <button className="stepper-btn"
-              onClick={() => setAmount(a => Math.min(unit === 'day' ? 90 : 23, a + 1))}>+</button>
-          </div>
-
-          {/* Hourly warning */}
-          {unit === 'hour' && amount > 5 && (
-            <div style={{
-              background: '#fffbeb', borderRadius: '8px', padding: '10px',
-              fontSize: '13px', color: '#92400e', textAlign: 'center', marginTop: '12px',
+          {/* Shortcuts */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <button onClick={() => setPayment(String(rental.daily_rate))} style={{
+              flex: 1, padding: '10px 8px', borderRadius: '10px',
+              border: '1.5px solid #e5e7eb', background: '#fff',
+              color: '#374151', fontWeight: 600, fontSize: '13px',
+              cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
             }}>
-              ⚠️ เกิน 5 ชม. คิดเป็นราคา 1 วัน (฿{dayRate.toLocaleString()})
+              1 วัน<br />
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>฿{rental.daily_rate.toLocaleString()}</span>
+            </button>
+            <button onClick={() => setPayment(String(rental.daily_rate * 7))} style={{
+              flex: 1, padding: '10px 8px', borderRadius: '10px',
+              border: '1.5px solid #e5e7eb', background: '#fff',
+              color: '#374151', fontWeight: 600, fontSize: '13px',
+              cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
+            }}>
+              7 วัน<br />
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>฿{(rental.daily_rate * 7).toLocaleString()}</span>
+            </button>
+            <button onClick={() => setPayment('')} style={{
+              flex: 1, padding: '10px 8px', borderRadius: '10px',
+              border: '1.5px solid #d97706', background: '#fffbeb',
+              color: '#d97706', fontWeight: 600, fontSize: '13px',
+              cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
+            }}>
+              ระบุเอง
+            </button>
+          </div>
+
+          <label className="field-label">จำนวนเงินที่รับ (บาท)</label>
+          <input
+            className="field-input"
+            type="number"
+            placeholder={`เช่น ${rental.daily_rate * 3}`}
+            value={payment}
+            onChange={e => setPayment(e.target.value)}
+            style={{ fontSize: '20px', fontWeight: 700 }}
+          />
+          {existingCredit > 0 && paymentNum > 0 && (
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+              เครดิตเก่า ฿{existingCredit.toLocaleString()} + รับใหม่ ฿{paymentNum.toLocaleString()} = รวม ฿{totalAvailable.toLocaleString()}
             </div>
           )}
         </div>
 
-        {/* Student promo */}
-        <div className="card">
-          <div className="card-title">ราคา</div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={() => setStudentPromo(false)} style={{
-              flex: 1, padding: '10px', borderRadius: '10px',
-              border: `2px solid ${!studentPromo ? '#374151' : '#e5e7eb'}`,
-              background: !studentPromo ? '#f1f5f9' : '#fff',
-              color: !studentPromo ? '#111827' : '#6b7280',
-              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-            }}>ราคาปกติ</button>
-            <button onClick={() => setStudentPromo(true)} style={{
-              flex: 1, padding: '10px', borderRadius: '10px',
-              border: `2px solid ${studentPromo ? '#7c3aed' : '#e5e7eb'}`,
-              background: studentPromo ? '#f5f3ff' : '#fff',
-              color: studentPromo ? '#7c3aed' : '#6b7280',
-              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-            }}>🎓 ราคานักศึกษา</button>
-          </div>
-          {studentPromo && (
-            <div style={{ marginTop: '10px', background: '#f5f3ff', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#7c3aed' }}>
-              ลด ฿50/วัน — ราคารายวัน ฿{dayRate.toLocaleString()}
-            </div>
-          )}
-        </div>
-
-        {/* Price summary */}
-        <div className="price-box">
-          <div className="price-label">กำหนดคืนใหม่</div>
-          <div style={{ fontSize: '20px', fontWeight: 800, margin: '8px 0' }}>
-            {fmtDate(newEndDate.toISOString())}
-          </div>
-          <div className="price-label" style={{ marginTop: '12px' }}>ค่าต่อเวลาเพิ่มเติม</div>
-          <div className="price-amount">฿{extraCharge.toLocaleString()}</div>
-          <div className="price-detail">
-            {unit === 'day'
-              ? `฿${dayRate.toLocaleString()}/วัน × ${amount} วัน`
-              : chargeAsDay
-                ? `คิดเต็มวัน ฿${dayRate.toLocaleString()}`
-                : `฿${HOURLY_RATE}/ชม. × ${amount} ชม.`}
-          </div>
-        </div>
-
-        {error && (
+        {/* Summary */}
+        {paymentNum > 0 && (
           <div style={{
-            background: '#fef2f2', border: '1px solid #fecaca',
-            borderRadius: '10px', padding: '12px', color: '#dc2626',
-            fontSize: '14px', marginBottom: '12px',
+            background: 'linear-gradient(135deg,#111827,#1e293b)',
+            borderRadius: '16px', padding: '18px 16px', marginBottom: '12px', color: '#fff',
           }}>
-            ⚠️ {error}
-          </div>
-        )}
+            <div style={{ fontSize: '12px', opacity: .8, marginBottom: '12px' }}>สรุปการต่อเวลา</div>
 
-        <button
-          className="btn"
-          onClick={handleSubmit}
-          disabled={loading}
-          style={{
-            width: '100%', background: '#d97706', color: '#fff',
-            opacity: loading ? 0.7 : 1,
-          }}
-        >
-          {loading ? '⏳ กำลังบันทึก...' : '💾 ยืนยันต่อเวลา'}
-        </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontSize: '13px', opacity: .8 }}>ได้</span>
+              <span style={{ fontSize: '16px', fontWeight: 800 }}>
+                {daysCovered > 0 ? `${daysCovered} วัน` : '< 1 วัน (ไม่ถึงวัน)'}
+              </span>
+            </div>
 
-      </div>
-    </div>
-  )
-}
+            {newCredit > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', opacity: .8 }}>เศษที่ยังค้าง</span>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#fbbf24' }}>
+                  ฿{Math.round(newCredit).toLocaleString()}
+                </span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <span style={{ fontSize: '13px', opacity: .8 }}>กำหนดคืนใหม่</span>
+              <span style={{ fontSize: '13px', fontWeight: 700 }}>
+                {daysCovered > 0 ? fmtDate(newEnd.toISOString()) : '—'}
+              </span>
+            </div>
+
+     

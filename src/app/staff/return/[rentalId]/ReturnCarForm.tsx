@@ -15,6 +15,7 @@ type Rental = {
   deposit_amount: number
   daily_rate: number
   total_days: number
+  outstanding_credit: number
   status: string
   notes: string | null
   bikes: { id: string; license_plate: string; brand: string; model: string; odometer: number }
@@ -65,9 +66,12 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
   // 0–30 min grace → 0 ชั่วโมง; เกิน 30 นาที → ปัดขึ้นเต็มชั่วโมง
   const lateHours = lateMinutes <= 30 ? 0 : Math.ceil(lateMs / 3_600_000)
   const lateChargeIsDay = lateHours >= 5
-  const overtimeCharge = lateHours === 0 ? 0
+  const grossOvertimeCharge = lateHours === 0 ? 0
     : lateChargeIsDay ? Math.ceil(lateHours / 24) * rental.daily_rate
     : lateHours * HOURLY_RATE
+  // หักเครดิตที่ลูกค้าจ่ายค้างไว้จากการต่อเวลาก่อนหน้า
+  const credit = rental.outstanding_credit ?? 0
+  const overtimeCharge = Math.max(0, grossOvertimeCharge - credit)
 
   const [checklist, setChecklist] = useState<boolean[]>(CHECKLIST.map(() => true))
   const [odometer, setOdometer] = useState('')
@@ -246,16 +250,38 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
             <div style={{ fontSize: '13px', fontWeight: 700, color: '#dc2626', marginBottom: '6px' }}>
               ⏱ คืนรถช้า — ค่าล่วงเวลา
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: credit > 0 ? '6px' : '0' }}>
               <span style={{ fontSize: '13px', color: '#374151' }}>
                 {lateChargeIsDay
                   ? `เกิน ${lateHours} ชม. → คิด ${Math.ceil(lateHours / 24)} วัน × ฿${rental.daily_rate.toLocaleString()}`
                   : `เกิน ${lateHours} ชม. × ฿${HOURLY_RATE}/ชม.`}
               </span>
-              <span style={{ fontSize: '20px', fontWeight: 900, color: '#dc2626' }}>
-                +฿{overtimeCharge.toLocaleString()}
+              <span style={{ fontSize: '16px', fontWeight: 700, color: '#dc2626', textDecoration: credit > 0 ? 'line-through' : 'none', opacity: credit > 0 ? 0.6 : 1 }}>
+                ฿{grossOvertimeCharge.toLocaleString()}
               </span>
             </div>
+            {credit > 0 && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '13px', color: '#16a34a' }}>💳 หักเครดิตที่จ่ายไว้แล้ว</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#16a34a' }}>−฿{Math.min(credit, grossOvertimeCharge).toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #fecaca', paddingTop: '6px' }}>
+                  <span style={{ fontSize: '13px', color: '#374151', fontWeight: 600 }}>คงเหลือ</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: overtimeCharge > 0 ? '#dc2626' : '#16a34a' }}>
+                    {overtimeCharge > 0 ? `+฿${overtimeCharge.toLocaleString()}` : '฿0 (ชำระครบ)'}
+                  </span>
+                </div>
+              </>
+            )}
+            {credit === 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span />
+                <span style={{ fontSize: '20px', fontWeight: 900, color: '#dc2626' }}>
+                  +฿{overtimeCharge.toLocaleString()}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -268,48 +294,4 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
         }}>
           <div>
             <div style={{ fontSize: '13px', color: netRefund >= 0 ? '#16a34a' : '#ea580c', fontWeight: 600 }}>
-              {netRefund >= 0 ? '💰 คืนเงินมัดจำให้ลูกค้า' : '⚠️ มัดจำไม่พอ — เก็บเงินเพิ่ม'}
-            </div>
-            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
-              {netRefund >= 0
-                ? `มัดจำ ฿${rental.deposit_amount.toLocaleString()}`
-                  + (overtimeCharge > 0 ? ` − ล่วงเวลา ฿${overtimeCharge.toLocaleString()}` : '')
-                  + (damage > 0 ? ` − เสียหาย ฿${damage.toLocaleString()}` : '')
-                : `ค่าล่วงเวลา ฿${overtimeCharge.toLocaleString()} เกินมัดจำ ฿${rental.deposit_amount.toLocaleString()}`}
-            </div>
-          </div>
-          <div style={{ fontSize: '28px', fontWeight: 900, color: netRefund >= 0 ? '#15803d' : '#ea580c' }}>
-            ฿{Math.abs(netRefund).toLocaleString()}
-          </div>
-        </div>
-
-        {error && (
-          <div style={{
-            background: '#fef2f2', border: '1px solid #fecaca',
-            borderRadius: '10px', padding: '12px', color: '#dc2626',
-            fontSize: '14px', marginBottom: '12px',
-          }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        <button
-          className="btn btn-success"
-          onClick={handleSubmit}
-          disabled={loading}
-          style={{ width: '100%', opacity: loading ? 0.7 : 1 }}
-        >
-          {loading ? '⏳ กำลังบันทึก...' : '✅ ยืนยันรับรถคืน'}
-        </button>
-
-        <button className="btn" style={{
-          width: '100%', marginTop: '8px',
-          background: 'transparent', border: '2px solid #7c3aed', color: '#7c3aed',
-        }}>
-          🧾 ออกใบกำกับภาษี
-        </button>
-
-      </div>
-    </div>
-  )
-}
+              {netRefund >= 0 ? '
