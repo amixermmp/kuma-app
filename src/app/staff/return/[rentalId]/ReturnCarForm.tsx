@@ -63,8 +63,10 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
   const isLate = now > expectedMs
   const lateMs = Math.max(0, now - expectedMs)
   const lateMinutes = lateMs / 60_000
-  // 0–30 min grace → 0 ชั่วโมง; เกิน 30 นาที → ปัดขึ้นเต็มชั่วโมง
-  const lateHours = lateMinutes <= 30 ? 0 : Math.ceil(lateMs / 3_600_000)
+  // 0–30 min grace → 0 ชั่วโมง; เกิน 30 นาที → เศษ ≤30 นาทีในชั่วโมงนั้นไม่ปัดขึ้น, >30 นาที ปัดขึ้น
+  const lateWholeHours = Math.floor(lateMs / 3_600_000)
+  const lateRemainMs = lateMs % 3_600_000
+  const lateHours = lateMinutes <= 30 ? 0 : lateWholeHours + (lateRemainMs > 30 * 60_000 ? 1 : 0)
   const lateChargeIsDay = lateHours >= 5
   const grossOvertimeCharge = lateHours === 0 ? 0
     : lateChargeIsDay ? Math.ceil(lateHours / 24) * rental.daily_rate
@@ -290,8 +292,4 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           background: netRefund >= 0 ? '#f0fdf4' : '#fff7ed',
           border: `2px solid ${netRefund >= 0 ? '#bbf7d0' : '#fed7aa'}`,
           borderRadius: '14px', padding: '18px 20px', marginBottom: '12px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div>
-            <div style={{ fontSize: '13px', color: netRefund >= 0 ? '#16a34a' : '#ea580c', fontWeight: 600 }}>
-              {netRefund >= 0 ? '
+          display: 'flex', alignItems: 'center', 
