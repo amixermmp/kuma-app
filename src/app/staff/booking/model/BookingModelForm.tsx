@@ -134,10 +134,6 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
               </span>
             </div>
           </div>
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{ fontSize: '22px', fontWeight: 800 }}>฿{totalAmount.toLocaleString()}</div>
-            <div style={{ fontSize: '11px', opacity: 0.8 }}>฿{dailyRate.toLocaleString()}/วัน</div>
-          </div>
         </div>
 
         {/* Note about bike assignment */}

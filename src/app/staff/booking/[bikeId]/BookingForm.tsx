@@ -228,9 +228,8 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontSize: '22px', fontWeight: 800 }}>
-              {totalDays > 0 ? `฿${totalAmount.toLocaleString()}` : '฿—'}
+              {totalDays > 0 ? `${totalDays} วัน` : '—'}
             </div>
-            <div style={{ fontSize: '11px', opacity: 0.8 }}>฿{ndr.toLocaleString()}/วัน</div>
           </div>
         </div>
 
@@ -277,71 +276,6 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
           )}
         </div>
 
-        {/* Price breakdown box */}
-        {totalDays > 0 && (
-          <div style={{
-            background: 'linear-gradient(135deg,#111827,#1e293b)',
-            borderRadius: '16px', padding: '18px 16px', marginBottom: '12px', color: '#fff',
-          }}>
-            <div style={{ fontSize: '12px', opacity: .8, marginBottom: '4px' }}>{totalDays} วัน</div>
-            <div style={{ fontSize: '36px', fontWeight: 900, letterSpacing: '-1px', marginBottom: '8px' }}>
-              ฿{totalAmount.toLocaleString()}
-            </div>
-            <div style={{ fontSize: '12px', opacity: .75 }}>
-              {isLong
-                ? `${longResult?.months.length ?? 0} เดือน + ${longResult?.remainDays ?? 0} วัน • คิดตามสูตร`
-                : `฿${ndr.toLocaleString()}/วัน × ${shortResult?.calcDays ?? totalDays} วัน`
-                  + (freeWeeks > 0 ? ` (ฟรี ${freeWeeks * 2} วัน)` : '')}
-            </div>
-
-            {/* Breakdown — long */}
-            {isLong && longResult && (
-              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
-                {longResult.months.map((m, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ opacity: .8 }}>📅 เดือน {i + 1} ({m.days} วัน)</span>
-                    <span style={{ fontWeight: 700 }}>฿{m.price.toLocaleString()}</span>
-                  </div>
-                ))}
-                {longResult.remainDays > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ opacity: .8 }}>
-                      📆 เศษ {longResult.remainDays} วัน (คิด {longResult.calcRemainDays} วัน × ฿{ndr})
-                    </span>
-                    <span style={{ fontWeight: 700 }}>฿{longResult.remainPrice.toLocaleString()}</span>
-                  </div>
-                )}
-                {discount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ opacity: .8 }}>🎓 ส่วนลดนักศึกษา</span>
-                    <span style={{ fontWeight: 700 }}>-฿{discount.toLocaleString()}</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
-                  <span>รวมสุทธิ</span>
-                  <span style={{ fontWeight: 900 }}>฿{totalAmount.toLocaleString()}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Breakdown — short */}
-            {!isLong && shortResult && (freeWeeks > 0 || discount > 0) && (
-              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
-                {freeWeeks > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ opacity: .8 }}>🎁 ฟรี {freeWeeks * 2} วัน ({freeWeeks} สัปดาห์ × 2 วัน)</span>
-                    <span style={{ fontWeight: 700 }}>—</span>
-                  </div>
-                )}
-                {discount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                    <span style={{ opacity: .8 }}>🎓 ลดนักศึกษา ({shortResult.calcDays} วัน × ฿50)</span>
-                    <span style={{ fontWeight: 700 }}>-฿{discount.toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         )}
 
         {/* Customer */}

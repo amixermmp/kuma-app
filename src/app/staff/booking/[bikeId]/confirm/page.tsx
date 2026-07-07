@@ -146,24 +146,6 @@ export default async function BookingConfirmPage({ params }: { params: { bikeId:
             )}
           </div>
 
-          {/* Price */}
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #f8fafc' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ fontSize: '13px', color: '#6b7280' }}>฿{booking.daily_rate.toLocaleString()} × {booking.total_days} วัน</span>
-              <span style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>฿{(booking.daily_rate * booking.total_days).toLocaleString()}</span>
-            </div>
-            {booking.discount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ fontSize: '13px', color: '#16a34a' }}>ส่วนลด</span>
-                <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>-฿{Number(booking.discount).toLocaleString()}</span>
-              </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f8fafc', paddingTop: '10px', marginTop: '6px' }}>
-              <span style={{ fontWeight: 700, fontSize: '15px', color: '#111827' }}>ยอดรวม</span>
-              <span style={{ fontWeight: 800, fontSize: '20px', color: '#111827' }}>฿{Number(booking.total_amount).toLocaleString()}</span>
-            </div>
-          </div>
-
           {booking.notes && (
             <div style={{ padding: '12px 20px', borderBottom: '1px solid #f8fafc' }}>
               <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 600, marginBottom: '4px' }}>หมายเหตุ</div>
