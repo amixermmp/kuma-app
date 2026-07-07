@@ -276,8 +276,6 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
           )}
         </div>
 
-        )}
-
         {/* Customer */}
         <div className="card">
           <div className="card-title">ข้อมูลลูกค้า</div>
@@ -364,3 +362,4 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
     </div>
   )
 }
+            
