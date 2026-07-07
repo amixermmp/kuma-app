@@ -15,7 +15,7 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
     .from('rentals')
     .select(`
       id, expected_end_datetime, total_amount, daily_rate, outstanding_credit, status,
-      bikes(id, license_plate, brand, model),
+      bikes(id, license_plate, brand, model, daily_rate),
       customers(id, name)
     `)
     .eq('id', params.rentalId)
@@ -25,4 +25,4 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
   if (!rental) redirect('/staff/home')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <ExtendForm rental={rental as any} sta
+  return <ExtendForm rental={rental

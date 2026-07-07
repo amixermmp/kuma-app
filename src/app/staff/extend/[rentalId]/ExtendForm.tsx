@@ -11,7 +11,7 @@ type Rental = {
   daily_rate: number
   outstanding_credit: number
   status: string
-  bikes: { id: string; license_plate: string; brand: string; model: string }
+  bikes: { id: string; license_plate: string; brand: string; model: string; daily_rate: number }
   customers: { id: string; name: string }
 }
 
@@ -37,11 +37,14 @@ export default function ExtendForm({ rental }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // ใช้ราคาปัจจุบันของรถ (bikes.daily_rate) แทนราคาตอนทำสัญญา
+  const rate = rental.bikes.daily_rate
+
   const paymentNum = parseFloat(payment) || 0
   const existingCredit = rental.outstanding_credit ?? 0
   const totalAvailable = existingCredit + paymentNum
-  const daysCovered = totalAvailable > 0 ? Math.floor(totalAvailable / rental.daily_rate) : 0
-  const newCredit = totalAvailable > 0 ? totalAvailable % rental.daily_rate : existingCredit
+  const daysCovered = totalAvailable > 0 ? Math.floor(totalAvailable / rate) : 0
+  const newCredit = totalAvailable > 0 ? totalAvailable % rate : existingCredit
 
   const newEnd = useMemo(() => {
     const d = new Date(rental.expected_end_datetime)
@@ -125,7 +128,7 @@ export default function ExtendForm({ rental }: Props) {
           )}
           <div className="info-row">
             <span className="info-key">ราคา/วัน</span>
-            <span className="info-val">฿{rental.daily_rate.toLocaleString()}</span>
+            <span className="info-val">฿{rate.toLocaleString()}</span>
           </div>
         </div>
 
@@ -135,23 +138,23 @@ export default function ExtendForm({ rental }: Props) {
 
           {/* Shortcuts */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-            <button onClick={() => setPayment(String(rental.daily_rate))} style={{
+            <button onClick={() => setPayment(String(rate))} style={{
               flex: 1, padding: '10px 8px', borderRadius: '10px',
               border: '1.5px solid #e5e7eb', background: '#fff',
               color: '#374151', fontWeight: 600, fontSize: '13px',
               cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
             }}>
               1 วัน<br />
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>฿{rental.daily_rate.toLocaleString()}</span>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>฿{rate.toLocaleString()}</span>
             </button>
-            <button onClick={() => setPayment(String(rental.daily_rate * 7))} style={{
+            <button onClick={() => setPayment(String(rate * 7))} style={{
               flex: 1, padding: '10px 8px', borderRadius: '10px',
               border: '1.5px solid #e5e7eb', background: '#fff',
               color: '#374151', fontWeight: 600, fontSize: '13px',
               cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
             }}>
               7 วัน<br />
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>฿{(rental.daily_rate * 7).toLocaleString()}</span>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>฿{(rate * 7).toLocaleString()}</span>
             </button>
             <button onClick={() => setPayment('')} style={{
               flex: 1, padding: '10px 8px', borderRadius: '10px',
@@ -167,7 +170,7 @@ export default function ExtendForm({ rental }: Props) {
           <input
             className="field-input"
             type="number"
-            placeholder={`เช่น ${rental.daily_rate * 3}`}
+            placeholder={`เช่น ${rate * 3}`}
             value={payment}
             onChange={e => setPayment(e.target.value)}
             style={{ fontSize: '20px', fontWeight: 700 }}
@@ -206,8 +209,4 @@ export default function ExtendForm({ rental }: Props) {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
               <span style={{ fontSize: '13px', opacity: .8 }}>กำหนดคืนใหม่</span>
               <span style={{ fontSize: '13px', fontWeight: 700 }}>
-                {daysCovered > 0 ? fmtDate(newEnd.toISOString()) : '—'}
-              </span>
-            </div>
-
-     
+                {daysCovered
