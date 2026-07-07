@@ -34,6 +34,7 @@ export default function ExtendForm({ rental }: Props) {
   const customer = rental.customers
 
   const [payment, setPayment] = useState('')
+  const [weeklyPromo, setWeeklyPromo] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -43,8 +44,13 @@ export default function ExtendForm({ rental }: Props) {
   const paymentNum = parseFloat(payment) || 0
   const existingCredit = rental.outstanding_credit ?? 0
   const totalAvailable = existingCredit + paymentNum
-  const daysCovered = totalAvailable > 0 ? Math.floor(totalAvailable / rate) : 0
-  const newCredit = totalAvailable > 0 ? totalAvailable % rate : existingCredit
+  // weeklyPromo = เช่า 5 แถม 2 → จ่าย rate×5 แต่ได้ 7 วัน
+  const daysCovered = weeklyPromo
+    ? 7
+    : totalAvailable > 0 ? Math.floor(totalAvailable / rate) : 0
+  const newCredit = weeklyPromo
+    ? existingCredit  // เครดิตเก่าคงเดิม วันฟรีเป็นโปรโม
+    : totalAvailable > 0 ? totalAvailable % rate : existingCredit
 
   const newEnd = useMemo(() => {
     const d = new Date(rental.expected_end_datetime)
@@ -138,7 +144,7 @@ export default function ExtendForm({ rental }: Props) {
 
           {/* Shortcuts */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-            <button onClick={() => setPayment(String(rate))} style={{
+            <button onClick={() => { setPayment(String(rate)); setWeeklyPromo(false) }} style={{
               flex: 1, padding: '10px 8px', borderRadius: '10px',
               border: '1.5px solid #e5e7eb', background: '#fff',
               color: '#374151', fontWeight: 600, fontSize: '13px',
@@ -147,16 +153,18 @@ export default function ExtendForm({ rental }: Props) {
               1 วัน<br />
               <span style={{ fontSize: '11px', color: '#6b7280' }}>฿{rate.toLocaleString()}</span>
             </button>
-            <button onClick={() => setPayment(String(rate * 7))} style={{
+            <button onClick={() => { setPayment(String(rate * 5)); setWeeklyPromo(true) }} style={{
               flex: 1, padding: '10px 8px', borderRadius: '10px',
-              border: '1.5px solid #e5e7eb', background: '#fff',
-              color: '#374151', fontWeight: 600, fontSize: '13px',
+              border: `1.5px solid ${weeklyPromo ? '#7c3aed' : '#e5e7eb'}`,
+              background: weeklyPromo ? '#f5f3ff' : '#fff',
+              color: weeklyPromo ? '#7c3aed' : '#374151',
+              fontWeight: 600, fontSize: '13px',
               cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
             }}>
-              7 วัน<br />
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>฿{(rate * 7).toLocaleString()}</span>
+              7 วัน 🎁<br />
+              <span style={{ fontSize: '11px', color: weeklyPromo ? '#7c3aed' : '#6b7280' }}>฿{(rate * 5).toLocaleString()}</span>
             </button>
-            <button onClick={() => setPayment('')} style={{
+            <button onClick={() => { setPayment(''); setWeeklyPromo(false) }} style={{
               flex: 1, padding: '10px 8px', borderRadius: '10px',
               border: '1.5px solid #d97706', background: '#fffbeb',
               color: '#d97706', fontWeight: 600, fontSize: '13px',
@@ -172,9 +180,14 @@ export default function ExtendForm({ rental }: Props) {
             type="number"
             placeholder={`เช่น ${rate * 3}`}
             value={payment}
-            onChange={e => setPayment(e.target.value)}
+            onChange={e => { setPayment(e.target.value); setWeeklyPromo(false) }}
             style={{ fontSize: '20px', fontWeight: 700 }}
           />
+          {weeklyPromo && (
+            <div style={{ fontSize: '12px', color: '#7c3aed', marginTop: '6px', fontWeight: 600 }}>
+              🎁 โปรรายสัปดาห์: เช่า 5 แถม 2 — จ่าย ฿{(rate * 5).toLocaleString()} ได้ 7 วัน
+            </div>
+          )}
           {existingCredit > 0 && paymentNum > 0 && (
             <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
               เครดิตเก่า ฿{existingCredit.toLocaleString()} + รับใหม่ ฿{paymentNum.toLocaleString()} = รวม ฿{totalAvailable.toLocaleString()}
@@ -193,20 +206,4 @@ export default function ExtendForm({ rental }: Props) {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
               <span style={{ fontSize: '13px', opacity: .8 }}>ได้</span>
               <span style={{ fontSize: '16px', fontWeight: 800 }}>
-                {daysCovered > 0 ? `${daysCovered} วัน` : '< 1 วัน (ไม่ถึงวัน)'}
-              </span>
-            </div>
-
-            {newCredit > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '13px', opacity: .8 }}>เศษที่ยังค้าง</span>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: '#fbbf24' }}>
-                  ฿{Math.round(newCredit).toLocaleString()}
-                </span>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <span style={{ fontSize: '13px', opacity: .8 }}>กำหนดคืนใหม่</span>
-              <span style={{ fontSize: '13px', fontWeight: 700 }}>
-                {daysCovered
+                {day
