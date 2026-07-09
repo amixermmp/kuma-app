@@ -38,7 +38,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
       .in('doc_type', ['tax', 'pob']),
     supabase
       .from('bike_routines')
-      .select('next_due_km, next_due_date')
+      .select('task_name, last_done_date, next_due_km, next_due_date')
       .eq('bike_id', params.bikeId),
     supabase
       .from('rentals')
@@ -57,6 +57,8 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
   if (!bike) notFound()
 
   const today = new Date().toISOString().split('T')[0]
+  const oilRoutine = (routines ?? []).find(r => r.task_name === 'เปลี่ยนน้ำมันเครื่อง')
+  const lastOilDate = oilRoutine?.last_done_date ?? null
   const overdueCount = [
     ...(docs ?? []).filter(d => d.expiry_date && d.expiry_date < today),
     ...(routines ?? []).filter(r =>
@@ -111,6 +113,12 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
               </span>
             )}
           </div>
+          {lastOilDate && (
+            <div style={{ fontSize: '12px', color: '#92400e', marginTop: '3px' }}>
+              🛢️ เปลี่ยนน้ำมันเครื่องล่าสุด:{' '}
+              {new Date(lastOilDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </div>
+          )}
         </div>
         <div style={{
           background: `${statusColor}18`, color: statusColor,
@@ -224,6 +232,21 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
                 <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>คืนรถ — ปลดล็อครถ</div>
               </div>
             </Link>
+            <Link
+              href={`/staff/line/monthly/${monthlyRentalId}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '16px',
+                background: '#f0fdf4', border: '2px solid #06c755',
+                borderRadius: '14px', padding: '18px 20px',
+                textDecoration: 'none',
+              }}
+            >
+              <span style={{ fontSize: '36px' }}>💬</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '16px', color: '#047857' }}>ผูกไลน์ลูกค้า</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>แจ้งเตือนค่าเช่ารายเดือนอัตโนมัติ</div>
+              </div>
+            </Link>
           </>
         )}
 
@@ -244,6 +267,22 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
             <div style={{ fontSize: '28px', marginBottom: '6px' }}>⏱️</div>
             <div style={{ fontWeight: 700, fontSize: '14px', color: '#92400e' }}>ต่อเวลา</div>
             <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>ขยายวันเช่า</div>
+          </Link>
+
+          {/* ผูกไลน์ลูกค้า */}
+          <Link
+            href={isRented && rentalId ? `/staff/line/${rentalId}` : '#'}
+            style={{
+              background: isRented ? '#f0fdf4' : '#f8fafc',
+              border: `2px solid ${isRented ? '#06c755' : '#e2e8f0'}`,
+              borderRadius: '14px', padding: '16px',
+              textDecoration: 'none', opacity: isRented ? 1 : 0.5,
+              pointerEvents: isRented ? 'auto' : 'none',
+            }}
+          >
+            <div style={{ fontSize: '28px', marginBottom: '6px' }}>💬</div>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: '#047857' }}>ผูกไลน์ลูกค้า</div>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>แจ้งเตือนอัตโนมัติ</div>
           </Link>
 
           {/* แจ้งรถเสีย */}
@@ -308,20 +347,3 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '12px', fontWeight: 700, padding: '0 6px',
             }}>
-              {overdueCount}
-            </div>
-          )}
-          <span style={{ fontSize: '28px' }}>📋</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '15px', color: '#5b21b6' }}>Job Tasks</div>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-              {overdueCount > 0 ? `${overdueCount} รายการที่ต้องดำเนินการ` : 'งานเอกสาร & ซ่อมบำรุง'}
-            </div>
-          </div>
-        </Link>
-
-      </div>
-
-    </div>
-  )
-}
