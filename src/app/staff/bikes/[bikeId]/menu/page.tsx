@@ -33,7 +33,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
       .single(),
     supabase
       .from('bike_documents')
-      .select('expiry_date')
+      .select('doc_type, expiry_date')
       .eq('bike_id', params.bikeId)
       .in('doc_type', ['tax', 'pob']),
     supabase
@@ -57,8 +57,23 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
   if (!bike) notFound()
 
   const today = new Date().toISOString().split('T')[0]
-  const oilRoutine = (routines ?? []).find(r => r.task_name === 'เปลี่ยนน้ำมันเครื่อง')
-  const lastOilDate = oilRoutine?.last_done_date ?? null
+  const oilRoutine      = (routines ?? []).find(r => r.task_name === 'เปลี่ยนน้ำมันเครื่อง')
+  const gearOilRoutine  = (routines ?? []).find(r => r.task_name === 'เปลี่ยนน้ำมันเฟืองท้าย')
+  const taxDoc          = (docs ?? []).find(d => d.doc_type === 'tax')
+  const pobDoc          = (docs ?? []).find(d => d.doc_type === 'pob')
+  const lastOilDate     = oilRoutine?.last_done_date ?? null
+  const lastGearDate    = gearOilRoutine?.last_done_date ?? null
+  const taxExpiry       = taxDoc?.expiry_date ?? null
+  const pobExpiry       = pobDoc?.expiry_date ?? null
+
+  function fmtDate(iso: string) {
+    return new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+  function isExpired(iso: string) { return iso < today }
+  function isNearExpiry(iso: string) {
+    const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
+    return days >= 0 && days <= 30
+  }
   const overdueCount = [
     ...(docs ?? []).filter(d => d.expiry_date && d.expiry_date < today),
     ...(routines ?? []).filter(r =>
@@ -113,10 +128,34 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
               </span>
             )}
           </div>
-          {lastOilDate && (
-            <div style={{ fontSize: '12px', color: '#92400e', marginTop: '3px' }}>
-              🛢️ เปลี่ยนน้ำมันเครื่องล่าสุด:{' '}
-              {new Date(lastOilDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {(lastOilDate || lastGearDate || taxExpiry || pobExpiry) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+              {lastOilDate && (
+                <span style={{ fontSize: '11px', background: '#fef3c7', color: '#92400e', borderRadius: '6px', padding: '2px 8px' }}>
+                  🛢️ น้ำมันเครื่อง {fmtDate(lastOilDate)}
+                </span>
+              )}
+              {lastGearDate && (
+                <span style={{ fontSize: '11px', background: '#fef3c7', color: '#78350f', borderRadius: '6px', padding: '2px 8px' }}>
+                  ⚙️ เฟืองท้าย {fmtDate(lastGearDate)}
+                </span>
+              )}
+              {taxExpiry && (
+                <span style={{ fontSize: '11px', borderRadius: '6px', padding: '2px 8px',
+                  background: isExpired(taxExpiry) ? '#fef2f2' : isNearExpiry(taxExpiry) ? '#fff7ed' : '#f0fdf4',
+                  color: isExpired(taxExpiry) ? '#dc2626' : isNearExpiry(taxExpiry) ? '#c2410c' : '#15803d',
+                }}>
+                  📋 ภาษี {isExpired(taxExpiry) ? '⚠️ หมดแล้ว' : fmtDate(taxExpiry)}
+                </span>
+              )}
+              {pobExpiry && (
+                <span style={{ fontSize: '11px', borderRadius: '6px', padding: '2px 8px',
+                  background: isExpired(pobExpiry) ? '#fef2f2' : isNearExpiry(pobExpiry) ? '#fff7ed' : '#f0fdf4',
+                  color: isExpired(pobExpiry) ? '#dc2626' : isNearExpiry(pobExpiry) ? '#c2410c' : '#15803d',
+                }}>
+                  🛡️ พรบ {isExpired(pobExpiry) ? '⚠️ หมดแล้ว' : fmtDate(pobExpiry)}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -296,54 +335,4 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
           >
             <div style={{ fontSize: '28px', marginBottom: '6px' }}>🛵💥</div>
             <div style={{ fontWeight: 700, fontSize: '14px', color: '#991b1b' }}>แจ้งรถเสีย</div>
-            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>รายงานปัญหา</div>
-          </Link>
-
-          {/* งานรูทีน */}
-          <Link
-            href={`/staff/routine?bikeId=${bike.id}`}
-            style={{
-              background: '#f0fdf4', border: `2px solid ${overdueCount > 0 ? '#16a34a' : '#d1fae5'}`,
-              borderRadius: '14px', padding: '16px',
-              textDecoration: 'none', position: 'relative',
-            }}
-          >
-            <div style={{ fontSize: '28px', marginBottom: '6px' }}>🔧</div>
-            <div style={{ fontWeight: 700, fontSize: '14px', color: '#15803d' }}>งานรูทีน</div>
-            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>ซ่อมบำรุงตามระยะ</div>
-          </Link>
-
-          {/* งานเอกสาร */}
-          <Link
-            href={`/staff/docs?bikeId=${bike.id}`}
-            style={{
-              background: '#f1f5f9', border: '2px solid #e5e7eb',
-              borderRadius: '14px', padding: '16px',
-              textDecoration: 'none',
-            }}
-          >
-            <div style={{ fontSize: '28px', marginBottom: '6px' }}>📄</div>
-            <div style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>งานเอกสาร</div>
-            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>ภาษี, พรบ, ใบขับขี่</div>
-          </Link>
-
-        </div>
-
-        {/* Job Tasks */}
-        <Link
-          href="/staff/jobs"
-          style={{
-            display: 'flex', alignItems: 'center', gap: '14px',
-            background: '#faf5ff', border: '2px solid #7c3aed',
-            borderRadius: '14px', padding: '16px 20px',
-            textDecoration: 'none', position: 'relative',
-          }}
-        >
-          {overdueCount > 0 && (
-            <div style={{
-              position: 'absolute', top: '-8px', right: '-8px',
-              background: '#dc2626', color: '#fff',
-              borderRadius: '999px', minWidth: '22px', height: '22px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '12px', fontWeight: 700, padding: '0 6px',
-            }}>
+            <div style={{ font
