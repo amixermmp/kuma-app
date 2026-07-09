@@ -75,10 +75,10 @@ export default async function OwnerDashboardPage({
       .select('id', { count: 'exact', head: true })
       .eq('status', 'confirmed')
       .lte('start_datetime', new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()),
-    // Walk-in daily rentals (not from bookings flow)
+    // Daily rentals — นับเมื่อส่งรถจริงเท่านั้น (ทั้ง walk-in และจากการจอง)
     admin.from('rentals')
-      .select('total_amount, branch_id, start_datetime')
-      .in('status', ['active', 'completed'])
+      .select('total_amount, branch_id, start_datetime, bikes(license_plate, brand, model)')
+      .in('status', ['active', 'extended', 'completed'])
       .gte('start_datetime', periodStart.toISOString())
       .lte('start_datetime', periodEnd.toISOString()),
     // Monthly rentals
@@ -118,22 +118,14 @@ export default async function OwnerDashboardPage({
   const repair      = bikes.filter(b => b.status === 'repair').length
   const utilization = total > 0 ? Math.round((rented / total) * 100) : 0
 
-  // Monthly revenue (bookings + walk-in rentals + monthly rentals)
-  const bookingsRevenue  = bookingsMonth.reduce((s, b) => s + (b.daily_rate ?? 0) * (b.total_days ?? 0), 0)
+  // Monthly revenue — นับเฉพาะตอนส่งรถจริง ไม่นับการจองล่วงหน้า
   const rentalsRevenue   = rentalsMonth.reduce((s, r) => s + (r.total_amount ?? 0), 0)
   const monthlyRentRev   = monthlyRentals.reduce((s, r) => s + (r.monthly_rate ?? 0), 0)
-  const monthlyRevenue   = bookingsRevenue + rentalsRevenue + monthlyRentRev
-  const monthlyCount     = bookingsMonth.length + rentalsMonth.length + monthlyRentals.length
+  const monthlyRevenue   = rentalsRevenue + monthlyRentRev
+  const monthlyCount     = rentalsMonth.length + monthlyRentals.length
 
   // 7-day bar chart
   const dayRevs: number[] = Array(7).fill(0)
-  for (const bk of bookingsMonth) {
-    const d = new Date(bk.start_datetime)
-    const idx = Math.floor((d.getTime() - sevenDaysAgo.getTime()) / (24 * 60 * 60 * 1000))
-    if (idx >= 0 && idx < 7) {
-      dayRevs[idx] += (bk.daily_rate ?? 0) * (bk.total_days ?? 0)
-    }
-  }
   for (const r of rentalsMonth) {
     const d = new Date(r.start_datetime)
     const idx = Math.floor((d.getTime() - sevenDaysAgo.getTime()) / (24 * 60 * 60 * 1000))
@@ -148,11 +140,6 @@ export default async function OwnerDashboardPage({
   for (const br of branches) {
     branchMap[br.id] = { name: br.name, revenue: 0, bikeCount: bikes.filter(b => b.branch_id === br.id).length }
   }
-  for (const bk of bookingsMonth) {
-    if (bk.branch_id && branchMap[bk.branch_id]) {
-      branchMap[bk.branch_id].revenue += (bk.daily_rate ?? 0) * (bk.total_days ?? 0)
-    }
-  }
   for (const r of rentalsMonth) {
     if (r.branch_id && branchMap[r.branch_id]) {
       branchMap[r.branch_id].revenue += r.total_amount ?? 0
@@ -164,14 +151,15 @@ export default async function OwnerDashboardPage({
     }
   }
 
-  // Top bikes
+  // Top bikes — from actual rentals only
   const bikeRevMap: Record<string, { label: string; revenue: number; count: number }> = {}
-  for (const bk of bookingsMonth) {
-    const bike = Array.isArray(bk.bikes) ? bk.bikes[0] : bk.bikes as { license_plate?: string; brand?: string; model?: string } | null
-    if (!bike) continue
-    const key = bike.license_plate ?? bk.id
+  for (const r of rentalsMonth) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const bike = Array.isArray((r as any).bikes) ? (r as any).bikes[0] : (r as any).bikes as { license_plate?: string; brand?: string; model?: string } | null
+    if (!bike?.license_plate) continue
+    const key = bike.license_plate
     if (!bikeRevMap[key]) bikeRevMap[key] = { label: `${bike.brand} ${bike.model} — ${bike.license_plate}`, revenue: 0, count: 0 }
-    bikeRevMap[key].revenue += (bk.daily_rate ?? 0) * (bk.total_days ?? 0)
+    bikeRevMap[key].revenue += r.total_amount ?? 0
     bikeRevMap[key].count++
   }
   const topBikes = Object.values(bikeRevMap).sort((a, b) => b.revenue - a.revenue).slice(0, 3)
