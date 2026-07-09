@@ -21,6 +21,7 @@ export default async function StaffFleetPage() {
     .from('bikes')
     .select('id, license_plate, brand, model, color, year, status, daily_rate, photo_url')
     .neq('status', 'retired')
+    .order('status')
     .order('license_plate')
 
   if (allowedBranchIds) {

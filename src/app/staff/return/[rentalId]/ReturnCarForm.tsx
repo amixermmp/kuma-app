@@ -83,9 +83,11 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
   const [damageNotes, setDamageNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [overrideOvertime, setOverrideOvertime] = useState('')
 
   const damage = parseFloat(damageFee) || 0
-  const netRefund = rental.deposit_amount - overtimeCharge - damage
+  const finalOvertimeCharge = overrideOvertime !== '' ? Math.max(0, parseFloat(overrideOvertime) || 0) : overtimeCharge
+  const netRefund = rental.deposit_amount - finalOvertimeCharge - damage
 
   const toggleCheck = useCallback((i: number) => {
     setChecklist(prev => prev.map((v, idx) => idx === i ? !v : v))
@@ -110,7 +112,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           refundAmount: netRefund,
           checklistPassed: checklist,
           finalRentAmount: rental.total_amount,
-          overtimeCharge,
+          overtimeCharge: finalOvertimeCharge,
         }),
       })
       const data = await res.json()
@@ -270,8 +272,8 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #fecaca', paddingTop: '6px' }}>
                   <span style={{ fontSize: '13px', color: '#374151', fontWeight: 600 }}>คงเหลือ</span>
-                  <span style={{ fontSize: '20px', fontWeight: 900, color: overtimeCharge > 0 ? '#dc2626' : '#16a34a' }}>
-                    {overtimeCharge > 0 ? `+฿${overtimeCharge.toLocaleString()}` : '฿0 (ชำระครบ)'}
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: finalOvertimeCharge > 0 ? '#dc2626' : '#16a34a' }}>
+                    {finalOvertimeCharge > 0 ? `+฿${finalOvertimeCharge.toLocaleString()}` : '฿0 (ชำระครบ)'}
                   </span>
                 </div>
               </>
@@ -279,11 +281,34 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
             {credit === 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span />
-                <span style={{ fontSize: '20px', fontWeight: 900, color: '#dc2626' }}>
-                  +฿{overtimeCharge.toLocaleString()}
+                <span style={{ fontSize: '20px', fontWeight: 900, color: finalOvertimeCharge > 0 ? '#dc2626' : '#16a34a' }}>
+                  {finalOvertimeCharge > 0 ? `+฿${finalOvertimeCharge.toLocaleString()}` : '฿0'}
                 </span>
               </div>
             )}
+            {/* Manual override */}
+            <div style={{ marginTop: '10px', borderTop: '1px solid #fecaca', paddingTop: '10px' }}>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                แก้ไขค่าล่วงเวลาด้วยตนเอง (ลืมกดรับคืน ฯลฯ)
+              </div>
+              <input
+                type="number"
+                placeholder={`ปล่อยว่าง = ใช้ auto (฿${overtimeCharge.toLocaleString()})`}
+                value={overrideOvertime}
+                onChange={e => setOverrideOvertime(e.target.value)}
+                style={{
+                  width: '100%', padding: '8px 12px', borderRadius: '8px',
+                  border: overrideOvertime !== '' ? '2px solid #dc2626' : '1.5px solid #fca5a5',
+                  fontSize: '16px', fontWeight: 700, background: '#fff',
+                  boxSizing: 'border-box', fontFamily: 'inherit',
+                }}
+              />
+              {overrideOvertime !== '' && (
+                <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px', fontWeight: 600 }}>
+                  ✏️ ใช้ค่าที่กรอก: ฿{finalOvertimeCharge.toLocaleString()}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -301,9 +326,9 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
             <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
               {netRefund >= 0
                 ? `มัดจำ ฿${rental.deposit_amount.toLocaleString()}`
-                  + (overtimeCharge > 0 ? ` − ล่วงเวลา ฿${overtimeCharge.toLocaleString()}` : '')
+                  + (finalOvertimeCharge > 0 ? ` − ล่วงเวลา ฿${finalOvertimeCharge.toLocaleString()}` : '')
                   + (damage > 0 ? ` − เสียหาย ฿${damage.toLocaleString()}` : '')
-                : `ล่วงเวลา (หลังหักเครดิต) ฿${overtimeCharge.toLocaleString()} เกินมัดจำ ฿${rental.deposit_amount.toLocaleString()}`}
+                : `ล่วงเวลา (หลังหักเครดิต) ฿${finalOvertimeCharge.toLocaleString()} เกินมัดจำ ฿${rental.deposit_amount.toLocaleString()}`}
             </div>
           </div>
           <div style={{ fontSize: '28px', fontWeight: 900, color: netRefund >= 0 ? '#15803d' : '#ea580c' }}>
