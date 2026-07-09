@@ -93,10 +93,10 @@ export async function GET(request: NextRequest) {
       .eq('status', 'active'),
     supabase
       .from('bike_routines')
-      .select('id, bike_id, task_name, next_due_date, next_due_km, bikes(license_plate, odometer)'),
+      .select('id, bike_id, task_name, next_due_date, next_due_km, bikes(license_plate, odometer, branch_id)'),
     supabase
       .from('bike_documents')
-      .select('id, doc_type, expiry_date, bikes(license_plate)')
+      .select('id, doc_type, expiry_date, bikes(license_plate, branch_id)')
       .not('expiry_date', 'is', null)
       .lte('expiry_date', docAlertUntil),
   ])
@@ -296,46 +296,75 @@ export async function GET(request: NextRequest) {
       else { failed++; await release(claimId) }
     }
 
-    // ═══ 6) สรุปงานค้างเข้าไลน์เจ้าของ — วันละ 1 ข้อความ ส่งซ้ำทุกวันจนกว่าจะเคลียร์ ═══
+    // ═══ 6) สรุปงานค้างเข้าไลน์เจ้าของ — แยกข้อความเป็นรายสาขา ส่งซ้ำทุกวันจนกว่าจะเคลียร์ ═══
     // รายการหลุดจากลิสต์เองเมื่อ staff ทำรายการในแอพ (ทำรูทีนเสร็จ / ต่อภาษี-พรบ แล้วอัพเดทวันหมดอายุ)
     if (shop?.line_token && shop.line_target_id) {
-      const sections: string[] = []
+      const { data: branchRows } = await supabase.from('branches').select('id, name')
+      const branchNames = new Map<string, string>((branchRows ?? []).map(b => [b.id, b.name]))
+
+      type DigestItem = { branchId: string; section: 'doc' | 'routine'; line: string }
+      const items: DigestItem[] = []
 
       // เอกสาร: ภาษี / พรบ ใกล้หมดหรือหมดแล้ว
-      if (shop.line_notify_docs !== false && (docs ?? []).length > 0) {
-        const docLines = (docs ?? []).map(doc => {
+      if (shop.line_notify_docs !== false) {
+        for (const doc of docs ?? []) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const bike = doc.bikes as any
           const label = DOC_LABEL[doc.doc_type] ?? doc.doc_type
           const daysLeft = Math.ceil((new Date(doc.expiry_date).getTime() - now) / DAY_MS)
           const when = daysLeft > 0 ? `อีก ${daysLeft} วัน` : daysLeft === 0 ? 'วันนี้' : `เกินมา ${-daysLeft} วัน`
-          return `• ${bike?.license_plate ?? '?'} — ${label} หมดอายุ ${thaiDate.format(new Date(doc.expiry_date))} (${when})`
-        })
-        sections.push(`📄 เอกสารรถ\n${docLines.join('\n')}`)
+          items.push({
+            branchId: bike?.branch_id ?? '',
+            section: 'doc',
+            line: `• ${bike?.license_plate ?? '?'} — ${label} หมดอายุ ${thaiDate.format(new Date(doc.expiry_date))} (${when})`,
+          })
+        }
       }
 
       // งานเซอร์วิส: น้ำมันเครื่อง / เฟืองท้าย ฯลฯ
-      if (shop.line_notify_routine !== false && dueRoutines.length > 0) {
-        const routineLines = dueRoutines.map(routine => {
+      if (shop.line_notify_routine !== false) {
+        for (const routine of dueRoutines) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const bike = routine.bikes as any
           const detail = routine.next_due_date != null && routine.next_due_date <= bkkToday
             ? `ครบกำหนด ${thaiDate.format(new Date(routine.next_due_date))}`
             : `ครบที่ ${Number(routine.next_due_km).toLocaleString()} กม. (ไมล์ตอนนี้ ${Number(bike?.odometer ?? 0).toLocaleString()} กม.)`
-          return `• ${bike?.license_plate ?? '?'} — ${routine.task_name} (${detail})`
-        })
-        sections.push(`🔧 งานเซอร์วิส\n${routineLines.join('\n')}`)
+          items.push({
+            branchId: bike?.branch_id ?? '',
+            section: 'routine',
+            line: `• ${bike?.license_plate ?? '?'} — ${routine.task_name} (${detail})`,
+          })
+        }
       }
 
-      if (sections.length > 0) {
+      if (items.length > 0) {
         // dedupe รายวัน: ref_id คงที่ + due_at = วันที่ (ส่งได้วันละครั้ง)
         const DIGEST_REF = '00000000-0000-0000-0000-000000000000'
         const claimId = await claim('owner_digest', DIGEST_REF, bkkToday)
         if (claimId) {
-          const ok = await linePush(shop.line_token, shop.line_target_id, [textMessage(
-            `📋 งานค้างที่ยังไม่ได้ทำ (${thaiDate.format(new Date(now))})\n\n${sections.join('\n\n')}\n\nทำรายการในแอพแล้ว รายการจะหายจากสรุปวันถัดไป`
-          )])
-          if (ok) sent++
+          // จัดกลุ่มตามสาขา — สาขาละ 1 ข้อความ ก๊อปส่งต่อ staff สาขานั้นได้เลย
+          const branchIds = Array.from(new Set(items.map(i => i.branchId)))
+            .sort((a, b) => (branchNames.get(a) ?? 'ไม่ระบุ').localeCompare(branchNames.get(b) ?? 'ไม่ระบุ', 'th'))
+
+          const dateText = thaiDate.format(new Date(now))
+          const messages: LineMessage[] = branchIds.map(branchId => {
+            const rawName = branchNames.get(branchId) ?? 'ไม่ระบุสาขา'
+            const displayName = rawName.startsWith('สาขา') || rawName === 'ไม่ระบุสาขา' ? rawName : `สาขา${rawName}`
+            const docLines = items.filter(i => i.branchId === branchId && i.section === 'doc').map(i => i.line)
+            const routineLines = items.filter(i => i.branchId === branchId && i.section === 'routine').map(i => i.line)
+            let text = `📋 งานค้างที่ยังไม่ได้ทำ (${dateText}) ${displayName}`
+            if (docLines.length > 0) text += `\n\n📄 เอกสารรถ\n${docLines.join('\n')}`
+            if (routineLines.length > 0) text += `\n\n🔧 งานเซอร์วิส\n${routineLines.join('\n')}`
+            return textMessage(text)
+          })
+
+          // LINE จำกัด 5 ข้อความ/การส่ง — ส่งเป็นชุดถ้าสาขาเยอะ
+          let allOk = true
+          for (let i = 0; i < messages.length; i += 5) {
+            const ok = await linePush(shop.line_token, shop.line_target_id, messages.slice(i, i + 5))
+            allOk = allOk && ok
+          }
+          if (allOk) sent += messages.length
           else { failed++; await release(claimId) }
         }
       }
