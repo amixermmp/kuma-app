@@ -25,4 +25,5 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
   if (!rental) redirect('/staff/home')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <ExtendForm rental={rental
+  return <ExtendForm rental={rental as any} staffId={staffId} />
+}

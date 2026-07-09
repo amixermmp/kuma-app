@@ -335,4 +335,71 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
           >
             <div style={{ fontSize: '28px', marginBottom: '6px' }}>🛵💥</div>
             <div style={{ fontWeight: 700, fontSize: '14px', color: '#991b1b' }}>แจ้งรถเสีย</div>
-            <div style={{ font
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>รายงานปัญหา</div>
+          </Link>
+
+          {/* งานรูทีน */}
+          <Link
+            href={`/staff/routine?bikeId=${bike.id}`}
+            style={{
+              background: '#f0fdf4', border: `2px solid ${overdueCount > 0 ? '#16a34a' : '#d1fae5'}`,
+              borderRadius: '14px', padding: '16px',
+              textDecoration: 'none', position: 'relative',
+            }}
+          >
+            <div style={{ fontSize: '28px', marginBottom: '6px' }}>🔧</div>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: '#15803d' }}>งานรูทีน</div>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>ซ่อมบำรุงตามระยะ</div>
+          </Link>
+
+          {/* งานเอกสาร */}
+          <Link
+            href={`/staff/docs?bikeId=${bike.id}`}
+            style={{
+              background: '#f1f5f9', border: '2px solid #e5e7eb',
+              borderRadius: '14px', padding: '16px',
+              textDecoration: 'none',
+            }}
+          >
+            <div style={{ fontSize: '28px', marginBottom: '6px' }}>📄</div>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>งานเอกสาร</div>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>ภาษี, พรบ, ใบขับขี่</div>
+          </Link>
+
+        </div>
+
+        {/* Job Tasks */}
+        <Link
+          href="/staff/jobs"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '14px',
+            background: '#faf5ff', border: '2px solid #7c3aed',
+            borderRadius: '14px', padding: '16px 20px',
+            textDecoration: 'none', position: 'relative',
+          }}
+        >
+          {overdueCount > 0 && (
+            <div style={{
+              position: 'absolute', top: '-8px', right: '-8px',
+              background: '#dc2626', color: '#fff',
+              borderRadius: '999px', minWidth: '22px', height: '22px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '12px', fontWeight: 700, padding: '0 6px',
+            }}>
+              {overdueCount}
+            </div>
+          )}
+          <span style={{ fontSize: '28px' }}>📋</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '15px', color: '#5b21b6' }}>Job Tasks</div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+              {overdueCount > 0 ? `${overdueCount} รายการที่ต้องดำเนินการ` : 'งานเอกสาร & ซ่อมบำรุง'}
+            </div>
+          </div>
+        </Link>
+
+      </div>
+
+    </div>
+  )
+}

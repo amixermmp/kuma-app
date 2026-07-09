@@ -42,4 +42,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'ต่อเวลาไม่สำเร็จ' }, { status: 500 })
   }
 
-  return NextR
+  return NextResponse.json({ success: true })
+}

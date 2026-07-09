@@ -362,4 +362,3 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
     </div>
   )
 }
-            

@@ -26,4 +26,5 @@ export default async function ReturnCarPage({ params }: { params: { rentalId: st
   if (!rental) redirect('/staff/home')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <ReturnCarForm rental={rental as any} sta
+  return <ReturnCarForm rental={rental as any} staffId={staffId} />
+}

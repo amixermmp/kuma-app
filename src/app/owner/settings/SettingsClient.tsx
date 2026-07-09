@@ -9,7 +9,8 @@ type Branch = { id: string; name: string }
 type Promo = { id: string; name: string | null; code: string | null; description: string | null; discount_type: string; discount_value: number; min_days: number | null; bonus_days: number | null; is_active: boolean }
 
 type BranchDocs = { terms_photo_url: string | null; manual_photo_url: string | null; contract_photo_url: string | null }
-type Props = { shop: Shop; staff: Staff[]; branches: Branch[]; promotions: Promo[]; branchId: string; branchDocs: BranchDocs }
+type BranchLine = { branch_id: string; line_token: string | null; line_liff_id: string | null; promptpay_id: string | null; line_notify_customer: boolean | null }
+type Props = { shop: Shop; staff: Staff[]; branches: Branch[]; promotions: Promo[]; branchId: string; branchDocs: BranchDocs; branchLine: BranchLine[] }
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,56 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
         width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
         transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)',
       }} />
+    </div>
+  )
+}
+
+// ─── BranchLineCard (ตั้งค่า LINE ลูกค้า รายสาขา) ───────────────────────────
+
+function BranchLineCard({ branch, initial }: { branch: Branch; initial?: BranchLine }) {
+  const [token, setToken] = useState(initial?.line_token ?? '')
+  const [liffId, setLiffId] = useState(initial?.line_liff_id ?? '')
+  const [promptpay, setPromptpay] = useState(initial?.promptpay_id ?? '')
+  const [notify, setNotify] = useState(initial?.line_notify_customer ?? true)
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const save = async () => {
+    setLoading(true); setMsg('')
+    const res = await fetch('/api/owner/settings/branch-line', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        branch_id: branch.id,
+        line_token: token, line_liff_id: liffId,
+        promptpay_id: promptpay, line_notify_customer: notify,
+      }),
+    })
+    setLoading(false)
+    setMsg(res.ok ? '✅ บันทึกแล้ว' : '❌ เกิดข้อผิดพลาด')
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  return (
+    <div style={{ border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '14px', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+        <span style={{ fontWeight: 800, fontSize: '14px', color: '#111827', flex: 1 }}>📍 {branch.name}</span>
+        <span style={{ fontSize: '12px', color: '#6b7280' }}>แจ้งเตือนลูกค้า</span>
+        <Toggle on={notify} onClick={() => setNotify(!notify)} />
+      </div>
+      <Field label="Channel Access Token (OA ของสาขานี้)">
+        <input className="field-input" type="password" value={token} onChange={e => setToken(e.target.value)} placeholder="วางจาก LINE Developers Console" />
+      </Field>
+      <Field label="LIFF ID" hint="สร้าง LIFF app ของสาขานี้ แล้ว copy LIFF ID มาใส่">
+        <input className="field-input" value={liffId} onChange={e => setLiffId(e.target.value)} placeholder="เช่น 1234567890-AbcdEfgh" />
+      </Field>
+      <Field label="PromptPay" hint="เบอร์โทร หรือ เลขบัตรประชาชน ที่รับเงินของสาขานี้">
+        <input className="field-input" value={promptpay} onChange={e => setPromptpay(e.target.value)} placeholder="08x-xxx-xxxx" />
+      </Field>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <SaveBtn loading={loading} onClick={save} />
+        {msg && <span style={{ fontSize: '13px', color: msg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{msg}</span>}
+      </div>
     </div>
   )
 }
@@ -190,7 +241,7 @@ function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: (bran
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-export default function SettingsClient({ shop, staff: initialStaff, branches: initialBranches, promotions: initialPromos, branchId, branchDocs }: Props) {
+export default function SettingsClient({ shop, staff: initialStaff, branches: initialBranches, promotions: initialPromos, branchId, branchDocs, branchLine }: Props) {
 
   // ── Shop state ──
   const [shopName, setShopName] = useState(shop.shop_name ?? '')
@@ -215,6 +266,7 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
   const [lineDocs, setLineDocs] = useState(shop.line_notify_docs ?? true)
   const [lineMonthly, setLineMonthly] = useState(shop.line_notify_monthly ?? true)
   const [lineBroken, setLineBroken] = useState(shop.line_notify_broken ?? false)
+  const [lineRoutine, setLineRoutine] = useState(shop.line_notify_routine ?? true)
   const [lineLoading, setLineLoading] = useState(false)
   const [lineMsg, setLineMsg] = useState('')
 
@@ -299,6 +351,7 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
         line_token: lineToken, line_target_id: lineTarget,
         line_notify_overdue: lineOverdue, line_notify_docs: lineDocs,
         line_notify_monthly: lineMonthly, line_notify_broken: lineBroken,
+        line_notify_routine: lineRoutine,
       }),
     })
     setLineLoading(false)
@@ -531,6 +584,7 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
           {[
             { label: '⏰ ลูกค้าเกินกำหนดคืนรถ', val: lineOverdue, set: setLineOverdue },
             { label: '📄 เอกสารรถใกล้หมดอายุ', val: lineDocs, set: setLineDocs },
+            { label: '🔧 งานเซอร์วิสถึงกำหนด (น้ำมันเครื่อง ฯลฯ)', val: lineRoutine, set: setLineRoutine },
             { label: '💜 ค่าเช่ารายเดือนค้างชำระ', val: lineMonthly, set: setLineMonthly },
             { label: '🛵💥 มีแจ้งรถเสียใหม่', val: lineBroken, set: setLineBroken },
           ].map(({ label, val, set }) => (
@@ -548,6 +602,19 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
             <SaveBtn loading={lineLoading} onClick={saveLine} />
             {lineMsg && <span style={{ fontSize: '13px', color: lineMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{lineMsg}</span>}
           </div>
+        </div>
+      </Section>
+
+      {/* ── LINE แจ้งเตือนลูกค้า (รายสาขา) ── */}
+      <Section title="💬 LINE แจ้งเตือนลูกค้า (รายสาขา)">
+        <div style={{ margin: '12px 16px 0', background: '#f0fdf4', borderRadius: '10px', padding: '12px', fontSize: '12px', color: '#166534', border: '1px solid #bbf7d0' }}>
+          แต่ละสาขาใช้ LINE OA ของตัวเอง — ระบบจะเตือนลูกค้าก่อนครบกำหนดคืนรถ
+          และทวงเงินพร้อม QR PromptPay เมื่อเกินกำหนด
+        </div>
+        <div style={{ padding: '12px 16px' }}>
+          {branches.map(b => (
+            <BranchLineCard key={b.id} branch={b} initial={branchLine.find(l => l.branch_id === b.id)} />
+          ))}
         </div>
       </Section>
 

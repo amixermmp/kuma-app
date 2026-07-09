@@ -206,4 +206,74 @@ export default function ExtendForm({ rental }: Props) {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
               <span style={{ fontSize: '13px', opacity: .8 }}>ได้</span>
               <span style={{ fontSize: '16px', fontWeight: 800 }}>
-                {day
+                {daysCovered > 0 ? `${daysCovered} วัน` : '< 1 วัน (ไม่ถึงวัน)'}
+              </span>
+            </div>
+
+            {newCredit > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', opacity: .8 }}>เศษที่ยังค้าง</span>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#fbbf24' }}>
+                  ฿{Math.round(newCredit).toLocaleString()}
+                </span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <span style={{ fontSize: '13px', opacity: .8 }}>กำหนดคืนใหม่</span>
+              <span style={{ fontSize: '13px', fontWeight: 700 }}>
+                {daysCovered > 0 ? fmtDate(newEnd.toISOString()) : '—'}
+              </span>
+            </div>
+
+            <div style={{ borderTop: '1px solid rgba(255,255,255,.2)', paddingTop: '12px' }}>
+              {daysCovered === 0 ? (
+                <div style={{ background: '#fef2f2', borderRadius: '8px', padding: '10px 12px', color: '#dc2626' }}>
+                  <div style={{ fontWeight: 700, fontSize: '13px' }}>⚠️ เงินไม่ถึง 1 วัน — จะถูกเก็บเป็นเครดิต</div>
+                </div>
+              ) : stillOverdueDays > 0 ? (
+                <div style={{ background: 'rgba(220,38,38,.15)', borderRadius: '8px', padding: '10px 12px', color: '#fca5a5' }}>
+                  <div style={{ fontWeight: 700, fontSize: '13px' }}>⚠️ ยังค้างอยู่อีก {stillOverdueDays} วัน</div>
+                  <div style={{ fontSize: '11px', marginTop: '2px', opacity: .85 }}>
+                    ลูกค้าต้องมาจ่ายเพิ่ม ≈ ฿{(stillOverdueDays * rate).toLocaleString()}
+                  </div>
+                </div>
+              ) : aheadDays > 0 ? (
+                <div style={{ background: 'rgba(22,163,74,.15)', borderRadius: '8px', padding: '10px 12px', color: '#86efac' }}>
+                  <div style={{ fontWeight: 700, fontSize: '13px' }}>✅ ชำระล่วงหน้า {aheadDays} วัน</div>
+                </div>
+              ) : (
+                <div style={{ background: 'rgba(22,163,74,.15)', borderRadius: '8px', padding: '10px 12px', color: '#86efac' }}>
+                  <div style={{ fontWeight: 700, fontSize: '13px' }}>✅ ชำระครบถึงวันนี้</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca',
+            borderRadius: '10px', padding: '12px', color: '#dc2626',
+            fontSize: '14px', marginBottom: '12px',
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        <button
+          className="btn"
+          onClick={handleSubmit}
+          disabled={loading || paymentNum <= 0}
+          style={{
+            width: '100%', background: '#d97706', color: '#fff',
+            opacity: (loading || paymentNum <= 0) ? 0.5 : 1,
+          }}
+        >
+          {loading ? '⏳ กำลังบันทึก...' : daysCovered === 0 && paymentNum > 0 ? '💾 บันทึกเครดิต' : '💾 ยืนยันต่อเวลา'}
+        </button>
+
+      </div>
+    </div>
+  )
+}

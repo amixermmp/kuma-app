@@ -17,7 +17,7 @@ export default async function SettingsPage() {
   const { data: primaryBranch } = await admin.from('branches').select('id').order('name').limit(1).single()
   const branchId = primaryBranch?.id ?? ''
 
-  const [shopRes, staffRes, branchRes, promoRes, branchDocRes] = await Promise.all([
+  const [shopRes, staffRes, branchRes, promoRes, branchDocRes, branchLineRes] = await Promise.all([
     admin.from('shop_settings').select('*').limit(1).maybeSingle(),
     admin.from('staff').select('id, name, pin, branch_id, is_active, branches(name)').order('name'),
     admin.from('branches').select('id, name').order('name'),
@@ -25,6 +25,7 @@ export default async function SettingsPage() {
     branchId
       ? admin.from('branch_settings').select('terms_photo_url, manual_photo_url, contract_photo_url').eq('branch_id', branchId).maybeSingle()
       : Promise.resolve({ data: null }),
+    admin.from('branch_settings').select('branch_id, line_token, line_liff_id, promptpay_id, line_notify_customer'),
   ])
 
   return (
@@ -44,6 +45,7 @@ export default async function SettingsPage() {
         branches={branchRes.data ?? []}
         promotions={promoRes.data ?? []}
         branchId={branchId}
+        branchLine={(branchLineRes.data ?? []) as any[]}
         branchDocs={{
           terms_photo_url: branchDocRes.data?.terms_photo_url ?? null,
           manual_photo_url: branchDocRes.data?.manual_photo_url ?? null,

@@ -292,4 +292,52 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           background: netRefund >= 0 ? '#f0fdf4' : '#fff7ed',
           border: `2px solid ${netRefund >= 0 ? '#bbf7d0' : '#fed7aa'}`,
           borderRadius: '14px', padding: '18px 20px', marginBottom: '12px',
-          display: 'flex', alignItems: 'center', 
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div>
+            <div style={{ fontSize: '13px', color: netRefund >= 0 ? '#16a34a' : '#ea580c', fontWeight: 600 }}>
+              {netRefund >= 0 ? '💰 คืนเงินมัดจำให้ลูกค้า' : '⚠️ มัดจำไม่พอ — เก็บเงินเพิ่ม'}
+            </div>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+              {netRefund >= 0
+                ? `มัดจำ ฿${rental.deposit_amount.toLocaleString()}`
+                  + (overtimeCharge > 0 ? ` − ล่วงเวลา ฿${overtimeCharge.toLocaleString()}` : '')
+                  + (damage > 0 ? ` − เสียหาย ฿${damage.toLocaleString()}` : '')
+                : `ล่วงเวลา (หลังหักเครดิต) ฿${overtimeCharge.toLocaleString()} เกินมัดจำ ฿${rental.deposit_amount.toLocaleString()}`}
+            </div>
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 900, color: netRefund >= 0 ? '#15803d' : '#ea580c' }}>
+            ฿{Math.abs(netRefund).toLocaleString()}
+          </div>
+        </div>
+
+        {error && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca',
+            borderRadius: '10px', padding: '12px', color: '#dc2626',
+            fontSize: '14px', marginBottom: '12px',
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        <button
+          className="btn btn-success"
+          onClick={handleSubmit}
+          disabled={loading}
+          style={{ width: '100%', opacity: loading ? 0.7 : 1 }}
+        >
+          {loading ? '⏳ กำลังบันทึก...' : '✅ ยืนยันรับรถคืน'}
+        </button>
+
+        <button className="btn" style={{
+          width: '100%', marginTop: '8px',
+          background: 'transparent', border: '2px solid #7c3aed', color: '#7c3aed',
+        }}>
+          🧾 ออกใบกำกับภาษี
+        </button>
+
+      </div>
+    </div>
+  )
+}
