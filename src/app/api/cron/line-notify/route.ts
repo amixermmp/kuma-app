@@ -47,6 +47,8 @@ export async function GET(request: NextRequest) {
   if (!secret || (auth !== `Bearer ${secret}` && querySecret !== secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  // &test=1 = ข้ามเงื่อนไขเวลา 9 โมงเช้า (สำหรับทดสอบ)
+  const testMode = request.nextUrl.searchParams.get('test') === '1'
 
   const supabase = createAdminClient()
   const origin = request.nextUrl.origin
@@ -216,7 +218,7 @@ export async function GET(request: NextRequest) {
   }
 
   // ═══ 4) ค่าเช่ารายเดือนถึงกำหนด (ส่งหลัง 9 โมงเช้าของวันครบกำหนด) ═══
-  if (bkkHour >= DAILY_SEND_HOUR) {
+  if (bkkHour >= DAILY_SEND_HOUR || testMode) {
     const daysInMonth = new Date(Date.UTC(bkk.getUTCFullYear(), bkk.getUTCMonth() + 1, 0)).getUTCDate()
     const bkkDay = bkk.getUTCDate()
 
