@@ -99,7 +99,8 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error ?? 'เกิดข้อผิดพลาด'); return }
-      router.push('/staff/jobs')
+      // temp swap → เด้งไปแจ้งซ่อมรถคันเก่าทันที
+      router.push(swapType === 'temp' ? `/staff/broken/${rental.bike_id}` : '/staff/jobs')
       router.refresh()
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
@@ -355,11 +356,4 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
             color: !selectedBikeId ? '#9ca3af' : '#fff',
             opacity: loading ? 0.7 : 1,
           }}
-        >
-          {loading ? '⏳ กำลังบันทึก...' : '🔄 ยืนยันสลับรถ'}
-        </button>
-
-      </div>
-    </div>
-  )
-}
+    
