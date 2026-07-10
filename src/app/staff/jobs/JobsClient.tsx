@@ -470,6 +470,7 @@ export default function JobsClient({
                   href={`/staff/return/${job.id}`} btnColor={isOverdue ? '#dc2626' : '#16a34a'}
                   cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                   contractHref={`/staff/contract/${job.id}`}
+                  swapHref={`/staff/swap/daily/${job.id}`}
                 />
               )
             })}
@@ -581,7 +582,7 @@ export default function JobsClient({
                   statusBg="#faf5ff" statusColor="#7c3aed"
                   href={`/staff/collect/${mr.id}`} btnColor="#7c3aed" btnLabel="📄 สัญญา"
                   cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
-                  swapHref={`/staff/monthly-swap/${mr.id}`}
+                  swapHref={`/staff/swap/monthly/${mr.id}`}
                 />
               )
             })}
@@ -596,10 +597,3 @@ export default function JobsClient({
             color: '#9ca3af', fontSize: '14px', marginTop: '16px',
           }}>
             ✅ ไม่มีงานในหมวดนี้
-          </div>
-        )}
-
-      </div>
-    </div>
-  )
-}
