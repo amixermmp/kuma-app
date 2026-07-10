@@ -13,7 +13,7 @@ type Repair = {
   bikes: { id: string; license_plate: string; brand: string; model: string }
 }
 
-type Props = { repair: Repair; staffId: string }
+type Props = { repair: Repair; staffId: string; isFromSwap?: boolean }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('th-TH', {
@@ -22,13 +22,14 @@ function fmtDate(iso: string) {
   })
 }
 
-export default function RepairDoneForm({ repair }: Props) {
+export default function RepairDoneForm({ repair, isFromSwap = false }: Props) {
   const router = useRouter()
   const bike = repair.bikes
 
   const [repairNotes, setRepairNotes] = useState('')
   const [repairShop, setRepairShop] = useState('')
   const [repairCost, setRepairCost] = useState('')
+  const [lockForSwap, setLockForSwap] = useState(isFromSwap)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -45,6 +46,7 @@ export default function RepairDoneForm({ repair }: Props) {
           repairNotes: repairNotes.trim() || null,
           repairShop: repairShop.trim() || null,
           repairCost: repairCost ? parseFloat(repairCost) : null,
+          lockForSwap,
         }),
       })
       const data = await res.json()
@@ -116,26 +118,21 @@ export default function RepairDoneForm({ repair }: Props) {
           </div>
         </div>
 
-        <div style={{
-          background: '#f0fdf4', borderRadius: '10px', padding: '14px',
-          margin: '0 0 12px', fontSize: '13px', color: '#16a34a',
-        }}>
-          ✅ เมื่อกดยืนยัน รถจะกลับสู่สถานะ <strong>"ว่าง"</strong> และ Job Task จะปิด
-        </div>
-
-        {error && (
+        {/* Toggle: ล็อครอสลับกลับ */}
+        <div
+          onClick={() => setLockForSwap(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '12px',
+            background: lockForSwap ? '#fef9c3' : '#f0fdf4',
+            border: `2px solid ${lockForSwap ? '#ca8a04' : '#bbf7d0'}`,
+            borderRadius: '12px', padding: '14px 16px',
+            margin: '0 0 10px', cursor: 'pointer',
+          }}
+        >
           <div style={{
-            background: '#fef2f2', border: '1px solid #fecaca',
-            borderRadius: '10px', padding: '12px', color: '#dc2626',
-            fontSize: '14px', marginBottom: '12px',
-          }}>⚠️ {error}</div>
-        )}
-
-        <button className="btn btn-success" onClick={handleSubmit} disabled={loading}
-          style={{ width: '100%', opacity: loading ? 0.7 : 1 }}>
-          {loading ? '⏳ กำลังบันทึก...' : '✅ ยืนยันซ่อมเสร็จ'}
-        </button>
-      </div>
-    </div>
-  )
-}
+            width: '22px', height: '22px', borderRadius: '6px', flexShrink: 0,
+            border: `2px solid ${lockForSwap ? '#ca8a04' : '#16a34a'}`,
+            background: lockForSwap ? '#ca8a04' : '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {lockForSwap 
