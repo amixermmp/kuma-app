@@ -452,7 +452,12 @@ export default function JobsClient({
                 badgeBg = '#fef2f2'; badgeColor = '#dc2626'; dotColor = '#dc2626'
                 statusLabel = '🔴 เกินกำหนด'; statusBg = '#fef2f2'; statusColor = '#dc2626'
               } else if (diffMs < 24 * 3_600_000) {
-                badge = `⚠️ คืนวันนี้ ${fmtTime(job.expected_end_datetime)}`
+                const bkk = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' })
+                const endDay = bkk(new Date(job.expected_end_datetime))
+                const todayDay = bkk(new Date())
+                const tomorrowDay = bkk(new Date(Date.now() + 86_400_000))
+                const dayLabel = endDay === todayDay ? 'คืนวันนี้' : endDay === tomorrowDay ? 'คืนพรุ่งนี้' : `คืน ${fmtDate(job.expected_end_datetime)}`
+                badge = `⚠️ ${dayLabel} ${fmtTime(job.expected_end_datetime)}`
                 badgeBg = '#fffbeb'; badgeColor = '#d97706'; dotColor = '#d97706'
                 statusLabel = '⚠️ ใกล้ครบกำหนด'; statusBg = '#fffbeb'; statusColor = '#d97706'
               } else {
