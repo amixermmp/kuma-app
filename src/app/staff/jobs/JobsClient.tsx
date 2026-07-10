@@ -597,3 +597,10 @@ export default function JobsClient({
             color: '#9ca3af', fontSize: '14px', marginTop: '16px',
           }}>
             ✅ ไม่มีงานในหมวดนี้
+          </div>
+        )}
+
+      </div>
+    </div>
+  )
+}

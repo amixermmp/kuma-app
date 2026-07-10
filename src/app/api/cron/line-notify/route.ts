@@ -16,11 +16,15 @@ export const maxDuration = 60
 //   4. monthly_due         — ค่าเช่ารายเดือนถึงกำหนด พร้อม QR + ยอด
 //   5. routine_due         — งานรูทีน (เช่น เปลี่ยนน้ำมันเครื่อง) ถึงกำหนด → ลูกค้ารายเดือนที่ถือรถ
 //  เจ้าของ (ผ่าน OA กลาง — shop_settings.line_token + line_target_id):
-//   6. doc_expiry          — ภาษี/พรบ ใกล้หมดอายุ → แชทกลุ่ม owner
+//   6. owner_digest        — สรุปงานค้าง (ภาษี/พรบ/เซอร์วิส) แยกบอลลูนรายสาขา หลัง 9 โมงเช้า
+//   7. owner_available     — รถว่างวันนี้ แยกบอลลูนรายสาขา หลัง 8 โมงเช้า
+//   8. owner_revenue       — รายได้วันนี้รายสาขา หลัง 3 ทุ่ม (รอบวัน 21:00→21:00)
 
 const REMIND_BEFORE_MIN = 60      // เตือนล่วงหน้าก่อนครบกำหนด (นาที)
 const OVERDUE_AFTER_HOURS = 3     // ทวงครั้งแรกหลังเกินกำหนด (ชั่วโมง)
 const DAILY_SEND_HOUR = 9         // แจ้งเตือนแบบรายวัน (รายเดือน/รูทีน/เอกสาร) ส่งหลัง 9 โมงเช้า
+const AVAILABLE_SEND_HOUR = 8     // สรุปรถว่าง ส่งหลัง 8 โมงเช้า
+const REVENUE_SEND_HOUR = 21      // สรุปรายได้ ส่งหลัง 3 ทุ่ม
 const DAY_MS = 24 * 60 * 60 * 1000
 
 const thaiTime = new Intl.DateTimeFormat('th-TH', {
@@ -53,7 +57,7 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient()
   const origin = request.nextUrl.origin
 
-  const [{ data: branchSettings }, { data: shop }] = await Promise.all([
+  const [{ data: branchSettings }, { data: shop }, { data: branchRows }] = await Promise.all([
     supabase
       .from('branch_settings')
       .select('branch_id, line_token, promptpay_id, line_notify_customer, contact_phone'),
@@ -62,11 +66,21 @@ export async function GET(request: NextRequest) {
       .select('line_token, line_target_id, line_notify_docs, line_notify_routine, doc_alert_days')
       .limit(1)
       .maybeSingle(),
+    supabase.from('branches').select('id, name'),
   ])
 
   const branchMap = new Map<string, BranchLineSettings>(
     (branchSettings ?? []).map(b => [b.branch_id, b as BranchLineSettings])
   )
+  const branchNames = new Map<string, string>((branchRows ?? []).map(b => [b.id, b.name]))
+  // ชื่อสาขาสำหรับแสดงผล — เติมคำว่า "สาขา" ถ้ายังไม่มี
+  const displayBranch = (branchId: string) => {
+    const raw = branchNames.get(branchId) ?? 'ไม่ระบุสาขา'
+    return raw.startsWith('สาขา') || raw === 'ไม่ระบุสาขา' ? raw : `สาขา${raw}`
+  }
+  // เรียงสาขาตามชื่อ ก-ฮ ให้ลำดับเหมือนกันทุกข้อความ
+  const sortBranchIds = (ids: string[]) =>
+    Array.from(new Set(ids)).sort((a, b) => displayBranch(a).localeCompare(displayBranch(b), 'th'))
 
   // เวลาไทย (UTC+7 คงที่ ไม่มี DST)
   const now = Date.now()
@@ -299,9 +313,6 @@ export async function GET(request: NextRequest) {
     // ═══ 6) สรุปงานค้างเข้าไลน์เจ้าของ — แยกข้อความเป็นรายสาขา ส่งซ้ำทุกวันจนกว่าจะเคลียร์ ═══
     // รายการหลุดจากลิสต์เองเมื่อ staff ทำรายการในแอพ (ทำรูทีนเสร็จ / ต่อภาษี-พรบ แล้วอัพเดทวันหมดอายุ)
     if (shop?.line_token && shop.line_target_id) {
-      const { data: branchRows } = await supabase.from('branches').select('id, name')
-      const branchNames = new Map<string, string>((branchRows ?? []).map(b => [b.id, b.name]))
-
       type DigestItem = { branchId: string; section: 'doc' | 'routine'; line: string }
       const items: DigestItem[] = []
 
@@ -343,16 +354,13 @@ export async function GET(request: NextRequest) {
         const claimId = await claim('owner_digest', DIGEST_REF, bkkToday)
         if (claimId) {
           // จัดกลุ่มตามสาขา — สาขาละ 1 ข้อความ ก๊อปส่งต่อ staff สาขานั้นได้เลย
-          const branchIds = Array.from(new Set(items.map(i => i.branchId)))
-            .sort((a, b) => (branchNames.get(a) ?? 'ไม่ระบุ').localeCompare(branchNames.get(b) ?? 'ไม่ระบุ', 'th'))
+          const branchIds = sortBranchIds(items.map(i => i.branchId))
 
           const dateText = thaiDate.format(new Date(now))
           const messages: LineMessage[] = branchIds.map(branchId => {
-            const rawName = branchNames.get(branchId) ?? 'ไม่ระบุสาขา'
-            const displayName = rawName.startsWith('สาขา') || rawName === 'ไม่ระบุสาขา' ? rawName : `สาขา${rawName}`
             const docLines = items.filter(i => i.branchId === branchId && i.section === 'doc').map(i => i.line)
             const routineLines = items.filter(i => i.branchId === branchId && i.section === 'routine').map(i => i.line)
-            let text = `📋 งานค้างที่ยังไม่ได้ทำ (${dateText}) ${displayName}`
+            let text = `📋 งานค้างที่ยังไม่ได้ทำ (${dateText}) ${displayBranch(branchId)}`
             if (docLines.length > 0) text += `\n\n📄 เอกสารรถ\n${docLines.join('\n')}`
             if (routineLines.length > 0) text += `\n\n🔧 งานเซอร์วิส\n${routineLines.join('\n')}`
             return textMessage(text)
@@ -368,6 +376,100 @@ export async function GET(request: NextRequest) {
           else { failed++; await release(claimId) }
         }
       }
+    }
+  }
+
+  // ═══ 7) รถว่างวันนี้ → กลุ่ม owner (หลัง 8 โมงเช้า) แยกบอลลูนรายสาขา ═══
+  if ((bkkHour >= AVAILABLE_SEND_HOUR || testMode) && shop?.line_token && shop.line_target_id) {
+    const claimId = await claim('owner_available', '00000000-0000-0000-0000-000000000000', bkkToday)
+    if (claimId) {
+      const [{ data: allBikes }, { data: activeRentalBikes }] = await Promise.all([
+        supabase.from('bikes').select('id, branch_id, license_plate, brand, model, status'),
+        supabase.from('rentals').select('bike_id').in('status', ['active', 'extended']),
+      ])
+      // ว่างจริง = สถานะ available และไม่มีสัญญา active คาอยู่ (กันสถานะรถค้าง)
+      const busy = new Set<string>([
+        ...(activeRentalBikes ?? []).map(r => r.bike_id),
+        ...(monthlies ?? []).map(m => m.bike_id),
+      ])
+      const available = (allBikes ?? []).filter(b => b.status === 'available' && !busy.has(b.id))
+
+      const dateText = thaiDate.format(new Date(now))
+      const branchIds = sortBranchIds(available.map(b => b.branch_id ?? ''))
+      const messages: LineMessage[] = branchIds.map(branchId => {
+        const list = available.filter(b => (b.branch_id ?? '') === branchId)
+        const lines = list.map(b => `• ${b.license_plate} ${[b.brand, b.model].filter(Boolean).join(' ')}`)
+        return textMessage(`🛵 รถว่างวันนี้ (${dateText}) ${displayBranch(branchId)} — ${list.length} คัน\n\n${lines.join('\n')}`)
+      })
+      if (messages.length === 0) {
+        messages.push(textMessage(`🛵 รถว่างวันนี้ (${dateText}) — ไม่มีรถว่างเลย ทุกคันออกงานหมด 🎉`))
+      }
+
+      let allOk = true
+      for (let i = 0; i < messages.length; i += 5) {
+        allOk = (await linePush(shop.line_token, shop.line_target_id, messages.slice(i, i + 5))) && allOk
+      }
+      if (allOk) sent += messages.length
+      else { failed++; await release(claimId) }
+    }
+  }
+
+  // ═══ 8) รายได้วันนี้ → กลุ่ม owner (หลัง 3 ทุ่ม) ═══
+  // รอบวัน: 3 ทุ่มเมื่อวาน → 3 ทุ่มวันนี้ (เงินเข้าหลัง 3 ทุ่มไปรวมยอดของพรุ่งนี้ ไม่ตกหล่น)
+  if ((bkkHour >= REVENUE_SEND_HOUR || testMode) && shop?.line_token && shop.line_target_id) {
+    const claimId = await claim('owner_revenue', '00000000-0000-0000-0000-000000000000', bkkToday)
+    if (claimId) {
+      const windowEnd = new Date(`${bkkToday}T${String(REVENUE_SEND_HOUR - 7).padStart(2, '0')}:00:00Z`) // 21:00 ไทย
+      const windowStart = new Date(windowEnd.getTime() - DAY_MS)
+
+      const [{ data: dayRentals }, { data: dayPayments }] = await Promise.all([
+        supabase.from('rentals')
+          .select('branch_id, total_amount')
+          .in('status', ['active', 'extended', 'returned', 'completed'])
+          .gte('start_datetime', windowStart.toISOString())
+          .lt('start_datetime', windowEnd.toISOString()),
+        supabase.from('monthly_payments')
+          .select('amount, monthly_rentals(branch_id)')
+          .eq('paid_date', bkkToday),
+      ])
+
+      type Rev = { rental: number; rentalCount: number; monthly: number; monthlyCount: number }
+      const revByBranch = new Map<string, Rev>()
+      const bump = (branchId: string, field: 'rental' | 'monthly', amount: number) => {
+        const rev = revByBranch.get(branchId) ?? { rental: 0, rentalCount: 0, monthly: 0, monthlyCount: 0 }
+        rev[field] += amount
+        if (field === 'rental') rev.rentalCount++
+        else rev.monthlyCount++
+        revByBranch.set(branchId, rev)
+      }
+      for (const r of dayRentals ?? []) bump(r.branch_id ?? '', 'rental', Number(r.total_amount ?? 0))
+      for (const p of dayPayments ?? []) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mr = p.monthly_rentals as any
+        bump(mr?.branch_id ?? '', 'monthly', Number(p.amount ?? 0))
+      }
+
+      const dateText = thaiDate.format(new Date(now))
+      // โชว์ครบทุกสาขาแม้ยอด 0 — จะได้เห็นว่าสาขาไหนเงียบ
+      const branchIds = sortBranchIds([...Array.from(branchNames.keys()), ...Array.from(revByBranch.keys())])
+      let grandTotal = 0
+      const lines = branchIds.map(branchId => {
+        const rev = revByBranch.get(branchId) ?? { rental: 0, rentalCount: 0, monthly: 0, monthlyCount: 0 }
+        const total = rev.rental + rev.monthly
+        grandTotal += total
+        let line = `${displayBranch(branchId)}: ฿${total.toLocaleString()}`
+        const parts: string[] = []
+        if (rev.rentalCount > 0) parts.push(`เช่าใหม่ ${rev.rentalCount} สัญญา ฿${rev.rental.toLocaleString()}`)
+        if (rev.monthlyCount > 0) parts.push(`รายเดือน ${rev.monthlyCount} ราย ฿${rev.monthly.toLocaleString()}`)
+        if (parts.length > 0) line += `\n   (${parts.join(' + ')})`
+        return line
+      })
+
+      const ok = await linePush(shop.line_token, shop.line_target_id, [textMessage(
+        `💰 รายได้วันนี้ (${dateText})\n\n${lines.join('\n')}\n\nรวมทุกสาขา: ฿${grandTotal.toLocaleString()}`
+      )])
+      if (ok) sent++
+      else { failed++; await release(claimId) }
     }
   }
 
