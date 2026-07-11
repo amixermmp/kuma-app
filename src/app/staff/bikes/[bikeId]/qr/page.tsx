@@ -79,7 +79,7 @@ export default async function QRPage({ params }: { params: { bikeId: string } })
             className="btn" style={{ width: '100%', textAlign: 'center', padding: '13px', display: 'block' }}>
             ✏️ แก้ไขข้อมูลรถ
           </Link>
-          <Link href="/staff/bikes/add"
+          <Link href="/owner/bikes/add"
             className="btn" style={{ width: '100%', textAlign: 'center', padding: '13px', display: 'block' }}>
             + เพิ่มรถคันต่อไป
           </Link>
