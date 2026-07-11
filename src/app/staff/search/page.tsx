@@ -65,6 +65,8 @@ export default function SearchPage() {
   const [results, setResults] = useState<BikeResult[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
+  const [fBrand, setFBrand] = useState('')
+  const [fModel, setFModel] = useState('')
 
   const handleSearch = async () => {
     if (!from || !to || new Date(to) <= new Date(from)) return
@@ -85,8 +87,13 @@ export default function SearchPage() {
 
   const days = from && to ? daysBetween(from, to) : 0
   const groups = results ? groupByModel(results) : []
-  const availableGroups = groups.filter(g => g.availableCount > 0)
-  const unavailableGroups = groups.filter(g => g.availableCount === 0)
+  // ตัวเลือกกรอง — ดึงจากผลค้นหาจริง
+  const brandChoices = Array.from(new Set(groups.map(g => g.brand))).sort()
+  const modelChoices = Array.from(new Set(groups.filter(g => !fBrand || g.brand === fBrand).map(g => g.model))).sort()
+  // กรองตามยี่ห้อ/รุ่นที่เลือก (ลูกค้ารีเควสรุ่นเจาะจง)
+  const shownGroups = groups.filter(g => (!fBrand || g.brand === fBrand) && (!fModel || g.model === fModel))
+  const availableGroups = shownGroups.filter(g => g.availableCount > 0)
+  const unavailableGroups = shownGroups.filter(g => g.availableCount === 0)
 
   return (
     <div className="app-wrap">
@@ -132,6 +139,23 @@ export default function SearchPage() {
       {searched && (
         <>
           <div className="divider" />
+
+          {/* กรองรุ่น — ลูกค้ารีเควสรุ่นเจาะจง เลือกแล้วเจอเลย */}
+          {groups.length > 0 && (
+            <div style={{ padding: '12px 12px 0', display: 'flex', gap: '8px' }}>
+              <select className="field-input" style={{ flex: 1 }} value={fBrand}
+                onChange={e => { setFBrand(e.target.value); setFModel('') }}>
+                <option value="">ทุกยี่ห้อ</option>
+                {brandChoices.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+              <select className="field-input" style={{ flex: 1 }} value={fModel}
+                onChange={e => setFModel(e.target.value)}>
+                <option value="">ทุกรุ่น</option>
+                {modelChoices.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+          )}
+
           <div style={{ padding: '12px 12px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: '13px', fontWeight: 700, color: '#4b5563' }}>
               ผลการค้นหา — <span style={{ color: '#e11d48' }}>{days} วัน</span>
