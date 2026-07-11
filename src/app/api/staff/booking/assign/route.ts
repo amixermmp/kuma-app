@@ -27,13 +27,14 @@ export async function POST(request: NextRequest) {
 
   // Verify selected bike has no conflicts
   const bufferStart = new Date(new Date(booking.start_datetime).getTime() - 3 * 3_600_000).toISOString()
+  const bufferEnd = new Date(new Date(booking.end_datetime).getTime() + 3 * 3_600_000).toISOString()
 
   const [{ data: rentalConflict }, { data: bookingConflict }, { data: monthlyConflict }] = await Promise.all([
     supabase.from('rentals')
       .select('id')
       .eq('bike_id', bikeId)
       .in('status', ['active', 'extended'])
-      .lt('start_datetime', booking.end_datetime)
+      .lt('start_datetime', bufferEnd)
       .gt('expected_end_datetime', bufferStart)
       .maybeSingle(),
     supabase.from('bookings')
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       .eq('bike_id', bikeId)
       .eq('status', 'confirmed')
       .neq('id', bookingId)
-      .lt('start_datetime', booking.end_datetime)
+      .lt('start_datetime', bufferEnd)
       .gt('end_datetime', bufferStart)
       .maybeSingle(),
     supabase.from('monthly_rentals')

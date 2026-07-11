@@ -19,8 +19,10 @@ export async function GET(request: NextRequest) {
   const searchStart = new Date(from)
   const searchEnd = new Date(to)
 
-  // 3-hour buffer: a rental must end at least 3h before search start to not conflict
+  // 3-hour buffer on BOTH sides: an existing rental/booking must end ≥3h before
+  // search start AND start ≥3h after search end, otherwise it conflicts.
   const bufferStart = new Date(searchStart.getTime() - BUFFER_HOURS * 3_600_000)
+  const bufferEnd = new Date(searchEnd.getTime() + BUFFER_HOURS * 3_600_000)
 
   const supabase = createAdminClient()
 
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
     .from('rentals')
     .select('bike_id, start_datetime, expected_end_datetime')
     .in('status', ['active', 'extended'])
-    .lt('start_datetime', searchEnd.toISOString())
+    .lt('start_datetime', bufferEnd.toISOString())
     .gt('expected_end_datetime', bufferStart.toISOString())
 
   // Get bookings that conflict — split by specific-bike vs model-based
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
     .from('bookings')
     .select('bike_id, requested_brand, requested_model, start_datetime, end_datetime')
     .in('status', ['confirmed'])
-    .lt('start_datetime', searchEnd.toISOString())
+    .lt('start_datetime', bufferEnd.toISOString())
     .gt('end_datetime', bufferStart.toISOString())
 
   // Get active monthly rentals

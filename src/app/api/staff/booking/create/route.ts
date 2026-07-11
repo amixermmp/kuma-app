@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   const bufferStart = new Date(new Date(startDatetime).getTime() - 3 * 3_600_000).toISOString()
+  const bufferEnd = new Date(new Date(endDatetime).getTime() + 3 * 3_600_000).toISOString()
 
   // If specific bike: check for conflicts
   if (bikeId) {
@@ -49,14 +50,14 @@ export async function POST(request: NextRequest) {
         .select('id')
         .eq('bike_id', bikeId)
         .in('status', ['active', 'extended'])
-        .lt('start_datetime', endDatetime)
+        .lt('start_datetime', bufferEnd)
         .gt('expected_end_datetime', bufferStart)
         .maybeSingle(),
       supabase.from('bookings')
         .select('id')
         .eq('bike_id', bikeId)
         .eq('status', 'confirmed')
-        .lt('start_datetime', endDatetime)
+        .lt('start_datetime', bufferEnd)
         .gt('end_datetime', bufferStart)
         .maybeSingle(),
     ])
@@ -77,12 +78,12 @@ export async function POST(request: NextRequest) {
       supabase.from('rentals')
         .select('bike_id')
         .in('status', ['active', 'extended'])
-        .lt('start_datetime', endDatetime)
+        .lt('start_datetime', bufferEnd)
         .gt('expected_end_datetime', bufferStart),
       supabase.from('bookings')
         .select('bike_id, requested_brand, requested_model')
         .eq('status', 'confirmed')
-        .lt('start_datetime', endDatetime)
+        .lt('start_datetime', bufferEnd)
         .gt('end_datetime', bufferStart),
       supabase.from('monthly_rentals')
         .select('bike_id')
