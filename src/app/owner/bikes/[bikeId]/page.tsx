@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
+import { getBikeCatalog } from '@/lib/bikeCatalog'
 import BikeDetailClient from './BikeDetailClient'
 
 export const dynamic = 'force-dynamic'
@@ -43,6 +44,7 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
 
   if (!bikeRes.data) notFound()
 
+  const catalog = await getBikeCatalog()
   const bike = bikeRes.data
   const docs = docsRes.data ?? []
   const branches = branchesRes.data ?? []
@@ -77,6 +79,8 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
         stats={{ totalRevenue, rentalCount, lastRental }}
         routines={routines}
         repairs={repairs}
+        brands={catalog.brands}
+        models={catalog.models}
       />
     </div>
   )

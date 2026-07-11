@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import PhotoUpload from '@/components/PhotoUpload'
+import type { BikeModel } from '@/lib/bikeCatalog'
 
 
 type Branch = { id: string; name: string }
@@ -14,7 +15,7 @@ const DEFAULT_ROUTINES: Routine[] = [
   { task_name: 'เปลี่ยนน้ำมันเฟืองท้าย', interval_km: '3000', interval_days: '120', last_done_date: '' },
 ]
 
-export default function AddBikeForm({ ownerId, branches }: { ownerId: string; branches: Branch[] }) {
+export default function AddBikeForm({ ownerId, branches, brands, models }: { ownerId: string; branches: Branch[]; brands: string[]; models: BikeModel[] }) {
   const router = useRouter()
 
   const [branchId, setBranchId] = useState(branches[0]?.id ?? '')
@@ -143,13 +144,17 @@ export default function AddBikeForm({ ownerId, branches }: { ownerId: string; br
           </div>
           <div className="field-row">
             <label className="field-label">ยี่ห้อ *</label>
-            <input className="field-input" type="text" placeholder="Honda / Yamaha / Kawasaki…"
-              value={brand} onChange={e => setBrand(e.target.value)} />
+            <select className="field-input" value={brand} onChange={e => { setBrand(e.target.value); setModel('') }}>
+              <option value="">— เลือกยี่ห้อ —</option>
+              {brands.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
           </div>
           <div className="field-row">
             <label className="field-label">รุ่น *</label>
-            <input className="field-input" type="text" placeholder="PCX 150 / NMAX…"
-              value={model} onChange={e => setModel(e.target.value)} />
+            <select className="field-input" value={model} onChange={e => setModel(e.target.value)} disabled={!brand}>
+              <option value="">{brand ? '— เลือกรุ่น —' : '— เลือกยี่ห้อก่อน —'}</option>
+              {models.filter(m => m.brand === brand).map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
+            </select>
           </div>
           <div className="field-row">
             <label className="field-label">ปี</label>

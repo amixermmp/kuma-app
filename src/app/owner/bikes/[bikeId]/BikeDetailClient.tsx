@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import type { BikeModel } from '@/lib/bikeCatalog'
 
 type Bike = {
   id: string
@@ -95,22 +96,29 @@ function DocStatusRow({ icon, name, expiry, hasPhoto }: { icon: string; name: st
   )
 }
 
-export default function BikeDetailClient({ bike, docMap, branches, stats, routines, repairs }: {
+export default function BikeDetailClient({ bike, docMap, branches, stats, routines, repairs, brands, models }: {
   bike: Bike
   docMap: Record<string, DocRecord>
   branches: Branch[]
   stats: Stats
   routines: Routine[]
   repairs: RepairRecord[]
+  brands: string[]
+  models: BikeModel[]
 }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
 
-  // Edit state
+  // Edit state — ยี่ห้อ/รุ่นเดิมอาจไม่อยู่ในคลัง (สะกดต่าง) → ใส่เป็น option เพิ่มกันค่าหาย
+  const brandChoices = brands.includes(bike.brand) ? brands : [...brands, bike.brand]
   const [brand, setBrand] = useState(bike.brand)
   const [model, setModel] = useState(bike.model)
+  const modelChoices = (() => {
+    const forBrand = models.filter(m => m.brand === brand).map(m => m.name)
+    return forBrand.includes(model) || !model ? forBrand : [...forBrand, model]
+  })()
   const [year, setYear] = useState(String(bike.year ?? ''))
   const [color, setColor] = useState(bike.color ?? '')
   const [dailyRate, setDailyRate] = useState(String(bike.daily_rate))
@@ -375,10 +383,24 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
 
           {editing ? (
             <div>
+              <div className="field-row">
+                <label className="field-label">ทะเบียน *</label>
+                <input className="field-input" type="text" value={licensePlate} onChange={e => setLicensePlate(e.target.value)} />
+              </div>
+              <div className="field-row">
+                <label className="field-label">ยี่ห้อ *</label>
+                <select className="field-input" value={brand} onChange={e => { setBrand(e.target.value); setModel('') }}>
+                  {brandChoices.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div className="field-row">
+                <label className="field-label">รุ่น *</label>
+                <select className="field-input" value={model} onChange={e => setModel(e.target.value)} disabled={!brand}>
+                  <option value="">{brand ? '— เลือกรุ่น —' : '— เลือกยี่ห้อก่อน —'}</option>
+                  {modelChoices.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
               {[
-                { label: 'ทะเบียน *', val: licensePlate, set: setLicensePlate },
-                { label: 'ยี่ห้อ *', val: brand, set: setBrand },
-                { label: 'รุ่น *', val: model, set: setModel },
                 { label: 'ปีรถ', val: year, set: setYear, type: 'number' },
                 { label: 'สี', val: color, set: setColor },
                 { label: 'ราคาเช่า/วัน (บาท) *', val: dailyRate, set: setDailyRate, type: 'number' },

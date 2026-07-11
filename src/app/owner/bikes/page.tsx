@@ -127,6 +127,11 @@ export default async function OwnerBikesPage() {
           <h1>สต็อครถทั้งหมด</h1>
           <div className="sub">{bikes.length} คัน • {branches.length} สาขา</div>
         </div>
+        <Link href="/owner/bikes/catalog" style={{
+          background: 'rgba(255,255,255,.15)', borderRadius: '8px',
+          color: '#fff', fontSize: '13px', fontWeight: 700,
+          padding: '6px 10px', textDecoration: 'none', marginRight: '6px',
+        }}>🏍️ ยี่ห้อ/รุ่น</Link>
         <Link href="/owner/bikes/add" style={{
           background: 'rgba(255,255,255,.15)', borderRadius: '8px',
           color: '#fff', fontSize: '13px', fontWeight: 700,
