@@ -47,10 +47,24 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
+// จับคู่ชื่อสีไทย → hex สำหรับจุดสีในการ์ด
+const BIKE_COLOR_HEX: Record<string, string> = {
+  'ขาว': '#e5e7eb', 'ดำ': '#111827', 'แดง': '#dc2626', 'น้ำเงิน': '#1d4ed8',
+  'ฟ้า': '#38bdf8', 'เขียว': '#16a34a', 'เหลือง': '#eab308', 'ส้ม': '#ea580c',
+  'ชมพู': '#ec4899', 'เทา': '#6b7280', 'ม่วง': '#7c3aed', 'น้ำตาล': '#92400e',
+  'ทอง': '#d4af37', 'เงิน': '#cbd5e1',
+}
+function bikeColorHex(name?: string | null): string {
+  if (!name) return '#9ca3af'
+  for (const key in BIKE_COLOR_HEX) if (name.includes(key)) return BIKE_COLOR_HEX[key]
+  return '#9ca3af'
+}
+
 function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
   meta1, meta2, statusLabel, statusBg, statusColor,
   href, btnColor, btnLabel, contractHref, extendHref, swapHref, cardHref, onCancel, cancelDisabled,
+  photoUrl, bikeColor,
 }: {
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
@@ -63,8 +77,11 @@ function JobCard({
   cardHref?: string
   onCancel?: () => void
   cancelDisabled?: boolean
+  photoUrl?: string | null
+  bikeColor?: string | null
 }) {
   const router = useRouter()
+  const showThumb = photoUrl !== undefined || bikeColor !== undefined
   return (
     <div
       onClick={() => { if (cardHref) router.push(cardHref) }}
@@ -75,7 +92,15 @@ function JobCard({
       }}
     >
       <div style={{ width: '5px', background: dotColor, flexShrink: 0 }} />
-      <div style={{ flex: 1, padding: '12px 12px 10px' }}>
+      {showThumb && (
+        <div style={{ width: '58px', flexShrink: 0, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {photoUrl
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={photoUrl} alt="" loading="lazy" width={44} height={44} style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '8px' }} />
+            : <span style={{ fontSize: '26px' }}>🛵</span>}
+        </div>
+      )}
+      <div style={{ flex: 1, padding: '12px 12px 10px', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
           <span style={{ fontWeight: 700, fontSize: '14px', color: '#111827', flex: 1 }}>{title}</span>
           <span style={{
@@ -83,6 +108,12 @@ function JobCard({
             background: badgeBg, color: badgeColor, whiteSpace: 'nowrap', flexShrink: 0,
           }}>{badge}</span>
         </div>
+        {bikeColor && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+            <span style={{ width: '11px', height: '11px', borderRadius: '50%', background: bikeColorHex(bikeColor), border: '1px solid rgba(0,0,0,.15)', flexShrink: 0 }} />
+            <span style={{ fontSize: '12px', color: '#374151', fontWeight: 600 }}>{bikeColor}</span>
+          </div>
+        )}
         <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '3px' }}>{meta1}</div>
         {meta2 && <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>{meta2}</div>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
@@ -300,7 +331,13 @@ export default function JobsClient({
                   boxShadow: '0 1px 3px rgba(0,0,0,.07)', overflow: 'hidden', display: 'flex',
                 }}>
                   <div style={{ width: '5px', background: dotColor, flexShrink: 0 }} />
-                  <div style={{ flex: 1, padding: '12px 12px 10px' }}>
+                  <div style={{ width: '58px', flexShrink: 0, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {bike?.photo_url
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={bike.photo_url} alt="" loading="lazy" width={44} height={44} style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '8px' }} />
+                      : <span style={{ fontSize: '26px' }}>🛵</span>}
+                  </div>
+                  <div style={{ flex: 1, padding: '12px 12px 10px', minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
                       <span style={{ fontWeight: 700, fontSize: '14px', color: '#111827', flex: 1 }}>
                         📞 ติดต่อ — {bike?.license_plate ?? ''} {bike?.brand ?? ''} {bike?.model ?? ''}
@@ -310,6 +347,12 @@ export default function JobsClient({
                         background: badgeBg, color: badgeColor, whiteSpace: 'nowrap', flexShrink: 0,
                       }}>{badgeText}</span>
                     </div>
+                    {bike?.color && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                        <span style={{ width: '11px', height: '11px', borderRadius: '50%', background: bikeColorHex(bike.color), border: '1px solid rgba(0,0,0,.15)', flexShrink: 0 }} />
+                        <span style={{ fontSize: '12px', color: '#374151', fontWeight: 600 }}>{bike.color}</span>
+                      </div>
+                    )}
                     <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '3px' }}>
                       👤 {customer?.name ?? '—'}{customer?.phone ? ` • ${customer.phone}` : ''}
                     </div>
@@ -365,6 +408,7 @@ export default function JobsClient({
                 <JobCard
                   key={b.id}
                   dotColor={dotColor}
+                  photoUrl={bike?.photo_url} bikeColor={bike?.color}
                   title={`ส่งรถ — ${bikeLabel}`}
                   badge={badge}
                   badgeBg={badgeBg} badgeColor={badgeColor}
@@ -393,6 +437,7 @@ export default function JobsClient({
               return (
                 <JobCard
                   key={job.id} dotColor="#dc2626"
+                  photoUrl={bike?.photo_url} bikeColor={bike?.color}
                   title={`รับคืน — ${bike.license_plate} ${bike.brand} ${bike.model}`}
                   badge="🔴 เกินกำหนด!" badgeBg="#fef2f2" badgeColor="#dc2626"
                   meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
@@ -412,6 +457,7 @@ export default function JobsClient({
               return (
                 <JobCard
                   key={job.id} dotColor={urgent ? '#d97706' : '#6b7280'}
+                  photoUrl={bike?.photo_url} bikeColor={bike?.color}
                   title={`รับคืน — ${bike.license_plate} ${bike.brand} ${bike.model}`}
                   badge={`⚠️ ${fmtTime(job.expected_end_datetime)} น.`} badgeBg="#fffbeb" badgeColor="#d97706"
                   meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
@@ -467,6 +513,7 @@ export default function JobsClient({
               return (
                 <JobCard
                   key={job.id} dotColor={dotColor}
+                  photoUrl={bike?.photo_url} bikeColor={bike?.color}
                   title={`${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                   badge={badge} badgeBg={badgeBg} badgeColor={badgeColor}
                   meta1={`👤 ${job.customers?.name ?? '—'}${job.customers?.phone ? ` • ${job.customers.phone}` : ''}`}
@@ -492,6 +539,7 @@ export default function JobsClient({
               return (
                 <JobCard
                   key={r.id} dotColor={isPending ? '#dc2626' : '#d97706'}
+                  photoUrl={bike?.photo_url} bikeColor={bike?.color}
                   title={`รถเสีย — ${bike.license_plate} ${bike.brand} ${bike.model}`}
                   badge={isPending ? '🔴 รอส่งซ่อม' : '🔧 กำลังซ่อม'}
                   badgeBg={isPending ? '#fef2f2' : '#fffbeb'} badgeColor={isPending ? '#dc2626' : '#d97706'}
@@ -530,6 +578,7 @@ export default function JobsClient({
               return (
                 <JobCard
                   key={r.id} dotColor={p.dot}
+                  photoUrl={bike?.photo_url} bikeColor={bike?.color}
                   title={`${r.task_name ?? 'บำรุงรักษา'} — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                   badge={badgeText} badgeBg={p.bg} badgeColor={p.color}
                   meta1={kmOver != null ? (kmOver === 0 ? '📍 ถึงกำหนดพอดี!' : `📍 เกินกำหนด ${kmOver.toLocaleString()} กม.`) : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
@@ -554,6 +603,7 @@ export default function JobsClient({
               return (
                 <JobCard
                   key={d.id} dotColor={p.dot}
+                  photoUrl={bike?.photo_url} bikeColor={bike?.color}
                   title={`ต่อ${DOC_LABEL[d.doc_type] ?? d.doc_type} — ${bike?.license_plate ?? ''}`}
                   badge={days < 0 ? `🚨 เกินมา ${Math.abs(days)} วัน` : `📅 อีก ${days} วัน`}
                   badgeBg={p.bg} badgeColor={p.color}
@@ -578,6 +628,7 @@ export default function JobsClient({
               return (
                 <JobCard
                   key={mr.id} dotColor="#7c3aed"
+                  photoUrl={bike?.photo_url} bikeColor={bike?.color}
                   title={`${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                   badge={`📅 ครบวันที่ ${mr.payment_day} ทุกเดือน`}
                   badgeBg="#faf5ff" badgeColor="#7c3aed"

@@ -54,14 +54,14 @@ export default async function JobsPage() {
     { data: allMonthlyActive },
   ] = await Promise.all([
     applyBike(supabase.from('rentals')
-      .select('id, expected_end_datetime, bikes(id, license_plate, brand, model), customers(name, phone)')
+      .select('id, expected_end_datetime, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
       .lt('expected_end_datetime', nowIso)
       .in('status', ['active', 'extended'])
       .order('expected_end_datetime', { ascending: true })
       .limit(20)),
 
     applyBike(supabase.from('rentals')
-      .select('id, expected_end_datetime, bikes(id, license_plate, brand, model), customers(name, phone)')
+      .select('id, expected_end_datetime, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
       .gte('expected_end_datetime', nowIso)
       .lte('expected_end_datetime', in24h)
       .in('status', ['active', 'extended'])
@@ -69,47 +69,47 @@ export default async function JobsPage() {
       .limit(20)),
 
     applyBike(supabase.from('rentals')
-      .select('id, start_datetime, expected_end_datetime, total_days, daily_rate, total_amount, bikes(id, license_plate, brand, model), customers(name, phone)')
+      .select('id, start_datetime, expected_end_datetime, total_days, daily_rate, total_amount, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
       .in('status', ['active', 'extended'])
       .order('expected_end_datetime', { ascending: true })
       .limit(100)),
 
     applyBranch(supabase.from('repairs')
-      .select('id, title, description, status, created_at, bikes(id, license_plate, brand, model)')
+      .select('id, title, description, status, created_at, bikes(id, license_plate, brand, model, color, photo_url)')
       .in('status', ['pending', 'in_progress'])
       .order('created_at', { ascending: false })
       .limit(20)),
 
     (allowedBikeIds
       ? supabase.from('bike_routines')
-          .select('id, task_name, next_due_km, next_due_date, bikes(id, license_plate, brand, model, odometer)')
+          .select('id, task_name, next_due_km, next_due_date, bikes(id, license_plate, brand, model, odometer, color, photo_url)')
           .in('bike_id', allowedBikeIds)
           .limit(200)
       : supabase.from('bike_routines')
-          .select('id, task_name, next_due_km, next_due_date, bikes(id, license_plate, brand, model, odometer)')
+          .select('id, task_name, next_due_km, next_due_date, bikes(id, license_plate, brand, model, odometer, color, photo_url)')
           .limit(200)),
 
     applyBike(supabase.from('bike_documents')
-      .select('id, doc_type, expiry_date, bike_id, bikes(id, license_plate, brand, model)')
+      .select('id, doc_type, expiry_date, bike_id, bikes(id, license_plate, brand, model, color, photo_url)')
       .lte('expiry_date', in30days)
       .gte('expiry_date', today)
       .limit(20)),
 
     applyBike(supabase.from('monthly_payments')
-      .select('id, due_date, amount, monthly_rental_id, monthly_rentals(id, bike_id, bikes(id, license_plate, brand, model), customers(name), monthly_rate)')
+      .select('id, due_date, amount, monthly_rental_id, monthly_rentals(id, bike_id, bikes(id, license_plate, brand, model, color, photo_url), customers(name), monthly_rate)')
       .in('status', ['pending', 'overdue'])
       .lte('due_date', in30days)
       .limit(20)),
 
     applyBranch(supabase.from('bookings')
-      .select('id, booking_ref, start_datetime, customer_name, customer_phone, total_days, daily_rate, requested_brand, requested_model, bikes(id, license_plate, brand, model)')
+      .select('id, booking_ref, start_datetime, customer_name, customer_phone, total_days, daily_rate, requested_brand, requested_model, bikes(id, license_plate, brand, model, color, photo_url)')
       .eq('status', 'confirmed')
       .order('start_datetime', { ascending: true })
       .limit(100)),
 
     // All active monthly rentals — to compute upcoming due alerts
     applyBike(supabase.from('monthly_rentals')
-      .select('id, bike_id, payment_day, monthly_rate, bikes(id, license_plate, brand, model), customers(name, phone)')
+      .select('id, bike_id, payment_day, monthly_rate, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
       .eq('status', 'active')
       .limit(100)),
   ])
