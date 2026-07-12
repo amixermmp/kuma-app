@@ -40,7 +40,7 @@ function DocCard({ doc }: { doc: DocItem }) {
   const [saved, setSaved] = useState(false)
 
   const color = urgencyColor(doc.urgency)
-  const isActionable = doc.urgency !== 'ok'
+  const isActionable = true // ใส่/แก้เอกสารได้ตลอด ไม่ต้องรอใกล้หมดอายุ
 
   const handleSave = async () => {
     if (!newExpiry) { setError('กรุณาระบุวันหมดอายุใหม่'); return }

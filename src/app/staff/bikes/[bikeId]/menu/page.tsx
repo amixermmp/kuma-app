@@ -33,12 +33,12 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
       .single(),
     supabase
       .from('bike_documents')
-      .select('doc_type, expiry_date')
+      .select('doc_type, expiry_date, doc_photo_url')
       .eq('bike_id', params.bikeId)
-      .in('doc_type', ['tax', 'pob']),
+      .in('doc_type', ['tax', 'pob', 'registration']),
     supabase
       .from('bike_routines')
-      .select('task_name, last_done_date, next_due_km, next_due_date')
+      .select('id, task_name, interval_km, interval_days, last_done_date, last_done_km, next_due_km, next_due_date')
       .eq('bike_id', params.bikeId),
     supabase
       .from('rentals')
@@ -57,14 +57,9 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
   if (!bike) notFound()
 
   const today = new Date().toISOString().split('T')[0]
-  const oilRoutine      = (routines ?? []).find(r => r.task_name === 'เปลี่ยนน้ำมันเครื่อง')
-  const gearOilRoutine  = (routines ?? []).find(r => r.task_name === 'เปลี่ยนน้ำมันเฟืองท้าย')
-  const taxDoc          = (docs ?? []).find(d => d.doc_type === 'tax')
-  const pobDoc          = (docs ?? []).find(d => d.doc_type === 'pob')
-  const lastOilDate     = oilRoutine?.last_done_date ?? null
-  const lastGearDate    = gearOilRoutine?.last_done_date ?? null
-  const taxExpiry       = taxDoc?.expiry_date ?? null
-  const pobExpiry       = pobDoc?.expiry_date ?? null
+  const taxDoc = (docs ?? []).find(d => d.doc_type === 'tax')
+  const pobDoc = (docs ?? []).find(d => d.doc_type === 'pob')
+  const regDoc = (docs ?? []).find(d => d.doc_type === 'registration')
 
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -74,13 +69,25 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
     const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
     return days >= 0 && days <= 30
   }
-  const overdueCount = [
-    ...(docs ?? []).filter(d => d.expiry_date && d.expiry_date < today),
-    ...(routines ?? []).filter(r =>
-      (r.next_due_km != null && r.next_due_km <= bike.odometer) ||
-      (r.next_due_date != null && r.next_due_date < today)
-    ),
-  ].length
+
+  // แถวสถานะเอกสาร (ยกสไตล์จากหน้า owner)
+  function docRow(icon: string, name: string, expiry: string | null | undefined, hasPhoto: boolean, isLast = false) {
+    const b = expiry
+      ? isExpired(expiry) ? { bg: '#fef2f2', c: '#dc2626', t: '🚨 หมดแล้ว' }
+        : isNearExpiry(expiry) ? { bg: '#fff7ed', c: '#c2410c', t: '⚠️ ใกล้หมด' }
+        : { bg: '#dcfce7', c: '#16a34a', t: '✅ ปกติ' }
+      : hasPhoto ? { bg: '#dcfce7', c: '#16a34a', t: '✅ มีแล้ว' } : { bg: '#f3f4f6', c: '#9ca3af', t: '— ไม่มี' }
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: isLast ? 'none' : '1px solid #f1f5f9' }}>
+        <span style={{ fontSize: '20px' }}>{icon}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{name}</div>
+          {expiry && <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '1px' }}>หมดอายุ {fmtDate(expiry)}</div>}
+        </div>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: b.c, background: b.bg, borderRadius: '20px', padding: '3px 10px', whiteSpace: 'nowrap' }}>{b.t}</span>
+      </div>
+    )
+  }
 
   const rentalId = activeRental?.id ?? null
   const monthlyRentalId = activeMonthly?.id ?? null
@@ -128,36 +135,6 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
               </span>
             )}
           </div>
-          {(lastOilDate || lastGearDate || taxExpiry || pobExpiry) && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
-              {lastOilDate && (
-                <span style={{ fontSize: '11px', background: '#fef3c7', color: '#92400e', borderRadius: '6px', padding: '2px 8px' }}>
-                  🛢️ น้ำมันเครื่อง {fmtDate(lastOilDate)}
-                </span>
-              )}
-              {lastGearDate && (
-                <span style={{ fontSize: '11px', background: '#fef3c7', color: '#78350f', borderRadius: '6px', padding: '2px 8px' }}>
-                  ⚙️ เฟืองท้าย {fmtDate(lastGearDate)}
-                </span>
-              )}
-              {taxExpiry && (
-                <span style={{ fontSize: '11px', borderRadius: '6px', padding: '2px 8px',
-                  background: isExpired(taxExpiry) ? '#fef2f2' : isNearExpiry(taxExpiry) ? '#fff7ed' : '#f0fdf4',
-                  color: isExpired(taxExpiry) ? '#dc2626' : isNearExpiry(taxExpiry) ? '#c2410c' : '#15803d',
-                }}>
-                  📋 ภาษี {isExpired(taxExpiry) ? '⚠️ หมดแล้ว' : fmtDate(taxExpiry)}
-                </span>
-              )}
-              {pobExpiry && (
-                <span style={{ fontSize: '11px', borderRadius: '6px', padding: '2px 8px',
-                  background: isExpired(pobExpiry) ? '#fef2f2' : isNearExpiry(pobExpiry) ? '#fff7ed' : '#f0fdf4',
-                  color: isExpired(pobExpiry) ? '#dc2626' : isNearExpiry(pobExpiry) ? '#c2410c' : '#15803d',
-                }}>
-                  🛡️ พรบ {isExpired(pobExpiry) ? '⚠️ หมดแล้ว' : fmtDate(pobExpiry)}
-                </span>
-              )}
-            </div>
-          )}
         </div>
         <div style={{
           background: `${statusColor}18`, color: statusColor,
@@ -338,65 +315,67 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
             <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>รายงานปัญหา</div>
           </Link>
 
-          {/* งานรูทีน */}
-          <Link
-            href={`/staff/routine?bikeId=${bike.id}`}
-            style={{
-              background: '#f0fdf4', border: `2px solid ${overdueCount > 0 ? '#16a34a' : '#d1fae5'}`,
-              borderRadius: '14px', padding: '16px',
-              textDecoration: 'none', position: 'relative',
-            }}
-          >
-            <div style={{ fontSize: '28px', marginBottom: '6px' }}>🔧</div>
-            <div style={{ fontWeight: 700, fontSize: '14px', color: '#15803d' }}>งานรูทีน</div>
-            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>ซ่อมบำรุงตามระยะ</div>
-          </Link>
-
-          {/* งานเอกสาร */}
-          <Link
-            href={`/staff/docs?bikeId=${bike.id}`}
-            style={{
-              background: '#f1f5f9', border: '2px solid #e5e7eb',
-              borderRadius: '14px', padding: '16px',
-              textDecoration: 'none',
-            }}
-          >
-            <div style={{ fontSize: '28px', marginBottom: '6px' }}>📄</div>
-            <div style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>งานเอกสาร</div>
-            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>ภาษี, พรบ, ใบขับขี่</div>
-          </Link>
-
         </div>
 
-        {/* Job Tasks */}
-        <Link
-          href="/staff/jobs"
-          style={{
-            display: 'flex', alignItems: 'center', gap: '14px',
-            background: '#faf5ff', border: '2px solid #7c3aed',
-            borderRadius: '14px', padding: '16px 20px',
-            textDecoration: 'none', position: 'relative',
-          }}
-        >
-          {overdueCount > 0 && (
-            <div style={{
-              position: 'absolute', top: '-8px', right: '-8px',
-              background: '#dc2626', color: '#fff',
-              borderRadius: '999px', minWidth: '22px', height: '22px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '12px', fontWeight: 700, padding: '0 6px',
-            }}>
-              {overdueCount}
-            </div>
-          )}
-          <span style={{ fontSize: '28px' }}>📋</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '15px', color: '#5b21b6' }}>Job Tasks</div>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-              {overdueCount > 0 ? `${overdueCount} รายการที่ต้องดำเนินการ` : 'งานเอกสาร & ซ่อมบำรุง'}
-            </div>
+        {/* สถานะเอกสาร */}
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ flex: 1, fontSize: '14px', fontWeight: 700, color: '#111827' }}>📄 สถานะเอกสาร</span>
+            <Link href={`/staff/docs?bikeId=${bike.id}`} style={{
+              fontSize: '12px', fontWeight: 700, color: '#1d4ed8', background: '#eff6ff',
+              border: '1px solid #bfdbfe', borderRadius: '8px', padding: '6px 12px', textDecoration: 'none',
+            }}>✏️ ทำรายการ</Link>
           </div>
-        </Link>
+          {docRow('🛡️', 'พ.ร.บ. รถจักรยานยนต์', pobDoc?.expiry_date, !!pobDoc?.doc_photo_url)}
+          {docRow('💰', 'ภาษีประจำปี', taxDoc?.expiry_date, !!taxDoc?.doc_photo_url)}
+          {docRow('📘', 'สำเนาหน้าเล่มทะเบียน', null, !!regDoc?.doc_photo_url, true)}
+        </div>
+
+        {/* งานรูทีน */}
+        <div style={{ background: '#fff', border: '1px solid #fed7aa', borderTop: '3px solid #ea580c', borderRadius: '14px', padding: '14px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827', marginBottom: '10px' }}>🔧 งานรูทีน</div>
+          {(routines ?? []).length === 0 && (
+            <div style={{ fontSize: '12px', color: '#9ca3af' }}>ยังไม่มีงานรูทีน</div>
+          )}
+          {(routines ?? []).map((r, i) => {
+            const daysLeft = r.next_due_date ? Math.ceil((new Date(r.next_due_date).getTime() - Date.now()) / 86_400_000) : null
+            const kmLeft = r.next_due_km != null ? r.next_due_km - bike.odometer : null
+            const isLast = i === (routines ?? []).length - 1
+            return (
+              <div key={r.id} style={{ borderBottom: isLast ? 'none' : '1px solid #f1f5f9', paddingBottom: isLast ? 0 : '12px', marginBottom: isLast ? 0 : '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ flex: 1, fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>{r.task_name}</span>
+                  <Link href={`/staff/routine?id=${r.id}`} style={{
+                    fontSize: '12px', fontWeight: 700, color: '#c2410c', background: '#fff7ed',
+                    border: '1px solid #fed7aa', borderRadius: '8px', padding: '6px 12px', textDecoration: 'none', whiteSpace: 'nowrap',
+                  }}>✅ ทำรายการ</Link>
+                </div>
+                {(daysLeft != null || kmLeft != null) && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                    {daysLeft != null && (
+                      <span style={{ fontSize: '11px', borderRadius: '6px', padding: '2px 8px',
+                        background: daysLeft <= 0 ? '#fef2f2' : '#eff6ff', color: daysLeft <= 0 ? '#dc2626' : '#1d4ed8' }}>
+                        {daysLeft <= 0 ? `🚨 เลยกำหนด ${Math.abs(daysLeft)} วัน` : `📅 อีก ${daysLeft} วัน`}
+                      </span>
+                    )}
+                    {kmLeft != null && (
+                      <span style={{ fontSize: '11px', borderRadius: '6px', padding: '2px 8px',
+                        background: kmLeft <= 0 ? '#fef2f2' : '#f0fdf4', color: kmLeft <= 0 ? '#dc2626' : '#16a34a' }}>
+                        {kmLeft <= 0 ? `🚨 เลยกำหนด ${Math.abs(kmLeft).toLocaleString()} กม.` : `🛣️ อีก ${kmLeft.toLocaleString()} กม.`}
+                      </span>
+                    )}
+                  </div>
+                )}
+                <div style={{ fontSize: '11px', color: '#6b7280', display: 'flex', flexWrap: 'wrap', gap: '2px 16px' }}>
+                  {r.interval_km ? <span>ทุก {r.interval_km.toLocaleString()} กม.</span> : null}
+                  {r.interval_days ? <span>ทุก {r.interval_days} วัน</span> : null}
+                  {r.last_done_date ? <span>ทำล่าสุด: {fmtDate(r.last_done_date)}</span> : null}
+                  {r.next_due_date ? <span>ครบกำหนด: {fmtDate(r.next_due_date)}</span> : null}
+                </div>
+              </div>
+            )
+          })}
+        </div>
 
       </div>
 

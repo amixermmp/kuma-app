@@ -24,7 +24,7 @@ function RoutineCard({ r }: { r: RoutineItem }) {
 
   const color = urgencyColor(r.urgency)
   const isKmBased = r.interval_km != null
-  const isActionable = r.urgency !== 'ok'
+  const isActionable = true // ทำรายการได้ตลอด ไม่ต้องรอใกล้ครบกำหนด
 
   const handleSave = async () => {
     setLoading(true)
