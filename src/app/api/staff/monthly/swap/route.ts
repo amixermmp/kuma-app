@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   // Fetch current rental
   const { data: rental, error: rentalErr } = await supabase
     .from('monthly_rentals')
-    .select('id, bike_id, branch_id, monthly_rate, swap_log, bikes(license_plate), customers(name)')
+    .select('id, bike_id, branch_id, monthly_rate, swap_log, bikes(license_plate, branch_id), customers(name)')
     .eq('id', rentalId)
     .eq('status', 'active')
     .single()
@@ -43,7 +43,10 @@ export async function POST(request: NextRequest) {
   if (newBike.status !== 'available') {
     return NextResponse.json({ error: 'รถคันนี้ไม่ว่าง' }, { status: 400 })
   }
-  if (newBike.branch_id !== rental.branch_id) {
+  // เทียบกับสาขาของรถคันปัจจุบัน (ที่รถอยู่จริง) ไม่ใช่ branch ในสัญญาที่อาจเพี้ยน
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currentBikeBranch = (rental.bikes as any)?.branch_id ?? rental.branch_id
+  if (newBike.branch_id !== currentBikeBranch) {
     return NextResponse.json({ error: 'รถต้องอยู่สาขาเดียวกัน' }, { status: 400 })
   }
 
@@ -72,6 +75,7 @@ export async function POST(request: NextRequest) {
     .from('monthly_rentals')
     .update({
       bike_id: newBikeId,
+      branch_id: newBike.branch_id, // sync สาขาสัญญาให้ตรงรถใหม่ (แก้ข้อมูลเพี้ยนไปในตัว)
       swap_log: [...existingLog, logEntry],
     })
     .eq('id', rentalId)

@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   if (rentalType === 'monthly') {
     const { data: rental, error } = await supabase
       .from('monthly_rentals')
-      .select('id, bike_id, branch_id, swap_log, bikes(license_plate), customers(name)')
+      .select('id, bike_id, branch_id, swap_log, bikes(license_plate, branch_id), customers(name)')
       .eq('id', rentalId)
       .eq('status', 'active')
       .single()
@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
     if (error || !rental) return NextResponse.json({ error: 'ไม่พบสัญญาที่ active' }, { status: 404 })
 
     oldBikeId = rental.bike_id
-    branchId = rental.branch_id
+    // สาขาของรถคันปัจจุบัน (ที่รถอยู่จริง) ไม่ใช่ branch สัญญาที่อาจเพี้ยน
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    branchId = (rental.bikes as any)?.branch_id ?? rental.branch_id
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     customerName = (rental.customers as any)?.name ?? '—'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
   } else {
     const { data: rental, error } = await supabase
       .from('rentals')
-      .select('id, bike_id, branch_id, bikes(license_plate), customers(name)')
+      .select('id, bike_id, branch_id, bikes(license_plate, branch_id), customers(name)')
       .eq('id', rentalId)
       .in('status', ['active', 'extended'])
       .single()
@@ -55,7 +57,9 @@ export async function POST(request: NextRequest) {
     if (error || !rental) return NextResponse.json({ error: 'ไม่พบการเช่าที่ active' }, { status: 404 })
 
     oldBikeId = rental.bike_id
-    branchId = rental.branch_id
+    // สาขาของรถคันปัจจุบัน (ที่รถอยู่จริง) ไม่ใช่ branch สัญญาที่อาจเพี้ยน
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    branchId = (rental.bikes as any)?.branch_id ?? rental.branch_id
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     customerName = (rental.customers as any)?.name ?? '—'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,14 +102,14 @@ export async function POST(request: NextRequest) {
 
     const { error } = await supabase
       .from('monthly_rentals')
-      .update({ bike_id: newBikeId, swap_log: [...existingSwapLog, logEntry] })
+      .update({ bike_id: newBikeId, branch_id: newBike.branch_id, swap_log: [...existingSwapLog, logEntry] })
       .eq('id', rentalId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   } else {
     const { error } = await supabase
       .from('rentals')
-      .update({ bike_id: newBikeId })
+      .update({ bike_id: newBikeId, branch_id: newBike.branch_id })
       .eq('id', rentalId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
