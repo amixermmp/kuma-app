@@ -359,6 +359,24 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
     setTimeout(() => setLineMsg(''), 3000)
   }
 
+  // ── เปิดใช้งานพนักงานกลับ ──
+  const reactivateStaff = async (s: Staff) => {
+    setStaff(prev => prev.map(x => x.id === s.id ? { ...x, is_active: true } : x))
+    await fetch(`/api/owner/settings/staff/${s.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: true }),
+    })
+  }
+
+  // ── ลบพนักงานถาวร (งานที่เขาทำไม่หาย แค่ PIN เข้าไม่ได้) ──
+  const deleteStaff = async (s: Staff) => {
+    if (!confirm(`ลบ ${s.name} ถาวร?\n\nพนักงานคนนี้จะเข้าระบบด้วย PIN ไม่ได้อีก\nแต่ประวัติงานที่เคยทำ (เช่า/ซ่อม/น้ำมันเครื่อง ฯลฯ) ยังอยู่ครบทุกอย่าง`)) return
+    const res = await fetch(`/api/owner/settings/staff/${s.id}`, { method: 'DELETE' })
+    if (res.ok) setStaff(prev => prev.filter(x => x.id !== s.id))
+    else alert('ลบไม่สำเร็จ ลองใหม่อีกครั้ง')
+  }
+
   // ── Toggle promo ──
   const togglePromo = async (id: string, current: boolean) => {
     setPromos(prev => prev.map(p => p.id === id ? { ...p, is_active: !current } : p))
@@ -457,6 +475,33 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
             </div>
           )
         })}
+
+        {/* พนักงานที่ปิดใช้งาน — เปิดกลับได้ */}
+        {staff.some(s => !s.is_active) && (
+          <>
+            <div style={{ padding: '12px 16px 4px', fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+              ปิดใช้งานอยู่
+            </div>
+            {staff.filter(s => !s.is_active).map(s => (
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f3f4f6', opacity: 0.65 }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#9ca3af', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0 }}>
+                  {s.name[0]}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600 }}>{s.name}</div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>ปิดใช้งาน (ประวัติงานยังอยู่ครบ)</div>
+                </div>
+                <button onClick={() => reactivateStaff(s)} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: '13px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
+                  เปิดใช้งาน
+                </button>
+                <button onClick={() => deleteStaff(s)} style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '12px', cursor: 'pointer', padding: '4px' }}>
+                  ลบถาวร
+                </button>
+              </div>
+            ))}
+          </>
+        )}
+
         <div style={{ padding: '12px 16px' }}>
           <button onClick={() => setStaffModal('new')} className="btn" style={{ border: '1.5px solid #374151', color: '#374151', background: '#fff', width: '100%' }}>
             + เพิ่มพนักงาน
