@@ -109,7 +109,7 @@ export default async function JobsPage() {
 
     // All active monthly rentals — to compute upcoming due alerts
     applyBike(supabase.from('monthly_rentals')
-      .select('id, bike_id, payment_day, monthly_rate, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
+      .select('id, bike_id, start_date, payment_day, monthly_rate, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
       .eq('status', 'active')
       .limit(100)),
   ])
@@ -142,46 +142,60 @@ export default async function JobsPage() {
     return { ...mr, nextDueDate: nextDue.toISOString().split('T')[0], daysUntil }
   })
 
-  // Rental IDs that have actual overdue/unpaid payments in monthly_payments table
-  const overdueRentalIds = new Set(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (monthlyDue ?? []).filter((p: any) => p.status === 'overdue' || p.due_date < today)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((p: any) => p.monthly_rental_id).filter(Boolean)
-  )
+  // ── แจ้งเตือนติดต่อลูกค้ารายเดือน ──
+  // โชว์ตั้งแต่ 2 วันก่อนครบกำหนด แล้ว "อยู่ต่อไปเรื่อยๆ" (แม้เกินกำหนด) จนกว่าจะเก็บเงินรอบนั้นได้
+  // หรือปิดสัญญา (สัญญาที่ ended จะหลุดจาก allMonthlyActive เอง)
+  // "วันนี้" ตามเวลาไทย แล้วคำนวณด้วยเลข component ล้วน (ไม่พึ่ง timezone เซิร์ฟเวอร์)
+  const bkkTodayStr = new Date(Date.now() + 7 * 3_600_000).toISOString().split('T')[0]
+  const [ty, tm, tdd] = bkkTodayStr.split('-').map(Number)
+  const todayMs = Date.UTC(ty, tm - 1, tdd)
+  const cutoffMs = todayMs + 2 * 86_400_000 // ถึงก่อน 2 วัน
 
-  // Check which near-due rentals already have a paid payment for their upcoming due date
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nearDueCandidates = allMonthlyRentals.filter((mr: any) => mr.daysUntil >= 0 && mr.daysUntil <= 2)
-  const nearDueDates = Array.from(new Set<string>(nearDueCandidates.map((mr: any) => mr.nextDueDate as string))) // eslint-disable-line @typescript-eslint/no-explicit-any
-  let paidThisCycleIds = new Set<string>()
-  if (nearDueDates.length > 0) {
-    const { data: paidPayments } = await supabase
-      .from('monthly_payments')
-      .select('monthly_rental_id')
-      .eq('status', 'paid')
-      .in('due_date', nearDueDates)
-    paidThisCycleIds = new Set(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (paidPayments ?? []).map((p: any) => p.monthly_rental_id).filter(Boolean)
-    )
+  // วันครบกำหนด "รอบปัจจุบัน" (รอบล่าสุดที่ถึง/ใกล้ถึง) — อิงวันเริ่ม+payment_day ตรงกับหน้าเก็บเงิน
+  const currentCycleDue = (startDateStr: string, paymentDay: number): { due: string; daysUntil: number } | null => {
+    if (!startDateStr) return null
+    const [sy, sm, sd] = String(startDateStr).split('-').map(Number)
+    const pd = paymentDay ?? sd
+    const offset = pd < sd ? 1 : 0
+    let last: { ms: number; str: string } | null = null
+    for (let i = 0; i < 600; i++) {
+      const tot = (sm - 1) + i + offset
+      const y = sy + Math.floor(tot / 12)
+      const m = ((tot % 12) + 12) % 12
+      const dim = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+      const day = Math.min(pd, dim)
+      const ms = Date.UTC(y, m, day)
+      if (ms > cutoffMs) break
+      last = { ms, str: `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` }
+    }
+    if (!last) return null
+    return { due: last.str, daysUntil: Math.round((last.ms - todayMs) / 86_400_000) }
   }
 
-  // Near-due: 0–2 days from payment_day computation, excluding already-paid periods
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nearDueAlerts = nearDueCandidates
-    .filter((mr: any) => !paidThisCycleIds.has(mr.id))
-    .sort((a: any, b: any) => a.daysUntil - b.daysUntil)
+  const contactCandidates = (allMonthlyActive ?? []).map((mr: any) => {
+    const cyc = currentCycleDue(mr.start_date, mr.payment_day)
+    if (!cyc) return null
+    return { ...mr, nextDueDate: cyc.due, daysUntil: cyc.daysUntil }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }).filter(Boolean) as any[]
 
-  const nearDueIds = new Set(nearDueAlerts.map((mr: any) => mr.id)) // eslint-disable-line @typescript-eslint/no-explicit-any
+  // ตัดตัวที่เก็บเงินรอบนั้นแล้ว (มี record status=paid ตรง due_date)
+  const candIds = contactCandidates.map(m => m.id)
+  let paidPairs = new Set<string>()
+  if (candIds.length > 0) {
+    const { data: paid } = await supabase
+      .from('monthly_payments')
+      .select('monthly_rental_id, due_date')
+      .eq('status', 'paid')
+      .in('monthly_rental_id', candIds)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    paidPairs = new Set((paid ?? []).map((p: any) => `${p.monthly_rental_id}|${p.due_date}`))
+  }
 
-  // Overdue: has unpaid payment record but isn't already in near-due
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const overdueAlerts = allMonthlyRentals
-    .filter((mr: any) => overdueRentalIds.has(mr.id) && !nearDueIds.has(mr.id))
-    .map((mr: any) => ({ ...mr, daysUntil: -1 })) // eslint-disable-line @typescript-eslint/no-explicit-any
-
-  const monthlyContactAlerts = [...overdueAlerts, ...nearDueAlerts]
+  const monthlyContactAlerts = contactCandidates
+    .filter(m => !paidPairs.has(`${m.id}|${m.nextDueDate}`))
+    .sort((a, b) => a.daysUntil - b.daysUntil)
 
   return (
     <JobsClient
