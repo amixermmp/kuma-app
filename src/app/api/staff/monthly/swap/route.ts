@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   // Verify new bike is available and in same branch
   const { data: newBike } = await supabase
     .from('bikes')
-    .select('id, license_plate, brand, model, status, branch_id')
+    .select('id, license_plate, brand, model, status, branch_id, monthly_rate')
     .eq('id', newBikeId)
     .single()
 
@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
     .update({
       bike_id: newBikeId,
       branch_id: newBike.branch_id, // sync สาขาสัญญาให้ตรงรถใหม่ (แก้ข้อมูลเพี้ยนไปในตัว)
+      monthly_rate: newBike.monthly_rate, // ราคาเปลี่ยนตามรถคันใหม่
       swap_log: [...existingLog, logEntry],
     })
     .eq('id', rentalId)

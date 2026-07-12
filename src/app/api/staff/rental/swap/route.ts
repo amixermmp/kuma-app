@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
   // ── 2. Verify new bike ───────────────────────────────────────────────────────
   const { data: newBike } = await supabase
     .from('bikes')
-    .select('id, license_plate, brand, model, status, branch_id')
+    .select('id, license_plate, brand, model, status, branch_id, monthly_rate, daily_rate')
     .eq('id', newBikeId)
     .single()
 
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     const { error } = await supabase
       .from('monthly_rentals')
-      .update({ bike_id: newBikeId, branch_id: newBike.branch_id, swap_log: [...existingSwapLog, logEntry] })
+      .update({ bike_id: newBikeId, branch_id: newBike.branch_id, monthly_rate: newBike.monthly_rate, swap_log: [...existingSwapLog, logEntry] })
       .eq('id', rentalId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
