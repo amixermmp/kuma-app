@@ -473,6 +473,124 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ═══ 9) รายงานสิ้นเดือน → กลุ่ม owner (วันสุดท้ายของเดือน หลัง 3 ทุ่ม) ═══
+  const [ry, rm, rd] = bkkToday.split('-').map(Number) // rm = 1-based
+  const daysInMonth = new Date(Date.UTC(ry, rm, 0)).getUTCDate()
+  const isLastDayOfMonth = rd === daysInMonth
+  if ((isLastDayOfMonth || testMode) && bkkHour >= REVENUE_SEND_HOUR && shop?.line_token && shop.line_target_id) {
+    const claimId = await claim('month_report', '00000000-0000-0000-0000-000000000000', bkkToday)
+    if (claimId) {
+      const H7 = 7 * 3_600_000
+      const monthStartMs = Date.UTC(ry, rm - 1, 1) - H7   // 00:00 ไทย วันที่ 1
+      const monthEndMs = Date.UTC(ry, rm, 1) - H7         // 00:00 ไทย วันที่ 1 เดือนหน้า
+      const prevStartMs = Date.UTC(ry, rm - 2, 1) - H7
+      const dMonth = Math.round((monthEndMs - monthStartMs) / 86_400_000)
+      const isoOf = (ms: number) => new Date(ms).toISOString()
+      const firstOfMonth = `${ry}-${String(rm).padStart(2, '0')}-01`
+      const pmY = rm === 1 ? ry - 1 : ry
+      const pmM = rm === 1 ? 12 : rm - 1
+      const pmFirst = `${pmY}-${String(pmM).padStart(2, '0')}-01`
+      const pmLast = new Date(Date.UTC(pmY, pmM, 0)).toISOString().split('T')[0]
+      const CAPACITY_EXCLUDE = ['repair', 'maintenance', 'retired', 'inactive'] // รถเสียตัดออก
+
+      const [{ data: allBikes }, { data: dRentals }, { data: dRentalsPrev }, { data: mMonthly }, { data: mPayCur }, { data: mPayPrev }, { data: expDocs }] = await Promise.all([
+        supabase.from('bikes').select('id, branch_id, status'),
+        supabase.from('rentals')
+          .select('branch_id, start_datetime, expected_end_datetime, actual_end_datetime, total_amount')
+          .lt('start_datetime', isoOf(monthEndMs)).gt('expected_end_datetime', isoOf(monthStartMs))
+          .in('status', ['active', 'extended', 'returned', 'completed']),
+        supabase.from('rentals')
+          .select('branch_id, start_datetime, expected_end_datetime, actual_end_datetime, total_amount')
+          .lt('start_datetime', isoOf(monthStartMs)).gt('expected_end_datetime', isoOf(prevStartMs))
+          .in('status', ['active', 'extended', 'returned', 'completed']),
+        supabase.from('monthly_rentals').select('branch_id, start_date, end_date, status'),
+        supabase.from('monthly_payments').select('amount, monthly_rentals(branch_id)').eq('status', 'paid').gte('paid_date', firstOfMonth).lte('paid_date', bkkToday),
+        supabase.from('monthly_payments').select('amount').eq('status', 'paid').gte('paid_date', pmFirst).lte('paid_date', pmLast),
+        supabase.from('bike_documents').select('id, bikes(branch_id)').in('doc_type', ['tax', 'pob']).gte('expiry_date', firstOfMonth).lt('expiry_date', new Date(Date.UTC(ry, rm + 1, 1)).toISOString().split('T')[0]),
+      ])
+
+      // clamp ช่วงเช่าให้อยู่ในหน้าต่างที่กำหนด → คัน-วัน
+      const clampDays = (sMs: number, eMs: number, winS: number, winE: number) => {
+        const s = Math.max(sMs, winS), e = Math.min(eMs, winE)
+        return e > s ? (e - s) / 86_400_000 : 0
+      }
+      const dayMsFromDate = (dateStr: string) => new Date(dateStr + 'T00:00:00+07:00').getTime()
+      const prevEndMs = monthStartMs
+      const dPrev = Math.round((prevEndMs - prevStartMs) / 86_400_000)
+
+      type BStat = { cap: number; used: number; usedPrev: number; revenue: number; dailyCount: number }
+      const stat = new Map<string, BStat>()
+      const get = (b: string): BStat => {
+        let s = stat.get(b); if (!s) { s = { cap: 0, used: 0, usedPrev: 0, revenue: 0, dailyCount: 0 }; stat.set(b, s) } return s
+      }
+      let repairCount = 0
+      for (const b of allBikes ?? []) {
+        const s = get(b.branch_id ?? '')
+        if (b.status === 'repair' || b.status === 'maintenance') repairCount++
+        if (!CAPACITY_EXCLUDE.includes(b.status)) s.cap++
+      }
+      for (const r of dRentals ?? []) {
+        const s = get(r.branch_id ?? '')
+        const sMs = new Date(r.start_datetime).getTime()
+        const eMs = new Date(r.actual_end_datetime ?? r.expected_end_datetime).getTime()
+        s.used += clampDays(sMs, eMs, monthStartMs, monthEndMs)
+        if (sMs >= monthStartMs && sMs < monthEndMs) { s.revenue += Number(r.total_amount ?? 0); s.dailyCount++ }
+      }
+      for (const r of dRentalsPrev ?? []) {
+        const s = get(r.branch_id ?? '')
+        const sMs = new Date(r.start_datetime).getTime()
+        const eMs = new Date(r.actual_end_datetime ?? r.expected_end_datetime).getTime()
+        s.usedPrev += clampDays(sMs, eMs, prevStartMs, prevEndMs)
+      }
+      for (const m of mMonthly ?? []) {
+        if (m.status !== 'active' && m.status !== 'ended') continue
+        const sMs = dayMsFromDate(m.start_date)
+        const eMs = m.end_date ? dayMsFromDate(m.end_date) : monthEndMs
+        const s = get(m.branch_id ?? '')
+        s.used += clampDays(sMs, eMs, monthStartMs, monthEndMs)
+        s.usedPrev += clampDays(sMs, eMs, prevStartMs, prevEndMs)
+      }
+      for (const p of mPayCur ?? []) { const mr = p.monthly_rentals as { branch_id?: string } | null; get(mr?.branch_id ?? '').revenue += Number(p.amount ?? 0) }
+
+      const activeMonthlyCount = (mMonthly ?? []).filter(m => m.status === 'active').length
+      const revPrev = (dRentalsPrev ?? []).reduce((s, r) => {
+        const sMs = new Date(r.start_datetime).getTime()
+        return s + (sMs >= prevStartMs && sMs < prevEndMs ? Number(r.total_amount ?? 0) : 0)
+      }, 0) + (mPayPrev ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0)
+
+      const branchIds = sortBranchIds([...Array.from(branchNames.keys()), ...Array.from(stat.keys())])
+      const monthLabel = new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', month: 'long', year: 'numeric' }).format(new Date(monthStartMs + 15 * 86_400_000))
+
+      let grand = 0, dailyTotal = 0, totalCap = 0, totalUsed = 0, totalUsedPrev = 0
+      const revLines: string[] = [], utilLines: string[] = []
+      for (const b of branchIds) {
+        const s = stat.get(b) ?? { cap: 0, used: 0, usedPrev: 0, revenue: 0, dailyCount: 0 }
+        grand += s.revenue; dailyTotal += s.dailyCount; totalCap += s.cap; totalUsed += s.used; totalUsedPrev += s.usedPrev
+        revLines.push(`• ${displayBranch(b)}: ฿${Math.round(s.revenue).toLocaleString()}`)
+        const util = s.cap > 0 ? Math.min(100, Math.round((s.used / (s.cap * dMonth)) * 100)) : 0
+        utilLines.push(`• ${displayBranch(b)}: ใช้ ${util}% / ว่าง ${100 - util}% (${s.cap} คัน)`)
+      }
+      const revPctText = revPrev > 0
+        ? `${grand >= revPrev ? '↑' : '↓'}${Math.abs(Math.round(((grand - revPrev) / revPrev) * 100))}% จากเดือนก่อน`
+        : 'เดือนแรกที่มีข้อมูล'
+      const utilNow = totalCap > 0 ? Math.round((totalUsed / (totalCap * dMonth)) * 100) : 0
+      const utilPrev = totalCap > 0 && dPrev > 0 ? Math.round((totalUsedPrev / (totalCap * dPrev)) * 100) : 0
+      const utilCmp = utilPrev > 0 ? ` (${utilNow >= utilPrev ? '↑' : '↓'}${Math.abs(utilNow - utilPrev)}% จากเดือนก่อน)` : ''
+
+      const msg =
+        `📊 สรุปเดือน ${monthLabel}\n\n` +
+        `💰 รายได้รวม: ฿${Math.round(grand).toLocaleString()} (${revPctText})\n${revLines.join('\n')}\n\n` +
+        `🛵 อัตราการใช้รถเฉลี่ย: ${utilNow}%${utilCmp} (ไม่นับรถเสีย)\n${utilLines.join('\n')}\n\n` +
+        `📄 สัญญาเดือนนี้: เช่ารายวัน ${dailyTotal} ครั้ง • รายเดือน active ${activeMonthlyCount} คัน\n` +
+        `🔧 รถเสียตอนนี้: ${repairCount} คัน\n` +
+        `⚠️ เดือนหน้า: ภาษี/พรบ หมด ${(expDocs ?? []).length} คัน`
+
+      const ok = await linePush(shop.line_token, shop.line_target_id, [textMessage(msg)])
+      if (ok) sent++
+      else { failed++; await release(claimId) }
+    }
+  }
+
   return NextResponse.json({
     checkedAt: nowIso,
     rentals: rentals?.length ?? 0,
