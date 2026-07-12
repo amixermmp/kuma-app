@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { bangkokToUTC } from '@/lib/time'
 
 type BikeResult = {
   id: string
@@ -73,7 +74,7 @@ export default function SearchPage() {
     setLoading(true)
     try {
       const res = await fetch(
-        `/api/staff/search/bikes?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+        `/api/staff/search/bikes?from=${encodeURIComponent(bangkokToUTC(from))}&to=${encodeURIComponent(bangkokToUTC(to))}`
       )
       const data = await res.json()
       setResults(data.bikes ?? [])

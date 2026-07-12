@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { bangkokToUTC } from '@/lib/time'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -74,8 +75,8 @@ export default function OwnerSendForm({ bike }: { bike: Bike }) {
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim(),
           customerHotel: customerHotel.trim() || null,
-          startDatetime: from,
-          endDatetime: to,
+          startDatetime: bangkokToUTC(from),
+          endDatetime: bangkokToUTC(to),
           dailyRate: bike.daily_rate,
           totalDays,
           totalAmount,

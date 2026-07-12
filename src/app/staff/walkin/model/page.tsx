@@ -3,17 +3,12 @@ import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds } from '@/lib/staffBranch'
 import WalkinSelectBike from './WalkinSelectBike'
+import { bangkokToUTC } from '@/lib/time'
 
 export const dynamic = 'force-dynamic'
 
 function daysBetween(from: string, to: string) {
   return Math.max(1, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000))
-}
-
-// Convert Bangkok datetime-local string to UTC ISO for DB queries
-function bangkokToUTC(localStr: string) {
-  const s = localStr.length === 16 ? localStr + ':00' : localStr
-  return new Date(s + '+07:00').toISOString()
 }
 
 export default async function WalkinModelPage({

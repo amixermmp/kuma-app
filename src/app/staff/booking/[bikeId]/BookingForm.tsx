@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { bangkokToUTC } from '@/lib/time'
 
 type Bike = {
   id: string
@@ -166,8 +167,8 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim(),
           customerHotel: customerHotel.trim() || null,
-          startDatetime: from,
-          endDatetime: to,
+          startDatetime: bangkokToUTC(from),
+          endDatetime: bangkokToUTC(to),
           totalDays,
           dailyRate: bike.daily_rate,
           totalAmount,

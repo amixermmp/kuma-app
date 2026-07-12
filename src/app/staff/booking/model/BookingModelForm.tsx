@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { bangkokToUTC } from '@/lib/time'
 
 type Props = {
   brand: string
@@ -22,12 +23,6 @@ const SOURCES = [
 
 function daysBetween(from: string, to: string) {
   return Math.max(1, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000))
-}
-
-// datetime-local values have no timezone — treat as Bangkok (+07:00) and convert to UTC ISO
-function bangkokToUTC(localStr: string) {
-  const s = localStr.length === 16 ? localStr + ':00' : localStr
-  return new Date(s + '+07:00').toISOString()
 }
 
 function fmtDateShort(iso: string) {
