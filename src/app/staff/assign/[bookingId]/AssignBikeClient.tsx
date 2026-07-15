@@ -45,13 +45,20 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
 
   const targetBrand = booking.requested_brand ?? assignedBike?.brand ?? ''
   const targetModel = booking.requested_model ?? assignedBike?.model ?? ''
+  const bookingRate = Number(booking.requested_daily_rate ?? booking.daily_rate ?? 0)
 
-  const available = availableBikes.filter(b => b.available)
-  const busy = availableBikes.filter(b => !b.available)
+  const isSameModel = (b: AvailableBike) => b.brand === targetBrand && b.model === targetModel
+  const available = availableBikes.filter(b => b.available && isSameModel(b))
+  // รุ่นอื่นที่ว่าง — ตัวเลือกอัพเกรด/ย้ายรุ่น คงราคาเดิมตามใบจอง (แบบโรงแรมย้าย room type)
+  const upgradeOptions = availableBikes
+    .filter(b => b.available && !isSameModel(b))
+    .sort((a, b) => a.daily_rate - b.daily_rate)
+  const busy = availableBikes.filter(b => !b.available && isSameModel(b))
   const selectedBike = availableBikes.find(b => b.id === selectedId)
+  const selectedIsUpgrade = selectedBike ? !isSameModel(selectedBike) : false
 
-  const handleConfirm = async () => {
-    if (!selectedId) { setError('กรุณาเลือกรถก่อน'); return }
+  const doAssign = async (): Promise<boolean> => {
+    if (!selectedId) { setError('กรุณาเลือกรถก่อน'); return false }
     setLoading(true); setError('')
     try {
       const res = await fetch('/api/staff/booking/assign', {
@@ -59,8 +66,33 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookingId: booking.id, bikeId: selectedId, staffId }),
       })
+      if (!res.ok) { const d = await res.json(); setError(d.error); return false }
+      return true
+    } catch { setError('เกิดข้อผิดพลาด'); return false }
+    finally { setLoading(false) }
+  }
+
+  const handleConfirm = async () => {
+    if (await doAssign()) router.push(`/staff/send/${selectedId}?bookingId=${booking.id}`)
+  }
+
+  // ย้ายคันอย่างเดียว (จองยังไม่ถึงวันรับรถ) — ไม่เข้า flow ส่งรถ
+  const handleMoveOnly = async () => {
+    if (await doAssign()) router.push('/staff/jobs')
+  }
+
+  // ถอดคันออก — กลับเป็นจองตามรุ่น
+  const handleUnassign = async () => {
+    if (!confirm('ถอดคันออกจากการจองนี้ — กลับเป็น "จองตามรุ่น" (staff เลือกคันใหม่ก่อนส่งรถ)?')) return
+    setLoading(true); setError('')
+    try {
+      const res = await fetch('/api/staff/booking/unassign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id }),
+      })
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
-      router.push(`/staff/send/${selectedId}?bookingId=${booking.id}`)
+      router.push('/staff/jobs')
     } catch { setError('เกิดข้อผิดพลาด') }
     finally { setLoading(false) }
   }
@@ -167,6 +199,59 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
           </>
         )}
 
+        {/* รุ่นอื่น — อัพเกรด/ย้ายรุ่น คงราคาเดิม */}
+        {upgradeOptions.length > 0 && (
+          <>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#7c3aed', marginTop: '12px', marginBottom: '8px' }}>
+              🎁 รุ่นอื่นที่ว่าง — อัพเกรดให้ลูกค้า คงราคาเดิม (฿{bookingRate.toLocaleString()}/วัน)
+            </div>
+            {upgradeOptions.map(bike => {
+              const selected = selectedId === bike.id
+              return (
+                <div
+                  key={bike.id}
+                  onClick={() => setSelectedId(bike.id)}
+                  style={{
+                    background: selected ? '#f5f3ff' : '#fff',
+                    border: `2px solid ${selected ? '#7c3aed' : '#e5e7eb'}`,
+                    borderRadius: '12px', marginBottom: '8px', padding: '12px 14px',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px',
+                  }}
+                >
+                  <div style={{
+                    width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
+                    border: `2px solid ${selected ? '#7c3aed' : '#d1d5db'}`,
+                    background: selected ? '#7c3aed' : '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {selected && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fff' }} />}
+                  </div>
+                  <div style={{ fontSize: '28px' }}>🛵</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>
+                      {bike.brand} {bike.model}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                      ทะเบียน {bike.license_plate}{bike.color ? ` • ${bike.color}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    {bike.daily_rate > bookingRate && (
+                      <div style={{ fontSize: '11px', color: '#9ca3af', textDecoration: 'line-through' }}>
+                        ฿{bike.daily_rate.toLocaleString()}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#7c3aed' }}>
+                      ฿{bookingRate.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>/วัน (ราคาจอง)</div>
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )}
+
         {/* Busy bikes (greyed out, not selectable) */}
         {busy.length > 0 && (
           <>
@@ -193,10 +278,14 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
 
         {selectedBike && (
           <div style={{
-            background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px',
-            padding: '10px 14px', marginTop: '8px', fontSize: '13px', color: '#16a34a',
+            background: selectedIsUpgrade ? '#f5f3ff' : '#f0fdf4',
+            border: `1px solid ${selectedIsUpgrade ? '#ddd6fe' : '#bbf7d0'}`, borderRadius: '10px',
+            padding: '10px 14px', marginTop: '8px', fontSize: '13px',
+            color: selectedIsUpgrade ? '#7c3aed' : '#16a34a',
           }}>
-            ✅ เลือกแล้ว: {selectedBike.brand} {selectedBike.model} ทะเบียน {selectedBike.license_plate}
+            {selectedIsUpgrade
+              ? <>🎁 อัพเกรดเป็น {selectedBike.brand} {selectedBike.model} ทะเบียน {selectedBike.license_plate} — <strong>คิดราคาเดิม ฿{bookingRate.toLocaleString()}/วัน</strong></>
+              : <>✅ เลือกแล้ว: {selectedBike.brand} {selectedBike.model} ทะเบียน {selectedBike.license_plate}</>}
           </div>
         )}
 
@@ -217,11 +306,40 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
             background: selectedId ? '#e11d48' : '#e5e7eb',
             color: selectedId ? '#fff' : '#9ca3af',
             fontSize: '16px', fontWeight: 700, cursor: selectedId ? 'pointer' : 'default',
-            fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginTop: '16px', marginBottom: '24px',
+            fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginTop: '16px',
           }}
         >
           {loading ? '⏳ กำลังดำเนินการ...' : '🛵 ยืนยัน — ไปหน้าส่งรถ →'}
         </button>
+
+        <button
+          onClick={handleMoveOnly}
+          disabled={loading || !selectedId}
+          style={{
+            width: '100%', padding: '13px', borderRadius: '12px',
+            background: '#fff', border: '2px solid #111827',
+            color: selectedId ? '#111827' : '#9ca3af',
+            fontSize: '14px', fontWeight: 700, cursor: selectedId ? 'pointer' : 'default',
+            fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginTop: '8px',
+          }}
+        >
+          💾 บันทึกย้ายคันอย่างเดียว (ยังไม่ส่งรถ)
+        </button>
+
+        {assignedBike && (
+          <button
+            onClick={handleUnassign}
+            disabled={loading}
+            style={{
+              width: '100%', padding: '13px', borderRadius: '12px',
+              background: '#fff', border: '1px solid #e5e7eb',
+              color: '#6b7280', fontSize: '13px', fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit', marginTop: '8px', marginBottom: '24px',
+            }}
+          >
+            ↩️ ถอดคันนี้ออก — กลับเป็นจองตามรุ่น (ไม่ผูกคัน)
+          </button>
+        )}
 
       </div>
     </div>

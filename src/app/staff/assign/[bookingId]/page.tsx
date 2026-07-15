@@ -27,7 +27,7 @@ export default async function AssignBikePage({ params }: { params: { bookingId: 
   const targetBrand = booking.requested_brand ?? assignedBike?.brand ?? null
   const targetModel = booking.requested_model ?? assignedBike?.model ?? null
 
-  // Find available bikes of same brand/model for the booking's date range
+  // ดึงรถทุกรุ่นในสาขาที่ staff ดูแล — รุ่นตรงโชว์ก่อน รุ่นอื่นเป็นตัวเลือกอัพเกรด (คงราคาเดิม)
   const allowedBranchIds = await getStaffBranchIds(staffId)
   const bufferStart = new Date(new Date(booking.start_datetime).getTime() - 3 * 3_600_000).toISOString()
 
@@ -36,8 +36,6 @@ export default async function AssignBikePage({ params }: { params: { bookingId: 
     .select('id, license_plate, brand, model, color, year, daily_rate, monthly_rate, deposit_amount, odometer, status')
     .neq('status', 'repair')
 
-  if (targetBrand) bikesQuery = bikesQuery.eq('brand', targetBrand)
-  if (targetModel) bikesQuery = bikesQuery.eq('model', targetModel)
   if (allowedBranchIds) bikesQuery = bikesQuery.in('branch_id', allowedBranchIds)
 
   const { data: candidateBikes } = await bikesQuery

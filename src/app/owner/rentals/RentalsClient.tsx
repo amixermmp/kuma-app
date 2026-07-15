@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { bangkokToUTC } from '@/lib/time'
 
 type Photo = { url: string; label?: string }
 
@@ -148,17 +150,146 @@ function ConfirmModal({
   )
 }
 
+// UTC ISO → ค่าใน input datetime-local (เวลาไทย)
+function toLocalInput(iso: string) {
+  return new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 16)
+}
+
+function EditModal({ target, onClose, onSaved }: {
+  target: { type: 'daily'; r: DailyRental } | { type: 'monthly'; r: MonthlyRental }
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const isDaily = target.type === 'daily'
+  const daily = isDaily ? (target.r as DailyRental) : null
+  const monthly = !isDaily ? (target.r as MonthlyRental) : null
+  const customer = target.r.customers ?? {}
+  const bike = target.r.bikes ?? {}
+
+  const [name, setName] = useState(customer.name ?? '')
+  const [phone, setPhone] = useState(customer.phone ?? '')
+  const [start, setStart] = useState(daily ? toLocalInput(daily.start_datetime) : (monthly?.start_date ?? ''))
+  const [end, setEnd] = useState(daily ? toLocalInput(daily.expected_end_datetime) : '')
+  const [total, setTotal] = useState(String(daily?.total_amount ?? monthly?.monthly_rate ?? 0))
+  const [deposit, setDeposit] = useState(String(target.r.deposit_amount ?? 0))
+  const [payDay, setPayDay] = useState(String(monthly?.payment_day ?? 1))
+  const [notes, setNotes] = useState(daily?.notes ?? '')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSave = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const payload = isDaily
+        ? {
+            type: 'daily', id: target.r.id,
+            customerName: name, customerPhone: phone,
+            startDatetime: bangkokToUTC(start),
+            expectedEndDatetime: bangkokToUTC(end),
+            totalAmount: parseFloat(total) || 0,
+            depositAmount: parseFloat(deposit) || 0,
+            notes,
+          }
+        : {
+            type: 'monthly', id: target.r.id,
+            customerName: name, customerPhone: phone,
+            startDate: start,
+            paymentDay: parseInt(payDay) || 1,
+            monthlyRate: parseFloat(total) || 0,
+            depositAmount: parseFloat(deposit) || 0,
+          }
+      const res = await fetch('/api/owner/rental/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
+      onSaved()
+    } catch {
+      setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const field = (label: string, node: React.ReactNode) => (
+    <div style={{ marginBottom: '10px' }}>
+      <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 600, marginBottom: '4px' }}>{label}</div>
+      {node}
+    </div>
+  )
+  const inputStyle = {
+    width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e5e7eb',
+    fontSize: '14px', fontFamily: 'inherit', boxSizing: 'border-box' as const,
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.6)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px',
+        width: '100%', maxWidth: '440px', maxHeight: '85vh', overflowY: 'auto',
+      }}>
+        <div style={{ fontSize: '17px', fontWeight: 800, color: '#111827', marginBottom: '2px' }}>
+          ✏️ แก้ไขสัญญา{isDaily ? 'รายวัน' : 'รายเดือน'}
+        </div>
+        <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px' }}>
+          {bike.license_plate} {bike.brand} {bike.model} — ทุกการแก้ไขถูกบันทึกใน Activity Log
+        </div>
+
+        {field('ชื่อ - นามสกุลลูกค้า', <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} />)}
+        {field('เบอร์โทร', <input style={inputStyle} type="tel" value={phone} onChange={e => setPhone(e.target.value)} />)}
+        {isDaily ? (
+          <>
+            {field('วันเวลาเริ่มเช่า', <input style={inputStyle} type="datetime-local" value={start} onChange={e => setStart(e.target.value)} />)}
+            {field('กำหนดคืน', <input style={inputStyle} type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} />)}
+            {field('ยอดรวม (บาท) — แก้แล้วสมุดรายรับปรับตามอัตโนมัติ', <input style={inputStyle} type="number" inputMode="decimal" value={total} onChange={e => setTotal(e.target.value)} />)}
+          </>
+        ) : (
+          <>
+            {field('วันเริ่มสัญญา', <input style={inputStyle} type="date" value={start} onChange={e => setStart(e.target.value)} />)}
+            {field('เก็บเงินทุกวันที่ (1-31)', <input style={inputStyle} type="number" min={1} max={31} value={payDay} onChange={e => setPayDay(e.target.value)} />)}
+            {field('ค่าเช่า/เดือน (บาท) — มีผลกับงวดถัดไป งวดที่เก็บแล้วไม่เปลี่ยน', <input style={inputStyle} type="number" inputMode="decimal" value={total} onChange={e => setTotal(e.target.value)} />)}
+          </>
+        )}
+        {field('มัดจำ (บาท)', <input style={inputStyle} type="number" inputMode="decimal" value={deposit} onChange={e => setDeposit(e.target.value)} />)}
+        {isDaily && field('หมายเหตุ', <input style={inputStyle} value={notes} onChange={e => setNotes(e.target.value)} />)}
+
+        {error && <div style={{ color: '#dc2626', fontSize: '13px', marginBottom: '10px' }}>⚠️ {error}</div>}
+
+        <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+          <button onClick={onClose} style={{
+            flex: 1, padding: '14px', borderRadius: '12px', background: '#f3f4f6',
+            color: '#374151', border: 'none', fontSize: '15px', fontWeight: 700, cursor: 'pointer',
+          }}>ยกเลิก</button>
+          <button onClick={handleSave} disabled={loading} style={{
+            flex: 1, padding: '14px', borderRadius: '12px', background: '#111827',
+            color: '#fff', border: 'none', fontSize: '15px', fontWeight: 700,
+            cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1,
+          }}>{loading ? 'กำลังบันทึก...' : '💾 บันทึกการแก้ไข'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function RentalsClient({
   dailyRentals, monthlyRentals,
 }: {
   dailyRentals: DailyRental[]
   monthlyRentals: MonthlyRental[]
 }) {
+  const router = useRouter()
   const [tab, setTab] = useState<'daily' | 'monthly'>('daily')
   const [viewPhotos, setViewPhotos] = useState<Photo[] | null>(null)
   const [confirmEnd, setConfirmEnd] = useState<{ id: string; type: 'daily' | 'monthly'; label: string } | null>(null)
   const [endingId, setEndingId] = useState<string | null>(null)
   const [ended, setEnded] = useState<Set<string>>(new Set())
+  const [editTarget, setEditTarget] = useState<{ type: 'daily'; r: DailyRental } | { type: 'monthly'; r: MonthlyRental } | null>(null)
 
   const dailyList = dailyRentals.filter(r => !ended.has(r.id))
   const monthlyList = monthlyRentals.filter(r => !ended.has(r.id))
@@ -321,6 +452,17 @@ export default function RentalsClient({
                         📄 สัญญา
                       </Link>
                       <button
+                        onClick={() => setEditTarget({ type: 'daily', r })}
+                        style={{
+                          flex: 1, padding: '9px', borderRadius: '10px',
+                          background: '#f1f5f9', color: '#374151',
+                          border: '1px solid #e5e7eb', fontSize: '13px',
+                          fontWeight: 600, cursor: 'pointer',
+                        }}
+                      >
+                        ✏️ แก้ไข
+                      </button>
+                      <button
                         onClick={() => setConfirmEnd({
                           id: r.id, type: 'daily',
                           label: `${bike.license_plate} — ${customer.name}`,
@@ -419,6 +561,17 @@ export default function RentalsClient({
                         📄 สัญญา
                       </Link>
                       <button
+                        onClick={() => setEditTarget({ type: 'monthly', r })}
+                        style={{
+                          flex: 1, padding: '9px', borderRadius: '10px',
+                          background: '#f1f5f9', color: '#374151',
+                          border: '1px solid #e5e7eb', fontSize: '13px',
+                          fontWeight: 600, cursor: 'pointer',
+                        }}
+                      >
+                        ✏️ แก้ไข
+                      </button>
+                      <button
                         onClick={() => setConfirmEnd({
                           id: r.id, type: 'monthly',
                           label: `${bike.license_plate} — ${customer.name}`,
@@ -452,6 +605,15 @@ export default function RentalsClient({
           onConfirm={handleEnd}
           onCancel={() => setConfirmEnd(null)}
           loading={endingId === confirmEnd.id}
+        />
+      )}
+
+      {/* Edit modal */}
+      {editTarget && (
+        <EditModal
+          target={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => { setEditTarget(null); router.refresh() }}
         />
       )}
     </div>

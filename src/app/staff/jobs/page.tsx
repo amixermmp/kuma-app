@@ -188,6 +188,7 @@ export default async function JobsPage() {
       .from('monthly_payments')
       .select('monthly_rental_id, due_date')
       .eq('status', 'paid')
+      .is('voided_at', null)
       .in('monthly_rental_id', candIds)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     paidPairs = new Set((paid ?? []).map((p: any) => `${p.monthly_rental_id}|${p.due_date}`))

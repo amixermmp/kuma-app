@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logStaffAction } from '@/lib/log'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -29,6 +30,11 @@ export async function POST(request: NextRequest) {
   }
 
   await supabase.from('bikes').update({ status: lockForSwap ? 'locked' : 'available' }).eq('id', bikeId)
+
+  const { data: bike } = await supabase.from('bikes').select('license_plate').eq('id', bikeId).single()
+  await logStaffAction(staffId, 'repair_completed',
+    `ซ่อมเสร็จ ${bike?.license_plate ?? ''}${repairShop ? ` — ร้าน ${repairShop}` : ''}${repairCost ? ` — ฿${Number(repairCost).toLocaleString()}` : ''}`,
+    { repairId, bikeId, repairCost: repairCost ?? null, repairShop: repairShop ?? null })
 
   return NextResponse.json({ success: true })
 }

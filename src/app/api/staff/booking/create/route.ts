@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
+import { logStaffAction } from '@/lib/log'
 
 function genRef() {
   const d = new Date()
@@ -141,6 +142,15 @@ export async function POST(request: NextRequest) {
   if (error || !booking) {
     return NextResponse.json({ error: error?.message ?? 'บันทึกการจองไม่สำเร็จ' }, { status: 500 })
   }
+
+  let bikeText = `${requestedBrand ?? ''} ${requestedModel ?? ''}`.trim()
+  if (bikeId) {
+    const { data: bike } = await supabase.from('bikes').select('license_plate').eq('id', bikeId).single()
+    bikeText = bike?.license_plate ?? bikeId
+  }
+  await logStaffAction(staffId, 'booking_created',
+    `จองคิว ${booking.booking_ref} — ${bikeText} — ลูกค้า ${customerName} (${customerPhone}) — ฿${Number(totalAmount ?? 0).toLocaleString()} / ${totalDays} วัน`,
+    { bookingId: booking.id, bikeId: bikeId ?? null, requestedBrand, requestedModel, totalAmount })
 
   return NextResponse.json({ success: true, bookingId: booking.id, bookingRef: booking.booking_ref })
 }

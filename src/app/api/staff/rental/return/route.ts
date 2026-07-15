@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
+import { recalcNeverDoneRoutines } from '@/lib/routines'
 
 function extractStoragePath(url: string): string | null {
   try {
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     returnOdometer, returnFuel,
     damageFee, damageNotes,
     returnPhotoUrl, refundAmount,
-    finalRentAmount,
+    finalRentAmount, overtimeCharge,
   } = body
 
   if (!rentalId || !bikeId) {
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
   // Get existing send_photos before clearing
   const { data: existing } = await supabase
     .from('rentals')
-    .select('send_photos, customers(name, phone), bikes(license_plate)')
+    .select('branch_id, send_photos, customers(name, phone), bikes(license_plate)')
     .eq('id', rentalId)
     .single()
 
@@ -83,6 +84,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'บันทึกการคืนรถไม่สำเร็จ' }, { status: 500 })
   }
 
+  // ลงสมุดรายรับ — ค่าล่วงเวลาเก็บตอนคืนรถ (หักจากมัดจำที่คืนลูกค้า)
+  if (Number(overtimeCharge) > 0) {
+    await supabase.from('rental_payments').insert({
+      rental_id: rentalId,
+      branch_id: existing?.branch_id ?? null,
+      staff_id: staffId,
+      kind: 'overtime',
+      amount: Number(overtimeCharge),
+    })
+  }
+
   // Set bike back to available
   await supabase
     .from('bikes')
@@ -91,6 +103,10 @@ export async function POST(request: NextRequest) {
       ...(returnOdometer ? { odometer: returnOdometer } : {}),
     })
     .eq('id', bikeId)
+
+  if (returnOdometer) {
+    await recalcNeverDoneRoutines(supabase, bikeId, Number(returnOdometer))
+  }
 
   // Lookup staff name
   const { data: staffRow } = await supabase.from('staff').select('name').eq('id', staffId).single()

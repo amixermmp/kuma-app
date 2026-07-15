@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { writeLog } from '@/lib/log'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -16,8 +17,25 @@ export async function POST(request: Request) {
   const { data: existing } = await admin.from('staff').select('id').eq('pin', pin).maybeSingle()
   if (existing) return NextResponse.json({ error: 'PIN นี้มีพนักงานใช้อยู่แล้ว' }, { status: 400 })
 
-  const { data, error } = await admin.from('staff').insert({ name, pin, allowed_branch_ids: allowed_branch_ids ?? null, is_active: true }).select('id').single()
+  // สาขาหลัก = สาขาแรกที่ได้รับสิทธิ์ — สัญญาที่พนักงานสร้างจะประทับตราสาขานี้
+  const branchId = Array.isArray(allowed_branch_ids) && allowed_branch_ids.length > 0 ? allowed_branch_ids[0] : null
+
+  const { data, error } = await admin.from('staff').insert({
+    name, pin,
+    branch_id: branchId,
+    allowed_branch_ids: allowed_branch_ids ?? null,
+    is_active: true,
+  }).select('id').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await writeLog({
+    actorType: 'owner',
+    actorId: user.id,
+    actorName: user.email ?? 'Owner',
+    action: 'staff_created',
+    description: `เพิ่มพนักงาน ${name}`,
+    metadata: { staffId: data.id, branchId },
+  })
 
   return NextResponse.json({ success: true, id: data.id })
 }

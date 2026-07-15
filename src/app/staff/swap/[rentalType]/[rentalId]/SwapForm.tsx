@@ -356,4 +356,11 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
             color: !selectedBikeId ? '#9ca3af' : '#fff',
             opacity: loading ? 0.7 : 1,
           }}
-    
+        >
+          {loading ? '⏳ กำลังบันทึก...' : '🔄 ยืนยันสลับรถ'}
+        </button>
+
+      </div>
+    </div>
+  )
+}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { writeLog } from '@/lib/log'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
@@ -19,6 +20,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   const { error } = await admin.from('staff').update(body).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  const { data: staffRow } = await admin.from('staff').select('name').eq('id', id).single()
+  const changed = Object.keys(body).filter(k => k !== 'pin')
+  await writeLog({
+    actorType: 'owner',
+    actorId: user.id,
+    actorName: user.email ?? 'Owner',
+    action: 'staff_updated',
+    description: `แก้ไขพนักงาน ${staffRow?.name ?? id} — ${[...changed, ...(body.pin ? ['pin'] : [])].join(', ')}`,
+    metadata: { staffId: id, changed },
+  })
 
   return NextResponse.json({ success: true })
 }
@@ -40,8 +52,18 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     admin.from('expenses').update({ recorded_by: null }).eq('recorded_by', id),
   ])
 
+  const { data: staffRow } = await admin.from('staff').select('name').eq('id', id).single()
   const { error } = await admin.from('staff').delete().eq('id', id)
   if (error) return NextResponse.json({ error: 'ลบไม่สำเร็จ — ยังมีข้อมูลผูกอยู่ ลองปิดใช้งานแทน' }, { status: 500 })
+
+  await writeLog({
+    actorType: 'owner',
+    actorId: user.id,
+    actorName: user.email ?? 'Owner',
+    action: 'staff_deleted',
+    description: `ลบพนักงาน ${staffRow?.name ?? id} ออกจากระบบถาวร`,
+    metadata: { staffId: id },
+  })
 
   return NextResponse.json({ success: true })
 }

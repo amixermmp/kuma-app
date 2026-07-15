@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC } from '@/lib/time'
+import { calcRentQuote, calendarDays } from '@/lib/pricing'
 
 type Bike = {
   id: string
@@ -33,63 +34,7 @@ const SOURCES = [
   { key: 'walkin',   label: '🚶 Walk-in' },
 ]
 
-// ── Pricing formula (same as SendCarForm) ─────────────────────────────────────
-function calcDailySegment(days: number, ndr: number, mcr: number) {
-  const calcDays = Math.floor(days / 7) * 5 + Math.min(days % 7, 5)
-  return { calcDays, price: Math.min(calcDays * ndr, mcr) }
-}
-
-function calcShortPrice(totalDays: number, ndr: number) {
-  const calcDays = Math.floor(totalDays / 7) * 5 + Math.min(totalDays % 7, 5)
-  return { calcDays, total: calcDays * ndr }
-}
-
-type MonthSegment = { label: string; days: number; price: number }
-type LongResult = {
-  months: MonthSegment[]
-  remainDays: number
-  remainPrice: number
-  calcRemainDays: number
-  total: number
-}
-
-function calcLongPrice(start: Date, end: Date, ndr: number, mcr: number): LongResult | null {
-  if (end <= start) return null
-  let cursor = new Date(start)
-  const months: MonthSegment[] = []
-  let total = 0
-
-  while (true) {
-    const next = new Date(cursor)
-    next.setMonth(next.getMonth() + 1)
-    if (next >= end) break
-
-    const rawDays = Math.round((next.getTime() - cursor.getTime()) / 86_400_000)
-    const effectiveDays = Math.max(rawDays, 30)
-    const label =
-      cursor.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) +
-      ' – ' +
-      next.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-
-    months.push({ label, days: effectiveDays, price: mcr })
-    total += mcr
-    cursor = effectiveDays > rawDays
-      ? new Date(cursor.getTime() + effectiveDays * 86_400_000)
-      : next
-  }
-
-  const remainDays = Math.round((end.getTime() - cursor.getTime()) / 86_400_000)
-  let remainPrice = 0
-  let calcRemainDays = 0
-  if (remainDays > 0) {
-    const seg = calcDailySegment(remainDays, ndr, mcr)
-    calcRemainDays = seg.calcDays
-    remainPrice = seg.price
-    total += remainPrice
-  }
-
-  return { months, remainDays, remainPrice, calcRemainDays, total }
-}
+// ── Pricing — ใช้ตารางคิดเงินกลางตัวเดียวกับหน้าส่งรถ ────────────────────────
 
 function fmtDateShort(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
@@ -114,23 +59,23 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
   // ── Derived ──────────────────────────────────────────────────────────────
   const startDt = from ? new Date(from) : null
   const endDt   = to   ? new Date(to)   : null
-  const totalDays = startDt && endDt && endDt > startDt
-    ? Math.ceil((endDt.getTime() - startDt.getTime()) / 86_400_000)
-    : 0
+  // นับวันตามวันปฏิทินเหมือนหน้าส่งรถ — เศษชั่วโมงไม่ปัดขึ้นเป็นวัน (คิดเป็นค่าล่วงเวลาตอนคืนแทน)
+  const totalDays = startDt && endDt && endDt > startDt ? calendarDays(startDt, endDt) : 0
 
   const ndr = studentPromo ? bike.daily_rate - 50 : bike.daily_rate
   const mcr = bike.monthly_rate ?? bike.daily_rate * 30
   const isLong = totalDays >= 30
 
-  const longResult  = isLong && startDt && endDt ? calcLongPrice(startDt, endDt, ndr, mcr) : null
-  const shortResult = !isLong && totalDays > 0 ? calcShortPrice(totalDays, ndr) : null
+  const quote = startDt && totalDays > 0 ? calcRentQuote(startDt, totalDays, ndr, mcr) : null
+  const longResult  = quote?.longResult ?? null
+  const shortResult = quote?.shortResult ?? null
 
-  const totalAmount = isLong ? (longResult?.total ?? 0) : (shortResult?.total ?? 0)
+  const totalAmount = quote?.total ?? 0
 
   // discount = diff from non-student price (for API record)
-  const normalTotal = isLong
-    ? (calcLongPrice(startDt!, endDt!, bike.daily_rate, mcr)?.total ?? 0)
-    : calcShortPrice(totalDays, bike.daily_rate).total
+  const normalTotal = startDt && totalDays > 0
+    ? calcRentQuote(startDt, totalDays, bike.daily_rate, mcr).total
+    : 0
   const discount = studentPromo ? Math.max(0, normalTotal - totalAmount) : 0
 
   const freeWeeks = Math.floor(totalDays / 7)

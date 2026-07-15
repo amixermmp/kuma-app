@@ -75,6 +75,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'บันทึกการเช่าไม่สำเร็จ' }, { status: 500 })
   }
 
+  // ลงสมุดรายรับ — ค่าเช่าเก็บตอนส่งรถ
+  await admin.from('rental_payments').insert({
+    rental_id: rental.id,
+    branch_id: BRANCH_ID,
+    kind: 'rental',
+    amount: totalAmount ?? 0,
+    paid_at: new Date(startDatetime).toISOString(),
+  })
+
   // Update bike status
   const { error: bikeErr } = await admin
     .from('bikes')
