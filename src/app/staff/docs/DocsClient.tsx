@@ -38,6 +38,7 @@ function DocCard({ doc }: { doc: DocItem }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+  const [cost, setCost] = useState('')
 
   const color = urgencyColor(doc.urgency)
   const isActionable = true // ใส่/แก้เอกสารได้ตลอด ไม่ต้องรอใกล้หมดอายุ
@@ -56,6 +57,7 @@ function DocCard({ doc }: { doc: DocItem }) {
           docType: doc.doc_type,
           expiryDate: newExpiry,
           photoUrl: photoUrl || null,
+          cost: cost ? parseFloat(cost) : null,
         }),
       })
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
@@ -101,13 +103,18 @@ function DocCard({ doc }: { doc: DocItem }) {
               onRemove={() => setPhotoUrl('')}
             />
           </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
+          <div className="field-row">
             <label className="field-label">วันหมดอายุใหม่</label>
             <input className="field-input" type="date"
               value={newExpiry}
               min={new Date().toISOString().split('T')[0]}
               max={new Date(new Date().setFullYear(new Date().getFullYear() + 15)).toISOString().split('T')[0]}
               onChange={e => setNewExpiry(e.target.value)} />
+          </div>
+          <div className="field-row" style={{ marginBottom: 0 }}>
+            <label className="field-label">ค่าใช้จ่ายที่จ่ายจริง (บาท) — ลงบัญชีรายจ่ายอัตโนมัติ</label>
+            <input className="field-input" type="number" inputMode="decimal" placeholder="เช่น 645"
+              value={cost} onChange={e => setCost(e.target.value)} />
           </div>
           {error && <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '8px' }}>⚠️ {error}</div>}
           <button className="btn btn-success"

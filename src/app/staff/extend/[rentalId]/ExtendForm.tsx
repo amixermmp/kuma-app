@@ -15,9 +15,18 @@ type Rental = {
   customers: { id: string; name: string }
 }
 
+type UpcomingBooking = {
+  id: string
+  booking_ref: string
+  customer_name: string
+  start_datetime: string
+  end_datetime: string
+}
+
 type Props = {
   rental: Rental
   staffId: string
+  upcomingBookings: UpcomingBooking[]
 }
 
 function fmtDate(iso: string) {
@@ -28,7 +37,7 @@ function fmtDate(iso: string) {
   })
 }
 
-export default function ExtendForm({ rental }: Props) {
+export default function ExtendForm({ rental, upcomingBookings }: Props) {
   const router = useRouter()
   const bike = rental.bikes
   const customer = rental.customers
@@ -72,8 +81,23 @@ export default function ExtendForm({ rental }: Props) {
     ? Math.floor((newEndMs - now) / 86_400_000)
     : 0
 
+  // คิวจองที่จะโดนชนถ้าต่อถึงกำหนดใหม่ (บวก buffer 3 ชม.)
+  const BUFFER_MS = 3 * 3_600_000
+  const conflictBooking = daysCovered > 0
+    ? upcomingBookings.find(b => new Date(b.start_datetime).getTime() < newEndMs + BUFFER_MS)
+    : undefined
+
   const handleSubmit = async () => {
     if (paymentNum <= 0) { setError('กรุณาใส่จำนวนเงิน'); return }
+    // ต่อทับคิวได้ แต่ต้องยืนยัน และหลังต่อจะพาไปย้ายคิวให้ลูกค้าที่จองทันที
+    if (conflictBooking) {
+      const ok = confirm(
+        `⚠️ ต่อเวลานี้จะชนคิวจอง ${conflictBooking.booking_ref} ของคุณ${conflictBooking.customer_name} ` +
+        `(รับรถ ${fmtDate(conflictBooking.start_datetime)})\n\n` +
+        `ยืนยันต่อเวลา แล้วไปย้ายคิว/อัพเกรดรถให้ลูกค้าที่จองต่อเลย?`
+      )
+      if (!ok) return
+    }
     setLoading(true)
     setError('')
     try {
@@ -86,11 +110,13 @@ export default function ExtendForm({ rental }: Props) {
           payment: paymentNum,
           newEndDatetime: daysCovered > 0 ? newEnd.toISOString() : rental.expected_end_datetime,
           newCredit,
+          overrideBookingConflict: !!conflictBooking,
         }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
-      router.push('/staff/home')
+      // ชนคิว → บังคับวนไปหน้าย้ายคัน/อัพเกรดให้ลูกค้าที่จองทันที
+      router.push(conflictBooking ? `/staff/assign/${conflictBooking.id}` : '/staff/home')
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
     } finally {
@@ -111,6 +137,29 @@ export default function ExtendForm({ rental }: Props) {
       </div>
 
       <div className="section-pad">
+
+        {/* คิวจองอนาคตของคันนี้ */}
+        {upcomingBookings.length > 0 && (
+          <div style={{
+            background: conflictBooking ? '#fef2f2' : '#fffbeb',
+            border: `1.5px solid ${conflictBooking ? '#dc2626' : '#fcd34d'}`,
+            borderRadius: '10px', padding: '10px 14px', marginBottom: '12px', fontSize: '13px',
+            color: conflictBooking ? '#dc2626' : '#92400e',
+          }}>
+            {conflictBooking ? (
+              <>
+                <strong>⛔ ต่อถึง {fmtDate(newEnd.toISOString())} จะชนคิวจอง!</strong><br />
+                {conflictBooking.booking_ref} — คุณ{conflictBooking.customer_name} รับรถ {fmtDate(conflictBooking.start_datetime)}<br />
+                <span style={{ fontSize: '12px' }}>ถ้ายืนยันต่อ ระบบจะพาไปย้ายคิว/อัพเกรดรถให้ลูกค้าที่จองทันที</span>
+              </>
+            ) : (
+              <>
+                📅 คันนี้มีคิวจองถัดไป: <strong>{fmtDate(upcomingBookings[0].start_datetime)}</strong> ({upcomingBookings[0].booking_ref} — คุณ{upcomingBookings[0].customer_name})
+                — ต่อได้ถึงก่อนหน้านั้น
+              </>
+            )}
+          </div>
+        )}
 
         {/* Current rental info */}
         <div className="card" style={{ borderTop: `3px solid ${overdueDaysNow > 0 ? '#dc2626' : '#d97706'}` }}>

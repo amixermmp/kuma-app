@@ -38,7 +38,7 @@ export default async function SendCarPage({
   if (searchParams.bookingId) {
     const { data } = await supabase
       .from('bookings')
-      .select('id, customer_name, customer_phone, customer_hotel, start_datetime, end_datetime, total_days, notes')
+      .select('id, customer_name, customer_phone, customer_hotel, start_datetime, end_datetime, total_days, daily_rate, notes')
       .eq('id', searchParams.bookingId)
       .eq('status', 'confirmed')
       .single()

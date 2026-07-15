@@ -4,11 +4,13 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC } from '@/lib/time'
+import { calcRentQuote, calendarDays } from '@/lib/pricing'
 
 type Props = {
   brand: string
   model: string
   dailyRate: number
+  monthlyRate: number
   from: string
   to: string
   staffId: string
@@ -21,10 +23,6 @@ const SOURCES = [
   { key: 'walkin',   label: '🚶 Walk-in' },
 ]
 
-function daysBetween(from: string, to: string) {
-  return Math.max(1, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000))
-}
-
 function fmtDateShort(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
     timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short',
@@ -36,7 +34,7 @@ function fmtTime(iso: string) {
   })
 }
 
-export default function BookingModelForm({ brand, model, dailyRate, from, to, staffId }: Props) {
+export default function BookingModelForm({ brand, model, dailyRate, monthlyRate, from, to, staffId }: Props) {
   const router = useRouter()
 
   const [customerName, setCustomerName]   = useState('')
@@ -47,8 +45,10 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState('')
 
-  const totalDays   = daysBetween(from, to)
-  const totalAmount = dailyRate * totalDays
+  // ใช้ตารางคิดเงินกลางตัวเดียวกับหน้าส่งรถ (โปร 7 วันจ่าย 5 + cap รายเดือน)
+  const totalDays   = calendarDays(new Date(from), new Date(to))
+  const quote       = calcRentQuote(new Date(from), totalDays, dailyRate, monthlyRate)
+  const totalAmount = quote.total
 
   const lookupCustomer = useCallback(async (phone: string) => {
     if (phone.replace(/\D/g, '').length < 9) return
@@ -123,9 +123,14 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
             <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '3px' }}>
               {fmtDateShort(from)} {fmtTime(from)} → {fmtDateShort(to)} {fmtTime(to)}
             </div>
-            <div style={{ marginTop: '8px' }}>
+            <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               <span style={{ background: 'rgba(255,255,255,.2)', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 700 }}>
                 {totalDays} วัน
+              </span>
+              <span style={{ background: 'rgba(22,163,74,.35)', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 700 }}>
+                ฿{totalAmount.toLocaleString()}
+                {!quote.isLong && quote.shortResult && quote.shortResult.calcDays < totalDays
+                  ? ` (คิด ${quote.shortResult.calcDays} วัน)` : ''}
               </span>
             </div>
           </div>

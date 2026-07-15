@@ -28,6 +28,29 @@ export async function writeLog(params: LogParams): Promise<void> {
   }
 }
 
+// เขียน log จาก staff — ดึงชื่อจาก staffId ให้เอง
+export async function logStaffAction(
+  staffId: string,
+  action: string,
+  description: string,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  try {
+    const admin = createAdminClient()
+    const { data } = await admin.from('staff').select('name').eq('id', staffId).single()
+    await writeLog({
+      actorType: 'staff',
+      actorId: staffId,
+      actorName: data?.name ?? staffId,
+      action,
+      description,
+      metadata,
+    })
+  } catch (err) {
+    console.error('[log] failed to write staff log:', err)
+  }
+}
+
 // Auto-delete logs older than 90 days (call once per day from any route)
 export async function pruneOldLogs(): Promise<void> {
   try {

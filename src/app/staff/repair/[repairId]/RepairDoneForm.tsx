@@ -135,4 +135,33 @@ export default function RepairDoneForm({ repair, isFromSwap = false }: Props) {
             background: lockForSwap ? '#ca8a04' : '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            {lockForSwap 
+            {lockForSwap && <span style={{ color: '#fff', fontSize: '13px', fontWeight: 900 }}>✓</span>}
+          </div>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: lockForSwap ? '#92400e' : '#16a34a' }}>
+              {lockForSwap ? '🔒 ล็อครอสลับกลับ' : '✅ คืนสถานะว่าง'}
+            </div>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+              {lockForSwap
+                ? 'รถจะอยู่ในสถานะ "ล็อค" รอ staff สลับกลับให้ลูกค้าคนเดิม'
+                : 'รถจะกลับสู่สถานะ "ว่าง" พร้อมให้เช่าได้ทันที'}
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca',
+            borderRadius: '10px', padding: '12px', color: '#dc2626',
+            fontSize: '14px', marginBottom: '12px',
+          }}>⚠️ {error}</div>
+        )}
+
+        <button className="btn btn-success" onClick={handleSubmit} disabled={loading}
+          style={{ width: '100%', opacity: loading ? 0.7 : 1 }}>
+          {loading ? '⏳ กำลังบันทึก...' : '✅ ยืนยันซ่อมเสร็จ'}
+        </button>
+      </div>
+    </div>
+  )
+}

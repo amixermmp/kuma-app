@@ -31,7 +31,8 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
       .order('start_datetime', { ascending: false }),
     admin.from('monthly_payments')
       .select('amount, monthly_rentals!inner(bike_id)')
-      .eq('monthly_rentals.bike_id', bikeId),
+      .eq('monthly_rentals.bike_id', bikeId)
+      .is('voided_at', null),
     admin.from('bike_routines')
       .select('id, task_name, interval_km, interval_days, last_done_date, last_done_km, next_due_km, next_due_date')
       .eq('bike_id', bikeId)

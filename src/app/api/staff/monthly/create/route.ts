@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
+import { recalcNeverDoneRoutines } from '@/lib/routines'
+import { checkBlacklist } from '@/lib/blacklist'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -37,6 +39,14 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient()
+
+  // กันชั้นสุดท้าย — คนติดบัญชีดำของร้าน ทำสัญญาไม่ได้
+  const blHit = await checkBlacklist(supabase, { name: customer.name, phone: customer.phone })
+  if (blHit) {
+    return NextResponse.json({
+      error: `⛔ ${blHit.name} ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้${blHit.reason ? ` (${blHit.reason})` : ''}`,
+    }, { status: 403 })
+  }
 
   // Upsert customer
   let customerId: string
@@ -104,6 +114,9 @@ export async function POST(request: NextRequest) {
     fuel_level: fuelLevel,
     updated_at: new Date().toISOString(),
   }).eq('id', bikeId)
+
+  // กันรูทีนที่ไม่เคยทำแจ้งเตือนผิด เมื่อเลขไมล์จริงเพิ่งถูกบันทึกครั้งแรก
+  await recalcNeverDoneRoutines(supabase, bikeId, parseInt(odometer) || 0)
 
   // Record first payment with correct due date
   if (paymentMethod) {

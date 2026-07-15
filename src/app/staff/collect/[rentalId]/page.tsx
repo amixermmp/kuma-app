@@ -40,6 +40,7 @@ export default async function CollectRentPage({ params }: { params: Promise<{ re
       .from('monthly_payments')
       .select('*')
       .eq('monthly_rental_id', rentalId)
+      .is('voided_at', null)
       .order('paid_date', { ascending: true }),
   ])
 

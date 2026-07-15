@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logStaffAction } from '@/lib/log'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -65,6 +66,11 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: 'บันทึกไม่สำเร็จ' }, { status: 500 })
   }
+
+  const { data: bike } = await supabase.from('bikes').select('license_plate').eq('id', bikeId).single()
+  await logStaffAction(staffId, 'booking_assigned',
+    `กำหนดรถให้การจอง — ${bike?.license_plate ?? bikeId}`,
+    { bookingId, bikeId })
 
   return NextResponse.json({ success: true })
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
+import { logStaffAction } from '@/lib/log'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -33,6 +34,11 @@ export async function POST(request: NextRequest) {
   }
 
   await supabase.from('bikes').update({ status: 'repair' }).eq('id', bikeId)
+
+  const { data: bike } = await supabase.from('bikes').select('license_plate').eq('id', bikeId).single()
+  await logStaffAction(staffId, 'repair_created',
+    `แจ้งซ่อม ${bike?.license_plate ?? ''} — ${description.substring(0, 80)}`,
+    { repairId: repair.id, bikeId })
 
   return NextResponse.json({ success: true, repairId: repair.id })
 }

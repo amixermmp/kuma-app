@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   // Get bikes filtered to staff's branches
   let bikesQuery = supabase
     .from('bikes')
-    .select('id, license_plate, brand, model, color, year, daily_rate, odometer, status')
+    .select('id, branch_id, license_plate, brand, model, color, year, daily_rate, odometer, status')
     .order('daily_rate', { ascending: true })
 
   if (allowedBranchIds) {
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
   // Get bookings that conflict — split by specific-bike vs model-based
   const { data: bookingConflicts } = await supabase
     .from('bookings')
-    .select('bike_id, requested_brand, requested_model, start_datetime, end_datetime')
+    .select('bike_id, branch_id, requested_brand, requested_model, start_datetime, end_datetime')
     .in('status', ['confirmed'])
     .lt('start_datetime', bufferEnd.toISOString())
     .gt('end_datetime', bufferStart.toISOString())
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
 
   // Specific-bike bookings (bike_id is set)
   const bookingMap = new Map<string, { start: string; end: string }>()
-  // Model-based bookings (bike_id = null) — count per brand+model
+  // Model-based bookings (bike_id = null) — นับแยกตามสาขา ไม่ให้จองสาขาอื่นมากันรถสาขาเรา
   const modelBookingCount = new Map<string, number>()
   for (const b of bookingConflicts ?? []) {
     if (b.bike_id) {
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         bookingMap.set(b.bike_id, { start: b.start_datetime, end: b.end_datetime })
       }
     } else if (b.requested_brand && b.requested_model) {
-      const key = `${b.requested_brand}__${b.requested_model}`
+      const key = `${b.branch_id ?? ''}__${b.requested_brand}__${b.requested_model}`
       modelBookingCount.set(key, (modelBookingCount.get(key) ?? 0) + 1)
     }
   }
@@ -117,8 +117,8 @@ export async function GET(request: NextRequest) {
         conflict_reason: `ติดจอง ${fmt(booking.start)}–${fmt(booking.end)}`,
       }
     }
-    // Check if a model-based booking consumes this available bike
-    const modelKey = `${bike.brand}__${bike.model}`
+    // Check if a model-based booking (สาขาเดียวกัน) consumes this available bike
+    const modelKey = `${bike.branch_id ?? ''}__${bike.brand}__${bike.model}`
     const booked = modelBookingCount.get(modelKey) ?? 0
     const used = modelBookingUsed.get(modelKey) ?? 0
     if (used < booked) {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { recalcNeverDoneRoutines } from '@/lib/routines'
+import { logStaffAction } from '@/lib/log'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -15,7 +17,7 @@ export async function POST(request: NextRequest) {
   // Fetch rental to get bike_id
   const { data: rental, error: rentalErr } = await supabase
     .from('monthly_rentals')
-    .select('id, bike_id, status')
+    .select('id, bike_id, status, bikes(license_plate), customers(name)')
     .eq('id', monthlyRentalId)
     .eq('status', 'active')
     .single()
@@ -54,6 +56,9 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', rental.bike_id)
     updateBikeErr = error
+    if (returnOdometer) {
+      await recalcNeverDoneRoutines(supabase, rental.bike_id, Number(returnOdometer))
+    }
   }
 
   if (updateRentalErr) {
@@ -64,6 +69,14 @@ export async function POST(request: NextRequest) {
     console.error('Update bike status error:', updateBikeErr.message)
     return NextResponse.json({ error: 'อัปเดตสถานะรถไม่สำเร็จ' }, { status: 500 })
   }
+
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const plate = (Array.isArray((rental as any).bikes) ? (rental as any).bikes[0] : (rental as any).bikes)?.license_plate ?? ''
+  const custName = (Array.isArray((rental as any).customers) ? (rental as any).customers[0] : (rental as any).customers)?.name ?? ''
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  await logStaffAction(staffId, 'monthly_ended',
+    `จบสัญญารายเดือน ${plate} — ลูกค้า ${custName}`,
+    { monthlyRentalId, bikeId: rental.bike_id, returnOdometer: returnOdometer ?? null })
 
   return NextResponse.json({ ok: true })
 }

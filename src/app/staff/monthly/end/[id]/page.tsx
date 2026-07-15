@@ -27,7 +27,8 @@ export default async function MonthlyEndPage({ params }: { params: Promise<{ id:
     supabase
       .from('monthly_payments')
       .select('amount')
-      .eq('monthly_rental_id', id),
+      .eq('monthly_rental_id', id)
+      .is('voided_at', null),
   ])
 
   if (!rental) redirect('/staff/home')
