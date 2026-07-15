@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import PhotoUpload from '@/components/PhotoUpload'
 import type { BikeModel } from '@/lib/bikeCatalog'
 
 type Bike = {
@@ -132,6 +133,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
   const [editingDocs, setEditingDocs] = useState(false)
   const [pobExpiry, setPobExpiry] = useState(docMap['pob']?.expiry_date ?? '')
   const [taxExpiry, setTaxExpiry] = useState(docMap['tax']?.expiry_date ?? '')
+  const [regPhoto, setRegPhoto] = useState('')
   const [docSaving, setDocSaving] = useState(false)
   const [docMsg, setDocMsg] = useState('')
 
@@ -141,12 +143,17 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
     const res = await fetch(`/api/owner/bikes/${bike.id}/docs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pob_expiry: pobExpiry || null, tax_expiry: taxExpiry || null }),
+      body: JSON.stringify({
+        pob_expiry: pobExpiry || null,
+        tax_expiry: taxExpiry || null,
+        registration_photo: regPhoto || null,
+      }),
     })
     setDocSaving(false)
     if (res.ok) {
       setDocMsg('✅ บันทึกแล้ว')
       setEditingDocs(false)
+      setRegPhoto('')
       router.refresh()
     } else {
       const d = await res.json()
@@ -501,6 +508,25 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
             </div>
           )}
           <DocStatusRow icon="📘" name="สำเนาหน้าเล่มทะเบียน" hasPhoto={!!docMap['registration']?.doc_photo_url} />
+          {docMap['registration']?.doc_photo_url && (
+            <a href={docMap['registration'].doc_photo_url!} target="_blank" rel="noreferrer" style={{
+              display: 'inline-block', marginLeft: '40px', fontSize: '12px', color: '#1d4ed8', fontWeight: 600,
+            }}>👁️ ดูรูปหน้าเล่ม</a>
+          )}
+          {editingDocs && (
+            <div style={{ marginLeft: '40px', marginTop: '8px' }}>
+              <label className="field-label" style={{ fontSize: '11px' }}>
+                {docMap['registration']?.doc_photo_url ? 'เปลี่ยนรูปหน้าเล่ม' : 'อัพโหลดรูปหน้าเล่ม'}
+              </label>
+              <PhotoUpload
+                icon="📘"
+                hint="อัพโหลดสำเนาหน้าเล่มทะเบียน"
+                folder={`docs/${bike.id}`}
+                onUpload={url => setRegPhoto(url)}
+                onRemove={() => setRegPhoto('')}
+              />
+            </div>
+          )}
         </div>
 
         {/* ── งานรูทีน ── */}

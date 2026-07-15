@@ -211,7 +211,105 @@ function AddDocCard({ bikeId, docType, onSaved }: { bikeId: string; docType: str
   )
 }
 
-export default function DocsClient({ docs, bikeId, backHref }: { docs: DocItem[]; bikeId: string | null; backHref?: string }) {
+// การ์ดหน้าเล่มทะเบียน — เอกสารถาวร อัพโหลด/เปลี่ยนรูปได้ตลอด ไม่มีวันหมดอายุ
+function RegistrationCard({ bikeId, regDoc }: { bikeId: string; regDoc: { id: string; doc_photo_url: string | null } | null }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const hasPhoto = !!regDoc?.doc_photo_url
+
+  const handleSave = async () => {
+    if (!photoUrl) { setError('กรุณาอัพโหลดรูปก่อน'); return }
+    setLoading(true); setError('')
+    try {
+      const res = await fetch('/api/staff/docs/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: regDoc?.id, bikeId, docType: 'registration', photoUrl }),
+      })
+      if (!res.ok) { const d = await res.json(); setError(d.error); return }
+      setOpen(false)
+      setPhotoUrl('')
+      router.refresh()
+    } catch { setError('เกิดข้อผิดพลาด') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="card" style={{ borderTop: `3px solid ${hasPhoto ? '#16a34a' : '#d1d5db'}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="card-title" style={{ margin: 0, flex: 1 }}>
+          📗 สำเนาหน้าเล่มทะเบียน
+          <span style={{ fontSize: '11px', fontWeight: 400, color: '#9ca3af', marginLeft: '6px' }}>เอกสารถาวร — ใส่ครั้งเดียว</span>
+        </div>
+        <span style={{
+          fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px',
+          background: hasPhoto ? '#dcfce7' : '#f3f4f6', color: hasPhoto ? '#16a34a' : '#9ca3af',
+        }}>
+          {hasPhoto ? '✅ มีแล้ว' : '— ไม่มี'}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+        {hasPhoto && (
+          <a href={regDoc!.doc_photo_url!} target="_blank" rel="noreferrer" style={{
+            flex: 1, padding: '9px', borderRadius: '8px', textAlign: 'center',
+            background: '#f1f5f9', color: '#374151', border: '1px solid #e5e7eb',
+            fontSize: '13px', fontWeight: 600, textDecoration: 'none',
+          }}>👁️ ดูรูป</a>
+        )}
+        {!open && (
+          <button onClick={() => setOpen(true)} style={{
+            flex: 1, padding: '9px', borderRadius: '8px',
+            background: hasPhoto ? '#fff' : '#0f766e',
+            color: hasPhoto ? '#0f766e' : '#fff',
+            border: hasPhoto ? '1.5px solid #0f766e' : 'none',
+            fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          }}>
+            {hasPhoto ? '🔄 เปลี่ยนรูป' : '➕ อัพโหลดหน้าเล่ม'}
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div style={{ marginTop: '12px' }}>
+          <PhotoUpload
+            icon="📗"
+            hint="อัพโหลดสำเนาหน้าเล่มทะเบียน"
+            folder={`docs/${bikeId}`}
+            onUpload={url => setPhotoUrl(url)}
+            onRemove={() => setPhotoUrl('')}
+          />
+          {error && <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '8px' }}>⚠️ {error}</div>}
+          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+            <button onClick={() => { setOpen(false); setPhotoUrl('') }} style={{
+              flex: 1, padding: '10px', border: '1px solid #e5e7eb', borderRadius: '8px',
+              background: '#fff', color: '#6b7280', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>ยกเลิก</button>
+            <button onClick={handleSave} disabled={loading || !photoUrl} style={{
+              flex: 2, padding: '10px', border: 'none', borderRadius: '8px',
+              background: photoUrl ? '#0f766e' : '#e5e7eb', color: photoUrl ? '#fff' : '#9ca3af',
+              fontSize: '14px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              opacity: loading ? 0.7 : 1,
+            }}>
+              {loading ? '⏳ กำลังบันทึก...' : '✅ บันทึก'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function DocsClient({ docs, bikeId, backHref, regDoc }: {
+  docs: DocItem[]
+  bikeId: string | null
+  backHref?: string
+  regDoc?: { id: string; doc_photo_url: string | null } | null
+}) {
   const urgent = docs.filter(d => d.urgency === 'overdue' || d.urgency === 'critical')
   const warning = docs.filter(d => d.urgency === 'warning')
   const ok = docs.filter(d => d.urgency === 'ok')
@@ -238,6 +336,9 @@ export default function DocsClient({ docs, bikeId, backHref }: { docs: DocItem[]
       </div>
 
       <div className="section-pad" style={{ paddingTop: '12px' }}>
+        {/* หน้าเล่มทะเบียน — อัพโหลด/เปลี่ยนได้ตลอด */}
+        {bikeId && <RegistrationCard bikeId={bikeId} regDoc={regDoc ?? null} />}
+
         {/* เอกสารที่ยังไม่มี (เฉพาะตอน filter by bikeId) */}
         {pendingMissing.length > 0 && (
           <>

@@ -9,7 +9,9 @@ export async function POST(request: NextRequest) {
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id, bikeId, docType, expiryDate, photoUrl, cost } = await request.json()
-  if (!bikeId || !docType || !expiryDate) {
+  // หน้าเล่ม (registration) เป็นเอกสารถาวร — ต้องมีรูป ไม่ต้องมีวันหมดอายุ
+  const isRegistration = docType === 'registration'
+  if (!bikeId || !docType || (!isRegistration && !expiryDate) || (isRegistration && !photoUrl)) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
 
@@ -20,7 +22,7 @@ export async function POST(request: NextRequest) {
       id: id ?? undefined,
       bike_id: bikeId,
       doc_type: docType,
-      expiry_date: expiryDate,
+      expiry_date: expiryDate ?? null,
       doc_photo_url: photoUrl ?? null,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'bike_id,doc_type' })
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: bike } = await supabase.from('bikes').select('branch_id, license_plate').eq('id', bikeId).single()
-  const label = docType === 'tax' ? 'ต่อภาษี' : docType === 'pob' ? 'ต่อพรบ' : `ต่อ${docType}`
+  const label = docType === 'tax' ? 'ต่อภาษี' : docType === 'pob' ? 'ต่อพรบ' : isRegistration ? 'อัพโหลดหน้าเล่ม' : `ต่อ${docType}`
   const plate = bike?.license_plate ?? ''
 
   // ลงบัญชีรายจ่าย — ค่าต่อภาษี/พรบ เข้า Dashboard/Statement อัตโนมัติ
@@ -48,8 +50,8 @@ export async function POST(request: NextRequest) {
   }
 
   await logStaffAction(staffId, 'doc_updated',
-    `${label} ${plate} — หมดอายุใหม่ ${expiryDate}${cost ? ` — ฿${Number(cost).toLocaleString()}` : ''}`,
-    { bikeId, docType, expiryDate, cost: cost ?? null })
+    `${label} ${plate}${expiryDate ? ` — หมดอายุใหม่ ${expiryDate}` : ''}${cost ? ` — ฿${Number(cost).toLocaleString()}` : ''}`,
+    { bikeId, docType, expiryDate: expiryDate ?? null, cost: cost ?? null })
 
   return NextResponse.json({ success: true })
 }
