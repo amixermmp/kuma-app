@@ -102,7 +102,7 @@ export default async function JobsPage() {
       .limit(20)),
 
     applyBranch(supabase.from('bookings')
-      .select('id, booking_ref, start_datetime, customer_name, customer_phone, total_days, daily_rate, requested_brand, requested_model, bikes(id, license_plate, brand, model, color, photo_url)')
+      .select('id, booking_ref, start_datetime, customer_name, customer_phone, total_days, daily_rate, requested_brand, requested_model, delivery_type, delivery_address, bikes(id, license_plate, brand, model, color, photo_url)')
       .eq('status', 'confirmed')
       .order('start_datetime', { ascending: true })
       .limit(100)),
@@ -188,6 +188,7 @@ export default async function JobsPage() {
       .from('monthly_payments')
       .select('monthly_rental_id, due_date')
       .eq('status', 'paid')
+      .is('voided_at', null)
       .in('monthly_rental_id', candIds)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     paidPairs = new Set((paid ?? []).map((p: any) => `${p.monthly_rental_id}|${p.due_date}`))

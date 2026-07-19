@@ -62,13 +62,13 @@ function bikeColorHex(name?: string | null): string {
 
 function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
-  meta1, meta2, statusLabel, statusBg, statusColor,
+  meta1, meta2, meta3, statusLabel, statusBg, statusColor,
   href, btnColor, btnLabel, contractHref, extendHref, swapHref, cardHref, onCancel, cancelDisabled,
   photoUrl, bikeColor,
 }: {
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
-  meta1: string; meta2?: string
+  meta1: string; meta2?: string; meta3?: string
   statusLabel: string; statusBg: string; statusColor: string
   href: string; btnColor?: string; btnLabel?: string
   contractHref?: string
@@ -115,7 +115,12 @@ function JobCard({
           </div>
         )}
         <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '3px' }}>{meta1}</div>
-        {meta2 && <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>{meta2}</div>}
+        {meta2 && <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: meta3 ? '3px' : '8px' }}>{meta2}</div>}
+        {meta3 && (
+          <div style={{ fontSize: '12px', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '6px', padding: '4px 8px', marginBottom: '8px', display: 'inline-block' }}>
+            {meta3}
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
           <span style={{
             fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px',
@@ -414,6 +419,7 @@ export default function JobsClient({
                   badgeBg={badgeBg} badgeColor={badgeColor}
                   meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
                   meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
+                  meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
                   statusLabel={isLate ? '⚠️ ลูกค้าไม่มา' : bike ? '⬛ รอส่งรถ' : '🟡 ยังไม่ได้เลือกรถ'}
                   statusBg={isLate ? '#fef2f2' : bike ? '#f1f5f9' : '#fffbeb'}
                   statusColor={isLate ? '#dc2626' : bike ? '#111827' : '#d97706'}

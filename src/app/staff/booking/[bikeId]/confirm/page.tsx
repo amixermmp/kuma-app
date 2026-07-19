@@ -146,6 +146,15 @@ export default async function BookingConfirmPage({ params }: { params: { bikeId:
             )}
           </div>
 
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid #f8fafc' }}>
+            <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 600, marginBottom: '4px' }}>วิธีรับรถ</div>
+            <div style={{ fontSize: '13px', color: '#374151' }}>
+              {booking.delivery_type === 'offsite'
+                ? `🛵 ส่งนอกสถานที่ — ${booking.delivery_address || 'ไม่ระบุที่อยู่'}`
+                : '🏠 รับหน้าร้าน'}
+            </div>
+          </div>
+
           {booking.notes && (
             <div style={{ padding: '12px 20px', borderBottom: '1px solid #f8fafc' }}>
               <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 600, marginBottom: '4px' }}>หมายเหตุ</div>

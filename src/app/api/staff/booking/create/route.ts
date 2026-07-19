@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
+import { logStaffAction } from '@/lib/log'
 
 function genRef() {
   const d = new Date()
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     startDatetime, endDatetime,
     totalDays, dailyRate, totalAmount, discount,
     source, promoId, notes,
+    deliveryType, deliveryAddress,
   } = body
 
   if (!staffId || !customerName || !customerPhone || !startDatetime || !endDatetime) {
@@ -42,6 +44,9 @@ export async function POST(request: NextRequest) {
 
   const bufferStart = new Date(new Date(startDatetime).getTime() - 3 * 3_600_000).toISOString()
   const bufferEnd = new Date(new Date(endDatetime).getTime() + 3 * 3_600_000).toISOString()
+  const nowIso = new Date().toISOString()
+  // รถไม่ว่างถ้า: ทับช่วงเวลา หรือ เกินกำหนดแต่ยังไม่คืน (active/extended)
+  const rentalBusyOr = `expected_end_datetime.gt.${bufferStart},expected_end_datetime.lte.${nowIso}`
 
   // If specific bike: check for conflicts
   if (bikeId) {
@@ -51,7 +56,7 @@ export async function POST(request: NextRequest) {
         .eq('bike_id', bikeId)
         .in('status', ['active', 'extended'])
         .lt('start_datetime', bufferEnd)
-        .gt('expected_end_datetime', bufferStart)
+        .or(rentalBusyOr)
         .maybeSingle(),
       supabase.from('bookings')
         .select('id')
@@ -74,14 +79,15 @@ export async function POST(request: NextRequest) {
         .eq('branch_id', BRANCH_ID)
         .eq('brand', requestedBrand)
         .eq('model', requestedModel)
-        .neq('status', 'repair'),
+        .not('status', 'in', '("repair","maintenance","locked","retired","inactive")'),
       supabase.from('rentals')
         .select('bike_id')
         .in('status', ['active', 'extended'])
         .lt('start_datetime', bufferEnd)
-        .gt('expected_end_datetime', bufferStart),
+        .or(rentalBusyOr),
       supabase.from('bookings')
         .select('bike_id, requested_brand, requested_model')
+        .eq('branch_id', BRANCH_ID)
         .eq('status', 'confirmed')
         .lt('start_datetime', bufferEnd)
         .gt('end_datetime', bufferStart),
@@ -134,6 +140,8 @@ export async function POST(request: NextRequest) {
       notes: notes || null,
       status: 'confirmed',
       booking_ref: bookingRef,
+      delivery_type: deliveryType === 'offsite' ? 'offsite' : 'shop',
+      delivery_address: deliveryType === 'offsite' ? (deliveryAddress || null) : null,
     })
     .select('id, booking_ref')
     .single()
@@ -141,6 +149,15 @@ export async function POST(request: NextRequest) {
   if (error || !booking) {
     return NextResponse.json({ error: error?.message ?? 'บันทึกการจองไม่สำเร็จ' }, { status: 500 })
   }
+
+  let bikeText = `${requestedBrand ?? ''} ${requestedModel ?? ''}`.trim()
+  if (bikeId) {
+    const { data: bike } = await supabase.from('bikes').select('license_plate').eq('id', bikeId).single()
+    bikeText = bike?.license_plate ?? bikeId
+  }
+  await logStaffAction(staffId, 'booking_created',
+    `จองคิว ${booking.booking_ref} — ${bikeText} — ลูกค้า ${customerName} (${customerPhone}) — ฿${Number(totalAmount ?? 0).toLocaleString()} / ${totalDays} วัน`,
+    { bookingId: booking.id, bikeId: bikeId ?? null, requestedBrand, requestedModel, totalAmount })
 
   return NextResponse.json({ success: true, bookingId: booking.id, bookingRef: booking.booking_ref })
 }

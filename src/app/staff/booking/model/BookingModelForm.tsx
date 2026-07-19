@@ -4,11 +4,13 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC } from '@/lib/time'
+import { calcRentQuote, calendarDays } from '@/lib/pricing'
 
 type Props = {
   brand: string
   model: string
   dailyRate: number
+  monthlyRate: number
   from: string
   to: string
   staffId: string
@@ -21,10 +23,6 @@ const SOURCES = [
   { key: 'walkin',   label: '🚶 Walk-in' },
 ]
 
-function daysBetween(from: string, to: string) {
-  return Math.max(1, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000))
-}
-
 function fmtDateShort(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
     timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short',
@@ -36,19 +34,23 @@ function fmtTime(iso: string) {
   })
 }
 
-export default function BookingModelForm({ brand, model, dailyRate, from, to, staffId }: Props) {
+export default function BookingModelForm({ brand, model, dailyRate, monthlyRate, from, to, staffId }: Props) {
   const router = useRouter()
 
   const [customerName, setCustomerName]   = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [customerHotel, setCustomerHotel] = useState('')
   const [source, setSource]               = useState('line')
+  const [deliveryType, setDeliveryType]   = useState<'shop' | 'offsite'>('shop')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
   const [notes, setNotes]                 = useState('')
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState('')
 
-  const totalDays   = daysBetween(from, to)
-  const totalAmount = dailyRate * totalDays
+  // ใช้ตารางคิดเงินกลางตัวเดียวกับหน้าส่งรถ (โปร 7 วันจ่าย 5 + cap รายเดือน)
+  const totalDays   = calendarDays(new Date(from), new Date(to))
+  const quote       = calcRentQuote(new Date(from), totalDays, dailyRate, monthlyRate)
+  const totalAmount = quote.total
 
   const lookupCustomer = useCallback(async (phone: string) => {
     if (phone.replace(/\D/g, '').length < 9) return
@@ -65,6 +67,7 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
   const handleSubmit = async () => {
     if (!customerName.trim())  { setError('กรุณาใส่ชื่อลูกค้า'); return }
     if (!customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
+    if (deliveryType === 'offsite' && !deliveryAddress.trim()) { setError('กรุณาใส่สถานที่ส่งรถ'); return }
     setLoading(true); setError('')
     try {
       const res = await fetch('/api/staff/booking/create', {
@@ -85,6 +88,8 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
           totalAmount,
           discount: 0,
           source,
+          deliveryType,
+          deliveryAddress: deliveryType === 'offsite' ? deliveryAddress.trim() : null,
           notes: notes.trim() || null,
         }),
       })
@@ -123,9 +128,14 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
             <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '3px' }}>
               {fmtDateShort(from)} {fmtTime(from)} → {fmtDateShort(to)} {fmtTime(to)}
             </div>
-            <div style={{ marginTop: '8px' }}>
+            <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               <span style={{ background: 'rgba(255,255,255,.2)', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 700 }}>
                 {totalDays} วัน
+              </span>
+              <span style={{ background: 'rgba(22,163,74,.35)', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 700 }}>
+                ฿{totalAmount.toLocaleString()}
+                {!quote.isLong && quote.shortResult && quote.shortResult.calcDays < totalDays
+                  ? ` (คิด ${quote.shortResult.calcDays} วัน)` : ''}
               </span>
             </div>
           </div>
@@ -160,6 +170,34 @@ export default function BookingModelForm({ brand, model, dailyRate, from, to, st
             <input className="field-input" type="text" placeholder="Nap Park Hotel"
               value={customerHotel} onChange={e => setCustomerHotel(e.target.value)} />
           </div>
+        </div>
+
+        {/* Delivery */}
+        <div className="card">
+          <div className="card-title">วิธีรับรถ</div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => setDeliveryType('shop')} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${deliveryType === 'shop' ? '#111827' : '#e5e7eb'}`,
+              background: deliveryType === 'shop' ? '#f1f5f9' : '#fff',
+              color: deliveryType === 'shop' ? '#111827' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>🏠 รับหน้าร้าน</button>
+            <button onClick={() => setDeliveryType('offsite')} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${deliveryType === 'offsite' ? '#0ea5e9' : '#e5e7eb'}`,
+              background: deliveryType === 'offsite' ? '#f0f9ff' : '#fff',
+              color: deliveryType === 'offsite' ? '#0369a1' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>🛵 ส่งนอกสถานที่</button>
+          </div>
+          {deliveryType === 'offsite' && (
+            <textarea className="field-input" rows={2}
+              placeholder="เช่น โรงแรม ABC ห้อง 203 หรือปักหมุด/ลิงก์แผนที่"
+              value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)}
+              style={{ marginTop: '10px', resize: 'none' }}
+            />
+          )}
         </div>
 
         {/* Source */}

@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC } from '@/lib/time'
+import { calcRentQuote, calendarDays } from '@/lib/pricing'
 
 type Bike = {
   id: string
@@ -33,63 +34,7 @@ const SOURCES = [
   { key: 'walkin',   label: '🚶 Walk-in' },
 ]
 
-// ── Pricing formula (same as SendCarForm) ─────────────────────────────────────
-function calcDailySegment(days: number, ndr: number, mcr: number) {
-  const calcDays = Math.floor(days / 7) * 5 + Math.min(days % 7, 5)
-  return { calcDays, price: Math.min(calcDays * ndr, mcr) }
-}
-
-function calcShortPrice(totalDays: number, ndr: number) {
-  const calcDays = Math.floor(totalDays / 7) * 5 + Math.min(totalDays % 7, 5)
-  return { calcDays, total: calcDays * ndr }
-}
-
-type MonthSegment = { label: string; days: number; price: number }
-type LongResult = {
-  months: MonthSegment[]
-  remainDays: number
-  remainPrice: number
-  calcRemainDays: number
-  total: number
-}
-
-function calcLongPrice(start: Date, end: Date, ndr: number, mcr: number): LongResult | null {
-  if (end <= start) return null
-  let cursor = new Date(start)
-  const months: MonthSegment[] = []
-  let total = 0
-
-  while (true) {
-    const next = new Date(cursor)
-    next.setMonth(next.getMonth() + 1)
-    if (next >= end) break
-
-    const rawDays = Math.round((next.getTime() - cursor.getTime()) / 86_400_000)
-    const effectiveDays = Math.max(rawDays, 30)
-    const label =
-      cursor.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) +
-      ' – ' +
-      next.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-
-    months.push({ label, days: effectiveDays, price: mcr })
-    total += mcr
-    cursor = effectiveDays > rawDays
-      ? new Date(cursor.getTime() + effectiveDays * 86_400_000)
-      : next
-  }
-
-  const remainDays = Math.round((end.getTime() - cursor.getTime()) / 86_400_000)
-  let remainPrice = 0
-  let calcRemainDays = 0
-  if (remainDays > 0) {
-    const seg = calcDailySegment(remainDays, ndr, mcr)
-    calcRemainDays = seg.calcDays
-    remainPrice = seg.price
-    total += remainPrice
-  }
-
-  return { months, remainDays, remainPrice, calcRemainDays, total }
-}
+// ── Pricing — ใช้ตารางคิดเงินกลางตัวเดียวกับหน้าส่งรถ ────────────────────────
 
 function fmtDateShort(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
@@ -106,6 +51,8 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
   const [customerPhone, setCustomerPhone] = useState('')
   const [customerHotel, setCustomerHotel] = useState('')
   const [source, setSource]             = useState('line')
+  const [deliveryType, setDeliveryType] = useState<'shop' | 'offsite'>('shop')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
   const [studentPromo, setStudentPromo] = useState(false)
   const [notes, setNotes]               = useState('')
   const [loading, setLoading]           = useState(false)
@@ -114,23 +61,23 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
   // ── Derived ──────────────────────────────────────────────────────────────
   const startDt = from ? new Date(from) : null
   const endDt   = to   ? new Date(to)   : null
-  const totalDays = startDt && endDt && endDt > startDt
-    ? Math.ceil((endDt.getTime() - startDt.getTime()) / 86_400_000)
-    : 0
+  // นับวันตามวันปฏิทินเหมือนหน้าส่งรถ — เศษชั่วโมงไม่ปัดขึ้นเป็นวัน (คิดเป็นค่าล่วงเวลาตอนคืนแทน)
+  const totalDays = startDt && endDt && endDt > startDt ? calendarDays(startDt, endDt) : 0
 
   const ndr = studentPromo ? bike.daily_rate - 50 : bike.daily_rate
   const mcr = bike.monthly_rate ?? bike.daily_rate * 30
   const isLong = totalDays >= 30
 
-  const longResult  = isLong && startDt && endDt ? calcLongPrice(startDt, endDt, ndr, mcr) : null
-  const shortResult = !isLong && totalDays > 0 ? calcShortPrice(totalDays, ndr) : null
+  const quote = startDt && totalDays > 0 ? calcRentQuote(startDt, totalDays, ndr, mcr) : null
+  const longResult  = quote?.longResult ?? null
+  const shortResult = quote?.shortResult ?? null
 
-  const totalAmount = isLong ? (longResult?.total ?? 0) : (shortResult?.total ?? 0)
+  const totalAmount = quote?.total ?? 0
 
   // discount = diff from non-student price (for API record)
-  const normalTotal = isLong
-    ? (calcLongPrice(startDt!, endDt!, bike.daily_rate, mcr)?.total ?? 0)
-    : calcShortPrice(totalDays, bike.daily_rate).total
+  const normalTotal = startDt && totalDays > 0
+    ? calcRentQuote(startDt, totalDays, bike.daily_rate, mcr).total
+    : 0
   const discount = studentPromo ? Math.max(0, normalTotal - totalAmount) : 0
 
   const freeWeeks = Math.floor(totalDays / 7)
@@ -154,6 +101,7 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
     if (!customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
     if (!from || !to)          { setError('กรุณาเลือกวันเวลา'); return }
     if (!endDt || !startDt || endDt <= startDt) { setError('วันคืนต้องหลังวันเช่า'); return }
+    if (deliveryType === 'offsite' && !deliveryAddress.trim()) { setError('กรุณาใส่สถานที่ส่งรถ'); return }
 
     setLoading(true)
     setError('')
@@ -174,6 +122,8 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
           totalAmount,
           discount,
           source,
+          deliveryType,
+          deliveryAddress: deliveryType === 'offsite' ? deliveryAddress.trim() : null,
           promoId: null,
           notes: notes.trim() || null,
         }),
@@ -298,6 +248,34 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
             <input className="field-input" type="text" placeholder="Nap Park Hotel"
               value={customerHotel} onChange={e => setCustomerHotel(e.target.value)} />
           </div>
+        </div>
+
+        {/* Delivery */}
+        <div className="card">
+          <div className="card-title">วิธีรับรถ</div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => setDeliveryType('shop')} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${deliveryType === 'shop' ? '#111827' : '#e5e7eb'}`,
+              background: deliveryType === 'shop' ? '#f1f5f9' : '#fff',
+              color: deliveryType === 'shop' ? '#111827' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>🏠 รับหน้าร้าน</button>
+            <button onClick={() => setDeliveryType('offsite')} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${deliveryType === 'offsite' ? '#0ea5e9' : '#e5e7eb'}`,
+              background: deliveryType === 'offsite' ? '#f0f9ff' : '#fff',
+              color: deliveryType === 'offsite' ? '#0369a1' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>🛵 ส่งนอกสถานที่</button>
+          </div>
+          {deliveryType === 'offsite' && (
+            <textarea className="field-input" rows={2}
+              placeholder="เช่น โรงแรม ABC ห้อง 203 หรือปักหมุด/ลิงก์แผนที่"
+              value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)}
+              style={{ marginTop: '10px', resize: 'none' }}
+            />
+          )}
         </div>
 
         {/* Source */}
