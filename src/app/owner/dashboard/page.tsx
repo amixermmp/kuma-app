@@ -26,7 +26,12 @@ export default async function OwnerDashboardPage({
   const { period = 'month', from, to } = await searchParams
 
   const admin = createAdminClient()
+  // ขอบเขตวัน/เดือนต้องคิดตามเวลาไทย — Vercel รันเป็น UTC ถ้าใช้เวลา local จะเพี้ยน 7 ชม.
+  const H7 = 7 * 60 * 60 * 1000
   const now = new Date()
+  const bkk = new Date(now.getTime() + H7) // อ่าน component ด้วย getUTC* = เวลาไทย
+  const bkkMidnight = (dayOffset = 0) =>
+    new Date(Date.UTC(bkk.getUTCFullYear(), bkk.getUTCMonth(), bkk.getUTCDate() + dayOffset) - H7)
 
   // Date range based on period
   let periodStart: Date
@@ -34,31 +39,31 @@ export default async function OwnerDashboardPage({
   let periodLabel: string
 
   if (period === 'custom' && from && to) {
-    periodStart = new Date(`${from}T00:00:00`)
-    periodEnd   = new Date(`${to}T23:59:59`)
-    const fmtD  = (d: Date) => `${d.getDate()} ${MONTHS_TH_FULL[d.getMonth()].slice(0, 3)}. ${d.getFullYear() + 543}`
-    periodLabel = `${fmtD(periodStart)} — ${fmtD(periodEnd)}`
+    periodStart = new Date(`${from}T00:00:00+07:00`)
+    periodEnd   = new Date(`${to}T23:59:59+07:00`)
+    const fmtD  = (s: string) => { const [y, m, d] = s.split('-').map(Number); return `${d} ${MONTHS_TH_FULL[m - 1].slice(0, 3)}. ${y + 543}` }
+    periodLabel = `${fmtD(from)} — ${fmtD(to)}`
   } else if (period === 'today') {
-    periodStart = new Date(now); periodStart.setHours(0, 0, 0, 0)
-    periodEnd = new Date(now); periodEnd.setHours(23, 59, 59, 999)
+    periodStart = bkkMidnight()
+    periodEnd   = new Date(bkkMidnight(1).getTime() - 1)
     periodLabel = 'วันนี้'
   } else if (period === 'week') {
-    periodStart = new Date(now); periodStart.setDate(now.getDate() - 6); periodStart.setHours(0, 0, 0, 0)
+    periodStart = bkkMidnight(-6)
     periodLabel = '7 วันล่าสุด'
   } else {
-    periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    periodEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-    periodLabel = MONTHS_TH_FULL[now.getMonth()] + ' ' + (now.getFullYear() + 543)
+    periodStart = new Date(Date.UTC(bkk.getUTCFullYear(), bkk.getUTCMonth(), 1) - H7)
+    periodEnd   = new Date(Date.UTC(bkk.getUTCFullYear(), bkk.getUTCMonth() + 1, 1) - H7 - 1)
+    periodLabel = MONTHS_TH_FULL[bkk.getUTCMonth()] + ' ' + (bkk.getUTCFullYear() + 543)
   }
 
-  const sevenDaysAgo = new Date(now)
-  sevenDaysAgo.setDate(now.getDate() - 6)
-  sevenDaysAgo.setHours(0, 0, 0, 0)
+  const sevenDaysAgo = bkkMidnight(-6)
 
-  const periodStartDate = periodStart.toISOString().split('T')[0]
-  const periodEndDate   = periodEnd.toISOString().split('T')[0]
+  // วันที่แบบ YYYY-MM-DD ตามเวลาไทย สำหรับคอลัมน์ date-only
+  const bkkDateStr = (d: Date) => new Date(d.getTime() + H7).toISOString().split('T')[0]
+  const periodStartDate = bkkDateStr(periodStart)
+  const periodEndDate   = bkkDateStr(periodEnd)
 
-  const [bikesRes, bookingsMonthRes, bookingsRecentRes, branchesRes, pendingRes, rentalsMonthRes, monthlyRentalsRes, expensesRes, repairCostsRes] = await Promise.all([
+  const [bikesRes, bookingsMonthRes, bookingsRecentRes, branchesRes, pendingRes, rentalsMonthRes, monthlyPaymentsRes, expensesRes, repairCostsRes] = await Promise.all([
     admin.from('bikes').select('id, status, branch_id, brand, model, license_plate'),
     admin.from('bookings')
       .select('id, branch_id, daily_rate, total_days, start_datetime, customer_name, bikes(license_plate, brand, model)')
@@ -75,21 +80,23 @@ export default async function OwnerDashboardPage({
       .select('id', { count: 'exact', head: true })
       .eq('status', 'confirmed')
       .lte('start_datetime', new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()),
-    // Daily rentals — นับเมื่อส่งรถจริงเท่านั้น (ทั้ง walk-in และจากการจอง)
-    admin.from('rentals')
-      .select('total_amount, branch_id, start_datetime, bikes(license_plate, brand, model)')
-      .in('status', ['active', 'extended', 'completed'])
-      .gte('start_datetime', periodStart.toISOString())
-      .lte('start_datetime', periodEnd.toISOString()),
-    // Monthly rentals
-    admin.from('monthly_rentals')
-      .select('monthly_rate, branch_id, start_date')
-      .eq('status', 'active')
-      .gte('start_date', periodStartDate)
-      .lte('start_date', periodEndDate),
+    // Daily rentals — นับเงินตามวันที่เก็บจริง (เปิดสัญญา/ต่อเวลา/ค่าล่วงเวลาตอนคืน)
+    admin.from('rental_payments')
+      .select('amount, kind, paid_at, branch_id, rentals(bikes(license_plate, brand, model))')
+      .is('voided_at', null)
+      .gte('paid_at', periodStart.toISOString())
+      .lte('paid_at', periodEnd.toISOString()),
+    // Monthly payments — นับเงินที่เก็บได้จริงในช่วง (งวดแรกของสัญญาใหม่ก็ลงตารางนี้)
+    admin.from('monthly_payments')
+      .select('amount, paid_date, monthly_rentals(branch_id)')
+      .in('status', ['paid', 'partial'])
+      .is('voided_at', null)
+      .gte('paid_date', periodStartDate)
+      .lte('paid_date', periodEndDate),
     // Expenses
     admin.from('expenses')
       .select('amount')
+      .is('voided_at', null)
       .gte('expense_date', periodStartDate)
       .lte('expense_date', periodEndDate),
     // Repair costs
@@ -97,6 +104,7 @@ export default async function OwnerDashboardPage({
       .select('repair_cost')
       .eq('status', 'done')
       .not('repair_cost', 'is', null)
+      .is('voided_at', null)
       .gte('resolved_at', periodStart.toISOString())
       .lte('resolved_at', periodEnd.toISOString()),
   ])
@@ -106,8 +114,8 @@ export default async function OwnerDashboardPage({
   const bookingsRecent = bookingsRecentRes.data ?? []
   const branches       = branchesRes.data ?? []
   const pendingCount   = pendingRes.count ?? 0
-  const rentalsMonth    = rentalsMonthRes.data ?? []
-  const monthlyRentals  = monthlyRentalsRes.data ?? []
+  const rentalPayments  = rentalsMonthRes.data ?? []
+  const monthlyPayments = monthlyPaymentsRes.data ?? []
   const totalExpenses   = (expensesRes.data ?? []).reduce((s, e) => s + (Number(e.amount) || 0), 0)
                         + (repairCostsRes.data ?? []).reduce((s, r) => s + (Number(r.repair_cost) || 0), 0)
 
@@ -115,22 +123,25 @@ export default async function OwnerDashboardPage({
   const total       = bikes.length
   const available   = bikes.filter(b => b.status === 'available').length
   const rented      = bikes.filter(b => b.status === 'rented').length
-  const repair      = bikes.filter(b => b.status === 'repair').length
-  const utilization = total > 0 ? Math.round((rented / total) * 100) : 0
+  const locked      = bikes.filter(b => b.status === 'locked').length // เกินกำหนดคืน ยังไม่จบสัญญา — รถยังไม่ว่าง
+  const repair      = bikes.filter(b => b.status === 'repair' || b.status === 'maintenance').length
+  // ล็อคก็คือ "ไม่ว่าง" เหมือนกัน (แค่เกินกำหนด) เลยนับรวมเป็น utilization ด้วย
+  const utilization = total > 0 ? Math.round(((rented + locked) / total) * 100) : 0
 
-  // Monthly revenue — นับเฉพาะตอนส่งรถจริง ไม่นับการจองล่วงหน้า
-  const rentalsRevenue   = rentalsMonth.reduce((s, r) => s + (r.total_amount ?? 0), 0)
-  const monthlyRentRev   = monthlyRentals.reduce((s, r) => s + (r.monthly_rate ?? 0), 0)
+  // Revenue — ทั้งรายวันและรายเดือนนับจากเงินที่เก็บได้จริงตามวันทำรายการ (ตรงกับรีพอร์ต LINE)
+  const rentalsRevenue   = rentalPayments.reduce((s, p) => s + Number(p.amount ?? 0), 0)
+  const monthlyRentRev   = monthlyPayments.reduce((s, p) => s + Number(p.amount ?? 0), 0)
   const monthlyRevenue   = rentalsRevenue + monthlyRentRev
-  const monthlyCount     = rentalsMonth.length + monthlyRentals.length
+  // นับจำนวนรายการ: สัญญาใหม่รายวัน + งวดที่เก็บได้ (ไม่นับต่อเวลา/ล่วงเวลาเป็นรายการแยก)
+  const monthlyCount     = rentalPayments.filter(p => p.kind === 'rental').length + monthlyPayments.length
 
   // 7-day bar chart
   const dayRevs: number[] = Array(7).fill(0)
-  for (const r of rentalsMonth) {
-    const d = new Date(r.start_datetime)
+  for (const p of rentalPayments) {
+    const d = new Date(p.paid_at)
     const idx = Math.floor((d.getTime() - sevenDaysAgo.getTime()) / (24 * 60 * 60 * 1000))
     if (idx >= 0 && idx < 7) {
-      dayRevs[idx] += r.total_amount ?? 0
+      dayRevs[idx] += Number(p.amount ?? 0)
     }
   }
   const maxRev = Math.max(...dayRevs, 1)
@@ -140,27 +151,30 @@ export default async function OwnerDashboardPage({
   for (const br of branches) {
     branchMap[br.id] = { name: br.name, revenue: 0, bikeCount: bikes.filter(b => b.branch_id === br.id).length }
   }
-  for (const r of rentalsMonth) {
-    if (r.branch_id && branchMap[r.branch_id]) {
-      branchMap[r.branch_id].revenue += r.total_amount ?? 0
+  for (const p of rentalPayments) {
+    if (p.branch_id && branchMap[p.branch_id]) {
+      branchMap[p.branch_id].revenue += Number(p.amount ?? 0)
     }
   }
-  for (const r of monthlyRentals) {
-    if (r.branch_id && branchMap[r.branch_id]) {
-      branchMap[r.branch_id].revenue += r.monthly_rate ?? 0
+  for (const p of monthlyPayments) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mr = Array.isArray((p as any).monthly_rentals) ? (p as any).monthly_rentals[0] : (p as any).monthly_rentals as { branch_id?: string } | null
+    if (mr?.branch_id && branchMap[mr.branch_id]) {
+      branchMap[mr.branch_id].revenue += Number(p.amount ?? 0)
     }
   }
 
-  // Top bikes — from actual rentals only
+  // Top bikes — from actual payments (นับครั้งเช่าเฉพาะสัญญาใหม่ แต่รายได้รวมต่อเวลา/ล่วงเวลา)
   const bikeRevMap: Record<string, { label: string; revenue: number; count: number }> = {}
-  for (const r of rentalsMonth) {
+  for (const p of rentalPayments) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bike = Array.isArray((r as any).bikes) ? (r as any).bikes[0] : (r as any).bikes as { license_plate?: string; brand?: string; model?: string } | null
+    const rental = Array.isArray((p as any).rentals) ? (p as any).rentals[0] : (p as any).rentals
+    const bike = Array.isArray(rental?.bikes) ? rental.bikes[0] : rental?.bikes as { license_plate?: string; brand?: string; model?: string } | null
     if (!bike?.license_plate) continue
     const key = bike.license_plate
     if (!bikeRevMap[key]) bikeRevMap[key] = { label: `${bike.brand} ${bike.model} — ${bike.license_plate}`, revenue: 0, count: 0 }
-    bikeRevMap[key].revenue += r.total_amount ?? 0
-    bikeRevMap[key].count++
+    bikeRevMap[key].revenue += Number(p.amount ?? 0)
+    if (p.kind === 'rental') bikeRevMap[key].count++
   }
   const topBikes = Object.values(bikeRevMap).sort((a, b) => b.revenue - a.revenue).slice(0, 3)
 
@@ -208,9 +222,9 @@ export default async function OwnerDashboardPage({
         <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '14px' }}>📈 รายได้ 7 วันล่าสุด (บาท)</div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '80px' }}>
           {dayRevs.map((rev, i) => {
-            const d = new Date(sevenDaysAgo)
-            d.setDate(d.getDate() + i)
-            const isToday  = d.toDateString() === now.toDateString()
+            // sevenDaysAgo = เที่ยงคืนไทยของ 6 วันก่อน → แท่งสุดท้ายคือวันนี้เสมอ
+            const d = new Date(sevenDaysAgo.getTime() + H7 + i * 24 * 60 * 60 * 1000)
+            const isToday  = i === 6
             const heightPct = Math.max((rev / maxRev) * 100, 4)
             return (
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', height: '100%', justifyContent: 'flex-end' }}>
@@ -225,7 +239,7 @@ export default async function OwnerDashboardPage({
                   height: `${heightPct}%`, minHeight: '4px',
                 }} />
                 <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: isToday ? 700 : 400 }}>
-                  {DAY_SHORT[d.getDay()]}
+                  {DAY_SHORT[d.getUTCDay()]}
                 </div>
               </div>
             )
@@ -238,9 +252,10 @@ export default async function OwnerDashboardPage({
         <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '12px' }}>สถานะรถทั้งหมด ({total} คัน)</div>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
           {([
-            { label: 'ว่าง',    count: available, bg: '#f0fdf4', color: '#16a34a' },
-            { label: 'เช่าอยู่', count: rented,    bg: '#f1f5f9', color: '#374151' },
-            { label: 'ซ่อม',    count: repair,    bg: '#fef2f2', color: '#dc2626' },
+            { label: 'ว่าง',       count: available, bg: '#f0fdf4', color: '#16a34a' },
+            { label: 'เช่าอยู่',    count: rented,    bg: '#f1f5f9', color: '#374151' },
+            { label: 'เกินกำหนด',  count: locked,    bg: '#fff7ed', color: '#c2410c' },
+            { label: 'ซ่อม',       count: repair,    bg: '#fef2f2', color: '#dc2626' },
           ] as const).map(({ label, count, bg, color }) => (
             <div key={label} style={{ flex: 1, background: bg, borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
               <div style={{ fontSize: '22px', fontWeight: 800, color }}>{count}</div>
@@ -369,7 +384,9 @@ export default async function OwnerDashboardPage({
           { icon: '🛵', label: 'รายการรถทั้งหมด',  sub: 'ดู/แก้ไขข้อมูลรถทุกสาขา',           href: '/owner/bikes',      color: '#374151' },
           { icon: '📋', label: 'ประวัติการเช่า',   sub: 'การเช่าที่ active อยู่ + คืนรถ',      href: '/owner/rentals',    color: '#059669' },
           { icon: '📜', label: 'Activity Log',    sub: 'ใครทำอะไร เมื่อไหร่ในระบบ',           href: '/owner/logs',       color: '#374151' },
+          { icon: '🧾', label: 'Statement บัญชี',  sub: 'รายรับรายจ่ายทุกสาขา + waive รายการผิด', href: '/owner/statement',  color: '#059669' },
           { icon: '💸', label: 'บันทึกค่าใช้จ่าย', sub: 'รายจ่ายประจำเดือนของร้าน',           href: '/owner/expenses',   color: '#dc2626' },
+          { icon: '⛔', label: 'บัญชีแบล็คลิสต์',  sub: 'มิจฉาชีพ/ขโมยรถ — เช็คอัตโนมัติตอนทำสัญญา', href: '/owner/blacklist',  color: '#991b1b' },
           { icon: '⚙️', label: 'ตั้งค่าระบบ',      sub: 'พนักงาน, สาขา, โปรโมชั่น',          href: '/owner/settings',   color: '#374151' },
         ] as const).map(({ icon, label, sub, href, color }) => (
           <Link key={href} href={href} style={{ textDecoration: 'none' }}>
