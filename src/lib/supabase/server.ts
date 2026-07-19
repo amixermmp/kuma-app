@@ -22,6 +22,11 @@ export async function createClient() {
           }
         },
       },
+      // Next.js patches global fetch() to cache responses by default — force
+      // every Supabase call to bypass that so server reads are never stale.
+      global: {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, cache: 'no-store' }),
+      },
     }
   )
 }
