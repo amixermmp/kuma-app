@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import { logStaffAction } from '@/lib/log'
+import { getBusyBikeIds, BUFFER_MS } from '@/lib/availability'
 
 function genRef() {
   const d = new Date()
@@ -42,64 +43,44 @@ export async function POST(request: NextRequest) {
   const BRANCH_ID = await getStaffOwnBranchId(staffId)
   const supabase = createAdminClient()
 
-  const bufferStart = new Date(new Date(startDatetime).getTime() - 3 * 3_600_000).toISOString()
-  const bufferEnd = new Date(new Date(endDatetime).getTime() + 3 * 3_600_000).toISOString()
-  const nowIso = new Date().toISOString()
-  // รถไม่ว่างถ้า: ทับช่วงเวลา หรือ เกินกำหนดแต่ยังไม่คืน (active/extended)
-  const rentalBusyOr = `expected_end_datetime.gt.${bufferStart},expected_end_datetime.lte.${nowIso}`
+  const bufferStart = new Date(new Date(startDatetime).getTime() - BUFFER_MS).toISOString()
+  const bufferEnd = new Date(new Date(endDatetime).getTime() + BUFFER_MS).toISOString()
+
+  // รถไม่ว่างจากสัญญาเช่า — ตัวกลาง เดียวกับทุกจุดในระบบ (กันเกินกำหนดยังไม่คืนหลุดคิว)
+  const busyIds = await getBusyBikeIds(supabase, startDatetime, endDatetime)
 
   // If specific bike: check for conflicts
   if (bikeId) {
-    const [{ data: rentalConflict }, { data: bookingConflict }] = await Promise.all([
-      supabase.from('rentals')
-        .select('id')
-        .eq('bike_id', bikeId)
-        .in('status', ['active', 'extended'])
-        .lt('start_datetime', bufferEnd)
-        .or(rentalBusyOr)
-        .maybeSingle(),
-      supabase.from('bookings')
-        .select('id')
-        .eq('bike_id', bikeId)
-        .eq('status', 'confirmed')
-        .lt('start_datetime', bufferEnd)
-        .gt('end_datetime', bufferStart)
-        .maybeSingle(),
-    ])
-    if (rentalConflict || bookingConflict) {
+    if (busyIds.has(bikeId)) {
+      return NextResponse.json({ error: 'รถถูกเช่าหรือจองในช่วงเวลานี้แล้ว' }, { status: 409 })
+    }
+    const { data: bookingConflict } = await supabase.from('bookings')
+      .select('id')
+      .eq('bike_id', bikeId)
+      .eq('status', 'confirmed')
+      .lt('start_datetime', bufferEnd)
+      .gt('end_datetime', bufferStart)
+      .maybeSingle()
+    if (bookingConflict) {
       return NextResponse.json({ error: 'รถถูกเช่าหรือจองในช่วงเวลานี้แล้ว' }, { status: 409 })
     }
   }
 
   // If model-based: verify there is at least one available bike of that model
   if (!bikeId && requestedBrand && requestedModel) {
-    const [{ data: candidateBikes }, { data: rentalConflicts }, { data: bookingConflicts }, { data: monthlyConflicts }] = await Promise.all([
+    const [{ data: candidateBikes }, { data: bookingConflicts }] = await Promise.all([
       supabase.from('bikes')
         .select('id, brand, model')
         .eq('branch_id', BRANCH_ID)
         .eq('brand', requestedBrand)
         .eq('model', requestedModel)
         .not('status', 'in', '("repair","maintenance","locked","retired","inactive")'),
-      supabase.from('rentals')
-        .select('bike_id')
-        .in('status', ['active', 'extended'])
-        .lt('start_datetime', bufferEnd)
-        .or(rentalBusyOr),
       supabase.from('bookings')
         .select('bike_id, requested_brand, requested_model')
         .eq('branch_id', BRANCH_ID)
         .eq('status', 'confirmed')
         .lt('start_datetime', bufferEnd)
         .gt('end_datetime', bufferStart),
-      supabase.from('monthly_rentals')
-        .select('bike_id')
-        .eq('status', 'active'),
-    ])
-
-    const busyIds = new Set([
-      ...(rentalConflicts ?? []).map(r => r.bike_id),
-      ...(monthlyConflicts ?? []).map(m => m.bike_id),
-      ...(bookingConflicts ?? []).filter(b => b.bike_id).map(b => b.bike_id),
     ])
 
     // Count model-based bookings that consume available slots
@@ -107,7 +88,7 @@ export async function POST(request: NextRequest) {
       .filter(b => !b.bike_id && b.requested_brand === requestedBrand && b.requested_model === requestedModel)
       .length
 
-    const freeBikes = (candidateBikes ?? []).filter(b => !busyIds.has(b.id))
+    const freeBikes = (candidateBikes ?? []).filter(b => !busyIds.has(b.id) && !(bookingConflicts ?? []).some(bc => bc.bike_id === b.id))
     const actualAvailable = freeBikes.length - modelBookingCount
 
     if (actualAvailable <= 0) {
