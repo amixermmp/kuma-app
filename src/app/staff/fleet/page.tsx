@@ -65,12 +65,20 @@ export default async function StaffFleetPage() {
   }
 
   return (
-    <div className="app-wrap">
-      <div className="app-header">
-        <Link href="/staff/home" className="app-header-back">←</Link>
+    <div className="app-wrap" style={{ background: '#f8fafc' }}>
+      <div style={{
+        background: 'var(--red)', color: '#fff',
+        padding: '16px', display: 'flex', alignItems: 'center', gap: '12px',
+        borderRadius: '0 0 22px 22px',
+      }}>
+        <Link href="/staff/home" style={{
+          background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff',
+          width: '32px', height: '32px', borderRadius: '50%', fontSize: '16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none',
+        }}>←</Link>
         <div style={{ flex: 1 }}>
-          <h1>รวมรถ</h1>
-          <div className="sub">{branchName} • {list.length} คัน</div>
+          <div style={{ fontSize: '17px', fontWeight: 700 }}>รวมรถ</div>
+          <div style={{ fontSize: '12px', opacity: .8, marginTop: '2px' }}>{branchName} • {list.length} คัน</div>
         </div>
       </div>
 

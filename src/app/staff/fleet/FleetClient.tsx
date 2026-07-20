@@ -38,7 +38,7 @@ export default function FleetClient({ bikes }: { bikes: Bike[] }) {
   return (
     <>
       {/* Search box */}
-      <div style={{ padding: '12px 12px 0' }}>
+      <div style={{ padding: '14px 12px 0', marginTop: '-14px' }}>
         <input
           type="text"
           placeholder="🔍 ค้นหาเลขทะเบียน..."
@@ -46,14 +46,17 @@ export default function FleetClient({ bikes }: { bikes: Bike[] }) {
           onChange={e => setQuery(e.target.value)}
           style={{
             width: '100%', boxSizing: 'border-box',
-            padding: '11px 14px', borderRadius: '12px',
-            border: '1.5px solid #e5e7eb', fontSize: '15px',
+            padding: '12px 14px', borderRadius: '12px',
+            border: '1.5px solid #fff', fontSize: '15px',
             outline: 'none', background: '#fff',
+            boxShadow: '0 4px 14px rgba(225,29,72,.15)',
           }}
+          onFocus={e => { e.target.style.border = '1.5px solid var(--red)' }}
+          onBlur={e => { e.target.style.border = '1.5px solid #fff' }}
         />
       </div>
 
-      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '80px' }}>
+      <div style={{ padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '80px' }}>
         {filtered.length === 0 && (
           <div style={{ textAlign: 'center', padding: '48px 0', color: '#9ca3af', fontSize: '14px' }}>
             {query ? `ไม่พบรถทะเบียน "${query}"` : 'ไม่มีรถในสาขานี้'}
@@ -68,14 +71,15 @@ export default function FleetClient({ bikes }: { bikes: Bike[] }) {
                 background: '#fff', borderRadius: '14px', padding: '14px 16px',
                 display: 'flex', alignItems: 'center', gap: '14px',
                 boxShadow: '0 1px 4px rgba(0,0,0,.07)',
-                border: `1.5px solid ${color}22`,
+                border: '1px solid #f3f4f6', borderLeftWidth: '4px', borderLeftColor: color,
               }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: color, flexShrink: 0 }} />
-
                 {bike.photo_url
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={bike.photo_url} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '10px', flexShrink: 0 }} />
-                  : <div style={{ fontSize: '36px', flexShrink: 0 }}>🛵</div>
+                  : <div style={{
+                      width: '52px', height: '52px', borderRadius: '10px', flexShrink: 0,
+                      background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '30px',
+                    }}>🛵</div>
                 }
 
                 <div style={{ flex: 1, minWidth: 0 }}>

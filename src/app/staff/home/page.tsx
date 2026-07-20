@@ -91,42 +91,59 @@ export default async function StaffHomePage() {
   const totalJobs = (overdueCount ?? 0) + (dueSoonCount ?? 0) + (repairCount ?? 0) + (contactCount ?? 0) + (docsCount ?? 0) + (sendCount ?? 0) + routineCount
 
   return (
-    <div className="app-wrap">
+    <div className="app-wrap" style={{ background: '#f8fafc' }}>
 
       {/* Header */}
       <div style={{
-        background: '#111827',
-        padding: '16px',
+        background: 'var(--red)',
+        padding: '18px 16px 28px',
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
+        borderRadius: '0 0 22px 22px',
       }}>
-        <span style={{ fontSize: '22px' }}>🛵</span>
+        <span style={{ fontSize: '24px' }}>🐻</span>
         <div style={{ flex: 1 }}>
           <div style={{ color: '#fff', fontWeight: 700, fontSize: '17px' }}>
-            สวัสดี, {staffName}! 👋
+            สวัสดี, {staffName}!
           </div>
-          <div style={{ color: 'rgba(255,255,255,.65)', fontSize: '13px' }}>{branchName}</div>
+          <div style={{ color: 'rgba(255,255,255,.8)', fontSize: '13px' }}>{branchName}</div>
         </div>
+        <form action="/api/staff/logout" method="post">
+          <button type="submit" style={{
+            background: 'rgba(255,255,255,.15)', color: '#fff',
+            border: '1px solid rgba(255,255,255,.3)', borderRadius: '10px',
+            padding: '8px 12px', fontSize: '13px', fontWeight: 600,
+            fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
+          }}>ออกจากระบบ</button>
+        </form>
       </div>
       <TabBar />
 
-      <div style={{ padding: '16px' }}>
+      <div style={{ padding: '16px', marginTop: '-14px' }}>
 
         {/* QR Scan */}
         <Link href="/staff/scan" style={{
-          display: 'block',
-          background: '#e11d48',
+          background: '#fff',
           borderRadius: '16px',
-          padding: '24px',
-          textAlign: 'center',
-          color: '#fff',
-          marginBottom: '16px',
+          padding: '20px 24px',
+          display: 'flex', alignItems: 'center', gap: '16px',
+          color: '#111827',
+          marginBottom: '14px',
           textDecoration: 'none',
+          boxShadow: '0 4px 14px rgba(225,29,72,.15)',
+          border: '1px solid #fee2e2',
         }}>
-          <div style={{ fontSize: '48px', marginBottom: '8px' }}>📷</div>
-          <div style={{ fontSize: '18px', fontWeight: 700 }}>สแกน QR รถ</div>
-          <div style={{ fontSize: '13px', opacity: 0.8, marginTop: '4px' }}>แตะเพื่อเปิดกล้องสแกน</div>
+          <div style={{
+            width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
+            background: 'var(--red-lt)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontSize: '26px',
+          }}>📷</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '16px', fontWeight: 700 }}>สแกน QR รถ</div>
+            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>แตะเพื่อเปิดกล้องสแกน</div>
+          </div>
+          <span style={{ fontSize: '18px', color: 'var(--red)' }}>›</span>
         </Link>
 
         {/* Job Tasks Summary */}
@@ -134,7 +151,7 @@ export default async function StaffHomePage() {
           <div style={{
             borderRadius: '16px', overflow: 'hidden',
             boxShadow: '0 2px 8px rgba(0,0,0,.08)',
-            border: totalJobs > 0 ? '1.5px solid #e5e7eb' : '1.5px solid #e5e7eb',
+            border: '1.5px solid #e5e7eb',
           }}>
             <div style={{
               background: totalJobs > 0 ? '#111827' : '#f9fafb',
@@ -143,7 +160,7 @@ export default async function StaffHomePage() {
             }}>
               <div style={{
                 width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
-                background: totalJobs > 0 ? 'rgba(255,255,255,.2)' : '#e5e7eb',
+                background: totalJobs > 0 ? 'rgba(255,255,255,.15)' : '#e5e7eb',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px',
               }}>
                 📌
@@ -158,7 +175,7 @@ export default async function StaffHomePage() {
               </div>
               {totalJobs > 0 && (
                 <div style={{
-                  background: '#dc2626', color: '#fff', borderRadius: '999px',
+                  background: 'var(--red)', color: '#fff', borderRadius: '999px',
                   minWidth: '32px', height: '32px', display: 'flex', alignItems: 'center',
                   justifyContent: 'center', fontSize: '15px', fontWeight: 800, padding: '0 8px',
                 }}>
@@ -172,7 +189,7 @@ export default async function StaffHomePage() {
                 display: 'flex', gap: '8px', flexWrap: 'wrap',
               }}>
                 {(sendCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#111827', fontWeight: 600 }}>🛵➡️ ส่งรถ {sendCount}</span>}
-                {((overdueCount ?? 0) + (dueSoonCount ?? 0)) > 0 && <span style={{ fontSize: '12px', color: '#dc2626', fontWeight: 600 }}>⬅️ รับคืน {(overdueCount ?? 0) + (dueSoonCount ?? 0)}</span>}
+                {((overdueCount ?? 0) + (dueSoonCount ?? 0)) > 0 && <span style={{ fontSize: '12px', color: 'var(--red)', fontWeight: 600 }}>⬅️ รับคืน {(overdueCount ?? 0) + (dueSoonCount ?? 0)}</span>}
                 {(repairCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#d97706', fontWeight: 600 }}>🔧 ซ่อม {repairCount}</span>}
                 {(contactCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 600 }}>💰 ติดต่อลูกค้า {contactCount}</span>}
                 {(docsCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#374151', fontWeight: 600 }}>📋 เอกสาร {docsCount}</span>}
@@ -183,7 +200,7 @@ export default async function StaffHomePage() {
         </Link>
 
         {/* Quick actions */}
-        <div style={{ color: '#6b7280', fontSize: '13px', fontWeight: 600, paddingBottom: '8px' }}>
+        <div style={{ color: '#6b7280', fontSize: '13px', fontWeight: 600, paddingBottom: '10px' }}>
           เมนูด่วน
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -197,10 +214,10 @@ export default async function StaffHomePage() {
             <Link key={href} href={href} style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
+              gap: '12px',
               background: '#fff',
-              borderRadius: '12px',
-              padding: '14px',
+              borderRadius: '14px',
+              padding: '12px 14px',
               textDecoration: 'none',
               color: '#111827',
               fontWeight: 600,
@@ -208,7 +225,11 @@ export default async function StaffHomePage() {
               boxShadow: '0 1px 3px rgba(0,0,0,.06)',
               border: '1px solid #f3f4f6',
             }}>
-              <span style={{ fontSize: '22px' }}>{icon}</span>
+              <span style={{
+                width: '38px', height: '38px', borderRadius: '11px', flexShrink: 0,
+                background: 'var(--red-lt)', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: '19px',
+              }}>{icon}</span>
               {label}
             </Link>
           ))}
