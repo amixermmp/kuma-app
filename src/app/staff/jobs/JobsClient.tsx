@@ -25,6 +25,12 @@ function hoursUntil(iso: string) {
 function daysUntil(dateStr: string) {
   return Math.floor((new Date(dateStr).getTime() - Date.now()) / 86_400_000)
 }
+function bkkDateStr(iso: string) {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' })
+}
+function isTodayBkk(iso: string) {
+  return bkkDateStr(iso) === bkkDateStr(new Date().toISOString())
+}
 function urgencyPalette(days: number) {
   if (days < 0)   return { dot: '#b91c1c', bg: '#fee2e2', color: '#b91c1c' }
   if (days <= 3)  return { dot: '#dc2626', bg: '#fef2f2', color: '#dc2626' }
@@ -43,6 +49,36 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
       padding: '16px 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px',
     }}>
       {children}
+    </div>
+  )
+}
+
+// กลุ่มที่พับ/กางได้ — ใช้แยก เกินกำหนด / วันนี้ / ยังไม่ถึง ให้ไม่ต้องเลื่อนผ่านของที่ยังไม่เร่งด่วน
+function CollapsibleGroup({
+  title, count, dotColor, defaultOpen = true, children,
+}: {
+  title: string; count: number; dotColor: string; defaultOpen?: boolean; children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  if (count === 0) return null
+  return (
+    <div style={{ marginBottom: '4px' }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+          padding: '10px 2px 8px', userSelect: 'none',
+        }}
+      >
+        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+        <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827', flex: 1 }}>{title}</span>
+        <span style={{
+          fontSize: '11px', fontWeight: 700, color: '#6b7280',
+          background: '#f1f5f9', borderRadius: '999px', padding: '2px 8px',
+        }}>{count}</span>
+        <span style={{ fontSize: '11px', color: '#9ca3af', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▼</span>
+      </div>
+      {open && children}
     </div>
   )
 }
@@ -225,6 +261,15 @@ export default function JobsClient({
 
   const visibleSendJobs = sendJobs.filter((b: any) => !cancelledIds.has(b.id)) // eslint-disable-line @typescript-eslint/no-explicit-any
 
+  // แยกงานส่งรถ: เลยเวลานัด / ส่งวันนี้ / ยังไม่ถึงวันนัด
+  const sendOverdue = visibleSendJobs.filter((b: any) => hoursUntil(b.start_datetime) < 0) // eslint-disable-line @typescript-eslint/no-explicit-any
+  const sendToday    = visibleSendJobs.filter((b: any) => hoursUntil(b.start_datetime) >= 0 && isTodayBkk(b.start_datetime)) // eslint-disable-line @typescript-eslint/no-explicit-any
+  const sendFuture    = visibleSendJobs.filter((b: any) => hoursUntil(b.start_datetime) >= 0 && !isTodayBkk(b.start_datetime)) // eslint-disable-line @typescript-eslint/no-explicit-any
+
+  // แยกงานรับคืน: เกินกำหนด (มาจาก overdueRentals อยู่แล้ว) / รับคืนวันนี้ / ยังไม่ถึงกำหนด
+  const returnToday  = dueSoonRentals.filter((j: any) => isTodayBkk(j.expected_end_datetime)) // eslint-disable-line @typescript-eslint/no-explicit-any
+  const returnFuture = dueSoonRentals.filter((j: any) => !isTodayBkk(j.expected_end_datetime)) // eslint-disable-line @typescript-eslint/no-explicit-any
+
   const returnJobs = [...overdueRentals, ...dueSoonRentals]
   const nowMs = Date.now()
   const counts = {
@@ -395,87 +440,155 @@ export default function JobsClient({
         {show('sendcar') && visibleSendJobs.length > 0 && (
           <>
             <SectionTitle>งานส่งรถ 🛵➡️</SectionTitle>
-            {visibleSendJobs.map((b: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-              const bike = b.bikes
-              const hrs = hoursUntil(b.start_datetime)
-              const isLate = hrs < 0
-              const absHrs = Math.abs(hrs)
-              const bikeLabel = bike
-                ? `${bike.license_plate} ${bike.brand} ${bike.model}`
-                : `${b.requested_brand ?? ''} ${b.requested_model ?? ''} (ยังไม่ได้กำหนดรถ)`
-              const badge = isLate
-                ? (absHrs >= 24 ? `⚠️ ลูกค้าไม่มา ${Math.floor(absHrs / 24)} วัน` : `⚠️ เลยเวลา ${absHrs} ชม.`)
-                : hrs === 0 ? '🔔 ถึงเวลาแล้ว!' : `⏰ อีก ${hrs} ชม.`
-              const dotColor = isLate ? (absHrs >= 3 ? '#dc2626' : '#d97706') : '#111827'
-              const badgeBg = isLate ? '#fef2f2' : '#f1f5f9'
-              const badgeColor = isLate ? '#dc2626' : '#111827'
-              return (
-                <JobCard
-                  key={b.id}
-                  dotColor={dotColor}
-                  photoUrl={bike?.photo_url} bikeColor={bike?.color}
-                  title={`ส่งรถ — ${bikeLabel}`}
-                  badge={badge}
-                  badgeBg={badgeBg} badgeColor={badgeColor}
-                  meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
-                  meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
-                  meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
-                  statusLabel={isLate ? '⚠️ ลูกค้าไม่มา' : bike ? '⬛ รอส่งรถ' : '🟡 ยังไม่ได้เลือกรถ'}
-                  statusBg={isLate ? '#fef2f2' : bike ? '#f1f5f9' : '#fffbeb'}
-                  statusColor={isLate ? '#dc2626' : bike ? '#111827' : '#d97706'}
-                  href={`/staff/assign/${b.id}`} btnColor="#111827"
-                  cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
-                  onCancel={() => handleCancel(b.id)}
-                  cancelDisabled={cancelling === b.id}
-                />
-              )
-            })}
+            <CollapsibleGroup title="เลยเวลานัด" count={sendOverdue.length} dotColor="#dc2626" defaultOpen>
+              {sendOverdue.map((b: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+                const bike = b.bikes
+                const absHrs = Math.abs(hoursUntil(b.start_datetime))
+                const bikeLabel = bike
+                  ? `${bike.license_plate} ${bike.brand} ${bike.model}`
+                  : `${b.requested_brand ?? ''} ${b.requested_model ?? ''} (ยังไม่ได้กำหนดรถ)`
+                const badge = absHrs >= 24 ? `⚠️ ลูกค้าไม่มา ${Math.floor(absHrs / 24)} วัน` : `⚠️ เลยเวลา ${absHrs} ชม.`
+                return (
+                  <JobCard
+                    key={b.id}
+                    dotColor={absHrs >= 3 ? '#dc2626' : '#d97706'}
+                    photoUrl={bike?.photo_url} bikeColor={bike?.color}
+                    title={`ส่งรถ — ${bikeLabel}`}
+                    badge={badge} badgeBg="#fef2f2" badgeColor="#dc2626"
+                    meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
+                    meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
+                    meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
+                    statusLabel="⚠️ ลูกค้าไม่มา" statusBg="#fef2f2" statusColor="#dc2626"
+                    href={`/staff/assign/${b.id}`} btnColor="#111827"
+                    cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
+                    onCancel={() => handleCancel(b.id)}
+                    cancelDisabled={cancelling === b.id}
+                  />
+                )
+              })}
+            </CollapsibleGroup>
+            <CollapsibleGroup title="ส่งรถวันนี้" count={sendToday.length} dotColor="#111827" defaultOpen>
+              {sendToday.map((b: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+                const bike = b.bikes
+                const hrs = hoursUntil(b.start_datetime)
+                const bikeLabel = bike
+                  ? `${bike.license_plate} ${bike.brand} ${bike.model}`
+                  : `${b.requested_brand ?? ''} ${b.requested_model ?? ''} (ยังไม่ได้กำหนดรถ)`
+                const badge = hrs === 0 ? '🔔 ถึงเวลาแล้ว!' : `⏰ อีก ${hrs} ชม.`
+                return (
+                  <JobCard
+                    key={b.id}
+                    dotColor="#111827"
+                    photoUrl={bike?.photo_url} bikeColor={bike?.color}
+                    title={`ส่งรถ — ${bikeLabel}`}
+                    badge={badge} badgeBg="#f1f5f9" badgeColor="#111827"
+                    meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
+                    meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
+                    meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
+                    statusLabel={bike ? '⬛ รอส่งรถ' : '🟡 ยังไม่ได้เลือกรถ'}
+                    statusBg={bike ? '#f1f5f9' : '#fffbeb'} statusColor={bike ? '#111827' : '#d97706'}
+                    href={`/staff/assign/${b.id}`} btnColor="#111827"
+                    cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
+                    onCancel={() => handleCancel(b.id)}
+                    cancelDisabled={cancelling === b.id}
+                  />
+                )
+              })}
+            </CollapsibleGroup>
+            <CollapsibleGroup title="ยังไม่ถึงวันนัด" count={sendFuture.length} dotColor="#9ca3af" defaultOpen={false}>
+              {sendFuture.map((b: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+                const bike = b.bikes
+                const bikeLabel = bike
+                  ? `${bike.license_plate} ${bike.brand} ${bike.model}`
+                  : `${b.requested_brand ?? ''} ${b.requested_model ?? ''} (ยังไม่ได้กำหนดรถ)`
+                return (
+                  <JobCard
+                    key={b.id}
+                    dotColor="#9ca3af"
+                    photoUrl={bike?.photo_url} bikeColor={bike?.color}
+                    title={`ส่งรถ — ${bikeLabel}`}
+                    badge={`📅 ${fmtDate(b.start_datetime)}`} badgeBg="#f1f5f9" badgeColor="#374151"
+                    meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
+                    meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
+                    meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
+                    statusLabel="🗓️ ยังไม่ถึงวันนัด" statusBg="#f1f5f9" statusColor="#374151"
+                    href={`/staff/assign/${b.id}`} btnColor="#111827"
+                    cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
+                    onCancel={() => handleCancel(b.id)}
+                    cancelDisabled={cancelling === b.id}
+                  />
+                )
+              })}
+            </CollapsibleGroup>
           </>
         )}
 
         {/* รับคืน */}
         {show('returncar') && returnJobs.length > 0 && (
           <>
-            <SectionTitle>งานรับรถคืน ⬅️🛵 — ถึงกำหนดวันนี้</SectionTitle>
-            {overdueRentals.map((job: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-              const hrs = overdueHours(job.expected_end_datetime)
-              const bike = job.bikes
-              return (
-                <JobCard
-                  key={job.id} dotColor="#dc2626"
-                  photoUrl={bike?.photo_url} bikeColor={bike?.color}
-                  title={`รับคืน — ${bike.license_plate} ${bike.brand} ${bike.model}`}
-                  badge="🔴 เกินกำหนด!" badgeBg="#fef2f2" badgeColor="#dc2626"
-                  meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
-                  meta2={`⏱ เกินมา ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)} ${fmtTime(job.expected_end_datetime)}`}
-                  statusLabel="🔴 เกินกำหนด" statusBg="#fef2f2" statusColor="#dc2626"
-                  href={`/staff/return/${job.id}`} btnColor="#dc2626"
-                  cardHref={`/staff/bikes/${bike.id}/menu`}
-                  contractHref={`/staff/contract/${job.id}`}
-                  extendHref={`/staff/extend/${job.id}`}
-                />
-              )
-            })}
-            {dueSoonRentals.map((job: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-              const hrs = hoursUntil(job.expected_end_datetime)
-              const bike = job.bikes
-              const urgent = hrs <= 2
-              return (
-                <JobCard
-                  key={job.id} dotColor={urgent ? '#d97706' : '#6b7280'}
-                  photoUrl={bike?.photo_url} bikeColor={bike?.color}
-                  title={`รับคืน — ${bike.license_plate} ${bike.brand} ${bike.model}`}
-                  badge={`⚠️ ${fmtTime(job.expected_end_datetime)} น.`} badgeBg="#fffbeb" badgeColor="#d97706"
-                  meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
-                  meta2={`⏱ อีก ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)}`}
-                  statusLabel={urgent ? '⚠️ ใกล้ถึงกำหนด' : '📅 วันนี้'}
-                  statusBg={urgent ? '#fffbeb' : '#f9fafb'} statusColor={urgent ? '#d97706' : '#6b7280'}
-                  href={`/staff/return/${job.id}`} btnColor={urgent ? '#d97706' : '#4b5563'}
-                  cardHref={`/staff/bikes/${bike.id}/menu`}
-                  contractHref={`/staff/contract/${job.id}`}
-                />
-              )
-            })}
+            <SectionTitle>งานรับรถคืน ⬅️🛵</SectionTitle>
+            <CollapsibleGroup title="เกินกำหนด" count={overdueRentals.length} dotColor="#dc2626" defaultOpen>
+              {overdueRentals.map((job: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+                const hrs = overdueHours(job.expected_end_datetime)
+                const bike = job.bikes
+                return (
+                  <JobCard
+                    key={job.id} dotColor="#dc2626"
+                    photoUrl={bike?.photo_url} bikeColor={bike?.color}
+                    title={`รับคืน — ${bike.license_plate} ${bike.brand} ${bike.model}`}
+                    badge="🔴 เกินกำหนด!" badgeBg="#fef2f2" badgeColor="#dc2626"
+                    meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
+                    meta2={`⏱ เกินมา ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)} ${fmtTime(job.expected_end_datetime)}`}
+                    statusLabel="🔴 เกินกำหนด" statusBg="#fef2f2" statusColor="#dc2626"
+                    href={`/staff/return/${job.id}`} btnColor="#dc2626"
+                    cardHref={`/staff/bikes/${bike.id}/menu`}
+                    contractHref={`/staff/contract/${job.id}`}
+                    extendHref={`/staff/extend/${job.id}`}
+                  />
+                )
+              })}
+            </CollapsibleGroup>
+            <CollapsibleGroup title="รับคืนวันนี้" count={returnToday.length} dotColor="#d97706" defaultOpen>
+              {returnToday.map((job: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+                const hrs = hoursUntil(job.expected_end_datetime)
+                const bike = job.bikes
+                const urgent = hrs <= 2
+                return (
+                  <JobCard
+                    key={job.id} dotColor={urgent ? '#d97706' : '#6b7280'}
+                    photoUrl={bike?.photo_url} bikeColor={bike?.color}
+                    title={`รับคืน — ${bike.license_plate} ${bike.brand} ${bike.model}`}
+                    badge={`⚠️ ${fmtTime(job.expected_end_datetime)} น.`} badgeBg="#fffbeb" badgeColor="#d97706"
+                    meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
+                    meta2={`⏱ อีก ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)}`}
+                    statusLabel={urgent ? '⚠️ ใกล้ถึงกำหนด' : '📅 วันนี้'}
+                    statusBg={urgent ? '#fffbeb' : '#f9fafb'} statusColor={urgent ? '#d97706' : '#6b7280'}
+                    href={`/staff/return/${job.id}`} btnColor={urgent ? '#d97706' : '#4b5563'}
+                    cardHref={`/staff/bikes/${bike.id}/menu`}
+                    contractHref={`/staff/contract/${job.id}`}
+                  />
+                )
+              })}
+            </CollapsibleGroup>
+            <CollapsibleGroup title="ยังไม่ถึงกำหนด" count={returnFuture.length} dotColor="#9ca3af" defaultOpen={false}>
+              {returnFuture.map((job: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+                const bike = job.bikes
+                return (
+                  <JobCard
+                    key={job.id} dotColor="#9ca3af"
+                    photoUrl={bike?.photo_url} bikeColor={bike?.color}
+                    title={`รับคืน — ${bike.license_plate} ${bike.brand} ${bike.model}`}
+                    badge={`📅 ${fmtDate(job.expected_end_datetime)}`} badgeBg="#f1f5f9" badgeColor="#374151"
+                    meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
+                    meta2={`📅 กำหนด ${fmtDate(job.expected_end_datetime)} ${fmtTime(job.expected_end_datetime)}`}
+                    statusLabel="🗓️ ยังไม่ถึงกำหนด" statusBg="#f1f5f9" statusColor="#374151"
+                    href={`/staff/return/${job.id}`} btnColor="#4b5563"
+                    cardHref={`/staff/bikes/${bike.id}/menu`}
+                    contractHref={`/staff/contract/${job.id}`}
+                  />
+                )
+              })}
+            </CollapsibleGroup>
           </>
         )}
 

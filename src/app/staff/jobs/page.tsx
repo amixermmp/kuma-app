@@ -30,7 +30,6 @@ export default async function JobsPage() {
   const supabase = createAdminClient()
   const now = new Date()
   const nowIso = now.toISOString()
-  const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
   const today = now.toISOString().split('T')[0]
   const in30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
@@ -63,10 +62,9 @@ export default async function JobsPage() {
     applyBike(supabase.from('rentals')
       .select('id, expected_end_datetime, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
       .gte('expected_end_datetime', nowIso)
-      .lte('expected_end_datetime', in24h)
       .in('status', ['active', 'extended'])
       .order('expected_end_datetime', { ascending: true })
-      .limit(20)),
+      .limit(50)),
 
     applyBike(supabase.from('rentals')
       .select('id, start_datetime, expected_end_datetime, total_days, daily_rate, total_amount, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
