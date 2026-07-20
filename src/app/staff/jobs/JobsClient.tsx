@@ -273,8 +273,9 @@ export default function JobsClient({
   const returnJobs = [...overdueRentals, ...dueSoonRentals]
   const nowMs = Date.now()
   const counts = {
-    sendcar:  visibleSendJobs.length,
-    returncar: returnJobs.length,
+    // ตัวเลขบนแท็บ/badge นับเฉพาะงานวันนี้ — ของค้างเก่า (เกินกำหนด) กับของยังไม่ถึงยังโชว์อยู่ในลิสต์ แต่ไม่นับรวมตัวเลข
+    sendcar:  sendToday.length,
+    returncar: returnToday.length,
     active:   activeRentals.length,
     broken:   repairs.length,
     routine:  overdueRoutines.length,
@@ -764,8 +765,8 @@ export default function JobsClient({
           </>
         )}
 
-        {/* ถ้ากด tab แต่ไม่มีงานในหมวดนั้น */}
-        {tab !== 'all' && counts[tab as keyof typeof counts] === 0 && (
+        {/* ถ้ากด tab แต่ไม่มีงานในหมวดนั้น — ใช้ลิสต์เต็ม ไม่ใช่ตัวเลข badge (badge นับแค่วันนี้ แต่ลิสต์โชว์ครบ) */}
+        {tab !== 'all' && (tab === 'sendcar' ? visibleSendJobs.length : tab === 'returncar' ? returnJobs.length : counts[tab as keyof typeof counts]) === 0 && (
           <div style={{
             textAlign: 'center', padding: '48px 16px',
             background: '#f9fafb', borderRadius: '12px',
