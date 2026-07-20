@@ -19,6 +19,7 @@ type Rental = {
   outstanding_credit: number
   status: string
   notes: string | null
+  discount: number
   bikes: { id: string; license_plate: string; brand: string; model: string; odometer: number; daily_rate: number; monthly_rate: number | null }
   customers: { id: string; name: string; phone: string }
 }
@@ -77,14 +78,17 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
   const overtimeCharge = Math.max(0, grossOvertimeCharge - credit)
 
   // คืนรถก่อนกำหนด (เกิน 1 ชม.ก่อนกำหนดถือว่า early) — คิดค่าเช่าใหม่ตามวันที่ใช้จริง
-  // ด้วยเรทปกติของรถ (ไม่ใช้ส่วนลด/โปรที่ตกลงไว้ตอนจอง) แล้วคืนส่วนต่างจากที่จ่ายไปแล้ว
+  // ด้วยเรทที่ตกลงไว้จริง (รวมส่วนลดโปรนักศึกษาถ้ามี — ไม่ใช่แค่เรทเต็มของรถ) แล้วคืนส่วนต่างจากที่จ่ายไปแล้ว
   // สมมติฐาน: วันที่ใช้จริงปัดขึ้นเป็นวันเต็ม (ใช้เกินเที่ยงคืนแล้วนับเป็นอีกวัน) — มาตรฐานร้านเช่ารถทั่วไป
+  const STUDENT_PROMO_DISCOUNT = 50 // ต้องตรงกับส่วนลด/วันในหน้าส่งรถ (SendCarForm.tsx)
   const isEarly = now < expectedMs - 3_600_000
   const usedDaysMs = Math.max(0, now - new Date(rental.start_datetime).getTime())
   const actualDaysUsed = Math.max(1, Math.ceil(usedDaysMs / 86_400_000))
+  const isStudentPromo = (rental.discount ?? 0) > 0
+  const effectiveDailyRate = rental.daily_rate - (isStudentPromo ? STUDENT_PROMO_DISCOUNT : 0)
   const normalMonthlyRate = bike.monthly_rate || bike.daily_rate * 30
   const recalculatedCharge = isEarly
-    ? calcRentQuote(new Date(rental.start_datetime), actualDaysUsed, bike.daily_rate, normalMonthlyRate).total
+    ? calcRentQuote(new Date(rental.start_datetime), actualDaysUsed, effectiveDailyRate, normalMonthlyRate).total
     : rental.total_amount
   // คืนเฉพาะกรณีจ่ายไปแล้วมากกว่าที่ควรจ่ายจริง — ไม่มีทางเรียกเก็บเพิ่มจากการคืนก่อน
   const earlyReturnRefund = isEarly ? Math.max(0, rental.total_amount - recalculatedCharge) : 0
@@ -337,7 +341,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
               📆 คืนรถก่อนกำหนด — คิดค่าเช่าใหม่ตามวันที่ใช้จริง
             </div>
             <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>
-              ใช้จริง {actualDaysUsed} วัน × เรทปกติ (ไม่รวมส่วนลด/โปรตอนจอง) = ฿{recalculatedCharge.toLocaleString()}
+              ใช้จริง {actualDaysUsed} วัน × ฿{effectiveDailyRate.toLocaleString()}/วัน{isStudentPromo ? ' (รวมส่วนลดนักศึกษาแล้ว)' : ''} = ฿{recalculatedCharge.toLocaleString()}
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '13px', color: '#374151' }}>
