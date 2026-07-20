@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { calcRentQuote } from '@/lib/pricing'
 
-type Bike = { id: string; license_plate: string; brand: string; model: string; odometer: number }
+type Bike = { id: string; license_plate: string; brand: string; model: string; odometer: number; daily_rate: number; monthly_rate: number | null }
 type Customer = { id: string; name: string; phone: string }
 
 type MonthlyRental = {
@@ -21,6 +22,9 @@ type Props = {
   rental: MonthlyRental
   totalCollected: number
   monthsRented: number
+  periodStart: string
+  periodEnd: string | null
+  periodPaidAmount: number
   staffId: string
 }
 
@@ -30,10 +34,23 @@ function fmtDate(iso: string) {
   })
 }
 
-export default function MonthlyEndClient({ rental, totalCollected, monthsRented }: Props) {
+export default function MonthlyEndClient({ rental, totalCollected, monthsRented, periodStart, periodEnd, periodPaidAmount }: Props) {
   const router = useRouter()
   const bike = rental.bikes
   const customer = rental.customers
+
+  // คืนรถก่อนครบงวดที่จ่ายไปแล้ว — คิดค่าเช่าใหม่ตามวันที่ใช้จริงในงวดนี้ด้วยเรทรายวันปกติของรถ
+  // (ไม่ใช้เรทรายเดือนที่ตกลงไว้ตอนทำสัญญา) แล้วคืนส่วนต่างจากที่จ่ายไปแล้วสำหรับงวดนี้
+  const now = Date.now()
+  const periodEndMs = periodEnd ? new Date(`${periodEnd}T23:59:59+07:00`).getTime() : null
+  const isEarly = periodEndMs != null && now < periodEndMs - 3_600_000
+  const periodStartMs = new Date(`${periodStart}T00:00:00+07:00`).getTime()
+  const actualDaysUsed = Math.max(1, Math.ceil(Math.max(0, now - periodStartMs) / 86_400_000))
+  const normalMonthlyRate = bike.monthly_rate || bike.daily_rate * 30
+  const recalculatedCharge = isEarly
+    ? calcRentQuote(new Date(periodStartMs), actualDaysUsed, bike.daily_rate, normalMonthlyRate).total
+    : periodPaidAmount
+  const earlyReturnRefund = isEarly ? Math.max(0, periodPaidAmount - recalculatedCharge) : 0
 
   const [returnOdometer, setReturnOdometer] = useState(String(bike.odometer ?? ''))
   const [returnNote, setReturnNote]         = useState('')
@@ -70,6 +87,7 @@ export default function MonthlyEndClient({ rental, totalCollected, monthsRented 
           returnPhotos: photos.length > 0 ? photos : null,
           returnNote: returnNote.trim() || null,   // API maps → notes
           returnOdometer: returnOdometer ? Number(returnOdometer) : null,
+          earlyReturnRefund,
         }),
       })
       const data = await res.json()
@@ -120,6 +138,29 @@ export default function MonthlyEndClient({ rental, totalCollected, monthsRented 
             <span className="info-val">฿{rental.deposit_amount.toLocaleString()}</span>
           </div>
         </div>
+
+        {/* Early return refund (งวดปัจจุบัน) */}
+        {isEarly && (
+          <div style={{
+            background: '#f0fdf4', border: '2px solid #bbf7d0',
+            borderRadius: '14px', padding: '14px 18px', marginBottom: '10px',
+          }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#16a34a', marginBottom: '6px' }}>
+              📆 คืนรถก่อนครบงวด — คิดค่าเช่างวดนี้ใหม่ตามวันที่ใช้จริง
+            </div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>
+              งวดนี้ใช้จริง {actualDaysUsed} วัน × เรทรายวันปกติ (ไม่ใช้เรทรายเดือนที่ตกลงไว้) = ฿{recalculatedCharge.toLocaleString()}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', color: '#374151' }}>
+                จ่ายงวดนี้ไปแล้ว ฿{periodPaidAmount.toLocaleString()} − ควรจ่ายจริง ฿{recalculatedCharge.toLocaleString()}
+              </span>
+              <span style={{ fontSize: '20px', fontWeight: 900, color: earlyReturnRefund > 0 ? '#15803d' : '#6b7280' }}>
+                {earlyReturnRefund > 0 ? `คืน ฿${earlyReturnRefund.toLocaleString()}` : 'ไม่มีส่วนคืน'}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Return info */}
         <div className="card">

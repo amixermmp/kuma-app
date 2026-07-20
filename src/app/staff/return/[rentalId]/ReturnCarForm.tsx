@@ -6,6 +6,7 @@ import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
 import TabBar from '@/components/staff/TabBar'
 import { addTab } from '@/lib/tabStore'
+import { calcRentQuote } from '@/lib/pricing'
 
 type Rental = {
   id: string
@@ -18,7 +19,7 @@ type Rental = {
   outstanding_credit: number
   status: string
   notes: string | null
-  bikes: { id: string; license_plate: string; brand: string; model: string; odometer: number }
+  bikes: { id: string; license_plate: string; brand: string; model: string; odometer: number; daily_rate: number; monthly_rate: number | null }
   customers: { id: string; name: string; phone: string }
 }
 
@@ -75,6 +76,19 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
   const credit = rental.outstanding_credit ?? 0
   const overtimeCharge = Math.max(0, grossOvertimeCharge - credit)
 
+  // คืนรถก่อนกำหนด (เกิน 1 ชม.ก่อนกำหนดถือว่า early) — คิดค่าเช่าใหม่ตามวันที่ใช้จริง
+  // ด้วยเรทปกติของรถ (ไม่ใช้ส่วนลด/โปรที่ตกลงไว้ตอนจอง) แล้วคืนส่วนต่างจากที่จ่ายไปแล้ว
+  // สมมติฐาน: วันที่ใช้จริงปัดขึ้นเป็นวันเต็ม (ใช้เกินเที่ยงคืนแล้วนับเป็นอีกวัน) — มาตรฐานร้านเช่ารถทั่วไป
+  const isEarly = now < expectedMs - 3_600_000
+  const usedDaysMs = Math.max(0, now - new Date(rental.start_datetime).getTime())
+  const actualDaysUsed = Math.max(1, Math.ceil(usedDaysMs / 86_400_000))
+  const normalMonthlyRate = bike.monthly_rate || bike.daily_rate * 30
+  const recalculatedCharge = isEarly
+    ? calcRentQuote(new Date(rental.start_datetime), actualDaysUsed, bike.daily_rate, normalMonthlyRate).total
+    : rental.total_amount
+  // คืนเฉพาะกรณีจ่ายไปแล้วมากกว่าที่ควรจ่ายจริง — ไม่มีทางเรียกเก็บเพิ่มจากการคืนก่อน
+  const earlyReturnRefund = isEarly ? Math.max(0, rental.total_amount - recalculatedCharge) : 0
+
   const [checklist, setChecklist] = useState<boolean[]>(CHECKLIST.map(() => true))
   const [odometer, setOdometer] = useState('')
   const [fuelLevel, setFuelLevel] = useState(8)
@@ -87,7 +101,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
 
   const damage = parseFloat(damageFee) || 0
   const finalOvertimeCharge = overrideOvertime !== '' ? Math.max(0, parseFloat(overrideOvertime) || 0) : overtimeCharge
-  const netRefund = rental.deposit_amount - finalOvertimeCharge - damage
+  const netRefund = rental.deposit_amount - finalOvertimeCharge - damage + earlyReturnRefund
 
   const toggleCheck = useCallback((i: number) => {
     setChecklist(prev => prev.map((v, idx) => idx === i ? !v : v))
@@ -111,8 +125,9 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           returnPhotoUrl: photoUrl || null,
           refundAmount: netRefund,
           checklistPassed: checklist,
-          finalRentAmount: rental.total_amount,
+          finalRentAmount: recalculatedCharge,
           overtimeCharge: finalOvertimeCharge,
+          earlyReturnRefund,
         }),
       })
       const data = await res.json()
@@ -312,6 +327,29 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
           </div>
         )}
 
+        {/* Early return refund */}
+        {isEarly && (
+          <div style={{
+            background: '#f0fdf4', border: '2px solid #bbf7d0',
+            borderRadius: '14px', padding: '14px 18px', marginBottom: '10px',
+          }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#16a34a', marginBottom: '6px' }}>
+              📆 คืนรถก่อนกำหนด — คิดค่าเช่าใหม่ตามวันที่ใช้จริง
+            </div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>
+              ใช้จริง {actualDaysUsed} วัน × เรทปกติ (ไม่รวมส่วนลด/โปรตอนจอง) = ฿{recalculatedCharge.toLocaleString()}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', color: '#374151' }}>
+                จ่ายไปแล้ว ฿{rental.total_amount.toLocaleString()} − ควรจ่ายจริง ฿{recalculatedCharge.toLocaleString()}
+              </span>
+              <span style={{ fontSize: '20px', fontWeight: 900, color: earlyReturnRefund > 0 ? '#15803d' : '#6b7280' }}>
+                {earlyReturnRefund > 0 ? `คืน ฿${earlyReturnRefund.toLocaleString()}` : 'ไม่มีส่วนคืน'}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Deposit refund / extra charge */}
         <div style={{
           background: netRefund >= 0 ? '#f0fdf4' : '#fff7ed',
@@ -328,6 +366,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
                 ? `มัดจำ ฿${rental.deposit_amount.toLocaleString()}`
                   + (finalOvertimeCharge > 0 ? ` − ล่วงเวลา ฿${finalOvertimeCharge.toLocaleString()}` : '')
                   + (damage > 0 ? ` − เสียหาย ฿${damage.toLocaleString()}` : '')
+                  + (earlyReturnRefund > 0 ? ` + คืนค่าเช่า ฿${earlyReturnRefund.toLocaleString()}` : '')
                 : `ล่วงเวลา (หลังหักเครดิต) ฿${finalOvertimeCharge.toLocaleString()} เกินมัดจำ ฿${rental.deposit_amount.toLocaleString()}`}
             </div>
           </div>
