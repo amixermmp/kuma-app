@@ -160,7 +160,7 @@ function JobCard({
             {meta3}
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: statusLabel ? 'space-between' : 'flex-end', marginTop: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: statusLabel ? 'space-between' : 'flex-start', marginTop: '8px' }}>
           {statusLabel && (
             <span style={{
               fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px',
