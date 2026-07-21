@@ -207,6 +207,7 @@ export default async function StaffHomePage() {
           {([
             { icon: '🔍', label: 'ค้นหารถ',    href: '/staff/search' },
             { icon: '🛵', label: 'รวมรถ',       href: '/staff/fleet' },
+            { icon: '📅', label: 'ภาพรวมรถว่าง', href: '/staff/availability' },
             { icon: '🔧', label: 'แจ้งรถเสีย',  href: '/staff/broken' },
             { icon: '📄', label: 'งานเอกสาร',  href: '/staff/docs' },
             { icon: '🛢️', label: 'งานรูทีน',   href: '/staff/routine' },
