@@ -639,6 +639,7 @@ export default function JobsClient({
                     href={`/staff/return/${job.id}`} btnColor={urgent ? '#d97706' : '#4b5563'}
                     cardHref={`/staff/bikes/${bike.id}/menu`}
                     contractHref={`/staff/contract/${job.id}`}
+                    extendHref={`/staff/extend/${job.id}`}
                   />
                 )
               })}
@@ -658,6 +659,7 @@ export default function JobsClient({
                     href={`/staff/return/${job.id}`} btnColor="#4b5563"
                     cardHref={`/staff/bikes/${bike.id}/menu`}
                     contractHref={`/staff/contract/${job.id}`}
+                    extendHref={`/staff/extend/${job.id}`}
                   />
                 )
               })}
@@ -715,6 +717,7 @@ export default function JobsClient({
                   href={`/staff/return/${job.id}`} btnColor={isOverdue ? '#dc2626' : '#16a34a'}
                   cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                   contractHref={`/staff/contract/${job.id}`}
+                  extendHref={`/staff/extend/${job.id}`}
                   swapHref={`/staff/swap/daily/${job.id}`}
                   isLocked={isLocked}
                   lockLoading={lockLoadingId === bike?.id}
