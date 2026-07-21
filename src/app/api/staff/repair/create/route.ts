@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
+import { logStaffAction } from '@/lib/log'
+import { findBookingConflictsForBike } from '@/lib/bookingConflicts'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -34,5 +36,13 @@ export async function POST(request: NextRequest) {
 
   await supabase.from('bikes').update({ status: 'repair' }).eq('id', bikeId)
 
-  return NextResponse.json({ success: true, repairId: repair.id })
+  const { data: bike } = await supabase.from('bikes').select('license_plate').eq('id', bikeId).single()
+  await logStaffAction(staffId, 'repair_created',
+    `แจ้งซ่อม ${bike?.license_plate ?? ''} — ${description.substring(0, 80)}`,
+    { repairId: repair.id, bikeId })
+
+  // เช็คว่ารถคันนี้มีคิวจองผูกอยู่ไหม — ถ้ามี ให้ frontend เด้งเตือนพนักงาน (ไม่บล็อกการแจ้งซ่อม)
+  const conflicts = await findBookingConflictsForBike(supabase, bikeId)
+
+  return NextResponse.json({ success: true, repairId: repair.id, conflicts })
 }

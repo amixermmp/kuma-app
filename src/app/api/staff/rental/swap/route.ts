@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
+import { hasOpenContract } from '@/lib/availability'
+import { findBookingConflictsForBike } from '@/lib/bookingConflicts'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -84,6 +86,10 @@ export async function POST(request: NextRequest) {
   if (newBike.branch_id !== branchId) {
     return NextResponse.json({ error: 'รถต้องอยู่สาขาเดียวกัน' }, { status: 400 })
   }
+  // Guard: สถานะรถอาจค้าง — เช็คสัญญาจริงด้วย กันสลับไปคันที่มีสัญญาค้าง
+  if (await hasOpenContract(supabase, newBikeId)) {
+    return NextResponse.json({ error: 'รถคันนี้ยังมีสัญญาค้างอยู่ สลับไปไม่ได้' }, { status: 409 })
+  }
 
   const newPlate = newBike.license_plate
 
@@ -144,5 +150,12 @@ export async function POST(request: NextRequest) {
     metadata: { rentalType, rentalId, oldBikeId, newBikeId, swapType, reason, reassignBookingIds: bookingIds },
   })
 
-  return NextResponse.json({ success: true })
+  // เช็คคิวจองที่ยังผูกกับรถคันเก่า (ที่ไม่ได้ถูกเลือกให้โยกย้าย) และคันใหม่ — ถ้ามีปัญหาให้ frontend เด้งเตือน
+  const [oldConflicts, newConflicts] = await Promise.all([
+    findBookingConflictsForBike(supabase, oldBikeId),
+    findBookingConflictsForBike(supabase, newBikeId),
+  ])
+  const conflicts = [...oldConflicts, ...newConflicts.filter(c => !oldConflicts.some(o => o.id === c.id))]
+
+  return NextResponse.json({ success: true, conflicts })
 }

@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
+import { findBrokenBookings } from '@/lib/bookingConflicts'
 import JobsClient from './JobsClient'
 
 export const dynamic = 'force-dynamic'
@@ -42,16 +43,20 @@ export default async function JobsPage() {
   const applyBike   = (q: any) => allowedBikeIds   ? q.in('bike_id', allowedBikeIds)     : q
 
   const [
-    { data: overdueRentals },
-    { data: dueSoonRentals },
-    { data: activeRentals },
-    { data: repairs },
-    { data: routines },
-    { data: docsDue },
-    { data: monthlyDue },
-    { data: sendJobs },
-    { data: allMonthlyActive },
+    [
+      { data: overdueRentals },
+      { data: dueSoonRentals },
+      { data: activeRentals },
+      { data: repairs },
+      { data: routines },
+      { data: docsDue },
+      { data: monthlyDue },
+      { data: sendJobs },
+      { data: allMonthlyActive },
+    ],
+    brokenBookings,
   ] = await Promise.all([
+    Promise.all([
     applyBike(supabase.from('rentals')
       .select('id, expected_end_datetime, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
       .lt('expected_end_datetime', nowIso)
@@ -110,6 +115,8 @@ export default async function JobsPage() {
       .select('id, bike_id, start_date, payment_day, monthly_rate, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
       .eq('status', 'active')
       .limit(100)),
+    ]),
+    findBrokenBookings(supabase, allowedBranchIds),
   ])
 
   const in7days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -207,6 +214,7 @@ export default async function JobsPage() {
       docsDue={docsDue ?? []}
       monthlyContactAlerts={monthlyContactAlerts}
       allMonthlyRentals={allMonthlyRentals}
+      brokenBookings={brokenBookings}
     />
   )
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import BookingConflictModal from '@/components/staff/BookingConflictModal'
 
 type Rental = {
   id: string
@@ -56,6 +57,8 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
   const [reassignIds, setReassignIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [conflicts, setConflicts] = useState<any[]>([])
 
   // When swapType changes: permanent → check all queue items; temp → uncheck all
   useEffect(() => {
@@ -99,8 +102,10 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error ?? 'เกิดข้อผิดพลาด'); return }
+      const nextHref = swapType === 'temp' ? `/staff/broken/${rental.bike_id}` : '/staff/jobs'
+      if (data.conflicts?.length > 0) { setConflicts(data.conflicts); return }
       // temp swap → เด้งไปแจ้งซ่อมรถคันเก่าทันที
-      router.push(swapType === 'temp' ? `/staff/broken/${rental.bike_id}` : '/staff/jobs')
+      router.push(nextHref)
       router.refresh()
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
@@ -356,4 +361,19 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
             color: !selectedBikeId ? '#9ca3af' : '#fff',
             opacity: loading ? 0.7 : 1,
           }}
-    
+        >
+          {loading ? '⏳ กำลังบันทึก...' : '🔄 ยืนยันสลับรถ'}
+        </button>
+
+      </div>
+
+      <BookingConflictModal
+        conflicts={conflicts}
+        onAcknowledge={() => {
+          router.push(swapType === 'temp' ? `/staff/broken/${rental.bike_id}` : '/staff/jobs')
+          router.refresh()
+        }}
+      />
+    </div>
+  )
+}

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
+import BookingConflictModal from '@/components/staff/BookingConflictModal'
 
 type Bike = {
   id: string
@@ -23,6 +24,8 @@ export default function BrokenForm({ bike, staffId }: Props) {
   const [locationNote, setLocationNote] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [conflicts, setConflicts] = useState<any[]>([])
 
   const handleSubmit = async () => {
     if (!description.trim()) { setError('กรุณาอธิบายอาการของรถ'); return }
@@ -43,6 +46,7 @@ export default function BrokenForm({ bike, staffId }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
+      if (data.conflicts?.length > 0) { setConflicts(data.conflicts); return }
       router.push('/staff/jobs')
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
@@ -127,6 +131,8 @@ export default function BrokenForm({ bike, staffId }: Props) {
           {loading ? '⏳ กำลังบันทึก...' : '🔧 บันทึกแจ้งรถเสีย'}
         </button>
       </div>
+
+      <BookingConflictModal conflicts={conflicts} onAcknowledge={() => router.push('/staff/jobs')} />
     </div>
   )
 }

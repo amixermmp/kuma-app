@@ -214,12 +214,12 @@ function JobCard({
 }
 
 // ── types ────────────────────────────────────────────────────
-type Tab = 'all' | 'sendcar' | 'returncar' | 'active' | 'broken' | 'routine' | 'docs' | 'monthly' | 'contact'
+type Tab = 'all' | 'sendcar' | 'returncar' | 'active' | 'broken' | 'routine' | 'docs' | 'monthly' | 'contact' | 'conflict'
 
 // ── main component ───────────────────────────────────────────
 export default function JobsClient({
   sendJobs, overdueRentals, dueSoonRentals, activeRentals, repairs,
-  overdueRoutines, docsDue, monthlyContactAlerts, allMonthlyRentals,
+  overdueRoutines, docsDue, monthlyContactAlerts, allMonthlyRentals, brokenBookings,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sendJobs: any[]
@@ -239,6 +239,8 @@ export default function JobsClient({
   monthlyContactAlerts: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   allMonthlyRentals: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  brokenBookings: any[]
 }) {
   const [tab, setTab] = useState<Tab>('all')
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set())
@@ -282,12 +284,14 @@ export default function JobsClient({
     docs:     docsDue.length,
     monthly:  allMonthlyRentals.length,
     contact:  monthlyContactAlerts.length,
+    conflict: brokenBookings.length,
   }
   // monthly = overview only, not a task → exclude from total badge
-  const total = counts.sendcar + counts.returncar + counts.active + counts.broken + counts.routine + counts.docs + counts.contact
+  const total = counts.sendcar + counts.returncar + counts.active + counts.broken + counts.routine + counts.docs + counts.contact + counts.conflict
 
   const tabs: { key: Tab; label: string; count: number; bg: string; color: string }[] = [
     { key: 'all',      label: 'ทั้งหมด',       count: total,              bg: '#f1f5f9', color: '#111827' },
+    { key: 'conflict', label: 'คิวมีปัญหา',    count: counts.conflict,    bg: '#fef2f2', color: '#b91c1c' },
     { key: 'contact',  label: 'ติดต่อลูกค้า',  count: counts.contact,     bg: '#fff7ed', color: '#ea580c' },
     { key: 'sendcar',  label: 'ส่งรถ',          count: counts.sendcar,     bg: '#f1f5f9', color: '#111827' },
     { key: 'returncar',label: 'รับคืน',         count: counts.returncar,   bg: '#fef2f2', color: '#dc2626' },
@@ -434,6 +438,44 @@ export default function JobsClient({
                 </div>
               )
             })}
+          </>
+        )}
+
+        {/* คิวมีปัญหา — คิวจองที่รถผูกไว้ไม่พร้อมใช้แล้ว (ซ่อม/ถูกแย่งไปใช้/รุ่นไม่พอ) */}
+        {show('conflict') && brokenBookings.length > 0 && (
+          <>
+            <SectionTitle>⚠️ คิวมีปัญหา — ต้องจัดการรถให้ลูกค้า</SectionTitle>
+            {brokenBookings.map((bb: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
+              <div key={bb.id} style={{
+                background: '#fff', borderRadius: '12px', marginBottom: '10px',
+                boxShadow: '0 1px 3px rgba(0,0,0,.07)', overflow: 'hidden', display: 'flex',
+              }}>
+                <div style={{ width: '5px', background: '#dc2626', flexShrink: 0 }} />
+                <div style={{ flex: 1, padding: '12px 14px 10px', minWidth: 0 }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#dc2626', marginBottom: '4px' }}>
+                    {bb.reason}
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                    {bb.customer_name}{bb.customer_phone ? ` • ${bb.customer_phone}` : ''}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                    📅 {fmtDate(bb.start_datetime)} {fmtTime(bb.start_datetime)} → {fmtDate(bb.end_datetime)} • #{bb.booking_ref}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                    {bb.customer_phone && (
+                      <a href={`tel:${bb.customer_phone}`} style={{
+                        fontSize: '12px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px',
+                        background: '#f0fdf4', color: '#16a34a', textDecoration: 'none', border: '1px solid #bbf7d0',
+                      }}>📱 โทร</a>
+                    )}
+                    <Link href={`/staff/assign/${bb.id}`} style={{
+                      fontSize: '12px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px',
+                      background: '#dc2626', color: '#fff', textDecoration: 'none',
+                    }}>🔄 จัดรถใหม่</Link>
+                  </div>
+                </div>
+              </div>
+            ))}
           </>
         )}
 
