@@ -105,7 +105,7 @@ function JobCard({
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
   meta1: string; meta2?: string; meta3?: string
-  statusLabel: string; statusBg: string; statusColor: string
+  statusLabel?: string; statusBg?: string; statusColor?: string
   href: string; btnColor?: string; btnLabel?: string
   contractHref?: string
   extendHref?: string
@@ -160,11 +160,13 @@ function JobCard({
             {meta3}
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
-          <span style={{
-            fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px',
-            background: statusBg, color: statusColor,
-          }}>{statusLabel}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: statusLabel ? 'space-between' : 'flex-end', marginTop: '8px' }}>
+          {statusLabel && (
+            <span style={{
+              fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px',
+              background: statusBg, color: statusColor,
+            }}>{statusLabel}</span>
+          )}
           <div style={{ display: 'flex', gap: '6px' }} onClick={e => e.stopPropagation()}>
             {onCancel && (
               <button onClick={onCancel} disabled={cancelDisabled} style={{
@@ -531,7 +533,6 @@ export default function JobsClient({
                     meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
                     meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
                     meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
-                    statusLabel="⚠️ ลูกค้าไม่มา" statusBg="#fef2f2" statusColor="#dc2626"
                     href={`/staff/assign/${b.id}`} btnColor="#111827"
                     cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                     onCancel={() => handleCancel(b.id)}
@@ -584,7 +585,6 @@ export default function JobsClient({
                     meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
                     meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
                     meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
-                    statusLabel="🗓️ ยังไม่ถึงวันนัด" statusBg="#f1f5f9" statusColor="#374151"
                     href={`/staff/assign/${b.id}`} btnColor="#111827"
                     cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                     onCancel={() => handleCancel(b.id)}
@@ -612,7 +612,6 @@ export default function JobsClient({
                     badge="🔴 เกินกำหนด!" badgeBg="#fef2f2" badgeColor="#dc2626"
                     meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
                     meta2={`⏱ เกินมา ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)} ${fmtTime(job.expected_end_datetime)}`}
-                    statusLabel="🔴 เกินกำหนด" statusBg="#fef2f2" statusColor="#dc2626"
                     href={`/staff/return/${job.id}`} btnColor="#dc2626"
                     cardHref={`/staff/bikes/${bike.id}/menu`}
                     contractHref={`/staff/contract/${job.id}`}
@@ -634,8 +633,6 @@ export default function JobsClient({
                     badge={`⚠️ ${fmtTime(job.expected_end_datetime)} น.`} badgeBg="#fffbeb" badgeColor="#d97706"
                     meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
                     meta2={`⏱ อีก ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)}`}
-                    statusLabel={urgent ? '⚠️ ใกล้ถึงกำหนด' : '📅 วันนี้'}
-                    statusBg={urgent ? '#fffbeb' : '#f9fafb'} statusColor={urgent ? '#d97706' : '#6b7280'}
                     href={`/staff/return/${job.id}`} btnColor={urgent ? '#d97706' : '#4b5563'}
                     cardHref={`/staff/bikes/${bike.id}/menu`}
                     contractHref={`/staff/contract/${job.id}`}
@@ -655,7 +652,6 @@ export default function JobsClient({
                     badge={`📅 ${fmtDate(job.expected_end_datetime)}`} badgeBg="#f1f5f9" badgeColor="#374151"
                     meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
                     meta2={`📅 กำหนด ${fmtDate(job.expected_end_datetime)} ${fmtTime(job.expected_end_datetime)}`}
-                    statusLabel="🗓️ ยังไม่ถึงกำหนด" statusBg="#f1f5f9" statusColor="#374151"
                     href={`/staff/return/${job.id}`} btnColor="#4b5563"
                     cardHref={`/staff/bikes/${bike.id}/menu`}
                     contractHref={`/staff/contract/${job.id}`}
@@ -713,7 +709,7 @@ export default function JobsClient({
                   badge={badge} badgeBg={badgeBg} badgeColor={badgeColor}
                   meta1={`👤 ${job.customers?.name ?? '—'}${job.customers?.phone ? ` • ${job.customers.phone}` : ''}`}
                   meta2={`📅 เช่า ${fmtDate(job.start_datetime)} · ${job.total_days} วัน · ฿${Number(job.total_amount).toLocaleString()}`}
-                  statusLabel={statusLabel} statusBg={statusBg} statusColor={statusColor}
+                  {...(isOverdue || diffMs < 24 * 3_600_000 ? {} : { statusLabel, statusBg, statusColor })}
                   href={`/staff/return/${job.id}`} btnColor={isOverdue ? '#dc2626' : '#16a34a'}
                   cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                   contractHref={`/staff/contract/${job.id}`}
@@ -744,8 +740,6 @@ export default function JobsClient({
                   badgeBg={isPending ? '#fef2f2' : '#fffbeb'} badgeColor={isPending ? '#dc2626' : '#d97706'}
                   meta1={`⚠️ ${r.title ?? r.description ?? 'ไม่ระบุอาการ'}`}
                   meta2={`📅 แจ้งเมื่อ ${fmtDate(r.created_at)}`}
-                  statusLabel={isPending ? '🔴 รอดำเนินการ' : '🔧 กำลังซ่อม'}
-                  statusBg={isPending ? '#fef2f2' : '#fffbeb'} statusColor={isPending ? '#dc2626' : '#d97706'}
                   href={`/staff/repair/${r.id}`} btnColor={isPending ? '#dc2626' : '#d97706'}
                   cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                 />
@@ -768,12 +762,6 @@ export default function JobsClient({
               const badgeText = kmOver != null
                 ? (kmOver === 0 ? '🔴 ถึงกำหนดแล้ว!' : `🔴 เกิน ${kmOver.toLocaleString()} กม.`)
                 : days < 0 ? '🚨 เกินกำหนด' : days === 0 ? '🔴 ครบกำหนดวันนี้!' : `📅 อีก ${days} วัน`
-              const statusText = (days < 0 || kmOver != null)
-                ? '🔴 เกินกำหนด'
-                : days === 0 ? '🔴 ครบวันนี้'
-                : days <= 3 ? '🔴 เร่งด่วน'
-                : days <= 7 ? '🟠 ใกล้ถึงกำหนด'
-                : '⚠️ แจ้งเตือนล่วงหน้า'
               return (
                 <JobCard
                   key={r.id} dotColor={p.dot}
@@ -781,7 +769,6 @@ export default function JobsClient({
                   title={`${r.task_name ?? 'บำรุงรักษา'} — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                   badge={badgeText} badgeBg={p.bg} badgeColor={p.color}
                   meta1={kmOver != null ? (kmOver === 0 ? '📍 ถึงกำหนดพอดี!' : `📍 เกินกำหนด ${kmOver.toLocaleString()} กม.`) : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
-                  statusLabel={statusText} statusBg={p.bg} statusColor={p.color}
                   href={`/staff/routine?id=${r.id}`} btnColor={p.dot}
                   cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                 />
@@ -798,7 +785,6 @@ export default function JobsClient({
               const bike = d.bikes
               const days = daysUntil(d.expiry_date)
               const p = urgencyPalette(days)
-              const statusText = days < 0 ? '🔴 เกินกำหนด' : days <= 3 ? '🔴 เร่งด่วนมาก' : days <= 7 ? '🟠 เร่งด่วน' : days <= 14 ? '⚠️ ใกล้หมด' : '📋 แจ้งเตือน'
               return (
                 <JobCard
                   key={d.id} dotColor={p.dot}
@@ -808,7 +794,6 @@ export default function JobsClient({
                   badgeBg={p.bg} badgeColor={p.color}
                   meta1={`${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                   meta2={`หมดอายุ: ${fmtDate(d.expiry_date)}`}
-                  statusLabel={statusText} statusBg={p.bg} statusColor={p.color}
                   href={`/staff/docs?bikeId=${d.bike_id}`} btnColor={p.dot}
                   cardHref={d.bike_id ? `/staff/bikes/${d.bike_id}/menu` : undefined}
                 />
