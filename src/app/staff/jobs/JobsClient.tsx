@@ -468,7 +468,7 @@ export default function JobsClient({
                         background: '#f0fdf4', color: '#16a34a', textDecoration: 'none', border: '1px solid #bbf7d0',
                       }}>📱 โทร</a>
                     )}
-                    <Link href={`/staff/assign/${bb.id}`} style={{
+                    <Link href={`/staff/assign/${bb.id}?mode=model`} style={{
                       fontSize: '12px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px',
                       background: '#dc2626', color: '#fff', textDecoration: 'none',
                     }}>🔄 จัดรถใหม่</Link>

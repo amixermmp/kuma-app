@@ -2,11 +2,13 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds } from '@/lib/staffBranch'
+import { getBusyBikeIds, UNRENTABLE_STATUSES, BUFFER_MS } from '@/lib/availability'
 import AssignBikeClient from './AssignBikeClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AssignBikePage({ params }: { params: { bookingId: string } }) {
+export default async function AssignBikePage({ params, searchParams }: { params: { bookingId: string }; searchParams: { mode?: string } }) {
+  const modelOnlyMode = searchParams?.mode === 'model'
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) redirect('/staff/login')
@@ -27,43 +29,35 @@ export default async function AssignBikePage({ params }: { params: { bookingId: 
   const targetBrand = booking.requested_brand ?? assignedBike?.brand ?? null
   const targetModel = booking.requested_model ?? assignedBike?.model ?? null
 
-  // Find available bikes of same brand/model for the booking's date range
+  // ดึงรถทุกรุ่นในสาขาที่ staff ดูแล — รุ่นตรงโชว์ก่อน รุ่นอื่นเป็นตัวเลือกอัพเกรด (คงราคาเดิม)
   const allowedBranchIds = await getStaffBranchIds(staffId)
-  const bufferStart = new Date(new Date(booking.start_datetime).getTime() - 3 * 3_600_000).toISOString()
+  const bufferStart = new Date(new Date(booking.start_datetime).getTime() - BUFFER_MS).toISOString()
+  const bufferEnd = new Date(new Date(booking.end_datetime).getTime() + BUFFER_MS).toISOString()
 
   let bikesQuery = supabase
     .from('bikes')
     .select('id, license_plate, brand, model, color, year, daily_rate, monthly_rate, deposit_amount, odometer, status')
-    .neq('status', 'repair')
+    .not('status', 'in', `("${UNRENTABLE_STATUSES.join('","')}")`)
 
-  if (targetBrand) bikesQuery = bikesQuery.eq('brand', targetBrand)
-  if (targetModel) bikesQuery = bikesQuery.eq('model', targetModel)
   if (allowedBranchIds) bikesQuery = bikesQuery.in('branch_id', allowedBranchIds)
 
   const { data: candidateBikes } = await bikesQuery
 
-  // Check conflicts for each candidate
-  const [{ data: rentalConflicts }, { data: bookingConflicts }, { data: monthlyConflicts }] = await Promise.all([
-    supabase.from('rentals')
-      .select('bike_id')
-      .in('status', ['active', 'extended'])
-      .lt('start_datetime', booking.end_datetime)
-      .gt('expected_end_datetime', bufferStart),
+  // รถไม่ว่างจากสัญญา (ตัวกลาง — รวมเกินกำหนดยังไม่คืน) + คิวจองอื่น
+  const [rentalBusy, { data: bookingConflicts }] = await Promise.all([
+    getBusyBikeIds(supabase, booking.start_datetime, booking.end_datetime),
     supabase.from('bookings')
       .select('bike_id')
       .eq('status', 'confirmed')
       .neq('id', params.bookingId) // exclude this booking itself
-      .lt('start_datetime', booking.end_datetime)
+      .not('bike_id', 'is', null)
+      .lt('start_datetime', bufferEnd)
       .gt('end_datetime', bufferStart),
-    supabase.from('monthly_rentals')
-      .select('bike_id')
-      .eq('status', 'active'),
   ])
 
   const busyIds = new Set([
-    ...(rentalConflicts ?? []).map(r => r.bike_id),
+    ...Array.from(rentalBusy),
     ...(bookingConflicts ?? []).map(b => b.bike_id),
-    ...(monthlyConflicts ?? []).map(m => m.bike_id),
   ])
 
   const availableBikes = (candidateBikes ?? []).map(b => ({
@@ -77,6 +71,7 @@ export default async function AssignBikePage({ params }: { params: { bookingId: 
       assignedBike={assignedBike}
       availableBikes={availableBikes}
       staffId={staffId}
+      modelOnlyMode={modelOnlyMode}
     />
   )
 }
