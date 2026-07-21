@@ -122,9 +122,10 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 4. Update bike statuses ───────────────────────────────────────────────────
-  const oldBikeNewStatus = swapType === 'temp' ? 'repair' : 'available'
+  // คันเก่า permanent → available เว้นแต่มีสัญญาอื่นเปิดค้างอยู่แล้ว (edge case: มีสัญญาอื่นผูกคันนี้ควบคู่)
+  const oldBikeNewStatus = swapType === 'temp' ? 'repair' : (await hasOpenContract(supabase, oldBikeId)) ? null : 'available'
   await Promise.all([
-    supabase.from('bikes').update({ status: oldBikeNewStatus }).eq('id', oldBikeId),
+    ...(oldBikeNewStatus ? [supabase.from('bikes').update({ status: oldBikeNewStatus }).eq('id', oldBikeId)] : []),
     supabase.from('bikes').update({ status: 'rented' }).eq('id', newBikeId),
   ])
 

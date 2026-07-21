@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
+import { hasOpenContract } from '@/lib/availability'
 
 // Helper: extract storage path from signed URL or public URL
 function extractStoragePath(url: string): string | null {
@@ -68,7 +69,10 @@ export async function POST(request: NextRequest) {
       return_photos: [],
     }).eq('id', rentalId)
 
-    await admin.from('bikes').update({ status: 'available' }).eq('id', rental.bike_id)
+    // เว้นแต่รถมีสัญญาอื่นเปิดค้างอยู่แล้ว (ปิดสัญญานี้ช้าหลังสัญญาใหม่บนคันเดียวกันเปิดไปแล้ว)
+    if (!(await hasOpenContract(admin, rental.bike_id))) {
+      await admin.from('bikes').update({ status: 'available' }).eq('id', rental.bike_id)
+    }
 
     // Log: owner action
     await writeLog({
@@ -116,7 +120,10 @@ export async function POST(request: NextRequest) {
       return_photos: [],
     }).eq('id', rentalId)
 
-    await admin.from('bikes').update({ status: 'available' }).eq('id', rental.bike_id)
+    // เว้นแต่รถมีสัญญาอื่นเปิดค้างอยู่แล้ว (ปิดสัญญานี้ช้าหลังสัญญาใหม่บนคันเดียวกันเปิดไปแล้ว)
+    if (!(await hasOpenContract(admin, rental.bike_id))) {
+      await admin.from('bikes').update({ status: 'available' }).eq('id', rental.bike_id)
+    }
 
     await writeLog({
       actorType: 'owner',

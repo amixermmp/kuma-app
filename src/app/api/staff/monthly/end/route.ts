@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
 import { logStaffAction } from '@/lib/log'
+import { hasOpenContract } from '@/lib/availability'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -51,15 +52,12 @@ export async function POST(request: NextRequest) {
     })
     .eq('id', monthlyRentalId)
 
-  // Only free the bike if no other active monthly rental exists for it
-  const { count } = await supabase
-    .from('monthly_rentals')
-    .select('id', { count: 'exact', head: true })
-    .eq('bike_id', rental.bike_id)
-    .eq('status', 'active')
+  // Only free the bike if no other open contract exists for it (รายเดือนอื่น หรือรายวันที่ยังไม่คืน —
+  // กันเคสปิดสัญญานี้ช้าหลังจากมีสัญญาใหม่บนคันเดียวกันเปิดไปแล้ว)
+  const stillOpen = await hasOpenContract(supabase, rental.bike_id)
 
   let updateBikeErr = null
-  if ((count ?? 0) === 0) {
+  if (!stillOpen) {
     const { error } = await supabase
       .from('bikes')
       .update({

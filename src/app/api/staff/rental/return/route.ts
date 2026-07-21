@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
+import { hasOpenContract } from '@/lib/availability'
 
 function extractStoragePath(url: string): string | null {
   try {
@@ -107,11 +108,13 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Set bike back to available
+  // Set bike back to available — เว้นแต่รถมีสัญญาอื่นเปิดค้างอยู่แล้ว (เช่น ปิดสัญญานี้ช้า
+  // หลังจากสัญญาใหม่บนคันเดียวกันเปิดไปแล้ว) กันสถานะ available ทับสัญญาที่ยังเปิดอยู่จริง
+  const stillOpen = await hasOpenContract(supabase, bikeId)
   await supabase
     .from('bikes')
     .update({
-      status: 'available',
+      ...(stillOpen ? {} : { status: 'available' }),
       ...(returnOdometer ? { odometer: returnOdometer } : {}),
     })
     .eq('id', bikeId)
