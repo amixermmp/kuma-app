@@ -100,7 +100,7 @@ function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
   meta1, meta2, meta3, statusLabel, statusBg, statusColor,
   href, btnColor, btnLabel, contractHref, extendHref, swapHref, cardHref, onCancel, cancelDisabled,
-  photoUrl, bikeColor,
+  photoUrl, bikeColor, isLocked, onToggleLock, lockLoading,
 }: {
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
@@ -115,6 +115,9 @@ function JobCard({
   cancelDisabled?: boolean
   photoUrl?: string | null
   bikeColor?: string | null
+  isLocked?: boolean
+  onToggleLock?: () => void
+  lockLoading?: boolean
 }) {
   const router = useRouter()
   const showThumb = photoUrl !== undefined || bikeColor !== undefined
@@ -200,6 +203,17 @@ function JobCard({
                 🔄 สลับรถ
               </Link>
             )}
+            {onToggleLock && (
+              <button onClick={onToggleLock} disabled={lockLoading} style={{
+                fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px',
+                background: isLocked ? '#fef2f2' : '#f3f4f6',
+                color: isLocked ? '#dc2626' : '#374151',
+                border: `1px solid ${isLocked ? '#fecaca' : '#e5e7eb'}`,
+                cursor: lockLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+              }}>
+                {lockLoading ? '⏳' : isLocked ? '🔒 ล็อคอยู่' : '🔓 ล็อครถ'}
+              </button>
+            )}
             <Link href={href} style={{
               fontSize: '12px', fontWeight: 700, padding: '6px 14px', borderRadius: '8px',
               background: btnColor ?? '#111827', color: '#fff', textDecoration: 'none',
@@ -245,6 +259,8 @@ export default function JobsClient({
   const [tab, setTab] = useState<Tab>('all')
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set())
   const [cancelling, setCancelling] = useState<string | null>(null)
+  const [lockOverrides, setLockOverrides] = useState<Record<string, boolean>>({}) // bikeId -> isLocked
+  const [lockLoadingId, setLockLoadingId] = useState<string | null>(null)
 
   const handleCancel = async (bookingId: string) => {
     if (!window.confirm('ยืนยันยกเลิกการจองนี้?')) return
@@ -258,6 +274,20 @@ export default function JobsClient({
       setCancelledIds(prev => { const s = new Set(prev); s.add(bookingId); return s })
     } finally {
       setCancelling(null)
+    }
+  }
+
+  const handleToggleLock = async (bikeId: string, currentlyLocked: boolean) => {
+    setLockLoadingId(bikeId)
+    try {
+      const res = await fetch('/api/staff/bikes/toggle-lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bikeId }),
+      })
+      if (res.ok) setLockOverrides(prev => ({ ...prev, [bikeId]: !currentlyLocked }))
+    } finally {
+      setLockLoadingId(null)
     }
   }
 
@@ -672,6 +702,7 @@ export default function JobsClient({
                 badge = `📅 คืน ${fmtDate(job.expected_end_datetime)}`
               }
 
+              const isLocked = bike?.id ? (lockOverrides[bike.id] ?? bike?.status === 'locked') : false
               return (
                 <JobCard
                   key={job.id} dotColor={dotColor}
@@ -685,6 +716,9 @@ export default function JobsClient({
                   cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                   contractHref={`/staff/contract/${job.id}`}
                   swapHref={`/staff/swap/daily/${job.id}`}
+                  isLocked={isLocked}
+                  lockLoading={lockLoadingId === bike?.id}
+                  onToggleLock={bike?.id ? () => handleToggleLock(bike.id, isLocked) : undefined}
                 />
               )
             })}

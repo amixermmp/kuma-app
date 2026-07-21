@@ -72,7 +72,7 @@ export default async function JobsPage() {
       .limit(50)),
 
     applyBike(supabase.from('rentals')
-      .select('id, start_datetime, expected_end_datetime, total_days, daily_rate, total_amount, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
+      .select('id, start_datetime, expected_end_datetime, total_days, daily_rate, total_amount, bikes(id, license_plate, brand, model, color, photo_url, status), customers(name, phone)')
       .in('status', ['active', 'extended'])
       .order('expected_end_datetime', { ascending: true })
       .limit(100)),
