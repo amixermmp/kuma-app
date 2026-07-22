@@ -312,11 +312,45 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const totalDays      = validDates ? calendarDays(startDt, endDt) : 0
   const billingDays    = totalDays
 
-  // คิวจองถัดไปของรถคันนี้ที่จะโดนชนถ้ากำหนดคืนตามที่เลือกไว้ (บวก buffer 3 ชม.) — เตือนไว้ก่อนกดส่ง
+  // เพดานเวลาคืนรถสูงสุด (Max Return Time) — คำนวณสดจากคิวจองถัดไปของรถคันนี้ (เผื่อ buffer
+  // 3 ชม. เตรียมรถ/ทำความสะอาด) บังคับใช้ทุกกรณีที่มีคิวถัดไป ไม่ว่าลูกค้าจะมาเลท/ตรง/ก่อนเวลา
+  // หรือขอต่อรองเวลาคืนหน้างานแค่ไหนก็ตาม ห้ามให้กำหนดคืนเกินเพดานนี้เด็ดขาด
   const BOOKING_BUFFER_MS = 3 * 3_600_000
-  const conflictingBooking = validDates
-    ? upcomingBookings?.find(b => new Date(b.start_datetime).getTime() < endDt.getTime() + BOOKING_BUFFER_MS)
-    : undefined
+  const nextBooking = upcomingBookings && upcomingBookings.length > 0 ? upcomingBookings[0] : null
+  const maxReturnMs = nextBooking ? new Date(nextBooking.start_datetime).getTime() - BOOKING_BUFFER_MS : null
+
+  // ── นโยบายรับรถตามนัด: มาสาย/มาก่อน/มาตรงเวลา (เทียบกับใบจองเดิม) ──────────────
+  // มาสาย → ขยายกำหนดคืนชดเชยเวลาที่มาสาย (ยังใช้ได้เต็ม 24 ชม. ตามที่จองไว้)
+  // มาก่อนเวลา → เลื่อนกำหนดคืนเร็วขึ้นเท่ากัน (นับต่อเนื่อง 24 ชม. จากเวลาที่มารับจริง)
+  // ทั้งสองกรณีจะถูกตัดไม่ให้เกินเพดาน maxReturnMs ด้านบนเสมอ
+  const scheduledStartMs = prefillBooking ? new Date(prefillBooking.start_datetime).getTime() : null
+  const scheduledEndMs = prefillBooking ? new Date(prefillBooking.end_datetime).getTime() : null
+  const arrivalDeltaMs = scheduledStartMs != null ? startDt.getTime() - scheduledStartMs : 0
+
+  useEffect(() => {
+    if (scheduledStartMs == null || scheduledEndMs == null) return
+    let targetMs = scheduledEndMs + arrivalDeltaMs
+    if (maxReturnMs != null && targetMs > maxReturnMs) targetMs = maxReturnMs
+    const d = new Date(targetMs)
+    const p = (n: number) => String(n).padStart(2, '0')
+    setEndDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`)
+    setEndTime(`${p(d.getHours())}:${p(d.getMinutes())}`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, startTime])
+
+  // ตัดกำหนดคืนกลับลงมาทันทีถ้าพนักงานเลือก/ระบบเสนอเกินเพดาน — บังคับใช้ไม่ว่าค่าจะมาจากไหน
+  useEffect(() => {
+    if (maxReturnMs == null) return
+    if (endDt.getTime() > maxReturnMs) {
+      const d = new Date(maxReturnMs)
+      const p = (n: number) => String(n).padStart(2, '0')
+      setEndDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`)
+      setEndTime(`${p(d.getHours())}:${p(d.getMinutes())}`)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endDate, endTime, maxReturnMs])
+
+  const atMaxReturnCap = maxReturnMs != null && Math.abs(endDt.getTime() - maxReturnMs) < 60_000
 
   // For long rental pricing
   const billingEndDt   = new Date(startDt.getTime() + billingDays * 86_400_000)
@@ -576,20 +610,12 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         {/* ② ช่วงเวลาเช่า */}
         <div className="card">
           <div className="card-title">ช่วงเวลาเช่า</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-            <div className="field-row" style={{ marginBottom: 0 }}>
-              <label className="field-label">วันที่รับรถ *</label>
-              <input className="field-input" type="date"
-                value={startDate} onChange={e => setStartDate(e.target.value)} />
-            </div>
-            <div className="field-row" style={{ marginBottom: 0 }}>
-              <label className="field-label">วันที่กำหนดคืน *</label>
-              <input className="field-input" type="date"
-                value={endDate} onChange={e => setEndDate(e.target.value)} />
-            </div>
-          </div>
-          <div className="field-row">
-            <label className="field-label">เวลารับรถ</label>
+
+          {/* รับรถ */}
+          <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px 12px', marginBottom: '10px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>🛵 รับรถ</div>
+            <input className="field-input" type="date" style={{ marginBottom: '8px' }}
+              value={startDate} onChange={e => setStartDate(e.target.value)} />
             <div style={{ display: 'flex', gap: '8px' }}>
               <select
                 className="field-input" style={{ flex: 1 }}
@@ -611,8 +637,19 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
               </select>
             </div>
           </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">เวลากำหนดคืน</label>
+
+          {/* คืนรถ */}
+          <div style={{
+            background: atMaxReturnCap ? '#fef2f2' : '#f9fafb',
+            border: `1px solid ${atMaxReturnCap ? '#fecaca' : '#e5e7eb'}`,
+            borderRadius: '10px', padding: '10px 12px',
+          }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: atMaxReturnCap ? '#dc2626' : '#111827', marginBottom: '8px' }}>
+              🏁 คืนรถ {atMaxReturnCap && '🔒 ชนเพดานสูงสุด'}
+            </div>
+            <input className="field-input" type="date" style={{ marginBottom: '8px' }}
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)} />
             <div style={{ display: 'flex', gap: '8px' }}>
               <select
                 className="field-input" style={{ flex: 1 }}
@@ -634,29 +671,25 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
               </select>
             </div>
           </div>
+
           <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px' }}>
             ปรับเวลาคืนเองได้ — เช่าคืนวันเดียวกันได้ (นับราคาขั้นต่ำ 1 วัน) ค่าล่วงเวลานอกเหนือกำหนดคำนวณตอนรับรถคืนอัตโนมัติ
           </div>
 
-          {conflictingBooking && (
+          {nextBooking && maxReturnMs != null && (
             <div style={{
-              marginTop: '12px', background: '#fef2f2', border: '1.5px solid #dc2626',
-              borderRadius: '10px', padding: '10px 14px', fontSize: '13px', color: '#dc2626',
+              marginTop: '12px',
+              background: atMaxReturnCap ? '#fef2f2' : '#fffbeb',
+              border: `1px solid ${atMaxReturnCap ? '#dc2626' : '#fcd34d'}`,
+              borderRadius: '10px', padding: '10px 14px', fontSize: '13px',
+              color: atMaxReturnCap ? '#dc2626' : '#92400e',
             }}>
-              <strong>⚠️ กำหนดคืนนี้ใกล้/ชนคิวจองถัดไปของรถคันนี้!</strong><br />
-              {conflictingBooking.booking_ref} — คุณ{conflictingBooking.customer_name} รับรถ{' '}
-              {new Date(conflictingBooking.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-              <div style={{ fontSize: '12px', marginTop: '4px', color: '#991b1b' }}>
-                ถ้าลูกค้ามารับช้ากว่านัด แนะนำปรับเวลากำหนดคืนให้ไม่เกินเวลานี้ (เผื่อ 3 ชม.) เพื่อไม่ให้กระทบคิวถัดไป
+              <strong>{atMaxReturnCap ? '⛔ ชนเพดานคืนรถสูงสุดแล้ว' : '📌 เพดานคืนรถสูงสุด'}: {new Date(maxReturnMs).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</strong>
+              <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                คิวจองถัดไปของรถคันนี้ {nextBooking.booking_ref} — คุณ{nextBooking.customer_name} รับรถ{' '}
+                {new Date(nextBooking.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                {' '}(เผื่อเตรียมรถ 3 ชม.) — เลื่อนกำหนดคืนเกินเวลานี้ไม่ได้ ต่อให้ลูกค้าจะขอต่อรองก็ตาม
               </div>
-            </div>
-          )}
-          {!conflictingBooking && upcomingBookings && upcomingBookings.length > 0 && (
-            <div style={{
-              marginTop: '12px', background: '#fffbeb', border: '1px solid #fcd34d',
-              borderRadius: '10px', padding: '8px 12px', fontSize: '12px', color: '#92400e',
-            }}>
-              📅 คันนี้มีคิวจองถัดไป: {new Date(upcomingBookings[0].start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} — กำหนดคืนตอนนี้ยังไม่ชน
             </div>
           )}
         </div>
