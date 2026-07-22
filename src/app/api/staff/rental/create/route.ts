@@ -3,6 +3,9 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
+import { hasOpenContract } from '@/lib/availability'
+import { recalcNeverDoneRoutines } from '@/lib/routines'
+import { checkBlacklist } from '@/lib/blacklist'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -15,6 +18,7 @@ export async function POST(request: NextRequest) {
     bikeId, customer, startDatetime, endDatetime,
     dailyRate, totalDays, totalAmount, depositAmount,
     discount, paymentMethod, fuelLevel, odometer, photos, signature, lockBike,
+    excludeBookingId, overrideBookingConflict,
   } = body
 
   if (!bikeId || !customer?.name || !customer?.phone || !startDatetime || !endDatetime) {
@@ -28,6 +32,37 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient()
+
+  // Guard: กันสัญญาซ้อน — รถที่ยังมีสัญญาค้าง (ยังไม่กดจบ) ห้ามส่งซ้ำ
+  if (await hasOpenContract(supabase, bikeId)) {
+    return NextResponse.json({ error: 'รถคันนี้ยังมีสัญญาค้างอยู่ (ยังไม่ได้กดจบสัญญา) — ปิดสัญญาเดิมก่อนจึงจะส่งรถได้' }, { status: 409 })
+  }
+
+  // กันส่งรถทับคิวจองของลูกค้าคนอื่นแบบไม่รู้ตัว (ไม่นับคิวที่กำลังจะปิดจากการส่งรถครั้งนี้เอง)
+  let conflictQuery = supabase
+    .from('bookings')
+    .select('id, booking_ref, customer_name, start_datetime')
+    .eq('bike_id', bikeId)
+    .eq('status', 'confirmed')
+    .lt('start_datetime', new Date(endDatetime).toISOString())
+    .gt('end_datetime', new Date(startDatetime).toISOString())
+  if (excludeBookingId) conflictQuery = conflictQuery.neq('id', excludeBookingId)
+  const { data: conflictBookings } = await conflictQuery
+  const conflict = (conflictBookings ?? [])[0]
+  if (conflict && !overrideBookingConflict) {
+    return NextResponse.json({
+      error: `ส่งรถนี้จะไปชนคิวจอง ${conflict.booking_ref} (คุณ${conflict.customer_name} รับรถ ${new Date(conflict.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}) — คิวนั้นจะถูกยกเลิกถ้ายืนยันทำต่อ`,
+      conflictBookingId: conflict.id,
+    }, { status: 409 })
+  }
+
+  // กันชั้นสุดท้าย — คนติดบัญชีดำของร้าน ทำสัญญาไม่ได้
+  const blHit = await checkBlacklist(supabase, { name: customer.name, phone: customer.phone })
+  if (blHit) {
+    return NextResponse.json({
+      error: `⛔ ${blHit.name} ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้${blHit.reason ? ` (${blHit.reason})` : ''}`,
+    }, { status: 403 })
+  }
 
   // Find or create customer
   let customerId: string
@@ -83,6 +118,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'บันทึกการเช่าไม่สำเร็จ' }, { status: 500 })
   }
 
+  // ลงสมุดรายรับ — ค่าเช่าเก็บตอนส่งรถ (best-effort ไม่ block การส่งรถ)
+  await supabase.from('rental_payments').insert({
+    rental_id: rental.id,
+    branch_id: BRANCH_ID,
+    staff_id: staffId,
+    kind: 'rental',
+    amount: totalAmount ?? 0,
+    paid_at: new Date(startDatetime).toISOString(),
+  })
+
   // Cancel any active booking for this bike that overlaps with the rental period
   await supabase
     .from('bookings')
@@ -103,25 +148,9 @@ export async function POST(request: NextRequest) {
     console.error('[rental/create] bike update error:', JSON.stringify(bikeErr))
   }
 
-  // Recalculate next_due_km for routines that have never been done (last_done_km = null)
-  // and whose next_due_km is already passed by the new odometer reading.
-  // This prevents false alerts when a bike is first sent with a high odometer value.
-  if (newOdometer > 0) {
-    const { data: routines } = await supabase
-      .from('bike_routines')
-      .select('id, interval_km, next_due_km')
-      .eq('bike_id', bikeId)
-      .is('last_done_km', null)
-
-    for (const r of routines ?? []) {
-      if (r.interval_km && r.next_due_km != null && newOdometer >= r.next_due_km) {
-        await supabase
-          .from('bike_routines')
-          .update({ next_due_km: newOdometer + r.interval_km })
-          .eq('id', r.id)
-      }
-    }
-  }
+  // Recalculate next_due_km for never-done routines (prevents false alerts
+  // when a bike is first sent with a high odometer value)
+  await recalcNeverDoneRoutines(supabase, bikeId, newOdometer)
 
   // Lookup staff name for log
   const { data: staffRow } = await supabase.from('staff').select('name').eq('id', staffId).single()

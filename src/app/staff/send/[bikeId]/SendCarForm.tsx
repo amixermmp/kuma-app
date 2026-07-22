@@ -6,71 +6,7 @@ import PhotoUpload from '@/components/PhotoUpload'
 import SignaturePad from '@/components/SignaturePad'
 import TabBar from '@/components/staff/TabBar'
 import { addTab } from '@/lib/tabStore'
-
-// ── Pricing formula ──────────────────────────────────────────────────────────
-// Per-week discount: every 7 days → pay for 5 (2 free)
-// Monthly cap: if daily portion >= MCR → cap at MCR
-// Long rental: break into calendar months (min 30 days each for Feb) + remaining days
-
-type MonthSegment = { label: string; days: number; price: number }
-type PriceResult = {
-  months: MonthSegment[]
-  remainDays: number
-  remainPrice: number
-  calcRemainDays: number
-  total: number
-}
-
-function calcDailySegment(days: number, ndr: number, mcr: number): { calcDays: number; price: number } {
-  const calcDays = Math.floor(days / 7) * 5 + Math.min(days % 7, 5)
-  return { calcDays, price: Math.min(calcDays * ndr, mcr) }
-}
-
-function calcShortPrice(totalDays: number, ndr: number): { calcDays: number; total: number } {
-  const calcDays = Math.floor(totalDays / 7) * 5 + Math.min(totalDays % 7, 5)
-  return { calcDays, total: calcDays * ndr }
-}
-
-function calcLongPrice(start: Date, end: Date, ndr: number, mcr: number): PriceResult | null {
-  if (end <= start) return null
-
-  let cursor = new Date(start)
-  const months: MonthSegment[] = []
-  let total = 0
-
-  while (true) {
-    const next = new Date(cursor)
-    next.setMonth(next.getMonth() + 1)
-    if (next >= end) break
-
-    const rawDays = Math.round((next.getTime() - cursor.getTime()) / 86_400_000)
-    const effectiveDays = Math.max(rawDays, 30) // Feb rule: min 30 days
-    const label =
-      cursor.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) +
-      ' – ' +
-      next.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-
-    months.push({ label, days: effectiveDays, price: mcr })
-    total += mcr
-
-    cursor = effectiveDays > rawDays
-      ? new Date(cursor.getTime() + effectiveDays * 86_400_000)
-      : next
-  }
-
-  const remainDays = Math.round((end.getTime() - cursor.getTime()) / 86_400_000)
-  let remainPrice = 0
-  let calcRemainDays = 0
-
-  if (remainDays > 0) {
-    const seg = calcDailySegment(remainDays, ndr, mcr)
-    calcRemainDays = seg.calcDays
-    remainPrice = seg.price
-    total += remainPrice
-  }
-
-  return { months, remainDays, remainPrice, calcRemainDays, total }
-}
+import { calcShortPrice, calcLongPrice } from '@/lib/pricing'
 
 // ── Success screen ───────────────────────────────────────────────────────────
 function SuccessScreen({ rentalId, type, bikeId }: { rentalId: string; type: 'daily' | 'monthly'; bikeId: string }) {
@@ -140,6 +76,7 @@ type PrefillBooking = {
   start_datetime: string
   end_datetime: string
   total_days: number
+  daily_rate: number | null
   notes: string | null
 } | null
 
@@ -324,6 +261,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
       if (data.name) {
         setCustomerName(data.name)
         setOcrDone(true)
+        checkBlacklist(data.name, customerPhone)
       } else if (data.error) {
         setOcrError(`OCR: ${data.detail ?? data.error}`)
       } else {
@@ -334,7 +272,8 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
     } finally {
       setOcrLoading(false)
     }
-  }, [customerName, setPhoto])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerName, customerPhone, setPhoto])
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const startDt    = new Date(`${startDate}T${startTime}:00`)
@@ -352,7 +291,12 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const isLongRental      = totalDays >= 30
   const isMonthlyContract = isLongRental && contractType === 'monthly'
 
-  const ndr = studentPromo ? bike.daily_rate - 50 : bike.daily_rate
+  // ราคาฐาน: ถ้ามาจากใบจองที่เรทถูกกว่ารถคันนี้ = อัพเกรดคงราคาเดิมตามที่รับปากลูกค้า
+  const bookingRate = prefillBooking?.daily_rate ? Number(prefillBooking.daily_rate) : null
+  const isUpgradePrice = bookingRate != null && bookingRate < bike.daily_rate
+  const baseDailyRate = isUpgradePrice ? bookingRate! : bike.daily_rate
+
+  const ndr = studentPromo ? baseDailyRate - 50 : baseDailyRate
   const mcr = parseFloat(mMonthlyRate) || bike.monthly_rate || bike.daily_rate * 30
 
   const longResult  = isLongRental && totalDays > 0 ? calcLongPrice(startDt, billingEndDt, ndr, mcr) : null
@@ -363,14 +307,28 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
 
   // Discount = difference from non-student price (for record-keeping)
   const normalDaysTotal = isLongRental
-    ? (calcLongPrice(startDt, billingEndDt, bike.daily_rate, mcr)?.total ?? 0)
-    : calcShortPrice(totalDays, bike.daily_rate).total
+    ? (calcLongPrice(startDt, billingEndDt, baseDailyRate, mcr)?.total ?? 0)
+    : calcShortPrice(totalDays, baseDailyRate).total
   const discount = studentPromo ? Math.max(0, normalDaysTotal - daysTotal) : 0
 
   // Payment day for monthly = same day as start date
   const paymentDay = startDate
     ? new Date(startDate + 'T12:00:00').getDate()
     : 1
+
+  // ── Blacklist check — เช็คชื่อ/เบอร์กับบัญชีดำของร้าน ──────────────────────
+  const [blacklistHit, setBlacklistHit] = useState<{ name: string; reason: string | null } | null>(null)
+  const checkBlacklist = useCallback(async (name: string, phone: string) => {
+    if (!name.trim() && phone.replace(/\D/g, '').length < 9) return
+    try {
+      const params = new URLSearchParams()
+      if (name.trim()) params.set('name', name.trim())
+      if (phone.trim()) params.set('phone', phone.trim())
+      const res = await fetch(`/api/staff/blacklist/check?${params}`)
+      const data = await res.json()
+      setBlacklistHit(data.blacklisted ? data.hit : null)
+    } catch { /* silent */ }
+  }, [])
 
   // ── Customer lookup ───────────────────────────────────────────────────────
   const lookupCustomer = useCallback(async (phone: string) => {
@@ -382,13 +340,15 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         setCustomerName(customer.name)
         setCustomerHotel(customer.workplace ?? '')
       }
+      checkBlacklist(customer?.name ?? '', phone)
     } catch { /* silent */ }
-  }, [])
+  }, [checkBlacklist])
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!customerName.trim())  { setError('กรุณาใส่ชื่อลูกค้า'); return }
     if (!customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
+    if (blacklistHit) { setError(`⛔ ${blacklistHit.name} ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้`); return }
     if (!validDates)           { setError('กรุณาเลือกช่วงวันเช่าให้ถูกต้อง'); return }
 
     // Lock is required for daily/onetime
@@ -439,7 +399,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
       } else {
         const startDatetime = `${startDate}T${startTime}:00+07:00`
         const endDatetime   = `${endDate}T${startTime}:00+07:00`
-        const res = await fetch('/api/staff/rental/create', {
+        const sendPayload = (overrideBookingConflict: boolean) => fetch('/api/staff/rental/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -463,9 +423,19 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
             photos,
             signature: signature ?? null,
             lockBike:  lockBike ?? false,
+            excludeBookingId: prefillBooking?.id ?? null,
+            overrideBookingConflict,
           }),
         })
-        const data = await res.json()
+        let res = await sendPayload(false)
+        let data = await res.json()
+        // ชนคิวจองของลูกค้าคนอื่น — ให้ยืนยันก่อนทำต่อ (คิวนั้นจะถูกยกเลิก)
+        if (!res.ok && data.conflictBookingId) {
+          const ok = confirm(`⚠️ ${data.error}\n\nยืนยันทำต่อไหม?`)
+          if (!ok) { return }
+          res = await sendPayload(true)
+          data = await res.json()
+        }
         if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
         clearDraft(DRAFT_KEY)
         setCreatedType('daily')
@@ -519,6 +489,11 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
             padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#15803d',
           }}>
             📋 <strong>มาจากการจอง</strong> — ข้อมูลลูกค้าถูกกรอกล่วงหน้าแล้ว แก้ไขได้ตามต้องการ
+            {isUpgradePrice && (
+              <div style={{ marginTop: '4px', color: '#7c3aed', fontWeight: 700 }}>
+                🎁 อัพเกรดรถ — คิดราคาตามใบจอง ฿{bookingRate!.toLocaleString()}/วัน (ปกติ ฿{bike.daily_rate.toLocaleString()})
+              </div>
+            )}
           </div>
         )}
 
@@ -541,7 +516,22 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
               {ocrError   && <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 400 }}>{ocrError}</span>}
             </label>
             <input className="field-input" type="text" placeholder="สมชาย ดีใจ"
-              value={customerName} onChange={e => { setCustomerName(e.target.value); setOcrDone(false); setOcrError('') }} />
+              style={blacklistHit ? { borderColor: '#dc2626', background: '#fef2f2' } : undefined}
+              value={customerName}
+              onChange={e => { setCustomerName(e.target.value); setOcrDone(false); setOcrError(''); if (blacklistHit) setBlacklistHit(null) }}
+              onBlur={e => checkBlacklist(e.target.value, customerPhone)} />
+            {blacklistHit && (
+              <div style={{
+                marginTop: 6, padding: '10px 12px', borderRadius: 8,
+                background: '#fef2f2', border: '1px solid #dc2626',
+                color: '#dc2626', fontSize: 13, fontWeight: 700,
+              }}>
+                ⛔ บุคคลนี้ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้
+                {blacklistHit.reason && (
+                  <div style={{ fontWeight: 400, fontSize: 12, marginTop: 2 }}>เหตุผล: {blacklistHit.reason}</div>
+                )}
+              </div>
+            )}
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">โรงแรม / ที่พัก</label>
