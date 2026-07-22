@@ -148,6 +148,15 @@ function nowTime() {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
 }
 
+// prefillBooking.start_datetime/end_datetime เป็น UTC ISO string จากฐานข้อมูล — ต้องแปลงเป็นเวลาไทย
+// ก่อนใช้ ห้าม .split('T') ตรงๆ (ค่าดิบเป็น UTC ไม่ใช่เวลาไทย จะเพี้ยน 7 ชม.)
+function bkkDatePart(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' })
+}
+function bkkTimePart(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom, prefillTo, upcomingBookings }: Props) {
   const DRAFT_KEY = `send_draft_${bike.id}`
@@ -167,19 +176,20 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   // ── Dates ─────────────────────────────────────────────────────────────────
   const [startDate, setStartDate] = useState(() => {
     if (draft?.startDate) return draft.startDate
-    if (prefillBooking?.start_datetime) return prefillBooking.start_datetime.split('T')[0]
+    if (prefillBooking?.start_datetime) return bkkDatePart(prefillBooking.start_datetime)
     if (prefillFrom) return prefillFrom.split('T')[0]
     return todayLocal()
   })
   const [endDate, setEndDate] = useState(() => {
     if (draft?.endDate) return draft.endDate
-    if (prefillBooking?.end_datetime) return prefillBooking.end_datetime.split('T')[0]
+    if (prefillBooking?.end_datetime) return bkkDatePart(prefillBooking.end_datetime)
     if (prefillTo) return prefillTo.split('T')[0]
     return dateIn(1)
   })
   const [startTime, setStartTime] = useState(() => {
     if (draft?.startTime) return draft.startTime
     if (prefillFrom?.includes('T')) return prefillFrom.split('T')[1].slice(0, 5)
+    if (prefillBooking?.start_datetime) return bkkTimePart(prefillBooking.start_datetime)
     return nowTime()
   })
   // เวลาคืน — แยกอิสระจากเวลารับ (ค่าเริ่มต้น = เวลารับ เผื่อไม่ได้ปรับ) รองรับเช่าแบบวันเดย์ทริป
@@ -187,7 +197,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const [endTime, setEndTime] = useState(() => {
     if (draft?.endTime) return draft.endTime
     if (prefillTo?.includes('T')) return prefillTo.split('T')[1].slice(0, 5)
-    if (prefillBooking?.end_datetime) return prefillBooking.end_datetime.split('T')[1]?.slice(0, 5) ?? nowTime()
+    if (prefillBooking?.end_datetime) return bkkTimePart(prefillBooking.end_datetime)
     return nowTime()
   })
   // ── Promo ─────────────────────────────────────────────────────────────────
