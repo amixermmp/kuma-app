@@ -43,6 +43,35 @@ function fmtDate(iso: string) {
 
 const MAX_EXTRA_DAYS_SEARCH = 400
 
+function ExtendSuccessScreen({ customerName, bikeLabel, newEndIso }: { customerName: string; bikeLabel: string; newEndIso: string }) {
+  return (
+    <div className="app-wrap">
+      <div className="app-header" style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
+        <div><h1>ต่อเวลาสำเร็จ ✅</h1><div className="sub">บันทึกเรียบร้อยแล้ว</div></div>
+      </div>
+      <div className="section-pad" style={{ textAlign: 'center', paddingTop: '40px' }}>
+        <div style={{ fontSize: '64px', marginBottom: '16px' }}>⏱️</div>
+        <div style={{ fontSize: '18px', fontWeight: 800, color: '#16a34a', marginBottom: '8px' }}>ต่อเวลาให้คุณ{customerName} สำเร็จ!</div>
+        <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px' }}>{bikeLabel}</div>
+        <div style={{
+          background: '#f0fdf4', border: '2px solid #bbf7d0', borderRadius: '14px',
+          padding: '18px', marginBottom: '32px',
+        }}>
+          <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600, marginBottom: '4px' }}>ลูกค้าใช้รถได้ถึง</div>
+          <div style={{ fontSize: '20px', fontWeight: 900, color: '#111827' }}>{fmtDate(newEndIso)}</div>
+        </div>
+        <Link href="/staff/home" style={{
+          display: 'block', width: '100%', background: '#111827', color: '#fff',
+          borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
+          textDecoration: 'none',
+        }}>
+          🏠 กลับหน้าหลัก
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 export default function ExtendForm({ rental, upcomingBookings }: Props) {
   const router = useRouter()
   const bike = rental.bikes
@@ -51,6 +80,7 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
   const [payment, setPayment] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successEndIso, setSuccessEndIso] = useState<string | null>(null)
 
   // เรทจริงที่ใช้ตอนทำสัญญา (rental.daily_rate = เรทเต็มของรถเสมอ ไม่รวมส่วนลด — เช็คส่วนลดจาก discount แทน)
   // สมมติฐาน: ส่วนลด/วันต้องตรงกับหน้าส่งรถ (SendCarForm.tsx)
@@ -140,14 +170,23 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
-      // ชนคิว → บังคับวนไปหน้าย้ายคัน/อัพเกรดให้ลูกค้าที่จองทันที
-      router.push(conflictBooking ? `/staff/assign/${conflictBooking.id}` : '/staff/home')
+      if (conflictBooking) {
+        // ชนคิว → บังคับวนไปหน้าย้ายคัน/อัพเกรดให้ลูกค้าที่จองทันที
+        router.push(`/staff/assign/${conflictBooking.id}`)
+      } else {
+        // สำเร็จ → โชว์หน้ายืนยันว่าลูกค้าใช้ได้ถึงวันไหน ให้พนักงานกดกลับหน้าหลักเอง
+        setSuccessEndIso(daysCovered > 0 ? newEnd.toISOString() : rental.expected_end_datetime)
+      }
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
     } finally {
       submittingRef.current = false
       setLoading(false)
     }
+  }
+
+  if (successEndIso) {
+    return <ExtendSuccessScreen customerName={customer.name} bikeLabel={`${bike.license_plate} ${bike.brand} ${bike.model}`} newEndIso={successEndIso} />
   }
 
   return (
