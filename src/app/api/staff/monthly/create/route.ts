@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
+import { recalcNeverDoneRoutines } from '@/lib/routines'
+import { checkBlacklist } from '@/lib/blacklist'
+import { hasOpenContract } from '@/lib/availability'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -17,6 +20,7 @@ export async function POST(request: NextRequest) {
     paymentMethod,
     photos,
     signature,
+    overrideBookingConflict,
   } = body
 
   if (!bikeId || !staffId || !customer?.name || !customer?.phone || !startDate || !monthlyRate) {
@@ -37,6 +41,36 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient()
+
+  // Guard: กันสัญญาซ้อน — รถที่ยังมีสัญญาค้าง (ยังไม่กดจบ) ห้ามทำสัญญาใหม่
+  if (await hasOpenContract(supabase, bikeId)) {
+    return NextResponse.json({ error: 'รถคันนี้ยังมีสัญญาค้างอยู่ (ยังไม่ได้กดจบสัญญา) — ปิดสัญญาเดิมก่อนจึงจะทำสัญญาใหม่ได้' }, { status: 409 })
+  }
+
+  // กันทำสัญญารายเดือนทับคิวจองของลูกค้าคนอื่นแบบไม่รู้ตัว — สัญญารายเดือนไม่มีวันสิ้นสุดตายตัว
+  // จึงถือว่าชนกับคิวจองในอนาคตของรถคันนี้ทั้งหมด ไม่ว่าจะไกลแค่ไหน
+  const { data: conflictBookings } = await supabase
+    .from('bookings')
+    .select('id, booking_ref, customer_name, start_datetime')
+    .eq('bike_id', bikeId)
+    .eq('status', 'confirmed')
+    .gt('end_datetime', new Date().toISOString())
+    .order('start_datetime', { ascending: true })
+  const conflict = (conflictBookings ?? [])[0]
+  if (conflict && !overrideBookingConflict) {
+    return NextResponse.json({
+      error: `ทำสัญญารายเดือนนี้จะไปชนคิวจอง ${conflict.booking_ref} (คุณ${conflict.customer_name} รับรถ ${new Date(conflict.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}) — ใช้ Fast lane เพื่อยืนยันทำต่อได้ (คิวนั้นจะยังไม่ถูกยกเลิก จะไปโผล่ในคิวมีปัญหาให้จัดการแทน)`,
+      conflictBookingId: conflict.id,
+    }, { status: 409 })
+  }
+
+  // กันชั้นสุดท้าย — คนติดบัญชีดำของร้าน ทำสัญญาไม่ได้
+  const blHit = await checkBlacklist(supabase, { name: customer.name, phone: customer.phone })
+  if (blHit) {
+    return NextResponse.json({
+      error: `⛔ ${blHit.name} ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้${blHit.reason ? ` (${blHit.reason})` : ''}`,
+    }, { status: 403 })
+  }
 
   // Upsert customer
   let customerId: string
@@ -89,6 +123,7 @@ export async function POST(request: NextRequest) {
       status: 'active',
       send_photos: sendPhotos,
       customer_signature: signature ?? null,
+      ...(conflict && overrideBookingConflict ? { fast_lane: true } : {}),
     })
     .select('id')
     .single()
@@ -104,6 +139,9 @@ export async function POST(request: NextRequest) {
     fuel_level: fuelLevel,
     updated_at: new Date().toISOString(),
   }).eq('id', bikeId)
+
+  // กันรูทีนที่ไม่เคยทำแจ้งเตือนผิด เมื่อเลขไมล์จริงเพิ่งถูกบันทึกครั้งแรก
+  await recalcNeverDoneRoutines(supabase, bikeId, parseInt(odometer) || 0)
 
   // Record first payment with correct due date
   if (paymentMethod) {
@@ -133,9 +171,14 @@ export async function POST(request: NextRequest) {
     actorId: staffId,
     actorName: staffName,
     action: 'monthly_created',
-    description: `เช่ารายเดือน — ลูกค้า ${customer.name} (${customer.phone}) — ฿${monthlyRate.toLocaleString()}/เดือน`,
-    metadata: { rentalId: rental.id, bikeId, customerId, monthlyRate },
+    description: `เช่ารายเดือน — ลูกค้า ${customer.name} (${customer.phone}) — ฿${monthlyRate.toLocaleString()}/เดือน` +
+      (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : ''),
+    metadata: { rentalId: rental.id, bikeId, customerId, monthlyRate, fastLaneOverBookingId: conflict && overrideBookingConflict ? conflict.id : null },
   })
 
-  return NextResponse.json({ success: true, rentalId: rental.id })
+  return NextResponse.json({
+    success: true,
+    rentalId: rental.id,
+    fastLaneConflictId: conflict && overrideBookingConflict ? conflict.id : null,
+  })
 }

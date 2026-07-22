@@ -484,8 +484,16 @@ export default function JobsClient({
               }}>
                 <div style={{ width: '5px', background: '#dc2626', flexShrink: 0 }} />
                 <div style={{ flex: 1, padding: '12px 14px 10px', minWidth: 0 }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#dc2626', marginBottom: '4px' }}>
-                    {bb.reason}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#dc2626' }}>
+                      {bb.reason}
+                    </div>
+                    {bb.fastLane && (
+                      <span style={{
+                        fontSize: '10px', fontWeight: 700, color: '#1e40af', background: '#dbeafe',
+                        padding: '2px 7px', borderRadius: '999px', flexShrink: 0,
+                      }}>⚡ Fast lane</span>
+                    )}
                   </div>
                   <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
                     {bb.customer_name}{bb.customer_phone ? ` • ${bb.customer_phone}` : ''}

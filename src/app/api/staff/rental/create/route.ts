@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   const conflict = (conflictBookings ?? [])[0]
   if (conflict && !overrideBookingConflict) {
     return NextResponse.json({
-      error: `ส่งรถนี้จะไปชนคิวจอง ${conflict.booking_ref} (คุณ${conflict.customer_name} รับรถ ${new Date(conflict.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}) — คิวนั้นจะถูกยกเลิกถ้ายืนยันทำต่อ`,
+      error: `ส่งรถนี้จะไปชนคิวจอง ${conflict.booking_ref} (คุณ${conflict.customer_name} รับรถ ${new Date(conflict.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}) — ใช้ Fast lane เพื่อยืนยันทำต่อได้ (คิวนั้นจะยังไม่ถูกยกเลิก จะไปโผล่ในคิวมีปัญหาให้จัดการแทน)`,
       conflictBookingId: conflict.id,
     }, { status: 409 })
   }
@@ -128,14 +128,15 @@ export async function POST(request: NextRequest) {
     paid_at: new Date(startDatetime).toISOString(),
   })
 
-  // Cancel any active booking for this bike that overlaps with the rental period
-  await supabase
-    .from('bookings')
-    .update({ status: 'cancelled' })
-    .eq('bike_id', bikeId)
-    .eq('status', 'confirmed')
-    .lt('start_datetime', new Date(endDatetime).toISOString())
-    .gt('end_datetime', new Date(startDatetime).toISOString())
+  // ปิดคิวจองที่กำลังเติมเต็มด้วยสัญญานี้ (ถ้ามาจากการจอง) — คิวจองอื่นที่ชนช่วงเวลานี้ (ถ้ามี — ต้องผ่าน
+  // Fast lane override มาแล้วเท่านั้นถึงมาถึงจุดนี้ได้) จะไม่ถูกยกเลิก ปล่อยให้ยัง confirmed อยู่
+  // ระบบคิวมีปัญหาจะจับได้เองว่าชนกับสัญญานี้ ให้ staff ไปจัดการต่อ (โทร/หารถแทน) แทนที่จะหายไปเงียบๆ
+  if (excludeBookingId) {
+    await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', excludeBookingId)
+  }
+  if (conflict && overrideBookingConflict) {
+    await supabase.from('rentals').update({ fast_lane: true }).eq('id', rental.id)
+  }
 
   // Update bike status + odometer
   const newOdometer = parseInt(odometer) || 0
@@ -161,8 +162,9 @@ export async function POST(request: NextRequest) {
     actorId: staffId,
     actorName: staffName,
     action: 'rental_created',
-    description: `ส่งรถให้ลูกค้า ${customer.name} (${customer.phone}) — ฿${totalAmount?.toLocaleString() ?? 0} / ${totalDays} วัน`,
-    metadata: { rentalId: rental.id, bikeId, customerId, totalAmount, totalDays },
+    description: `ส่งรถให้ลูกค้า ${customer.name} (${customer.phone}) — ฿${totalAmount?.toLocaleString() ?? 0} / ${totalDays} วัน` +
+      (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : ''),
+    metadata: { rentalId: rental.id, bikeId, customerId, totalAmount, totalDays, fastLaneOverBookingId: conflict && overrideBookingConflict ? conflict.id : null },
   })
 
   return NextResponse.json({ success: true, rentalId: rental.id })

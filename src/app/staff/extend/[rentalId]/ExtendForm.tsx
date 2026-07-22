@@ -146,9 +146,9 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
     if (paymentNum <= 0) { setError('กรุณาใส่จำนวนเงิน'); return }
     if (conflictBooking) {
       const ok = confirm(
-        `⚠️ ต่อเวลานี้จะชนคิวจอง ${conflictBooking.booking_ref} ของคุณ${conflictBooking.customer_name} ` +
+        `⚡ ต่อเวลานี้จะชนคิวจอง ${conflictBooking.booking_ref} ของคุณ${conflictBooking.customer_name} ` +
         `(รับรถ ${fmtDate(conflictBooking.start_datetime)})\n\n` +
-        `ยืนยันต่อเวลา แล้วไปย้ายคิว/อัพเกรดรถให้ลูกค้าที่จองทันที`
+        `ใช้ Fast lane ยืนยันต่อเวลา (คิวนั้นจะยังไม่ถูกยกเลิก) แล้วไปย้ายคิว/หารถแทนให้ลูกค้าที่จองทันที`
       )
       if (!ok) return
     }

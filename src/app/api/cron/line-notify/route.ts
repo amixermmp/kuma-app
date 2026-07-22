@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { linePush, textMessage, imageMessage, LineMessage } from '@/lib/line'
+import { findBrokenBookings } from '@/lib/bookingConflicts'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -17,6 +18,7 @@ export const maxDuration = 60
 //   5. routine_due         — งานรูทีน (เช่น เปลี่ยนน้ำมันเครื่อง) ถึงกำหนด → ลูกค้ารายเดือนที่ถือรถ
 //  เจ้าของ (ผ่าน OA กลาง — shop_settings.line_token + line_target_id):
 //   6. owner_digest        — สรุปงานค้าง (ภาษี/พรบ/เซอร์วิส) แยกบอลลูนรายสาขา หลัง 9 โมงเช้า
+//   6.5 broken_booking     — คิวมีปัญหาใหม่ (รถชนคิวจอง/จองซ้อนจอง/Fast lane) เช็คทุกรอบ ไม่รอ 9 โมง ส่งซ้ำได้วันละครั้งต่อคิวถ้ายังไม่เคลียร์
 //   7. owner_available     — รถว่างวันนี้ แยกบอลลูนรายสาขา หลัง 8 โมงเช้า
 //   8. owner_revenue       — รายได้วันนี้รายสาขา หลัง 3 ทุ่ม (รอบวัน 21:00→21:00)
 
@@ -379,6 +381,38 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ═══ 6.5) คิวมีปัญหาใหม่ → กลุ่ม owner (เช็คทุกรอบ ไม่รอ 9 โมง — ต้องรู้ตัวทันทีโดยเฉพาะเคส Fast lane) ═══
+  // ส่งซ้ำได้วันละครั้งต่อคิว (claim key มี bkkToday) ถ้ายังไม่ถูกจัดการ จะได้ไม่หลุดสายตาไปหลายวัน
+  if (shop?.line_token && shop.line_target_id) {
+    const broken = await findBrokenBookings(supabase)
+    if (broken.length > 0) {
+      const branchIds = sortBranchIds(broken.map(bb => bb.branch_id))
+      const messages: LineMessage[] = []
+      const claimedIds: string[] = []
+      for (const branchId of branchIds) {
+        const items = broken.filter(bb => bb.branch_id === branchId)
+        const newItems: typeof items = []
+        for (const bb of items) {
+          const claimId = await claim('broken_booking', bb.id, bkkToday)
+          if (claimId) { newItems.push(bb); claimedIds.push(claimId) }
+        }
+        if (newItems.length === 0) continue
+        const lines = newItems.map(bb =>
+          `• ${bb.fastLane ? '⚡ Fast lane — ' : ''}${bb.booking_ref} คุณ${bb.customer_name} รับรถ ${thaiTime.format(new Date(bb.start_datetime))} น.\n   ${bb.reason}`
+        )
+        messages.push(textMessage(`🚨 คิวมีปัญหา ${displayBranch(branchId)} — ${newItems.length} คิว\n\n${lines.join('\n')}\n\nเข้าแอพ → คิวมีปัญหา เพื่อจัดการ`))
+      }
+      if (messages.length > 0) {
+        let allOk = true
+        for (let i = 0; i < messages.length; i += 5) {
+          allOk = (await linePush(shop.line_token, shop.line_target_id, messages.slice(i, i + 5))) && allOk
+        }
+        if (allOk) sent += messages.length
+        else { failed++; await Promise.all(claimedIds.map(release)) }
+      }
+    }
+  }
+
   // ═══ 7) รถว่างวันนี้ → กลุ่ม owner (หลัง 8 โมงเช้า) แยกบอลลูนรายสาขา ═══
   if ((bkkHour >= AVAILABLE_SEND_HOUR || testMode) && shop?.line_token && shop.line_target_id) {
     const claimId = await claim('owner_available', '00000000-0000-0000-0000-000000000000', bkkToday)
@@ -395,11 +429,12 @@ export async function GET(request: NextRequest) {
       const available = (allBikes ?? []).filter(b => b.status === 'available' && !busy.has(b.id))
 
       const dateText = thaiDate.format(new Date(now))
+      const timeText = thaiTime.format(new Date(now)).split(' ').pop() // เวลา ณ ตอนสร้างข้อความ
       const branchIds = sortBranchIds(available.map(b => b.branch_id ?? ''))
       const messages: LineMessage[] = branchIds.map(branchId => {
         const list = available.filter(b => (b.branch_id ?? '') === branchId)
         const lines = list.map(b => `• ${b.license_plate} ${[b.brand, b.model].filter(Boolean).join(' ')}`)
-        return textMessage(`🛵 รถว่างวันนี้ (${dateText}) ${displayBranch(branchId)} — ${list.length} คัน\n\n${lines.join('\n')}`)
+        return textMessage(`🛵 รถว่างวันนี้ (${dateText} ณ ${timeText} น.) ${displayBranch(branchId)} — ${list.length} คัน\n\n${lines.join('\n')}`)
       })
       if (messages.length === 0) {
         messages.push(textMessage(`🛵 รถว่างวันนี้ (${dateText}) — ไม่มีรถว่างเลย ทุกคันออกงานหมด 🎉`))
@@ -422,31 +457,37 @@ export async function GET(request: NextRequest) {
       const windowEnd = new Date(`${bkkToday}T${String(REVENUE_SEND_HOUR - 7).padStart(2, '0')}:00:00Z`) // 21:00 ไทย
       const windowStart = new Date(windowEnd.getTime() - DAY_MS)
 
-      const [{ data: dayRentals }, { data: dayPayments }] = await Promise.all([
-        supabase.from('rentals')
-          .select('branch_id, total_amount')
-          .in('status', ['active', 'extended', 'returned', 'completed'])
-          .gte('start_datetime', windowStart.toISOString())
-          .lt('start_datetime', windowEnd.toISOString()),
+      const [{ data: dayRentalPays }, { data: dayPayments }] = await Promise.all([
+        // สมุดรายรับรายวัน — เงินตามวันที่เก็บจริง (เปิดสัญญา/ต่อเวลา/ค่าล่วงเวลา)
+        supabase.from('rental_payments')
+          .select('branch_id, amount, kind')
+          .is('voided_at', null)
+          .gte('paid_at', windowStart.toISOString())
+          .lt('paid_at', windowEnd.toISOString()),
         supabase.from('monthly_payments')
           .select('amount, monthly_rentals(branch_id)')
+          .is('voided_at', null)
           .eq('paid_date', bkkToday),
       ])
 
-      type Rev = { rental: number; rentalCount: number; monthly: number; monthlyCount: number }
+      type Rev = { rental: number; rentalCount: number; extend: number; monthly: number; monthlyCount: number }
       const revByBranch = new Map<string, Rev>()
-      const bump = (branchId: string, field: 'rental' | 'monthly', amount: number) => {
-        const rev = revByBranch.get(branchId) ?? { rental: 0, rentalCount: 0, monthly: 0, monthlyCount: 0 }
-        rev[field] += amount
-        if (field === 'rental') rev.rentalCount++
-        else rev.monthlyCount++
-        revByBranch.set(branchId, rev)
+      const getRev = (branchId: string): Rev => {
+        let rev = revByBranch.get(branchId)
+        if (!rev) { rev = { rental: 0, rentalCount: 0, extend: 0, monthly: 0, monthlyCount: 0 }; revByBranch.set(branchId, rev) }
+        return rev
       }
-      for (const r of dayRentals ?? []) bump(r.branch_id ?? '', 'rental', Number(r.total_amount ?? 0))
+      for (const p of dayRentalPays ?? []) {
+        const rev = getRev(p.branch_id ?? '')
+        if (p.kind === 'rental') { rev.rental += Number(p.amount ?? 0); rev.rentalCount++ }
+        else rev.extend += Number(p.amount ?? 0) // ต่อเวลา + ค่าล่วงเวลาตอนคืน
+      }
       for (const p of dayPayments ?? []) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mr = p.monthly_rentals as any
-        bump(mr?.branch_id ?? '', 'monthly', Number(p.amount ?? 0))
+        const rev = getRev(mr?.branch_id ?? '')
+        rev.monthly += Number(p.amount ?? 0)
+        rev.monthlyCount++
       }
 
       const dateText = thaiDate.format(new Date(now))
@@ -454,12 +495,13 @@ export async function GET(request: NextRequest) {
       const branchIds = sortBranchIds([...Array.from(branchNames.keys()), ...Array.from(revByBranch.keys())])
       let grandTotal = 0
       const lines = branchIds.map(branchId => {
-        const rev = revByBranch.get(branchId) ?? { rental: 0, rentalCount: 0, monthly: 0, monthlyCount: 0 }
-        const total = rev.rental + rev.monthly
+        const rev = revByBranch.get(branchId) ?? { rental: 0, rentalCount: 0, extend: 0, monthly: 0, monthlyCount: 0 }
+        const total = rev.rental + rev.extend + rev.monthly
         grandTotal += total
         let line = `${displayBranch(branchId)}: ฿${total.toLocaleString()}`
         const parts: string[] = []
         if (rev.rentalCount > 0) parts.push(`เช่าใหม่ ${rev.rentalCount} สัญญา ฿${rev.rental.toLocaleString()}`)
+        if (rev.extend > 0) parts.push(`ต่อเวลา ฿${rev.extend.toLocaleString()}`)
         if (rev.monthlyCount > 0) parts.push(`รายเดือน ${rev.monthlyCount} ราย ฿${rev.monthly.toLocaleString()}`)
         if (parts.length > 0) line += `\n   (${parts.join(' + ')})`
         return line
@@ -493,19 +535,29 @@ export async function GET(request: NextRequest) {
       const pmLast = new Date(Date.UTC(pmY, pmM, 0)).toISOString().split('T')[0]
       const CAPACITY_EXCLUDE = ['repair', 'maintenance', 'retired', 'inactive'] // รถเสียตัดออก
 
-      const [{ data: allBikes }, { data: dRentals }, { data: dRentalsPrev }, { data: mMonthly }, { data: mPayCur }, { data: mPayPrev }, { data: expDocs }] = await Promise.all([
+      const [{ data: allBikes }, { data: dRentals }, { data: dRentalsPrev }, { data: rPayCur }, { data: rPayPrev }, { data: mMonthly }, { data: mPayCur }, { data: mPayPrev }, { data: expDocs }] = await Promise.all([
         supabase.from('bikes').select('id, branch_id, status'),
+        // สัญญาที่คาบเกี่ยวเดือน — ใช้คำนวณ utilization (คัน-วัน) เท่านั้น
         supabase.from('rentals')
-          .select('branch_id, start_datetime, expected_end_datetime, actual_end_datetime, total_amount')
+          .select('branch_id, start_datetime, expected_end_datetime, actual_end_datetime')
           .lt('start_datetime', isoOf(monthEndMs)).gt('expected_end_datetime', isoOf(monthStartMs))
           .in('status', ['active', 'extended', 'returned', 'completed']),
         supabase.from('rentals')
-          .select('branch_id, start_datetime, expected_end_datetime, actual_end_datetime, total_amount')
+          .select('branch_id, start_datetime, expected_end_datetime, actual_end_datetime')
           .lt('start_datetime', isoOf(monthStartMs)).gt('expected_end_datetime', isoOf(prevStartMs))
           .in('status', ['active', 'extended', 'returned', 'completed']),
+        // รายได้รายวัน — จากสมุดรายรับตามวันที่เก็บเงินจริง
+        supabase.from('rental_payments')
+          .select('branch_id, amount, kind')
+          .is('voided_at', null)
+          .gte('paid_at', isoOf(monthStartMs)).lt('paid_at', isoOf(monthEndMs)),
+        supabase.from('rental_payments')
+          .select('amount')
+          .is('voided_at', null)
+          .gte('paid_at', isoOf(prevStartMs)).lt('paid_at', isoOf(monthStartMs)),
         supabase.from('monthly_rentals').select('branch_id, start_date, end_date, status'),
-        supabase.from('monthly_payments').select('amount, monthly_rentals(branch_id)').eq('status', 'paid').gte('paid_date', firstOfMonth).lte('paid_date', bkkToday),
-        supabase.from('monthly_payments').select('amount').eq('status', 'paid').gte('paid_date', pmFirst).lte('paid_date', pmLast),
+        supabase.from('monthly_payments').select('amount, monthly_rentals(branch_id)').eq('status', 'paid').is('voided_at', null).gte('paid_date', firstOfMonth).lte('paid_date', bkkToday),
+        supabase.from('monthly_payments').select('amount').eq('status', 'paid').is('voided_at', null).gte('paid_date', pmFirst).lte('paid_date', pmLast),
         supabase.from('bike_documents').select('id, bikes(branch_id)').in('doc_type', ['tax', 'pob']).gte('expiry_date', firstOfMonth).lt('expiry_date', new Date(Date.UTC(ry, rm + 1, 1)).toISOString().split('T')[0]),
       ])
 
@@ -534,7 +586,11 @@ export async function GET(request: NextRequest) {
         const sMs = new Date(r.start_datetime).getTime()
         const eMs = new Date(r.actual_end_datetime ?? r.expected_end_datetime).getTime()
         s.used += clampDays(sMs, eMs, monthStartMs, monthEndMs)
-        if (sMs >= monthStartMs && sMs < monthEndMs) { s.revenue += Number(r.total_amount ?? 0); s.dailyCount++ }
+      }
+      for (const p of rPayCur ?? []) {
+        const s = get(p.branch_id ?? '')
+        s.revenue += Number(p.amount ?? 0)
+        if (p.kind === 'rental') s.dailyCount++
       }
       for (const r of dRentalsPrev ?? []) {
         const s = get(r.branch_id ?? '')
@@ -553,10 +609,8 @@ export async function GET(request: NextRequest) {
       for (const p of mPayCur ?? []) { const mr = p.monthly_rentals as { branch_id?: string } | null; get(mr?.branch_id ?? '').revenue += Number(p.amount ?? 0) }
 
       const activeMonthlyCount = (mMonthly ?? []).filter(m => m.status === 'active').length
-      const revPrev = (dRentalsPrev ?? []).reduce((s, r) => {
-        const sMs = new Date(r.start_datetime).getTime()
-        return s + (sMs >= prevStartMs && sMs < prevEndMs ? Number(r.total_amount ?? 0) : 0)
-      }, 0) + (mPayPrev ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0)
+      const revPrev = (rPayPrev ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0)
+        + (mPayPrev ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0)
 
       const branchIds = sortBranchIds([...Array.from(branchNames.keys()), ...Array.from(stat.keys())])
       const monthLabel = new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', month: 'long', year: 'numeric' }).format(new Date(monthStartMs + 15 * 86_400_000))

@@ -259,7 +259,7 @@ export default function SearchPage() {
                 {unavailableGroups.map(group => (
                   <div key={group.key} style={{
                     background: '#f9fafb', borderRadius: '14px', marginBottom: '8px',
-                    border: '1px solid #e5e7eb', overflow: 'hidden', opacity: 0.6,
+                    border: '1px solid #e5e7eb', overflow: 'hidden',
                   }}>
                     <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div style={{ fontSize: '28px', filter: 'grayscale(1)' }}>🛵</div>
@@ -277,6 +277,29 @@ export default function SearchPage() {
                       }}>
                         🔴 ไม่ว่าง
                       </span>
+                    </div>
+                    <div style={{
+                      borderTop: '1px solid #e5e7eb', padding: '10px 14px',
+                      display: 'flex', justifyContent: 'flex-end', gap: '8px',
+                    }}>
+                      <Link
+                        href={`/staff/walkin/model?brand=${encodeURIComponent(group.brand)}&model=${encodeURIComponent(group.model)}&rate=${group.daily_rate}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
+                        style={{
+                          background: '#eff6ff', color: '#2563eb', textDecoration: 'none', border: '1px solid #bfdbfe',
+                          padding: '9px 12px', borderRadius: '10px', fontSize: '12px', fontWeight: 700,
+                        }}
+                      >
+                        ⚡ ส่งรถเลย (Fast lane)
+                      </Link>
+                      <Link
+                        href={`/staff/booking/model?brand=${encodeURIComponent(group.brand)}&model=${encodeURIComponent(group.model)}&rate=${group.daily_rate}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&fastLane=1`}
+                        style={{
+                          background: '#eff6ff', color: '#2563eb', textDecoration: 'none', border: '1px solid #bfdbfe',
+                          padding: '9px 12px', borderRadius: '10px', fontSize: '12px', fontWeight: 700,
+                        }}
+                      >
+                        ⚡ จองคิว (Fast lane)
+                      </Link>
                     </div>
                   </div>
                 ))}

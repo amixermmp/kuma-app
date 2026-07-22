@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     totalDays, dailyRate, totalAmount, discount,
     source, promoId, notes,
     deliveryType, deliveryAddress,
+    overrideConflict,
   } = body
 
   if (!staffId || !customerName || !customerPhone || !startDatetime || !endDatetime) {
@@ -49,11 +50,11 @@ export async function POST(request: NextRequest) {
   // รถไม่ว่างจากสัญญาเช่า — ตัวกลาง เดียวกับทุกจุดในระบบ (กันเกินกำหนดยังไม่คืนหลุดคิว)
   const busyIds = await getBusyBikeIds(supabase, startDatetime, endDatetime)
 
+  // ชนคิวไหม — ใช้ตัดสินว่าต้อง Fast lane หรือเปล่า (ไม่ block ถ้า override แล้ว แต่ต้องรู้ไว้เพื่อแท็ก fast_lane)
+  let hasConflict = false
+
   // If specific bike: check for conflicts
   if (bikeId) {
-    if (busyIds.has(bikeId)) {
-      return NextResponse.json({ error: 'รถถูกเช่าหรือจองในช่วงเวลานี้แล้ว' }, { status: 409 })
-    }
     const { data: bookingConflict } = await supabase.from('bookings')
       .select('id')
       .eq('bike_id', bikeId)
@@ -61,8 +62,12 @@ export async function POST(request: NextRequest) {
       .lt('start_datetime', bufferEnd)
       .gt('end_datetime', bufferStart)
       .maybeSingle()
-    if (bookingConflict) {
-      return NextResponse.json({ error: 'รถถูกเช่าหรือจองในช่วงเวลานี้แล้ว' }, { status: 409 })
+    hasConflict = busyIds.has(bikeId) || !!bookingConflict
+    if (hasConflict && !overrideConflict) {
+      return NextResponse.json({
+        error: 'รถถูกเช่าหรือจองในช่วงเวลานี้แล้ว — ใช้ Fast lane เพื่อจองซ้อนได้ (คิวเดิมจะยังไม่ถูกยกเลิก จะไปโผล่ในคิวมีปัญหาให้จัดการแทน)',
+        conflict: true,
+      }, { status: 409 })
     }
   }
 
@@ -91,8 +96,12 @@ export async function POST(request: NextRequest) {
     const freeBikes = (candidateBikes ?? []).filter(b => !busyIds.has(b.id) && !(bookingConflicts ?? []).some(bc => bc.bike_id === b.id))
     const actualAvailable = freeBikes.length - modelBookingCount
 
-    if (actualAvailable <= 0) {
-      return NextResponse.json({ error: `ไม่มี ${requestedBrand} ${requestedModel} ว่างในช่วงเวลานี้ กรุณาเลือกรถรุ่นอื่น` }, { status: 409 })
+    hasConflict = actualAvailable <= 0
+    if (hasConflict && !overrideConflict) {
+      return NextResponse.json({
+        error: `ไม่มี ${requestedBrand} ${requestedModel} ว่างในช่วงเวลานี้ — ใช้ Fast lane เพื่อจองไว้ก่อนได้ (ระบบจะเตือนให้หารถเพิ่ม/จัดรถให้ทันเมื่อใกล้ถึงกำหนด)`,
+        conflict: true,
+      }, { status: 409 })
     }
   }
 
@@ -123,6 +132,7 @@ export async function POST(request: NextRequest) {
       booking_ref: bookingRef,
       delivery_type: deliveryType === 'offsite' ? 'offsite' : 'shop',
       delivery_address: deliveryType === 'offsite' ? (deliveryAddress || null) : null,
+      ...(hasConflict && overrideConflict ? { fast_lane: true } : {}),
     })
     .select('id, booking_ref')
     .single()
@@ -137,7 +147,8 @@ export async function POST(request: NextRequest) {
     bikeText = bike?.license_plate ?? bikeId
   }
   await logStaffAction(staffId, 'booking_created',
-    `จองคิว ${booking.booking_ref} — ${bikeText} — ลูกค้า ${customerName} (${customerPhone}) — ฿${Number(totalAmount ?? 0).toLocaleString()} / ${totalDays} วัน`,
+    `จองคิว ${booking.booking_ref} — ${bikeText} — ลูกค้า ${customerName} (${customerPhone}) — ฿${Number(totalAmount ?? 0).toLocaleString()} / ${totalDays} วัน` +
+      (hasConflict && overrideConflict ? ' ⚡ Fast lane จองซ้อนคิว/รุ่นไม่พอ' : ''),
     { bookingId: booking.id, bikeId: bikeId ?? null, requestedBrand, requestedModel, totalAmount })
 
   return NextResponse.json({ success: true, bookingId: booking.id, bookingRef: booking.booking_ref })

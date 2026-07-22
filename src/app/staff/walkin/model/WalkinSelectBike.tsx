@@ -135,36 +135,48 @@ export default function WalkinSelectBike({ brand, model, from, to, totalDays, bi
           </>
         )}
 
-        {/* Busy bikes */}
+        {/* Busy bikes — เลือกได้ผ่าน Fast lane เท่านั้น (ระบบจะเตือนให้ยืนยันตอนกดส่งจริง) */}
         {busy.length > 0 && (
           <>
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#9ca3af', marginTop: '8px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '.5px' }}>
-              ไม่ว่างในช่วงเวลานี้
+              ไม่ว่างในช่วงเวลานี้ — เลือกได้ด้วย Fast lane
             </div>
-            {busy.map(bike => (
-              <div key={bike.id} style={{
-                background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '12px',
-                marginBottom: '6px', padding: '10px 14px', opacity: 0.5,
-                display: 'flex', alignItems: 'center', gap: '10px',
-              }}>
-                <div style={{ fontSize: '24px', filter: 'grayscale(1)' }}>🛵</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>
-                    {bike.brand} {bike.model} • {bike.license_plate}
+            {busy.map(bike => {
+              const selected = selectedId === bike.id
+              return (
+                <div
+                  key={bike.id}
+                  onClick={() => setSelectedId(bike.id)}
+                  style={{
+                    background: selected ? '#eff6ff' : '#f9fafb',
+                    border: `2px solid ${selected ? '#2563eb' : '#e5e7eb'}`,
+                    borderRadius: '12px', marginBottom: '6px', padding: '10px 14px',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
+                  }}
+                >
+                  <div style={{ fontSize: '24px' }}>🛵</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: '13px', color: '#374151' }}>
+                      {bike.brand} {bike.model} • {bike.license_plate}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#dc2626' }}>🔴 ไม่ว่าง — ต้องใช้ Fast lane ยืนยันตอนส่งรถ</div>
                   </div>
-                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>🔴 ไม่ว่าง</div>
+                  {selected && <span style={{ fontSize: '12px', fontWeight: 700, color: '#2563eb' }}>⚡ เลือกแล้ว</span>}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </>
         )}
 
         {selectedBike && (
           <div style={{
-            background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px',
-            padding: '10px 14px', marginTop: '8px', fontSize: '13px', color: '#16a34a',
+            background: selectedBike.available ? '#f0fdf4' : '#eff6ff',
+            border: `1px solid ${selectedBike.available ? '#bbf7d0' : '#bfdbfe'}`,
+            borderRadius: '10px', padding: '10px 14px', marginTop: '8px', fontSize: '13px',
+            color: selectedBike.available ? '#16a34a' : '#2563eb',
           }}>
-            ✅ เลือกแล้ว: {selectedBike.license_plate}
+            {selectedBike.available ? '✅' : '⚡'} เลือกแล้ว: {selectedBike.license_plate}
+            {!selectedBike.available && ' (ต้องยืนยัน Fast lane ตอนกดส่งรถ)'}
           </div>
         )}
 

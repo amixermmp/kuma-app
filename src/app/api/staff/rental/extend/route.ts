@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const conflict = (conflictBookings ?? [])[0]
   if (conflict && !overrideBookingConflict) {
     return NextResponse.json({
-      error: `ต่อไม่ได้ — ชนคิวจอง ${conflict.booking_ref} (คุณ${conflict.customer_name} รับรถ ${new Date(conflict.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}) — ย้ายคิวก่อนหรือยืนยันต่อทับ`,
+      error: `ต่อไม่ได้ — ชนคิวจอง ${conflict.booking_ref} (คุณ${conflict.customer_name} รับรถ ${new Date(conflict.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}) — ใช้ Fast lane เพื่อยืนยันต่อได้ (คิวนั้นจะยังไม่ถูกยกเลิก จะไปโผล่ในคิวมีปัญหาให้จัดการแทน)`,
       conflictBookingId: conflict.id,
     }, { status: 409 })
   }
@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       total_days: newTotalDays,
       total_amount: current.total_amount + payment,
       outstanding_credit: newCredit,
+      ...(conflict && overrideBookingConflict ? { fast_lane: true } : {}),
     })
     .eq('id', rentalId)
 
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
   const newEndText = new Date(newEndDatetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   await logStaffAction(staffId, 'rental_extended',
     `ต่อเวลาเช่า ${plate} — ถึง ${newEndText} — เก็บเงิน ฿${Number(payment).toLocaleString()}` +
-    (conflict && overrideBookingConflict ? ` ⚠️ ต่อทับคิวจอง ${conflict.booking_ref} (ต้องย้ายคิว)` : ''),
+    (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : ''),
     { rentalId, payment, newEndDatetime, overrodeBooking: conflict?.id ?? null })
 
   return NextResponse.json({ success: true })

@@ -13,6 +13,7 @@ export type BrokenBooking = {
   requested_brand: string | null
   requested_model: string | null
   reason: string
+  fastLane: boolean
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,7 +32,7 @@ export async function findBrokenBookings(supabase: SupabaseClient<any, any, any>
   const in14days = new Date(Date.now() + 14 * 86_400_000).toISOString()
 
   let bq = supabase.from('bookings')
-    .select('id, booking_ref, bike_id, branch_id, requested_brand, requested_model, customer_name, customer_phone, start_datetime, end_datetime, bikes(license_plate, brand, model, status)')
+    .select('id, booking_ref, bike_id, branch_id, requested_brand, requested_model, customer_name, customer_phone, start_datetime, end_datetime, fast_lane, bikes(license_plate, brand, model, status)')
     .eq('status', 'confirmed')
     .lte('start_datetime', in14days)
     .gte('end_datetime', nowIso)
@@ -39,25 +40,41 @@ export async function findBrokenBookings(supabase: SupabaseClient<any, any, any>
   const { data: bookings } = await bq
   if (!bookings || bookings.length === 0) return []
 
-  const [{ data: rentals }, { data: monthlies }, { data: allBikes }] = await Promise.all([
-    supabase.from('rentals').select('bike_id, start_datetime, expected_end_datetime').in('status', ['active', 'extended']),
-    supabase.from('monthly_rentals').select('bike_id').eq('status', 'active'),
+  const specificBikeIds = Array.from(new Set(bookings.filter(b => b.bike_id).map(b => b.bike_id as string)))
+
+  const [{ data: rentals }, { data: monthlies }, { data: allBikes }, { data: otherBookingsOnSameBikes }] = await Promise.all([
+    supabase.from('rentals').select('bike_id, start_datetime, expected_end_datetime, fast_lane').in('status', ['active', 'extended']),
+    supabase.from('monthly_rentals').select('bike_id, fast_lane').eq('status', 'active'),
     supabase.from('bikes').select('id, branch_id, brand, model, status'),
+    specificBikeIds.length > 0
+      ? supabase.from('bookings').select('id, booking_ref, customer_name, bike_id, start_datetime, end_datetime, fast_lane').eq('status', 'confirmed').in('bike_id', specificBikeIds)
+      : Promise.resolve({ data: [] as { id: string; booking_ref: string; customer_name: string; bike_id: string; start_datetime: string; end_datetime: string; fast_lane: boolean | null }[] }),
   ])
 
-  const monthlyBusy = new Set((monthlies ?? []).map(m => m.bike_id))
+  const monthlyBusy = new Map((monthlies ?? []).map(m => [m.bike_id, !!m.fast_lane]))
   const nowMs = Date.now()
 
-  function isBikeBusyInWindow(bikeId: string, startIso: string, endIso: string): boolean {
-    if (monthlyBusy.has(bikeId)) return true
+  function isBikeBusyInWindow(bikeId: string, startIso: string, endIso: string): { busy: boolean; fastLane: boolean } {
+    if (monthlyBusy.has(bikeId)) return { busy: true, fastLane: !!monthlyBusy.get(bikeId) }
     const bufferStart = new Date(startIso).getTime() - BUFFER_MS
     const bufferEnd = new Date(endIso).getTime() + BUFFER_MS
-    return (rentals ?? []).some(r => {
+    const hit = (rentals ?? []).find(r => {
       if (r.bike_id !== bikeId) return false
       const overdue = new Date(r.expected_end_datetime).getTime() <= nowMs
       const overlaps = new Date(r.start_datetime).getTime() < bufferEnd && new Date(r.expected_end_datetime).getTime() > bufferStart
       return overdue || overlaps
     })
+    return { busy: !!hit, fastLane: !!hit?.fast_lane }
+  }
+
+  // จองซ้อนจอง (booking vs booking) — ปกติระบบกันไว้ตั้งแต่ตอนสร้างจอง แต่ Fast lane
+  // อนุญาตให้จองซ้อนได้โดยตั้งใจ จึงต้องเช็คเพิ่มแยกจาก isBikeBusyInWindow (เช็คแค่รถชนสัญญาที่เปิดใช้งานจริง)
+  function findOverlappingBooking(bookingId: string, bikeId: string, startIso: string, endIso: string) {
+    return (otherBookingsOnSameBikes ?? []).find(ob =>
+      ob.id !== bookingId && ob.bike_id === bikeId &&
+      new Date(ob.start_datetime).getTime() < new Date(endIso).getTime() &&
+      new Date(ob.end_datetime).getTime() > new Date(startIso).getTime()
+    )
   }
 
   const results: BrokenBooking[] = []
@@ -72,17 +89,21 @@ export async function findBrokenBookings(supabase: SupabaseClient<any, any, any>
 
     if (b.bike_id) {
       if (!bike) continue
+      const overlappingBooking = findOverlappingBooking(b.id, b.bike_id, b.start_datetime, b.end_datetime)
+      const busyCheck = isBikeBusyInWindow(b.bike_id, b.start_datetime, b.end_datetime)
       if (UNRENTABLE_STATUSES.includes(bike.status)) {
-        results.push({ ...base, reason: `รถ ${bike.license_plate} ไม่พร้อมใช้งาน (${bike.status})` })
-      } else if (isBikeBusyInWindow(b.bike_id, b.start_datetime, b.end_datetime)) {
-        results.push({ ...base, reason: `รถ ${bike.license_plate} มีคนอื่นใช้ทับช่วงเวลานี้แล้ว` })
+        results.push({ ...base, reason: `รถ ${bike.license_plate} ไม่พร้อมใช้งาน (${bike.status})`, fastLane: false })
+      } else if (busyCheck.busy) {
+        results.push({ ...base, reason: `รถ ${bike.license_plate} มีคนอื่นใช้ทับช่วงเวลานี้แล้ว`, fastLane: busyCheck.fastLane })
+      } else if (overlappingBooking) {
+        results.push({ ...base, reason: `รถ ${bike.license_plate} มีคิวจองอื่นชนช่วงเวลาเดียวกัน — ${overlappingBooking.booking_ref} คุณ${overlappingBooking.customer_name}`, fastLane: !!b.fast_lane || !!overlappingBooking.fast_lane })
       }
     } else if (b.requested_brand && b.requested_model) {
       const candidates = (allBikes ?? []).filter(bk =>
         bk.branch_id === b.branch_id && bk.brand === b.requested_brand && bk.model === b.requested_model &&
         !UNRENTABLE_STATUSES.includes(bk.status)
       )
-      const freeCount = candidates.filter(bk => !isBikeBusyInWindow(bk.id, b.start_datetime, b.end_datetime)).length
+      const freeCount = candidates.filter(bk => !isBikeBusyInWindow(bk.id, b.start_datetime, b.end_datetime).busy).length
       // งานคิวรุ่นเดียวกัน ช่วงเวลาทับกัน ที่จะมาแย่งรถว่างชุดเดียวกัน
       const competing = bookings.filter(b2 =>
         b2.id !== b.id && !b2.bike_id && b2.branch_id === b.branch_id &&
@@ -91,7 +112,7 @@ export async function findBrokenBookings(supabase: SupabaseClient<any, any, any>
         new Date(b2.end_datetime).getTime() > new Date(b.start_datetime).getTime()
       ).length
       if (freeCount - competing <= 0) {
-        results.push({ ...base, reason: `ไม่มีรถรุ่น ${b.requested_brand} ${b.requested_model} ว่างพอในช่วงเวลานี้` })
+        results.push({ ...base, reason: `ไม่มีรถรุ่น ${b.requested_brand} ${b.requested_model} ว่างพอในช่วงเวลานี้`, fastLane: !!b.fast_lane })
       }
     }
   }

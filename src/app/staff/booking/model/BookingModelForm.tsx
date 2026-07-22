@@ -70,7 +70,7 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
     if (deliveryType === 'offsite' && !deliveryAddress.trim()) { setError('กรุณาใส่สถานที่ส่งรถ'); return }
     setLoading(true); setError('')
     try {
-      const res = await fetch('/api/staff/booking/create', {
+      const sendBookingPayload = (overrideConflict: boolean) => fetch('/api/staff/booking/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -91,9 +91,18 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
           deliveryType,
           deliveryAddress: deliveryType === 'offsite' ? deliveryAddress.trim() : null,
           notes: notes.trim() || null,
+          overrideConflict,
         }),
       })
-      const data = await res.json()
+      let res = await sendBookingPayload(false)
+      let data = await res.json()
+      // รุ่นนี้ไม่ว่างพอในช่วงเวลานี้ — เสนอ Fast lane ให้จองไว้ก่อนได้ (ไม่ยกเลิกคิวเดิม จะไปโผล่คิวมีปัญหาแทน)
+      if (!res.ok && data.conflict) {
+        const ok = confirm(`⚡ ${data.error}\n\nยืนยันใช้ Fast lane จองไว้ก่อนไหม?`)
+        if (!ok) { return }
+        res = await sendBookingPayload(true)
+        data = await res.json()
+      }
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
       router.push(`/staff/booking/${data.bookingId}/confirm`)
     } catch {

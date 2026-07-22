@@ -9,7 +9,7 @@ import { addTab } from '@/lib/tabStore'
 import { calcShortPrice, calcLongPrice, calendarDays } from '@/lib/pricing'
 
 // ── Success screen ───────────────────────────────────────────────────────────
-function SuccessScreen({ rentalId, type, bikeId }: { rentalId: string; type: 'daily' | 'monthly'; bikeId: string }) {
+function SuccessScreen({ rentalId, type, bikeId, fastLaneConflictId }: { rentalId: string; type: 'daily' | 'monthly'; bikeId: string; fastLaneConflictId?: string | null }) {
   const invoiceHref = type === 'daily'
     ? `/staff/invoice/${rentalId}`
     : `/staff/invoice/monthly/${rentalId}`
@@ -25,6 +25,15 @@ function SuccessScreen({ rentalId, type, bikeId }: { rentalId: string; type: 'da
         <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '32px' }}>
           {type === 'daily' ? 'สัญญาเช่ารายวัน' : 'สัญญาเช่ารายเดือน'}ถูกบันทึกแล้ว
         </div>
+        {fastLaneConflictId && (
+          <Link href={`/staff/assign/${fastLaneConflictId}`} style={{
+            display: 'block', width: '100%', background: '#fef2f2', color: '#dc2626',
+            border: '1.5px solid #dc2626', borderRadius: '12px', padding: '16px', fontSize: '15px', fontWeight: 700,
+            textDecoration: 'none', marginBottom: '12px',
+          }}>
+            ⚡ ใช้ Fast lane ทับคิวจองไว้ — กดจัดรถแทนให้ลูกค้าที่โดนชนตอนนี้
+          </Link>
+        )}
         <Link href={`/staff/contract/${rentalId}`} style={{
           display: 'block', width: '100%', background: '#111827', color: '#fff',
           borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
@@ -259,6 +268,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const [error,           setError]           = useState('')
   const [createdRentalId, setCreatedRentalId] = useState<string | null>(null)
   const [createdType,     setCreatedType]     = useState<'daily' | 'monthly'>('daily')
+  const [fastLaneConflictId, setFastLaneConflictId] = useState<string | null>(null)
   const [ocrLoading,      setOcrLoading]      = useState(false)
   const [ocrDone,         setOcrDone]         = useState(false)
   const [ocrError,        setOcrError]        = useState('')
@@ -435,7 +445,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
           setLoading(false)
           return
         }
-        const res = await fetch('/api/staff/monthly/create', {
+        const sendMonthlyPayload = (overrideBookingConflict: boolean) => fetch('/api/staff/monthly/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -455,12 +465,22 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
             paymentMethod,
             photos,
             signature: signature ?? null,
+            overrideBookingConflict,
           }),
         })
-        const data = await res.json()
+        let res = await sendMonthlyPayload(false)
+        let data = await res.json()
+        // ชนคิวจองของลูกค้าคนอื่น — เสนอ Fast lane ให้ยืนยันทำต่อได้ (คิวนั้นจะไม่ถูกยกเลิก จะไปโผล่ในคิวมีปัญหาแทน)
+        if (!res.ok && data.conflictBookingId) {
+          const ok = confirm(`⚡ ${data.error}\n\nยืนยันใช้ Fast lane ทำต่อไหม?`)
+          if (!ok) { return }
+          res = await sendMonthlyPayload(true)
+          data = await res.json()
+        }
         if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
         clearDraft(DRAFT_KEY)
         setCreatedType('monthly')
+        setFastLaneConflictId(data.fastLaneConflictId ?? null)
         setCreatedRentalId(data.rentalId ?? data.id ?? null)
 
       } else {
@@ -496,10 +516,12 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         })
         let res = await sendPayload(false)
         let data = await res.json()
-        // ชนคิวจองของลูกค้าคนอื่น — ให้ยืนยันก่อนทำต่อ (คิวนั้นจะถูกยกเลิก)
+        // ชนคิวจองของลูกค้าคนอื่น — เสนอ Fast lane ให้ยืนยันทำต่อได้ (คิวนั้นจะไม่ถูกยกเลิก จะไปโผล่ในคิวมีปัญหาแทน)
+        let fastLaneConflictId: string | null = null
         if (!res.ok && data.conflictBookingId) {
-          const ok = confirm(`⚠️ ${data.error}\n\nยืนยันทำต่อไหม?`)
+          const ok = confirm(`⚡ ${data.error}\n\nยืนยันใช้ Fast lane ทำต่อไหม?`)
           if (!ok) { return }
+          fastLaneConflictId = data.conflictBookingId
           res = await sendPayload(true)
           data = await res.json()
         }
@@ -507,6 +529,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         clearDraft(DRAFT_KEY)
         setCreatedType('daily')
         setCreatedRentalId(data.rentalId ?? data.id ?? null)
+        setFastLaneConflictId(fastLaneConflictId)
         // Close the source booking if came from assign flow
         if (prefillBooking?.id) {
           await fetch('/api/staff/booking/close', {
@@ -525,7 +548,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
 
   // ── Success ───────────────────────────────────────────────────────────────
   if (createdRentalId) {
-    return <SuccessScreen rentalId={createdRentalId} type={createdType} bikeId={bike.id} />
+    return <SuccessScreen rentalId={createdRentalId} type={createdType} bikeId={bike.id} fastLaneConflictId={fastLaneConflictId} />
   }
 
   const headerBg = isMonthlyContract
