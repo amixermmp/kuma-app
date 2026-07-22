@@ -337,10 +337,14 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const scheduledEndMs = prefillBooking ? new Date(prefillBooking.end_datetime).getTime() : null
   const arrivalDeltaMs = scheduledStartMs != null ? startDt.getTime() - scheduledStartMs : 0
 
+  // ปลดล็อกเพดานด้วยมือ — สำหรับดีลใหญ่ที่ตั้งใจรับทั้งที่ชนคิวถัดไป (Fast lane)
+  // เพดานยังเป็นค่าเริ่มต้นเสมอ ต้องกดปลดล็อกก่อนถึงจะพิมพ์/เลื่อนเกินได้ กันพนักงานเผลอลากเกินตอนต่อรองปกติ
+  const [maxReturnUnlocked, setMaxReturnUnlocked] = useState(false)
+
   useEffect(() => {
     if (scheduledStartMs == null || scheduledEndMs == null) return
     let targetMs = scheduledEndMs + arrivalDeltaMs
-    if (maxReturnMs != null && targetMs > maxReturnMs) targetMs = maxReturnMs
+    if (!maxReturnUnlocked && maxReturnMs != null && targetMs > maxReturnMs) targetMs = maxReturnMs
     const d = new Date(targetMs)
     const p = (n: number) => String(n).padStart(2, '0')
     setEndDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`)
@@ -348,8 +352,9 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, startTime])
 
-  // ตัดกำหนดคืนกลับลงมาทันทีถ้าพนักงานเลือก/ระบบเสนอเกินเพดาน — บังคับใช้ไม่ว่าค่าจะมาจากไหน
+  // ตัดกำหนดคืนกลับลงมาทันทีถ้าพนักงานเลือก/ระบบเสนอเกินเพดาน — เว้นแต่ปลดล็อกไว้แล้ว (Fast lane)
   useEffect(() => {
+    if (maxReturnUnlocked) return
     if (maxReturnMs == null) return
     if (endDt.getTime() > maxReturnMs) {
       const d = new Date(maxReturnMs)
@@ -358,9 +363,9 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
       setEndTime(`${p(d.getHours())}:${p(d.getMinutes())}`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endDate, endTime, maxReturnMs])
+  }, [endDate, endTime, maxReturnMs, maxReturnUnlocked])
 
-  const atMaxReturnCap = maxReturnMs != null && Math.abs(endDt.getTime() - maxReturnMs) < 60_000
+  const atMaxReturnCap = maxReturnMs != null && !maxReturnUnlocked && Math.abs(endDt.getTime() - maxReturnMs) < 60_000
 
   // For long rental pricing
   const billingEndDt   = new Date(startDt.getTime() + billingDays * 86_400_000)
@@ -699,7 +704,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
             ปรับเวลาคืนเองได้ — เช่าคืนวันเดียวกันได้ (นับราคาขั้นต่ำ 1 วัน) ค่าล่วงเวลานอกเหนือกำหนดคำนวณตอนรับรถคืนอัตโนมัติ
           </div>
 
-          {nextBooking && maxReturnMs != null && (
+          {nextBooking && maxReturnMs != null && !maxReturnUnlocked && (
             <div style={{
               marginTop: '12px',
               background: atMaxReturnCap ? '#fef2f2' : '#fffbeb',
@@ -711,7 +716,29 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
               <div style={{ fontSize: '12px', marginTop: '4px' }}>
                 คิวจองถัดไปของรถคันนี้ {nextBooking.booking_ref} — คุณ{nextBooking.customer_name} รับรถ{' '}
                 {new Date(nextBooking.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                {' '}(เผื่อเตรียมรถ 3 ชม.) — เลื่อนกำหนดคืนเกินเวลานี้ไม่ได้ ต่อให้ลูกค้าจะขอต่อรองก็ตาม
+                {' '}(เผื่อเตรียมรถ 3 ชม.) — ปรับเวลาคืนตามปกติเกินไม่ได้
+              </div>
+              <button
+                type="button"
+                onClick={() => setMaxReturnUnlocked(true)}
+                style={{
+                  marginTop: '8px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe',
+                  borderRadius: '8px', padding: '7px 12px', fontSize: '12px', fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                ⚡ ปลดล็อกเพดาน — รับดีลนี้ทั้งที่ชนคิว (Fast lane)
+              </button>
+            </div>
+          )}
+          {nextBooking && maxReturnUnlocked && (
+            <div style={{
+              marginTop: '12px', background: '#eff6ff', border: '1px solid #bfdbfe',
+              borderRadius: '10px', padding: '10px 14px', fontSize: '13px', color: '#2563eb',
+            }}>
+              <strong>⚡ ปลดล็อกเพดานแล้ว — กำหนดคืนได้อิสระ</strong>
+              <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                ถ้ากำหนดคืนไปชนคิวจอง {nextBooking.booking_ref} จริง ระบบจะให้ยืนยัน Fast lane อีกครั้งตอนกดส่งรถ — คิวนั้นจะไม่ถูกยกเลิก จะไปโผล่ในคิวมีปัญหาแทน
               </div>
             </div>
           )}
