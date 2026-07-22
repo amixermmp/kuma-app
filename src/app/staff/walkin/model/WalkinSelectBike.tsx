@@ -14,6 +14,7 @@ type Bike = {
   daily_rate: number
   odometer: number
   available: boolean
+  hardBusy: boolean
 }
 
 type Props = {
@@ -37,7 +38,10 @@ export default function WalkinSelectBike({ brand, model, from, to, totalDays, bi
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const available = bikes.filter(b => b.available)
-  const busy = bikes.filter(b => !b.available)
+  // ติดคิวจองในอนาคตเท่านั้น รถว่างจริงตอนนี้ — เลือกได้ผ่าน Fast lane
+  const bookedOnly = bikes.filter(b => !b.available && !b.hardBusy)
+  // มีสัญญาเปิดอยู่ตอนนี้จริง (เช่าอยู่/รายเดือน active) — รถอยู่ในมือคนอื่น Fast lane ช่วยไม่ได้ ส่งไม่ได้จริงๆ
+  const hardBusy = bikes.filter(b => b.hardBusy)
   const selectedBike = bikes.find(b => b.id === selectedId)
 
   const handleConfirm = () => {
@@ -135,13 +139,13 @@ export default function WalkinSelectBike({ brand, model, from, to, totalDays, bi
           </>
         )}
 
-        {/* Busy bikes — เลือกได้ผ่าน Fast lane เท่านั้น (ระบบจะเตือนให้ยืนยันตอนกดส่งจริง) */}
-        {busy.length > 0 && (
+        {/* ติดคิวจองในอนาคตเท่านั้น รถว่างจริงตอนนี้ — เลือกได้ผ่าน Fast lane (ระบบจะเตือนให้ยืนยันตอนกดส่งจริง) */}
+        {bookedOnly.length > 0 && (
           <>
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#9ca3af', marginTop: '8px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '.5px' }}>
-              ไม่ว่างในช่วงเวลานี้ — เลือกได้ด้วย Fast lane
+              ติดคิวจองในอนาคต — รถว่างตอนนี้ เลือกได้ด้วย Fast lane
             </div>
-            {busy.map(bike => {
+            {bookedOnly.map(bike => {
               const selected = selectedId === bike.id
               return (
                 <div
@@ -159,12 +163,36 @@ export default function WalkinSelectBike({ brand, model, from, to, totalDays, bi
                     <div style={{ fontWeight: 600, fontSize: '13px', color: '#374151' }}>
                       {bike.brand} {bike.model} • {bike.license_plate}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#dc2626' }}>🔴 ไม่ว่าง — ต้องใช้ Fast lane ยืนยันตอนส่งรถ</div>
+                    <div style={{ fontSize: '11px', color: '#dc2626' }}>🔴 ติดคิวจองล่วงหน้า — ต้องใช้ Fast lane ยืนยันตอนส่งรถ</div>
                   </div>
                   {selected && <span style={{ fontSize: '12px', fontWeight: 700, color: '#2563eb' }}>⚡ เลือกแล้ว</span>}
                 </div>
               )
             })}
+          </>
+        )}
+
+        {/* มีสัญญาเปิดอยู่ตอนนี้จริง (เช่าอยู่/รายเดือน active) — รถอยู่ในมือคนอื่น Fast lane ช่วยไม่ได้ กดส่งไม่ได้จริง ไม่ให้เลือก */}
+        {hardBusy.length > 0 && (
+          <>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#9ca3af', marginTop: '8px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+              มีคนใช้อยู่ตอนนี้ — ส่งไม่ได้ (Fast lane ก็ช่วยไม่ได้)
+            </div>
+            {hardBusy.map(bike => (
+              <div key={bike.id} style={{
+                background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '12px',
+                marginBottom: '6px', padding: '10px 14px', opacity: 0.5,
+                display: 'flex', alignItems: 'center', gap: '10px',
+              }}>
+                <div style={{ fontSize: '24px', filter: 'grayscale(1)' }}>🛵</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: '13px', color: '#6b7280' }}>
+                    {bike.brand} {bike.model} • {bike.license_plate}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>🔒 มีสัญญาเช่าเปิดอยู่ตอนนี้ (ต้องปิดสัญญาเดิมก่อน)</div>
+                </div>
+              </div>
+            ))}
           </>
         )}
 
