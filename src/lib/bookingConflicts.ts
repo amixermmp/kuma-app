@@ -1,5 +1,43 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { BUFFER_MS, UNRENTABLE_STATUSES } from './availability'
+import { BUFFER_MS, UNRENTABLE_STATUSES, getBusyBikeIds } from './availability'
+
+export type ModelBookingConflict = { id: string; booking_ref: string; customer_name: string; start_datetime: string }
+
+/**
+ * เช็คว่าถ้าเอารถคันนี้ (excludeBikeId) ไปใช้ในช่วง [startIso, endIso] จะทำให้คิวจองแบบ
+ * "ระบุแค่รุ่น ไม่เจาะจงคัน" (bike_id เป็น null) ของรุ่นเดียวกันในสาขาเดียวกันขาดรถหรือไม่
+ * ใช้ตอนส่งรถ/ต่อเวลา/ทำสัญญารายเดือน — เดิมระบบเช็คแค่ชนคิวที่เจาะจงคันนี้ตรงๆ เท่านั้น
+ * ไม่เคยเช็คผลกระทบต่อคิวจองแบบรุ่น ทำให้ปล่อยผ่านเงียบๆ แล้วไปโผล่คิวมีปัญหาทีหลังแบบไม่มีการเตือนล่วงหน้า
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function findModelBookingConflict(
+  supabase: SupabaseClient<any, any, any>,
+  branchId: string, brand: string, model: string, excludeBikeId: string,
+  startIso: string, endIso: string,
+): Promise<ModelBookingConflict | null> {
+  const bufferStart = new Date(new Date(startIso).getTime() - BUFFER_MS).toISOString()
+  const bufferEnd = new Date(new Date(endIso).getTime() + BUFFER_MS).toISOString()
+
+  const [{ data: modelBookings }, { data: modelBikes }] = await Promise.all([
+    supabase.from('bookings')
+      .select('id, booking_ref, customer_name, start_datetime, end_datetime')
+      .eq('branch_id', branchId).eq('requested_brand', brand).eq('requested_model', model)
+      .is('bike_id', null).eq('status', 'confirmed')
+      .lt('start_datetime', bufferEnd).gt('end_datetime', bufferStart),
+    supabase.from('bikes').select('id')
+      .eq('branch_id', branchId).eq('brand', brand).eq('model', model)
+      .not('status', 'in', `("${UNRENTABLE_STATUSES.join('","')}")`),
+  ])
+  if (!modelBookings || modelBookings.length === 0) return null
+
+  const busyIds = await getBusyBikeIds(supabase, startIso, endIso)
+  const freeCountExcludingThis = (modelBikes ?? []).filter(b => b.id !== excludeBikeId && !busyIds.has(b.id)).length
+
+  if (freeCountExcludingThis >= modelBookings.length) return null
+
+  // เตือนคิวที่ใกล้ถึงกำหนดที่สุดก่อน
+  return [...modelBookings].sort((a, b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime())[0]
+}
 
 export type BrokenBooking = {
   id: string

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logStaffAction } from '@/lib/log'
+import { findModelBookingConflict } from '@/lib/bookingConflicts'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
 
   const { data: current, error: fetchErr } = await supabase
     .from('rentals')
-    .select('total_amount, branch_id, bike_id, bikes(license_plate)')
+    .select('total_amount, branch_id, bike_id, bikes(license_plate, brand, model)')
     .eq('id', rentalId)
     .in('status', ['active', 'extended'])
     .single()
@@ -37,12 +38,30 @@ export async function POST(request: NextRequest) {
     .eq('status', 'confirmed')
     .lt('start_datetime', new Date(new Date(newEndDatetime).getTime() + bufferMs).toISOString())
     .gt('end_datetime', new Date().toISOString())
-  const conflict = (conflictBookings ?? [])[0]
+  let conflict = (conflictBookings ?? [])[0]
   if (conflict && !overrideBookingConflict) {
     return NextResponse.json({
       error: `ต่อไม่ได้ — ชนคิวจอง ${conflict.booking_ref} (คุณ${conflict.customer_name} รับรถ ${new Date(conflict.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}) — ใช้ Fast lane เพื่อยืนยันต่อได้ (คิวนั้นจะยังไม่ถูกยกเลิก จะไปโผล่ในคิวมีปัญหาให้จัดการแทน)`,
       conflictBookingId: conflict.id,
     }, { status: 409 })
+  }
+
+  // กันต่อเวลาแล้วทำให้คิวจองแบบ "ระบุแค่รุ่น ไม่เจาะจงคัน" ของรุ่นเดียวกันขาดรถแบบไม่รู้ตัว
+  if (!conflict) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const bikeInfo = Array.isArray((current as any).bikes) ? (current as any).bikes[0] : (current as any).bikes
+    if (bikeInfo?.brand && bikeInfo?.model) {
+      const modelConflict = await findModelBookingConflict(
+        supabase, current.branch_id, bikeInfo.brand, bikeInfo.model, current.bike_id, new Date().toISOString(), newEndDatetime,
+      )
+      if (modelConflict && !overrideBookingConflict) {
+        return NextResponse.json({
+          error: `ต่อเวลานี้จะทำให้รุ่น ${bikeInfo.brand} ${bikeInfo.model} ไม่พอสำหรับคิวจอง ${modelConflict.booking_ref} (คุณ${modelConflict.customer_name} รับรถ ${new Date(modelConflict.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}) — ใช้ Fast lane เพื่อยืนยันต่อได้ (คิวนั้นจะยังไม่ถูกยกเลิก จะไปโผล่ในคิวมีปัญหาให้จัดการแทน)`,
+          conflictBookingId: modelConflict.id,
+        }, { status: 409 })
+      }
+      if (modelConflict) conflict = modelConflict
+    }
   }
 
   const { error } = await supabase

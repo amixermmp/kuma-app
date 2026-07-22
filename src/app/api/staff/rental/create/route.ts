@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import { hasOpenContract } from '@/lib/availability'
+import { findModelBookingConflict } from '@/lib/bookingConflicts'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
 import { checkBlacklist } from '@/lib/blacklist'
 
@@ -48,12 +49,30 @@ export async function POST(request: NextRequest) {
     .gt('end_datetime', new Date(startDatetime).toISOString())
   if (excludeBookingId) conflictQuery = conflictQuery.neq('id', excludeBookingId)
   const { data: conflictBookings } = await conflictQuery
-  const conflict = (conflictBookings ?? [])[0]
+  let conflict = (conflictBookings ?? [])[0]
   if (conflict && !overrideBookingConflict) {
     return NextResponse.json({
       error: `ส่งรถนี้จะไปชนคิวจอง ${conflict.booking_ref} (คุณ${conflict.customer_name} รับรถ ${new Date(conflict.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}) — ใช้ Fast lane เพื่อยืนยันทำต่อได้ (คิวนั้นจะยังไม่ถูกยกเลิก จะไปโผล่ในคิวมีปัญหาให้จัดการแทน)`,
       conflictBookingId: conflict.id,
     }, { status: 409 })
+  }
+
+  // กันเอารถคันนี้ไปแล้วทำให้คิวจองแบบ "ระบุแค่รุ่น ไม่เจาะจงคัน" ของรุ่นเดียวกันขาดรถแบบไม่รู้ตัว
+  // (เดิมเช็คแค่ชนคิวที่เจาะจงคันนี้ตรงๆ เท่านั้น ไม่เคยเช็คผลกระทบต่อคิวจองแบบรุ่น)
+  if (!conflict) {
+    const { data: bikeRow } = await supabase.from('bikes').select('brand, model').eq('id', bikeId).single()
+    if (bikeRow) {
+      const modelConflict = await findModelBookingConflict(
+        supabase, BRANCH_ID, bikeRow.brand, bikeRow.model, bikeId, startDatetime, endDatetime,
+      )
+      if (modelConflict && !overrideBookingConflict) {
+        return NextResponse.json({
+          error: `เอารถคันนี้ไปจะทำให้รุ่น ${bikeRow.brand} ${bikeRow.model} ไม่พอสำหรับคิวจอง ${modelConflict.booking_ref} (คุณ${modelConflict.customer_name} รับรถ ${new Date(modelConflict.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}) — ใช้ Fast lane เพื่อยืนยันทำต่อได้ (คิวนั้นจะยังไม่ถูกยกเลิก จะไปโผล่ในคิวมีปัญหาให้จัดการแทน)`,
+          conflictBookingId: modelConflict.id,
+        }, { status: 409 })
+      }
+      if (modelConflict) conflict = modelConflict
+    }
   }
 
   // กันชั้นสุดท้าย — คนติดบัญชีดำของร้าน ทำสัญญาไม่ได้
