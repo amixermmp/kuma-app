@@ -261,9 +261,10 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
     setPhotos(prev => ({ ...prev, [key]: '' })), [])
 
   // OCR บัตรประชาชน — auto-fill ชื่อลูกค้า
+  // อ่านบัตรทุกครั้งแม้มีชื่ออยู่แล้ว (เช่น ชื่อจากใบจอง) — เพราะชื่อในใบจองอาจเป็นชื่อเล่น
+  // หรือคนละคนกับที่มารับจริง (เพื่อนจองให้) ต้องยึดชื่อตามบัตรจริงเพื่อเช็คแบล็คลิสต์ให้ตรงคน
   const handleIdCardUpload = useCallback(async (url: string) => {
     setPhoto('id_card')(url)
-    if (customerName) return // มีชื่อแล้ว ไม่ต้อง OCR
     setOcrLoading(true)
     setOcrDone(false)
     setOcrError('')
