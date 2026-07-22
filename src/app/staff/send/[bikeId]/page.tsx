@@ -38,12 +38,23 @@ export default async function SendCarPage({
   if (searchParams.bookingId) {
     const { data } = await supabase
       .from('bookings')
-      .select('id, customer_name, customer_phone, customer_hotel, start_datetime, end_datetime, total_days, notes')
+      .select('id, customer_name, customer_phone, customer_hotel, start_datetime, end_datetime, total_days, daily_rate, notes')
       .eq('id', searchParams.bookingId)
       .eq('status', 'confirmed')
       .single()
     booking = data ?? null
   }
+
+  // คิวจองถัดไปของรถคันนี้ (ไม่รวมคิวที่กำลังจะส่งให้ในรอบนี้เอง) — เอาไว้เตือนตอนตั้งเวลาคืน
+  let upcomingBookingsQuery = supabase
+    .from('bookings')
+    .select('id, booking_ref, customer_name, start_datetime')
+    .eq('bike_id', params.bikeId)
+    .eq('status', 'confirmed')
+    .gt('start_datetime', new Date().toISOString())
+    .order('start_datetime', { ascending: true })
+  if (booking?.id) upcomingBookingsQuery = upcomingBookingsQuery.neq('id', booking.id)
+  const { data: upcomingBookings } = await upcomingBookingsQuery
 
   return (
     <SendCarForm
@@ -53,6 +64,7 @@ export default async function SendCarPage({
       prefillBooking={booking}
       prefillFrom={searchParams.from}
       prefillTo={searchParams.to}
+      upcomingBookings={upcomingBookings ?? []}
     />
   )
 }

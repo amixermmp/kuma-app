@@ -6,7 +6,7 @@ import PhotoUpload from '@/components/PhotoUpload'
 import SignaturePad from '@/components/SignaturePad'
 import TabBar from '@/components/staff/TabBar'
 import { addTab } from '@/lib/tabStore'
-import { calcShortPrice, calcLongPrice } from '@/lib/pricing'
+import { calcShortPrice, calcLongPrice, calendarDays } from '@/lib/pricing'
 
 // ── Success screen ───────────────────────────────────────────────────────────
 function SuccessScreen({ rentalId, type, bikeId }: { rentalId: string; type: 'daily' | 'monthly'; bikeId: string }) {
@@ -80,6 +80,13 @@ type PrefillBooking = {
   notes: string | null
 } | null
 
+type UpcomingBooking = {
+  id: string
+  booking_ref: string
+  customer_name: string
+  start_datetime: string
+}
+
 type Props = {
   bike: Bike
   staffId: string
@@ -87,6 +94,7 @@ type Props = {
   prefillBooking?: PrefillBooking
   prefillFrom?: string  // datetime-local Bangkok format e.g. "2026-07-01T10:00"
   prefillTo?: string
+  upcomingBookings?: UpcomingBooking[]
 }
 
 type PhotoState = {
@@ -100,7 +108,7 @@ type PhotoState = {
 // ── Draft persistence ─────────────────────────────────────────────────────────
 type DraftData = {
   customerName: string; customerPhone: string; customerHotel: string
-  startDate: string; endDate: string; startTime: string
+  startDate: string; endDate: string; startTime: string; endTime: string
   studentPromo: boolean; contractType: 'onetime' | 'monthly'; mMonthlyRate: string
   odometer: string; fuelLevel: number; paymentMethod: 'cash' | 'transfer'
   depositAmount: string; lockBike: boolean | null; signature: string | null
@@ -141,7 +149,7 @@ function nowTime() {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom, prefillTo }: Props) {
+export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom, prefillTo, upcomingBookings }: Props) {
   const DRAFT_KEY = `send_draft_${bike.id}`
 
   useEffect(() => {
@@ -172,6 +180,14 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const [startTime, setStartTime] = useState(() => {
     if (draft?.startTime) return draft.startTime
     if (prefillFrom?.includes('T')) return prefillFrom.split('T')[1].slice(0, 5)
+    return nowTime()
+  })
+  // เวลาคืน — แยกอิสระจากเวลารับ (ค่าเริ่มต้น = เวลารับ เผื่อไม่ได้ปรับ) รองรับเช่าแบบวันเดย์ทริป
+  // และกันเวลาคืนเลื่อนตามเวลารับจริงถ้าลูกค้ามาสาย (ต่อยอดจากที่คุยกันไว้)
+  const [endTime, setEndTime] = useState(() => {
+    if (draft?.endTime) return draft.endTime
+    if (prefillTo?.includes('T')) return prefillTo.split('T')[1].slice(0, 5)
+    if (prefillBooking?.end_datetime) return prefillBooking.end_datetime.split('T')[1]?.slice(0, 5) ?? nowTime()
     return nowTime()
   })
   // ── Promo ─────────────────────────────────────────────────────────────────
@@ -205,12 +221,12 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   // ── Auto-save draft ───────────────────────────────────────────────────────
   // Keep a ref to latest form data for immediate saves (avoids stale closure)
   const latestDraft = useRef<DraftData>({
-    customerName, customerPhone, customerHotel, startDate, endDate, startTime,
+    customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
     studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
     depositAmount, lockBike, signature, photos,
   })
   latestDraft.current = {
-    customerName, customerPhone, customerHotel, startDate, endDate, startTime,
+    customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
     studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
     depositAmount, lockBike, signature, photos,
   }
@@ -218,7 +234,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   useEffect(() => {
     if (prefillBooking) return
     saveDraft(DRAFT_KEY, latestDraft.current)
-  }, [DRAFT_KEY, customerName, customerPhone, customerHotel, startDate, endDate, startTime,
+  }, [DRAFT_KEY, customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
       studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
       depositAmount, lockBike, signature, photos, prefillBooking])
 
@@ -277,13 +293,19 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const startDt    = new Date(`${startDate}T${startTime}:00`)
-  const endDt      = new Date(`${endDate}T${startTime}:00`)
+  const endDt      = new Date(`${endDate}T${endTime}:00`)
   const validDates = startDate && endDate && endDt > startDt
 
-  // Duration — pure day count (no end time picker; overtime handled at return)
-  const totalMs        = validDates ? endDt.getTime() - startDt.getTime() : 0
-  const totalDays      = Math.floor(totalMs / 86_400_000)
+  // Duration — นับเป็นวันปฏิทิน (ไม่สนเวลารับ-คืนเป๊ะ) ขั้นต่ำ 1 วัน — รองรับเช่าคืนวันเดียวกัน (เดย์ทริป)
+  // เศษชั่วโมงที่เกินกำหนดตอนคืนจริงไปคิดเป็นค่าล่วงเวลาแยกตอนรับคืนแทน (ไม่เกี่ยวกับตรงนี้)
+  const totalDays      = validDates ? calendarDays(startDt, endDt) : 0
   const billingDays    = totalDays
+
+  // คิวจองถัดไปของรถคันนี้ที่จะโดนชนถ้ากำหนดคืนตามที่เลือกไว้ (บวก buffer 3 ชม.) — เตือนไว้ก่อนกดส่ง
+  const BOOKING_BUFFER_MS = 3 * 3_600_000
+  const conflictingBooking = validDates
+    ? upcomingBookings?.find(b => new Date(b.start_datetime).getTime() < endDt.getTime() + BOOKING_BUFFER_MS)
+    : undefined
 
   // For long rental pricing
   const billingEndDt   = new Date(startDt.getTime() + billingDays * 86_400_000)
@@ -398,7 +420,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
 
       } else {
         const startDatetime = `${startDate}T${startTime}:00+07:00`
-        const endDatetime   = `${endDate}T${startTime}:00+07:00`
+        const endDatetime   = `${endDate}T${endTime}:00+07:00`
         const sendPayload = (overrideBookingConflict: boolean) => fetch('/api/staff/rental/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -579,13 +601,53 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
             </div>
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
-            <div style={{
-              background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px',
-              padding: '10px 12px', fontSize: '12px', color: '#15803d',
-            }}>
-              ⏱️ เวลาคืนรถ = เวลารับรถ + จำนวนวัน — ค่าล่วงเวลาคำนวณตอนรับรถคืนอัตโนมัติ
+            <label className="field-label">เวลากำหนดคืน</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <select
+                className="field-input" style={{ flex: 1 }}
+                value={endTime.split(':')[0] ?? '08'}
+                onChange={e => setEndTime(e.target.value + ':' + (endTime.split(':')[1] ?? '00'))}
+              >
+                {Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')).map(h => (
+                  <option key={h} value={h}>{h} น.</option>
+                ))}
+              </select>
+              <select
+                className="field-input" style={{ flex: 1 }}
+                value={endTime.split(':')[1] ?? '00'}
+                onChange={e => setEndTime((endTime.split(':')[0] ?? '08') + ':' + e.target.value)}
+              >
+                {['00', '15', '30', '45'].map(m => (
+                  <option key={m} value={m}>{m} นาที</option>
+                ))}
+              </select>
             </div>
           </div>
+          <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px' }}>
+            ปรับเวลาคืนเองได้ — เช่าคืนวันเดียวกันได้ (นับราคาขั้นต่ำ 1 วัน) ค่าล่วงเวลานอกเหนือกำหนดคำนวณตอนรับรถคืนอัตโนมัติ
+          </div>
+
+          {conflictingBooking && (
+            <div style={{
+              marginTop: '12px', background: '#fef2f2', border: '1.5px solid #dc2626',
+              borderRadius: '10px', padding: '10px 14px', fontSize: '13px', color: '#dc2626',
+            }}>
+              <strong>⚠️ กำหนดคืนนี้ใกล้/ชนคิวจองถัดไปของรถคันนี้!</strong><br />
+              {conflictingBooking.booking_ref} — คุณ{conflictingBooking.customer_name} รับรถ{' '}
+              {new Date(conflictingBooking.start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              <div style={{ fontSize: '12px', marginTop: '4px', color: '#991b1b' }}>
+                ถ้าลูกค้ามารับช้ากว่านัด แนะนำปรับเวลากำหนดคืนให้ไม่เกินเวลานี้ (เผื่อ 3 ชม.) เพื่อไม่ให้กระทบคิวถัดไป
+              </div>
+            </div>
+          )}
+          {!conflictingBooking && upcomingBookings && upcomingBookings.length > 0 && (
+            <div style={{
+              marginTop: '12px', background: '#fffbeb', border: '1px solid #fcd34d',
+              borderRadius: '10px', padding: '8px 12px', fontSize: '12px', color: '#92400e',
+            }}>
+              📅 คันนี้มีคิวจองถัดไป: {new Date(upcomingBookings[0].start_datetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} — กำหนดคืนตอนนี้ยังไม่ชน
+            </div>
+          )}
         </div>
 
         {/* ② ½ โปรโมชั่น */}
