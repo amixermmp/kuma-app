@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { calcRentQuote } from '@/lib/pricing'
@@ -107,7 +107,12 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
   // ปุ่มลัด — เติมจำนวนเงินให้ตรงกับ "ต่ออีก N วัน" พอดี (หักเครดิตเก่าที่มีอยู่แล้ว) ตามสูตรร้านจริง
   const fillForDays = (n: number) => setPayment(String(Math.max(0, incrementalCostFor(n) - existingCredit)))
 
+  // ล็อคกันกดซ้อน (สองแตะบนมือถือ/เน็ตช้าแล้วกดซ้ำ) — ใช้ ref เพราะ React state
+  // อัพเดตแบบ async ทำให้ setLoading(true) เพียงอย่างเดียวกันไม่ทันในบางเคส
+  const submittingRef = useRef(false)
+
   const handleSubmit = async () => {
+    if (submittingRef.current) return
     if (paymentNum <= 0) { setError('กรุณาใส่จำนวนเงิน'); return }
     if (conflictBooking) {
       const ok = confirm(
@@ -117,6 +122,7 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
       )
       if (!ok) return
     }
+    submittingRef.current = true
     setLoading(true)
     setError('')
     try {
@@ -139,6 +145,7 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
     } finally {
+      submittingRef.current = false
       setLoading(false)
     }
   }
