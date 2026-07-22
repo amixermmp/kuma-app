@@ -96,6 +96,9 @@ export async function findBrokenBookings(supabase: SupabaseClient<any, any, any>
     }
   }
 
+  // เรียงตามวันรับรถที่ใกล้ที่สุดก่อน — คิวที่เร่งด่วนกว่าต้องเห็นก่อน
+  results.sort((a, b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime())
+
   return results
 }
 
