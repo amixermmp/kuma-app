@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds } from '@/lib/staffBranch'
 import { getBusyBikeIds, UNRENTABLE_STATUSES, BUFFER_MS } from '@/lib/availability'
+import { wouldBookingGetBikeForModel } from '@/lib/bookingConflicts'
 import AssignBikeClient from './AssignBikeClient'
 
 export const dynamic = 'force-dynamic'
@@ -65,6 +66,21 @@ export default async function AssignBikePage({ params, searchParams }: { params:
     available: !busyIds.has(b.id),
   }))
 
+  // โหมดเปลี่ยนรุ่น — เช็คแต่ละรุ่นด้วยการจำลองจัดสรรจริงแบบเดียวกับคิวมีปัญหา (กันคิวจองแบบรุ่นอื่นที่แข่งรถชุดเดียวกัน
+  // อยู่) แทนการนับรถว่างตรงๆ แบบเดิม ที่ทำให้โชว์ "ว่าง" ทั้งที่จริงคิวมีปัญหาจะจับได้ว่าไม่พอถ้าลองสลับไปจริง
+  let modelAvailability: Record<string, boolean> = {}
+  if (modelOnlyMode) {
+    const modelKeys = Array.from(new Set(
+      availableBikes.filter(b => b.available).map(b => `${b.brand}__${b.model}`)
+    ))
+    const checks = await Promise.all(modelKeys.map(async key => {
+      const [brand, model] = key.split('__')
+      const ok = await wouldBookingGetBikeForModel(supabase, booking.branch_id, brand, model, booking)
+      return [key, ok] as const
+    }))
+    modelAvailability = Object.fromEntries(checks)
+  }
+
   return (
     <AssignBikeClient
       booking={booking}
@@ -72,6 +88,7 @@ export default async function AssignBikePage({ params, searchParams }: { params:
       availableBikes={availableBikes}
       staffId={staffId}
       modelOnlyMode={modelOnlyMode}
+      modelAvailability={modelAvailability}
     />
   )
 }

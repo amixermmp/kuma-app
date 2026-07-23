@@ -43,6 +43,88 @@ export async function findModelBookingConflict(
   )[0]
 }
 
+/**
+ * เช็คว่าคิวจองนี้ (thisBooking) จะได้รถจริงไหมถ้าจัดให้รุ่น (brand, model) — จำลองจัดสรรรวมกับคิวจองอื่น
+ * ที่แข่งรุ่นเดียวกันในช่วงเวลาที่ทับกัน (ทั้งเจาะจงคันและระบุแค่รุ่น) ตามลำดับความสำคัญเดียวกับคิวมีปัญหา
+ * (ใกล้วันรับก่อน แล้วตามลำดับจอง) ใช้ตอนเปลี่ยนรุ่นที่จอง — เดิมหน้านั้นแค่นับรถว่างเฉยๆ ไม่กันคิวจองแบบรุ่น
+ * อื่นที่แข่งอยู่ ทำให้โชว์ "ว่าง" ทั้งที่จริงคิวมีปัญหาจะจับได้ว่าไม่พอถ้าลองสลับไปจริง
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function wouldBookingGetBikeForModel(
+  supabase: SupabaseClient<any, any, any>,
+  branchId: string, brand: string, model: string,
+  thisBooking: { id: string; start_datetime: string; end_datetime: string; created_at: string },
+): Promise<boolean> {
+  const bufferStart = new Date(new Date(thisBooking.start_datetime).getTime() - BUFFER_MS).toISOString()
+  const bufferEnd = new Date(new Date(thisBooking.end_datetime).getTime() + BUFFER_MS).toISOString()
+
+  const [{ data: candidates }, { data: modelBookings }, { data: specificBookings }, { data: rentals }, { data: monthlies }] = await Promise.all([
+    supabase.from('bikes').select('id')
+      .eq('branch_id', branchId).eq('brand', brand).eq('model', model)
+      .not('status', 'in', `("${UNRENTABLE_STATUSES.join('","')}")`),
+    supabase.from('bookings').select('id, start_datetime, end_datetime, created_at')
+      .eq('branch_id', branchId).eq('requested_brand', brand).eq('requested_model', model)
+      .is('bike_id', null).eq('status', 'confirmed')
+      .lt('start_datetime', bufferEnd).gt('end_datetime', bufferStart),
+    supabase.from('bookings').select('bike_id, start_datetime, end_datetime')
+      .eq('status', 'confirmed').not('bike_id', 'is', null)
+      .lt('start_datetime', bufferEnd).gt('end_datetime', bufferStart),
+    supabase.from('rentals').select('bike_id, start_datetime, expected_end_datetime').in('status', ['active', 'extended']),
+    supabase.from('monthly_rentals').select('bike_id').eq('status', 'active'),
+  ])
+
+  const candidateIds = new Set((candidates ?? []).map(b => b.id))
+  const monthlyBusy = new Set((monthlies ?? []).map(m => m.bike_id))
+  const nowMs = Date.now()
+
+  function isBikeBusyInWindow(bikeId: string, startIso: string, endIso: string): boolean {
+    if (monthlyBusy.has(bikeId)) return true
+    const bStart = new Date(startIso).getTime() - BUFFER_MS
+    const bEnd = new Date(endIso).getTime() + BUFFER_MS
+    return (rentals ?? []).some(r => {
+      if (r.bike_id !== bikeId) return false
+      const overdue = new Date(r.expected_end_datetime).getTime() <= nowMs
+      const overlaps = new Date(r.start_datetime).getTime() < bEnd && new Date(r.expected_end_datetime).getTime() > bStart
+      return overdue || overlaps
+    })
+  }
+
+  // รถที่ถูกจองแบบเจาะจงคันไปแล้ว (เฉพาะคันที่เป็นรุ่นนี้จริง) ถือเป็น "ครองพื้นที่" ถาวรสำหรับช่วงนั้น
+  const claimed = new Map<string, { start: number; end: number }[]>()
+  for (const sc of specificBookings ?? []) {
+    if (!candidateIds.has(sc.bike_id)) continue
+    const arr = claimed.get(sc.bike_id) ?? []
+    arr.push({ start: new Date(sc.start_datetime).getTime(), end: new Date(sc.end_datetime).getTime() })
+    claimed.set(sc.bike_id, arr)
+  }
+
+  // รวมคิวแข่งแบบระบุแค่รุ่น (ไม่รวมตัวเอง) + ตัวเอง แล้วเรียงตามลำดับความสำคัญเดียวกับคิวมีปัญหา
+  const others = (modelBookings ?? []).filter(b => b.id !== thisBooking.id)
+  const priority = [...others, thisBooking].sort((a, b) =>
+    new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime() ||
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  )
+
+  for (const b of priority) {
+    const bStart = new Date(b.start_datetime).getTime()
+    const bEnd = new Date(b.end_datetime).getTime()
+    const bike = (candidates ?? []).find(bk => {
+      if (isBikeBusyInWindow(bk.id, b.start_datetime, b.end_datetime)) return false
+      const claims = claimed.get(bk.id) ?? []
+      return !claims.some(c => c.start < bEnd + BUFFER_MS && c.end > bStart - BUFFER_MS)
+    })
+    if (bike) {
+      const claims = claimed.get(bike.id) ?? []
+      claims.push({ start: bStart, end: bEnd })
+      claimed.set(bike.id, claims)
+      if (b.id === thisBooking.id) return true
+    } else if (b.id === thisBooking.id) {
+      return false
+    }
+  }
+  return false
+}
+
 export type BrokenBooking = {
   id: string
   booking_ref: string

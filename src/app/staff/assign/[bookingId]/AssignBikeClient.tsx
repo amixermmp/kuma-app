@@ -25,6 +25,7 @@ type Props = {
   availableBikes: AvailableBike[]
   staffId: string
   modelOnlyMode: boolean
+  modelAvailability: Record<string, boolean>
 }
 
 function fmtDate(iso: string) {
@@ -38,7 +39,7 @@ function fmtTime(iso: string) {
   })
 }
 
-export default function AssignBikeClient({ booking, assignedBike, availableBikes, staffId, modelOnlyMode }: Props) {
+export default function AssignBikeClient({ booking, assignedBike, availableBikes, staffId, modelOnlyMode, modelAvailability }: Props) {
   const router = useRouter()
   const [selectedId, setSelectedId] = useState<string | null>(assignedBike?.id ?? null)
   const [loading, setLoading] = useState(false)
@@ -66,6 +67,9 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
     for (const b of availableBikes) {
       if (!b.available) continue
       const key = `${b.brand}__${b.model}`
+      // เดิมนับรถว่างตรงๆ ไม่กันคิวจองแบบรุ่นอื่นที่แข่งรถชุดเดียวกันอยู่ ทำให้โชว์ "ว่าง" ทั้งที่คิวมีปัญหา
+      // จะจับได้ว่าไม่พอถ้าลองสลับไปจริง — ตอนนี้เช็คด้วยการจำลองจัดสรรจริงแล้ว (modelAvailability)
+      if (!modelAvailability[key]) continue
       const g = byKey.get(key)
       if (g) g.count += 1
       else byKey.set(key, { brand: b.brand, model: b.model, count: 1, daily_rate: b.daily_rate })
