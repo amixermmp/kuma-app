@@ -27,11 +27,12 @@ export async function POST(req: NextRequest) {
             parts: [
               {
                 text: `นี่คือรูปบัตรประชาชนไทยหรือพาสปอร์ต
-กรุณาอ่านชื่อ-นามสกุลของเจ้าของบัตร
-ถ้าเป็นบัตรประชาชนไทย ให้ใช้ชื่อภาษาไทย
-ถ้าเป็นพาสปอร์ตต่างชาติ ให้ใช้ชื่อภาษาอังกฤษ
-ตอบเป็น JSON เท่านั้น: {"name": "ชื่อ นามสกุล"}
-ถ้าอ่านไม่ออกหรือไม่ใช่บัตรประชาชน ตอบ: {"name": ""}`,
+กรุณาอ่านชื่อ-นามสกุลของเจ้าของบัตร และเลขประจำตัว
+ถ้าเป็นบัตรประชาชนไทย ให้ใช้ชื่อภาษาไทย และอ่านเลขประจำตัวประชาชน 13 หลัก (ตัวเลขล้วน ไม่มีขีด/เว้นวรรค)
+ถ้าเป็นพาสปอร์ตต่างชาติ ให้ใช้ชื่อภาษาอังกฤษ และอ่านเลขที่พาสปอร์ต (ตัวอักษร+ตัวเลขตามที่ปรากฏ)
+ตอบเป็น JSON เท่านั้น: {"name": "ชื่อ นามสกุล", "idCardNumber": "เลขประจำตัว"}
+ถ้าอ่านไม่ออกหรือไม่ใช่บัตรประชาชน/พาสปอร์ต ตอบ: {"name": "", "idCardNumber": ""}
+ถ้าอ่านชื่อได้แต่อ่านเลขประจำตัวไม่ออก ให้ idCardNumber เป็น ""`,
               },
               {
                 inline_data: { mime_type: mimeType, data: base64 },
@@ -53,17 +54,20 @@ export async function POST(req: NextRequest) {
 
     // Parse JSON from response
     let name = ''
+    let idCardNumber = ''
     try {
       const match = raw.match(/\{[^}]+\}/)
       if (match) {
         const parsed = JSON.parse(match[0])
         name = parsed.name ?? ''
+        idCardNumber = parsed.idCardNumber ?? ''
       }
     } catch {
       name = ''
+      idCardNumber = ''
     }
 
-    return NextResponse.json({ name: name.trim() })
+    return NextResponse.json({ name: name.trim(), idCardNumber: idCardNumber.trim() })
   } catch (e) {
     return NextResponse.json({ error: 'Internal error', detail: String(e) }, { status: 500 })
   }

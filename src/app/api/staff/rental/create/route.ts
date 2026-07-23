@@ -25,6 +25,9 @@ export async function POST(request: NextRequest) {
   if (!bikeId || !customer?.name || !customer?.phone || !startDatetime || !endDatetime) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
+  if (!customer?.idCardNumber) {
+    return NextResponse.json({ error: 'กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต' }, { status: 400 })
+  }
 
   const REQUIRED_PHOTOS = ['id_card', 'selfie', 'with_bike', 'damage', 'payment']
   const missingPhotos = REQUIRED_PHOTOS.filter(k => !photos?.[k])
@@ -75,8 +78,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // กันชั้นสุดท้าย — คนติดบัญชีดำของร้าน ทำสัญญาไม่ได้
-  const blHit = await checkBlacklist(supabase, { name: customer.name, phone: customer.phone })
+  // กันชั้นสุดท้าย — คนติดบัญชีดำของร้าน ทำสัญญาไม่ได้ (เช็คทั้งชื่อ/เบอร์/เลขบัตร กันเคสเปลี่ยนชื่อ)
+  const blHit = await checkBlacklist(supabase, { name: customer.name, phone: customer.phone, idCardNumber: customer.idCardNumber })
   if (blHit) {
     return NextResponse.json({
       error: `⛔ ${blHit.name} ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้${blHit.reason ? ` (${blHit.reason})` : ''}`,
@@ -96,12 +99,12 @@ export async function POST(request: NextRequest) {
     customerId = existing.id
     await supabase
       .from('customers')
-      .update({ name: customer.name, workplace: customer.hotel || null })
+      .update({ name: customer.name, workplace: customer.hotel || null, id_card_number: customer.idCardNumber })
       .eq('id', customerId)
   } else {
     const { data: newCust, error: custErr } = await supabase
       .from('customers')
-      .insert({ branch_id: BRANCH_ID, name: customer.name, phone: customer.phone, workplace: customer.hotel || null })
+      .insert({ branch_id: BRANCH_ID, name: customer.name, phone: customer.phone, workplace: customer.hotel || null, id_card_number: customer.idCardNumber })
       .select('id')
       .single()
     if (custErr || !newCust) return NextResponse.json({ error: 'สร้างข้อมูลลูกค้าไม่สำเร็จ' }, { status: 500 })

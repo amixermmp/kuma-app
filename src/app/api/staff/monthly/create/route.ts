@@ -27,6 +27,9 @@ export async function POST(request: NextRequest) {
   if (!bikeId || !staffId || !customer?.name || !customer?.phone || !startDate || !monthlyRate) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
+  if (!customer?.idCardNumber) {
+    return NextResponse.json({ error: 'กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต' }, { status: 400 })
+  }
 
   let BRANCH_ID: string
   try {
@@ -84,8 +87,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // กันชั้นสุดท้าย — คนติดบัญชีดำของร้าน ทำสัญญาไม่ได้
-  const blHit = await checkBlacklist(supabase, { name: customer.name, phone: customer.phone })
+  // กันชั้นสุดท้าย — คนติดบัญชีดำของร้าน ทำสัญญาไม่ได้ (เช็คทั้งชื่อ/เบอร์/เลขบัตร กันเคสเปลี่ยนชื่อ)
+  const blHit = await checkBlacklist(supabase, { name: customer.name, phone: customer.phone, idCardNumber: customer.idCardNumber })
   if (blHit) {
     return NextResponse.json({
       error: `⛔ ${blHit.name} ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้${blHit.reason ? ` (${blHit.reason})` : ''}`,
@@ -106,6 +109,7 @@ export async function POST(request: NextRequest) {
     await supabase.from('customers').update({
       name: customer.name,
       workplace: customer.address || null,
+      id_card_number: customer.idCardNumber,
     }).eq('id', customerId)
   } else {
     const { data: newCustomer, error: cErr } = await supabase
@@ -114,6 +118,7 @@ export async function POST(request: NextRequest) {
         branch_id: BRANCH_ID,
         name: customer.name,
         phone: customer.phone,
+        id_card_number: customer.idCardNumber,
         workplace: customer.address || null,
       })
       .select('id')

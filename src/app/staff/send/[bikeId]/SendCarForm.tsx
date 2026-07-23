@@ -272,6 +272,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const [ocrLoading,      setOcrLoading]      = useState(false)
   const [ocrDone,         setOcrDone]         = useState(false)
   const [ocrError,        setOcrError]        = useState('')
+  const [idCardNumber,    setIdCardNumber]    = useState('')
 
   const folder = `send/${bike.id}`
 
@@ -295,14 +296,18 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
         body: JSON.stringify({ imageUrl: url }),
       })
       const data = await res.json()
+      if (data.idCardNumber) setIdCardNumber(data.idCardNumber)
       if (data.name) {
         setCustomerName(data.name)
         setOcrDone(true)
-        checkBlacklist(data.name, customerPhone)
+        checkBlacklist(data.name, customerPhone, data.idCardNumber ?? '')
       } else if (data.error) {
         setOcrError(`OCR: ${data.detail ?? data.error}`)
       } else {
         setOcrError('อ่านชื่อไม่ได้ — กรอกเองคับ')
+      }
+      if (!data.idCardNumber) {
+        setOcrError(prev => prev || 'อ่านเลขบัตรไม่ได้ — กรอกเองด้านล่าง')
       }
     } catch (e) {
       setOcrError(`OCR error: ${String(e)}`)
@@ -400,12 +405,13 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
 
   // ── Blacklist check — เช็คชื่อ/เบอร์กับบัญชีดำของร้าน ──────────────────────
   const [blacklistHit, setBlacklistHit] = useState<{ name: string; reason: string | null } | null>(null)
-  const checkBlacklist = useCallback(async (name: string, phone: string) => {
-    if (!name.trim() && phone.replace(/\D/g, '').length < 9) return
+  const checkBlacklist = useCallback(async (name: string, phone: string, idCard?: string) => {
+    if (!name.trim() && phone.replace(/\D/g, '').length < 9 && !idCard?.trim()) return
     try {
       const params = new URLSearchParams()
       if (name.trim()) params.set('name', name.trim())
       if (phone.trim()) params.set('phone', phone.trim())
+      if (idCard?.trim()) params.set('idCardNumber', idCard.trim())
       const res = await fetch(`/api/staff/blacklist/check?${params}`)
       const data = await res.json()
       setBlacklistHit(data.blacklisted ? data.hit : null)
@@ -430,6 +436,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const handleSubmit = async () => {
     if (!customerName.trim())  { setError('กรุณาใส่ชื่อลูกค้า'); return }
     if (!customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
+    if (!idCardNumber.trim())  { setError('กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต (อ่านจากบัตรอัตโนมัติไม่ได้ ต้องกรอกเอง)'); return }
     if (blacklistHit) { setError(`⛔ ${blacklistHit.name} ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้`); return }
     if (!validDates)           { setError('กรุณาเลือกช่วงวันเช่าให้ถูกต้อง'); return }
 
@@ -460,6 +467,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
               name: customerName.trim(),
               phone: customerPhone.trim(),
               address: customerHotel.trim(),
+              idCardNumber: idCardNumber.trim(),
             },
             startDate,
             paymentDay,
@@ -501,6 +509,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
               name:  customerName.trim(),
               phone: customerPhone.trim(),
               hotel: customerHotel.trim(),
+              idCardNumber: idCardNumber.trim(),
             },
             startDatetime,
             endDatetime,
@@ -625,6 +634,22 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
                 {blacklistHit.reason && (
                   <div style={{ fontWeight: 400, fontSize: 12, marginTop: 2 }}>เหตุผล: {blacklistHit.reason}</div>
                 )}
+              </div>
+            )}
+          </div>
+          <div className="field-row">
+            <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              เลขบัตรประชาชน / พาสปอร์ต *
+              {idCardNumber && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 400 }}>✓ อ่านจากบัตรแล้ว — แก้ไขได้ถ้าอ่านผิด</span>}
+            </label>
+            <input className="field-input" type="text" placeholder="เช่น 1234567890123"
+              style={!idCardNumber ? { borderColor: '#dc2626', background: '#fef2f2' } : undefined}
+              value={idCardNumber}
+              onChange={e => { setIdCardNumber(e.target.value); if (blacklistHit) setBlacklistHit(null) }}
+              onBlur={e => checkBlacklist(customerName, customerPhone, e.target.value)} />
+            {!idCardNumber && (
+              <div style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>
+                จำเป็นต้องกรอก — อ่านจากบัตรอัตโนมัติไม่ได้ กรุณากรอกเอง ตรวจแบล็คลิสต์ 2 ชั้น (ชื่อ + เลขบัตร) กันเคสเปลี่ยนชื่อ
               </div>
             )}
           </div>
