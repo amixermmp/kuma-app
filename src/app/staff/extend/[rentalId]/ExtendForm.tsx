@@ -174,23 +174,39 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/staff/rental/extend', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rentalId: rental.id,
-          payment: paymentNum,
-          newEndDatetime: daysCovered > 0 ? newEnd.toISOString() : rental.expected_end_datetime,
-          newTotalDays: rental.total_days + daysCovered,
-          newCredit,
-          overrideBookingConflict: !!conflictBooking,
-        }),
+      const buildBody = (override: boolean) => JSON.stringify({
+        rentalId: rental.id,
+        payment: paymentNum,
+        newEndDatetime: daysCovered > 0 ? newEnd.toISOString() : rental.expected_end_datetime,
+        newTotalDays: rental.total_days + daysCovered,
+        newCredit,
+        overrideBookingConflict: override,
       })
-      const data = await res.json()
+
+      let res = await fetch('/api/staff/rental/extend', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: buildBody(!!conflictBooking),
+      })
+      let data = await res.json()
+
+      // ชนคิวแบบ "รุ่นเดียวกันไม่พอ" เช็คได้แค่ฝั่ง server เท่านั้น (ไม่มีทางเตือนล่วงหน้าเหมือนชนคันเดียวกัน)
+      // ถ้าเจอตรงนี้แปลว่ายังไม่เคยถามยืนยัน Fast lane มาก่อน — ถามแล้วยิงซ้ำแบบ override ให้เลย ไม่งั้นกดยืนยันกี่ครั้งก็ต่อไม่ได้
+      let routeConflictId = conflictBooking?.id
+      if (!res.ok && res.status === 409 && data.conflictBookingId && !conflictBooking) {
+        const ok = confirm(`⚡ ${data.error}`)
+        if (!ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
+        routeConflictId = data.conflictBookingId
+        res = await fetch('/api/staff/rental/extend', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: buildBody(true),
+        })
+        data = await res.json()
+      }
+
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
-      if (conflictBooking) {
+      if (routeConflictId) {
         // ชนคิว → บังคับวนไปหน้าย้ายคัน/อัพเกรดให้ลูกค้าที่จองทันที
-        router.push(`/staff/assign/${conflictBooking.id}`)
+        router.push(`/staff/assign/${routeConflictId}`)
       } else {
         // สำเร็จ → โชว์หน้ายืนยันว่าลูกค้าใช้ได้ถึงวันไหน ให้พนักงานกดกลับหน้าหลักเอง
         setSuccessEndIso(daysCovered > 0 ? newEnd.toISOString() : rental.expected_end_datetime)
