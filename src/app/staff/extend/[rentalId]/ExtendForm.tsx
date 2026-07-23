@@ -81,6 +81,9 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [successEndIso, setSuccessEndIso] = useState<string | null>(null)
+  // โปร "เช่า 7 จ่าย 5" ใช้ได้เฉพาะตอนลูกค้าตั้งใจจ่ายเป็นก้อนทีเดียว (กดปุ่มรายสัปดาห์) เท่านั้น —
+  // ถ้าทยอยจ่ายทีละวัน (พิมพ์เองหรือกด +1 วัน) คิดราคาเต็มทุกวัน ไม่มีส่วนลดสะสม
+  const [useWeeklyPromo, setUseWeeklyPromo] = useState(false)
 
   // เรทจริงที่ใช้ตอนทำสัญญา (rental.daily_rate = เรทเต็มของรถเสมอ ไม่รวมส่วนลด — เช็คส่วนลดจาก discount แทน)
   // สมมติฐาน: ส่วนลด/วันต้องตรงกับหน้าส่งรถ (SendCarForm.tsx)
@@ -91,26 +94,34 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
   const startDt = useMemo(() => new Date(rental.start_datetime), [rental.start_datetime])
 
   // ราคาสะสมถ้าเช่ารวมเป็น (total_days + n) วัน คิดด้วยสูตรร้าน (เช่า 7 จ่าย 5 / cap รายเดือน)
+  // ใช้เฉพาะตอนกดปุ่ม "รายสัปดาห์" (จ่ายเป็นก้อนทีเดียว) เท่านั้น
   const cumulativePriceFor = (n: number) => calcRentQuote(startDt, rental.total_days + n, effectiveDailyRate, monthlyRate).total
-  // ราคาส่วนเพิ่มถ้าต่ออีก n วัน (ส่วนต่างจากที่จ่ายไปแล้ว)
-  const incrementalCostFor = (n: number) => cumulativePriceFor(n) - rental.total_amount
+  const weeklyPromoIncrementalCostFor = (n: number) => cumulativePriceFor(n) - rental.total_amount
+  // ราคาเต็มไม่มีโปร — ใช้กับการทยอยจ่ายทีละวัน (พิมพ์เองหรือกด +1 วัน)
+  const flatIncrementalCostFor = (n: number) => n * effectiveDailyRate
 
   const paymentNum = parseFloat(payment) || 0
   const existingCredit = rental.outstanding_credit ?? 0
   const totalAvailable = existingCredit + paymentNum
 
-  // หาว่าเงินที่มี (จ่ายใหม่ + เครดิตเก่า) ต่อได้กี่วัน โดยใช้สูตรร้าน (ไม่ใช่หารตรงๆ แบบเส้นตรง)
+  // หาว่าเงินที่มี (จ่ายใหม่ + เครดิตเก่า) ต่อได้กี่วัน
   const { daysCovered, newCredit } = useMemo(() => {
     if (totalAvailable <= 0) return { daysCovered: 0, newCredit: existingCredit }
-    let n = 0
-    let costAtN = 0
-    for (let i = 1; i <= MAX_EXTRA_DAYS_SEARCH; i++) {
-      const cost = incrementalCostFor(i)
-      if (cost <= totalAvailable) { n = i; costAtN = cost } else break
+    if (useWeeklyPromo) {
+      // โปร 7 จ่าย 5 — หาจำนวนวันสูงสุดที่จ่ายไหวตามสูตรร้าน (ไม่ใช่หารตรงๆ แบบเส้นตรง)
+      let n = 0
+      let costAtN = 0
+      for (let i = 1; i <= MAX_EXTRA_DAYS_SEARCH; i++) {
+        const cost = weeklyPromoIncrementalCostFor(i)
+        if (cost <= totalAvailable) { n = i; costAtN = cost } else break
+      }
+      return { daysCovered: n, newCredit: totalAvailable - costAtN }
     }
-    return { daysCovered: n, newCredit: totalAvailable - costAtN }
+    // ทยอยจ่ายทีละวัน — ราคาเต็มตรงไปตรงมา ไม่มีส่วนลดสะสม
+    const n = Math.floor(totalAvailable / effectiveDailyRate)
+    return { daysCovered: n, newCredit: totalAvailable - n * effectiveDailyRate }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalAvailable, rental.total_days, rental.total_amount, effectiveDailyRate, monthlyRate])
+  }, [totalAvailable, useWeeklyPromo, rental.total_days, rental.total_amount, effectiveDailyRate, monthlyRate])
 
   const newEnd = useMemo(() => new Date(startDt.getTime() + (rental.total_days + daysCovered) * 86_400_000), [startDt, rental.total_days, daysCovered])
 
@@ -136,8 +147,13 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
     ? upcomingBookings.find(b => new Date(b.start_datetime).getTime() < newEndMs + BUFFER_MS)
     : undefined
 
-  // ปุ่มลัด — เติมจำนวนเงินให้ตรงกับ "ต่ออีก N วัน" พอดี (หักเครดิตเก่าที่มีอยู่แล้ว) ตามสูตรร้านจริง
-  const fillForDays = (n: number) => setPayment(String(Math.max(0, incrementalCostFor(n) - existingCredit)))
+  // ปุ่มลัด — เติมจำนวนเงินให้ตรงกับ "ต่ออีก N วัน" พอดี (หักเครดิตเก่าที่มีอยู่แล้ว)
+  // weekly=true (ปุ่มรายสัปดาห์เท่านั้น) ถึงจะใช้สูตรโปร 7 จ่าย 5 นอกนั้นราคาเต็มเสมอ
+  const fillForDays = (n: number, weekly: boolean) => {
+    setUseWeeklyPromo(weekly)
+    const cost = weekly ? weeklyPromoIncrementalCostFor(n) : flatIncrementalCostFor(n)
+    setPayment(String(Math.max(0, cost - existingCredit)))
+  }
 
   // ล็อคกันกดซ้อน (สองแตะบนมือถือ/เน็ตช้าแล้วกดซ้ำ) — ใช้ ref เพราะ React state
   // อัพเดตแบบ async ทำให้ setLoading(true) เพียงอย่างเดียวกันไม่ทันในบางเคส
@@ -264,27 +280,27 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
         <div className="card">
           <div className="card-title">รับเงินจากลูกค้า</div>
 
-          {/* Shortcuts — เติมยอดให้ตรงกับจำนวนวันที่เลือก คิดตามสูตรร้านจริง (ไม่ใช่คูณตรงทีละวัน) */}
+          {/* Shortcuts — ราคาเต็มทุกวัน ยกเว้นปุ่มรายสัปดาห์ที่ใช้โปร 7 จ่าย 5 (ต้องจ่ายเป็นก้อนทีเดียวเท่านั้นถึงได้โปร) */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-            <button onClick={() => fillForDays(1)} style={{
+            <button onClick={() => fillForDays(1, false)} style={{
               flex: 1, padding: '10px 8px', borderRadius: '10px',
               border: '1.5px solid #e5e7eb', background: '#fff',
               color: '#374151', fontWeight: 600, fontSize: '13px',
               cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
             }}>
               +1 วัน<br />
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>฿{Math.max(0, incrementalCostFor(1) - existingCredit).toLocaleString()}</span>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>฿{Math.max(0, flatIncrementalCostFor(1) - existingCredit).toLocaleString()}</span>
             </button>
-            <button onClick={() => fillForDays(7)} style={{
+            <button onClick={() => fillForDays(7, true)} style={{
               flex: 1, padding: '10px 8px', borderRadius: '10px',
               border: '1.5px solid #ddd6fe', background: '#f5f3ff',
               color: '#7c3aed', fontWeight: 600, fontSize: '13px',
               cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
             }}>
               รายสัปดาห์ (+7) 🎁<br />
-              <span style={{ fontSize: '11px', color: '#7c3aed' }}>฿{Math.max(0, incrementalCostFor(7) - existingCredit).toLocaleString()}</span>
+              <span style={{ fontSize: '11px', color: '#7c3aed' }}>฿{Math.max(0, weeklyPromoIncrementalCostFor(7) - existingCredit).toLocaleString()}</span>
             </button>
-            <button onClick={() => setPayment('')} style={{
+            <button onClick={() => { setPayment(''); setUseWeeklyPromo(false) }} style={{
               flex: 1, padding: '10px 8px', borderRadius: '10px',
               border: '1.5px solid #d97706', background: '#fffbeb',
               color: '#d97706', fontWeight: 600, fontSize: '13px',
@@ -293,14 +309,19 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
               ระบุเอง
             </button>
           </div>
+          {useWeeklyPromo && (
+            <div style={{ fontSize: '11px', color: '#7c3aed', marginTop: '-10px', marginBottom: '12px' }}>
+              🎁 ใช้โปรรายสัปดาห์อยู่ — ถ้าแก้ยอดเองจะกลับไปคิดราคาเต็มทันที
+            </div>
+          )}
 
           <label className="field-label">จำนวนเงินที่รับ (บาท)</label>
           <input
             className="field-input"
             type="number"
-            placeholder={`เช่น ${Math.max(0, incrementalCostFor(3) - existingCredit)}`}
+            placeholder={`เช่น ${Math.max(0, flatIncrementalCostFor(3) - existingCredit)}`}
             value={payment}
-            onChange={e => setPayment(e.target.value)}
+            onChange={e => { setPayment(e.target.value); setUseWeeklyPromo(false) }}
             style={{ fontSize: '20px', fontWeight: 700 }}
           />
           {existingCredit > 0 && paymentNum > 0 && (
