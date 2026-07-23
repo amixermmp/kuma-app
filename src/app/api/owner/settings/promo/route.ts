@@ -15,6 +15,11 @@ export async function POST(request: Request) {
     ? body.eligible_bike_ids
     : null
 
+  // มีได้แค่โปรเดียวที่เป็น "ราคานักศึกษา" — ถ้าตั้งอันนี้เป็นตัวใหม่ ต้องปลดตัวเก่าออกก่อน
+  if (body.is_student_promo) {
+    await admin.from('promotions').update({ is_student_promo: false }).eq('is_student_promo', true)
+  }
+
   const { error } = await admin.from('promotions').insert({
     name: body.name,
     description: body.description ?? null,
@@ -25,6 +30,7 @@ export async function POST(request: Request) {
     code: body.code ?? null,
     is_active: body.is_active ?? true,
     eligible_bike_ids: eligibleBikeIds,
+    is_student_promo: !!body.is_student_promo,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

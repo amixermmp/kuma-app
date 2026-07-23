@@ -96,10 +96,20 @@ type UpcomingBooking = {
   start_datetime: string
 }
 
+type Promotion = {
+  id: string
+  code: string | null
+  description: string | null
+  discount_type: string
+  discount_value: number
+  eligible_bike_ids: string[] | null
+  is_student_promo: boolean
+}
+
 type Props = {
   bike: Bike
   staffId: string
-  promotions: unknown[] // kept for future use, not rendered in this form
+  promotions: Promotion[]
   prefillBooking?: PrefillBooking
   prefillFrom?: string  // datetime-local Bangkok format e.g. "2026-07-01T10:00"
   prefillTo?: string
@@ -112,6 +122,7 @@ type PhotoState = {
   with_bike: string
   damage: string
   payment: string
+  student_id_card: string
 }
 
 // ── Draft persistence ─────────────────────────────────────────────────────────
@@ -165,7 +176,7 @@ function bkkTimePart(iso: string): string {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom, prefillTo, upcomingBookings }: Props) {
+export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings }: Props) {
   const DRAFT_KEY = `send_draft_${bike.id}`
 
   useEffect(() => {
@@ -224,7 +235,7 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
 
   // ── Photos ────────────────────────────────────────────────────────────────
   const [photos, setPhotos] = useState<PhotoState>(draft?.photos ?? {
-    id_card: '', selfie: '', with_bike: '', damage: '', payment: '',
+    id_card: '', selfie: '', with_bike: '', damage: '', payment: '', student_id_card: '',
   })
 
   // ── Lock (daily only; monthly = auto-locked) ──────────────────────────────
@@ -381,7 +392,13 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
   const isUpgradePrice = bookingRate != null && bookingRate < bike.daily_rate
   const baseDailyRate = isUpgradePrice ? bookingRate! : bike.daily_rate
 
-  const ndr = studentPromo ? baseDailyRate - 50 : baseDailyRate
+  // โปรราคานักศึกษา — owner ตั้งค่าเองว่ารุ่นไหนร่วมรายการ (eligible_bike_ids: null = ทุกคัน) และลดกี่บาท/วัน
+  const studentPromoConfig = promotions.find(p => p.is_student_promo)
+  const studentPromoEligible = !!studentPromoConfig &&
+    (!studentPromoConfig.eligible_bike_ids || studentPromoConfig.eligible_bike_ids.length === 0 || studentPromoConfig.eligible_bike_ids.includes(bike.id))
+  const studentDiscountPerDay = studentPromoConfig?.discount_value ?? 0
+
+  const ndr = studentPromo && studentPromoEligible ? baseDailyRate - studentDiscountPerDay : baseDailyRate
   const mcr = parseFloat(mMonthlyRate) || bike.monthly_rate || bike.daily_rate * 30
 
   const longResult  = isLongRental && totalDays > 0 ? calcLongPrice(startDt, billingEndDt, ndr, mcr) : null
@@ -436,6 +453,9 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
     if (!customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
     if (!idCardNumber.trim())  { setError('กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต (อ่านจากบัตรอัตโนมัติไม่ได้ ต้องกรอกเอง)'); return }
     if (blacklistHit) { setError(`⛔ ${blacklistHit.name} ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้`); return }
+    if (studentPromo && studentPromoEligible && !photos.student_id_card) {
+      setError('ใช้สิทธิราคานักศึกษา — กรุณาแนบรูปบัตรนิสิต/นักศึกษาด้วย'); return
+    }
     if (!validDates)           { setError('กรุณาเลือกช่วงวันเช่าให้ถูกต้อง'); return }
 
     // Lock is required for daily/onetime
@@ -767,31 +787,37 @@ export default function SendCarForm({ bike, staffId, prefillBooking, prefillFrom
           )}
         </div>
 
-        {/* ② ½ โปรโมชั่น */}
-        <div className="card">
-          <div className="card-title">โปรโมชั่น</div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={() => setStudentPromo(false)} style={{
-              flex: 1, padding: '10px', borderRadius: '10px',
-              border: `2px solid ${!studentPromo ? '#374151' : '#e5e7eb'}`,
-              background: !studentPromo ? '#f1f5f9' : '#fff',
-              color: !studentPromo ? '#111827' : '#6b7280',
-              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-            }}>ราคาปกติ</button>
-            <button onClick={() => setStudentPromo(true)} style={{
-              flex: 1, padding: '10px', borderRadius: '10px',
-              border: `2px solid ${studentPromo ? '#7c3aed' : '#e5e7eb'}`,
-              background: studentPromo ? '#f5f3ff' : '#fff',
-              color: studentPromo ? '#7c3aed' : '#6b7280',
-              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-            }}>🎓 ราคานักศึกษา</button>
-          </div>
-          {studentPromo && (
-            <div style={{ marginTop: '10px', background: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#111827' }}>
-              ลด ฿50/วัน จากราคารายวันปกติ — ไม่รวมค่าเช่ารายเดือน
+        {/* ② ½ โปรโมชั่น — โชว์เฉพาะตอนมีโปรราคานักศึกษาตั้งค่าไว้แล้ว และรถคันนี้ร่วมรายการ */}
+        {studentPromoConfig && studentPromoEligible && (
+          <div className="card">
+            <div className="card-title">โปรโมชั่น</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setStudentPromo(false)} style={{
+                flex: 1, padding: '10px', borderRadius: '10px',
+                border: `2px solid ${!studentPromo ? '#374151' : '#e5e7eb'}`,
+                background: !studentPromo ? '#f1f5f9' : '#fff',
+                color: !studentPromo ? '#111827' : '#6b7280',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>ราคาปกติ</button>
+              <button onClick={() => setStudentPromo(true)} style={{
+                flex: 1, padding: '10px', borderRadius: '10px',
+                border: `2px solid ${studentPromo ? '#7c3aed' : '#e5e7eb'}`,
+                background: studentPromo ? '#f5f3ff' : '#fff',
+                color: studentPromo ? '#7c3aed' : '#6b7280',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>🎓 ราคานักศึกษา</button>
             </div>
-          )}
-        </div>
+            {studentPromo && (
+              <>
+                <div style={{ marginTop: '10px', marginBottom: '10px', background: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#111827' }}>
+                  ลด ฿{studentDiscountPerDay.toLocaleString()}/วัน จากราคารายวันปกติ — ไม่รวมค่าเช่ารายเดือน — ต้องแนบรูปบัตรนิสิต/นักศึกษาด้วย
+                </div>
+                <PhotoUpload icon="🎓" hint="ถ่ายรูปหรืออัพโหลดบัตรนิสิต/นักศึกษา" folder={folder}
+                  onUpload={setPhoto('student_id_card')} onRemove={clearPhoto('student_id_card')} />
+              </>
+            )}
+          </div>
+        )}
 
         {/* ③ Price hero */}
         {totalDays > 0 && (

@@ -34,6 +34,10 @@ export async function POST(request: NextRequest) {
   if (missingPhotos.length > 0) {
     return NextResponse.json({ error: 'กรุณาอัปโหลดรูปภาพให้ครบ (บัตร, รูปถ่าย, รถ, ตำหนิ, ชำระเงิน)' }, { status: 400 })
   }
+  // มีส่วนลด (ราคานักศึกษา) ต้องแนบรูปบัตรนิสิต/นักศึกษาด้วยเสมอ — เช็คซ้ำฝั่งเซิร์ฟเวอร์ ไม่พึ่งแค่หน้าเว็บ
+  if ((discount ?? 0) > 0 && !photos?.student_id_card) {
+    return NextResponse.json({ error: 'ใช้สิทธิราคานักศึกษา — กรุณาแนบรูปบัตรนิสิต/นักศึกษาด้วย' }, { status: 400 })
+  }
 
   const supabase = createAdminClient()
 

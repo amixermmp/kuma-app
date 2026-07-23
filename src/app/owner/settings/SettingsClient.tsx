@@ -6,7 +6,7 @@ import Link from 'next/link'
 type Shop = Record<string, any>
 type Staff = { id: string; name: string; pin: string; branch_id: string | null; allowed_branch_ids: string[] | null; is_active: boolean; branches?: { name: string } | null }
 type Branch = { id: string; name: string }
-type Promo = { id: string; name: string | null; code: string | null; description: string | null; discount_type: string; discount_value: number; min_days: number | null; bonus_days: number | null; is_active: boolean }
+type Promo = { id: string; name: string | null; code: string | null; description: string | null; discount_type: string; discount_value: number; min_days: number | null; bonus_days: number | null; is_active: boolean; is_student_promo: boolean }
 
 type BranchDocs = { terms_photo_url: string | null; manual_photo_url: string | null; contract_photo_url: string | null }
 type BranchLine = { branch_id: string; line_token: string | null; line_liff_id: string | null; promptpay_id: string | null; line_notify_customer: boolean | null }
@@ -387,6 +387,16 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
     })
   }
 
+  // ── Toggle student promo — มีได้แค่โปรเดียว ปลดตัวเก่าให้อัตโนมัติ ──
+  const toggleStudentPromo = async (id: string, current: boolean) => {
+    setPromos(prev => prev.map(p => ({ ...p, is_student_promo: p.id === id ? !current : false })))
+    await fetch(`/api/owner/settings/promo/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_student_promo: !current }),
+    })
+  }
+
   const discountLabel = (p: Promo) => {
     if (p.discount_type === 'percent') return `ลด ${p.discount_value}%`
     if (p.discount_type === 'fixed') return `ลด ฿${p.discount_value}`
@@ -585,8 +595,23 @@ export default function SettingsClient({ shop, staff: initialStaff, branches: in
           {promos.map(p => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 600 }}>{p.name ?? p.description ?? p.code}</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {p.name ?? p.description ?? p.code}
+                  {p.is_student_promo && (
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#be185d', background: '#fff1f2', padding: '2px 6px', borderRadius: '999px' }}>🎓 ราคานักศึกษา</span>
+                  )}
+                </div>
                 <div style={{ fontSize: '11px', color: '#9ca3af' }}>{discountLabel(p)}</div>
+                <button
+                  onClick={() => toggleStudentPromo(p.id, p.is_student_promo)}
+                  style={{
+                    marginTop: '4px', fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+                    background: 'none', border: 'none', padding: 0,
+                    color: p.is_student_promo ? '#9ca3af' : '#be185d',
+                  }}
+                >
+                  {p.is_student_promo ? 'เลิกใช้เป็นราคานักศึกษา' : '🎓 ตั้งเป็นราคานักศึกษา'}
+                </button>
               </div>
               <Toggle on={p.is_active} onClick={() => togglePromo(p.id, p.is_active)} />
             </div>

@@ -21,6 +21,7 @@ export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
   const [bonusDays, setBonusDays] = useState('')
   const [code, setCode]           = useState('')
   const [isActive, setIsActive]         = useState(true)
+  const [isStudentPromo, setIsStudentPromo] = useState(false)
   const [eligibleIds, setEligibleIds]   = useState<string[]>([]) // empty = ทุกคัน
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState('')
@@ -62,6 +63,7 @@ export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
         code: code.trim().toUpperCase() || null,
         is_active: isActive,
         eligible_bike_ids: eligibleIds.length > 0 ? eligibleIds : null,
+        is_student_promo: isStudentPromo,
       }),
     })
     const data = await res.json()
@@ -261,6 +263,28 @@ export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
           }}>
             <div style={{
               position: 'absolute', top: '3px', left: isActive ? '23px' : '3px',
+              width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+              transition: 'left .2s',
+            }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Student promo toggle */}
+      <div className="card" style={{ marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 700 }}>🎓 ใช้เป็นปุ่ม &quot;ราคานักศึกษา&quot;</div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+              ปุ่มลัดหน้าส่งรถ — มีได้แค่โปรเดียว ถ้าเคยตั้งไว้แล้วจะถูกปลดให้อัตโนมัติ
+            </div>
+          </div>
+          <div onClick={() => setIsStudentPromo(!isStudentPromo)} style={{
+            width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer',
+            background: isStudentPromo ? '#be185d' : '#d1d5db', position: 'relative', flexShrink: 0,
+          }}>
+            <div style={{
+              position: 'absolute', top: '3px', left: isStudentPromo ? '23px' : '3px',
               width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
               transition: 'left .2s',
             }} />

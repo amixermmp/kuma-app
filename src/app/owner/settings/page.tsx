@@ -21,7 +21,7 @@ export default async function SettingsPage() {
     admin.from('shop_settings').select('*').limit(1).maybeSingle(),
     admin.from('staff').select('id, name, pin, branch_id, is_active, branches(name)').order('name'),
     admin.from('branches').select('id, name').order('name'),
-    admin.from('promotions').select('id, name, code, description, discount_type, discount_value, min_days, bonus_days, is_active').order('created_at'),
+    admin.from('promotions').select('id, name, code, description, discount_type, discount_value, min_days, bonus_days, is_active, is_student_promo').order('created_at'),
     branchId
       ? admin.from('branch_settings').select('terms_photo_url, manual_photo_url, contract_photo_url').eq('branch_id', branchId).maybeSingle()
       : Promise.resolve({ data: null }),
