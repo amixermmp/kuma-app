@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
-type Bike = { id: string; license_plate: string; brand: string; model: string }
+type Bike = { id: string; license_plate: string; brand: string; model: string; branch_id: string }
+type Branch = { id: string; name: string }
+type ModelKey = { brand: string; model: string }
 type DiscountType = 'percent' | 'fixed' | 'bonus_days' | 'flat_rate'
 
 const TYPES: { type: DiscountType; icon: string; label: string; sub: string }[] = [
@@ -12,7 +14,7 @@ const TYPES: { type: DiscountType; icon: string; label: string; sub: string }[] 
   { type: 'flat_rate',  icon: '🏷️', label: 'ราคาพิเศษ/วัน', sub: 'เช่น ฿150/วัน' },
 ]
 
-export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
+export default function CreatePromoForm({ bikes, branches }: { bikes: Bike[]; branches: Branch[] }) {
   const [name, setName]           = useState('')
   const [description, setDesc]    = useState('')
   const [type, setType]           = useState<DiscountType>('percent')
@@ -22,14 +24,35 @@ export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
   const [code, setCode]           = useState('')
   const [isActive, setIsActive]         = useState(true)
   const [isStudentPromo, setIsStudentPromo] = useState(false)
-  const [eligibleIds, setEligibleIds]   = useState<string[]>([]) // empty = ทุกคัน
+  const [branchIds, setBranchIds]       = useState<string[]>([]) // ต้องเลือกอย่างน้อย 1 สาขา
+  const [eligibleModels, setEligibleModels] = useState<ModelKey[]>([]) // empty = ทุกรุ่น
+  const [pickModels, setPickModels]     = useState(false) // false = ร่วมโปรทุกรุ่น
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState('')
   const [success, setSuccess]           = useState(false)
 
-  const toggleBike = (id: string) =>
-    setEligibleIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-  const allChecked = eligibleIds.length === 0
+  const toggleBranch = (id: string) =>
+    setBranchIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
+  // กลุ่มรถตามรุ่นย่อย (ยี่ห้อ+รุ่น) เฉพาะสาขาที่เลือกไว้ — เหมือนตอนสร้างรถ แต่เลือกทีเดียวได้ทั้งรุ่น
+  const modelGroups = useMemo(() => {
+    const scoped = branchIds.length > 0 ? bikes.filter(b => branchIds.includes(b.branch_id)) : []
+    const map = new Map<string, { brand: string; model: string; count: number }>()
+    for (const b of scoped) {
+      const key = `${b.brand}|${b.model}`
+      const g = map.get(key)
+      if (g) g.count++
+      else map.set(key, { brand: b.brand, model: b.model, count: 1 })
+    }
+    return Array.from(map.values()).sort((a, b) => a.brand.localeCompare(b.brand) || a.model.localeCompare(b.model))
+  }, [bikes, branchIds])
+
+  const toggleModel = (brand: string, model: string) =>
+    setEligibleModels(prev =>
+      prev.some(m => m.brand === brand && m.model === model)
+        ? prev.filter(m => !(m.brand === brand && m.model === model))
+        : [...prev, { brand, model }]
+    )
 
   const randomCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -48,6 +71,7 @@ export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
     if (!name.trim()) { setError('กรุณาใส่ชื่อโปรโมชั่น'); return }
     if (type !== 'bonus_days' && (!value || parseFloat(value) <= 0)) { setError('กรุณาใส่ค่าส่วนลด'); return }
     if (type === 'bonus_days' && (!minDays || !bonusDays)) { setError('กรุณาใส่จำนวนวัน'); return }
+    if (branchIds.length === 0) { setError('กรุณาเลือกอย่างน้อย 1 สาขา'); return }
 
     setLoading(true); setError('')
     const res = await fetch('/api/owner/settings/promo', {
@@ -62,7 +86,8 @@ export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
         bonus_days: bonusDays ? parseInt(bonusDays) : null,
         code: code.trim().toUpperCase() || null,
         is_active: isActive,
-        eligible_bike_ids: eligibleIds.length > 0 ? eligibleIds : null,
+        branch_ids: branchIds,
+        eligible_models: pickModels && eligibleModels.length > 0 ? eligibleModels : null,
         is_student_promo: isStudentPromo,
       }),
     })
@@ -185,46 +210,75 @@ export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
         </div>
       </div>
 
+      {/* สาขาที่ใช้โปรได้ */}
+      <div className="card">
+        <div className="card-title">สาขาที่ใช้โปรนี้ได้ *</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {branches.map(br => {
+            const checked = branchIds.includes(br.id)
+            return (
+              <label key={br.id} style={{
+                display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
+                padding: '10px 12px', borderRadius: '10px',
+                border: `1.5px solid ${checked ? '#be185d' : '#e5e7eb'}`,
+                background: checked ? '#fff1f2' : '#fff',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleBranch(br.id)}
+                  style={{ width: '18px', height: '18px', accentColor: '#be185d', cursor: 'pointer' }}
+                />
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{br.name}</div>
+              </label>
+            )
+          })}
+        </div>
+      </div>
+
       {/* รถที่ร่วมรายการ */}
-      {bikes.length > 0 && (
+      {branchIds.length > 0 && (
         <div className="card">
           <div className="card-title">รถที่ร่วมรายการ</div>
           <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px' }}>
-            {allChecked ? '✅ ทุกคัน (ค่าเริ่มต้น)' : `เลือกแล้ว ${eligibleIds.length} คัน`}
+            {!pickModels ? '✅ ทุกรุ่น (ค่าเริ่มต้น)' : `เลือกแล้ว ${eligibleModels.length} รุ่น`}
           </div>
 
-          {/* ปุ่ม เลือกทั้งหมด / ล้าง */}
+          {/* ปุ่ม ทุกรุ่น / เลือกเอง */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
             <button
               type="button"
-              onClick={() => setEligibleIds([])}
+              onClick={() => { setPickModels(false); setEligibleModels([]) }}
               style={{
-                flex: 1, padding: '8px', border: `1.5px solid ${allChecked ? '#be185d' : '#e5e7eb'}`,
-                borderRadius: '8px', background: allChecked ? '#fff1f2' : '#fff',
-                color: allChecked ? '#be185d' : '#6b7280', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                flex: 1, padding: '8px', border: `1.5px solid ${!pickModels ? '#be185d' : '#e5e7eb'}`,
+                borderRadius: '8px', background: !pickModels ? '#fff1f2' : '#fff',
+                color: !pickModels ? '#be185d' : '#6b7280', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
               }}
             >
-              ✅ ทุกคัน
+              ✅ ทุกรุ่น
             </button>
             <button
               type="button"
-              onClick={() => setEligibleIds(bikes.map(b => b.id))}
+              onClick={() => setPickModels(true)}
               style={{
-                flex: 1, padding: '8px', border: `1.5px solid ${!allChecked ? '#be185d' : '#e5e7eb'}`,
-                borderRadius: '8px', background: !allChecked ? '#fff1f2' : '#fff',
-                color: !allChecked ? '#be185d' : '#6b7280', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                flex: 1, padding: '8px', border: `1.5px solid ${pickModels ? '#be185d' : '#e5e7eb'}`,
+                borderRadius: '8px', background: pickModels ? '#fff1f2' : '#fff',
+                color: pickModels ? '#be185d' : '#6b7280', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
               }}
             >
               เลือกเอง
             </button>
           </div>
 
-          {!allChecked && (
+          {pickModels && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {bikes.map(bike => {
-                const checked = eligibleIds.includes(bike.id)
+              {modelGroups.length === 0 && (
+                <div style={{ fontSize: '12px', color: '#9ca3af' }}>ไม่พบรถในสาขาที่เลือก</div>
+              )}
+              {modelGroups.map(g => {
+                const checked = eligibleModels.some(m => m.brand === g.brand && m.model === g.model)
                 return (
-                  <label key={bike.id} style={{
+                  <label key={`${g.brand}|${g.model}`} style={{
                     display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
                     padding: '10px 12px', borderRadius: '10px',
                     border: `1.5px solid ${checked ? '#be185d' : '#e5e7eb'}`,
@@ -233,14 +287,14 @@ export default function CreatePromoForm({ bikes }: { bikes: Bike[] }) {
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggleBike(bike.id)}
+                      onChange={() => toggleModel(g.brand, g.model)}
                       style={{ width: '18px', height: '18px', accentColor: '#be185d', cursor: 'pointer' }}
                     />
                     <div>
                       <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
-                        {bike.brand} {bike.model}
+                        {g.brand} {g.model}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#6b7280' }}>{bike.license_plate}</div>
+                      <div style={{ fontSize: '11px', color: '#6b7280' }}>{g.count} คัน</div>
                     </div>
                   </label>
                 )

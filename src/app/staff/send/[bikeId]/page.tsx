@@ -21,12 +21,12 @@ export default async function SendCarPage({
   const [{ data: bike }, { data: promotions }] = await Promise.all([
     supabase
       .from('bikes')
-      .select('id, license_plate, brand, model, daily_rate, monthly_rate, deposit_amount, odometer')
+      .select('id, license_plate, brand, model, branch_id, daily_rate, monthly_rate, deposit_amount, odometer')
       .eq('id', params.bikeId)
       .single(),
     supabase
       .from('promotions')
-      .select('id, code, description, discount_type, discount_value, eligible_bike_ids, is_student_promo')
+      .select('id, code, description, discount_type, discount_value, branch_ids, eligible_models, is_student_promo')
       .eq('is_active', true)
       .order('created_at', { ascending: true }),
   ])

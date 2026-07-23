@@ -71,6 +71,7 @@ type Bike = {
   license_plate: string
   brand: string
   model: string
+  branch_id: string
   daily_rate: number
   monthly_rate: number | null
   deposit_amount: number
@@ -105,7 +106,8 @@ type Promotion = {
   description: string | null
   discount_type: string
   discount_value: number
-  eligible_bike_ids: string[] | null
+  branch_ids: string[] | null
+  eligible_models: { brand: string; model: string }[] | null
   is_student_promo: boolean
 }
 
@@ -395,10 +397,12 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const isUpgradePrice = bookingRate != null && bookingRate < bike.daily_rate
   const baseDailyRate = isUpgradePrice ? bookingRate! : bike.daily_rate
 
-  // โปรราคานักศึกษา — owner ตั้งค่าเองว่ารุ่นไหนร่วมรายการ (eligible_bike_ids: null = ทุกคัน) และลดกี่บาท/วัน
+  // โปรราคานักศึกษา — owner ตั้งค่าเองว่าสาขา/รุ่นไหนร่วมรายการ (ว่าง = ทุกสาขา/ทุกรุ่น) และลดกี่บาท/วัน
   const studentPromoConfig = promotions.find(p => p.is_student_promo)
   const studentPromoEligible = !!studentPromoConfig &&
-    (!studentPromoConfig.eligible_bike_ids || studentPromoConfig.eligible_bike_ids.length === 0 || studentPromoConfig.eligible_bike_ids.includes(bike.id))
+    (!studentPromoConfig.branch_ids || studentPromoConfig.branch_ids.length === 0 || studentPromoConfig.branch_ids.includes(bike.branch_id)) &&
+    (!studentPromoConfig.eligible_models || studentPromoConfig.eligible_models.length === 0 ||
+      studentPromoConfig.eligible_models.some(m => m.brand === bike.brand && m.model === bike.model))
   const studentDiscountPerDay = studentPromoConfig?.discount_value ?? 0
 
   const ndr = studentPromo && studentPromoEligible ? baseDailyRate - studentDiscountPerDay : baseDailyRate

@@ -12,11 +12,14 @@ export default async function CreatePromoPage() {
   if (!user) redirect('/owner/login')
 
   const admin = createAdminClient()
-  const { data: bikes } = await admin
-    .from('bikes')
-    .select('id, license_plate, brand, model')
-    .neq('status', 'retired')
-    .order('license_plate')
+  const [{ data: bikes }, { data: branches }] = await Promise.all([
+    admin
+      .from('bikes')
+      .select('id, license_plate, brand, model, branch_id')
+      .neq('status', 'retired')
+      .order('license_plate'),
+    admin.from('branches').select('id, name').order('name'),
+  ])
 
   return (
     <div className="app-wrap">
@@ -27,7 +30,7 @@ export default async function CreatePromoPage() {
           <div className="sub">ตั้งค่าเงื่อนไขการลดราคา</div>
         </div>
       </div>
-      <CreatePromoForm bikes={bikes ?? []} />
+      <CreatePromoForm bikes={bikes ?? []} branches={branches ?? []} />
     </div>
   )
 }
