@@ -116,8 +116,10 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
 
   const now = Date.now()
   const expectedMs = new Date(rental.expected_end_datetime).getTime()
+  // ใช้ floor เหมือนป้าย "เกิน N วัน" ในหน้า Job Tasks (นับเป็นวันเต็มที่ผ่านไปแล้วเท่านั้น) —
+  // เดิมหน้านี้ใช้ ceil ทำให้เลขไม่ตรงกับหน้า Job Tasks (เช่น เกิน 30 ชม. หน้านึงขึ้น 1 วัน อีกหน้าขึ้น 2 วัน)
   const overdueDaysNow = now > expectedMs
-    ? Math.ceil((now - expectedMs) / 86_400_000)
+    ? Math.floor((now - expectedMs) / 86_400_000)
     : 0
 
   const newEndMs = newEnd.getTime()
