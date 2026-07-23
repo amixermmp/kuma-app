@@ -120,6 +120,47 @@ export async function findBrokenBookings(supabase: SupabaseClient<any, any, any>
     )
   }
 
+  // คิวจองแบบระบุแค่รุ่น (bike_id เป็น null) — จำลองจัดสรรรถแบบ greedy ตามลำดับความสำคัญเดียวกับที่
+  // โชว์ในคิวมีปัญหา (ใกล้วันรับก่อน แล้วค่อยตามลำดับจอง) แทนการนับ "ชนกันกี่คิว" แบบสมมาตรเดิม
+  // ซึ่งทำให้คิวที่มีช่วงเวลายาว (เลยทับคิวอื่นเยอะ) ถูกตัดสินว่า broken ทั้งที่ควรได้รถก่อนเพราะใกล้ถึงกำหนดกว่า
+  const modelGroups = new Map<string, typeof bookings>()
+  for (const b of bookings) {
+    if (b.bike_id || !b.requested_brand || !b.requested_model) continue
+    const key = `${b.branch_id}__${b.requested_brand}__${b.requested_model}`
+    if (!modelGroups.has(key)) modelGroups.set(key, [])
+    modelGroups.get(key)!.push(b)
+  }
+
+  const brokenModelBookingIds = new Set<string>()
+  for (const [key, groupBookings] of Array.from(modelGroups)) {
+    const [groupBranchId, groupBrand, groupModel] = key.split('__')
+    const candidates = (allBikes ?? []).filter(bk =>
+      bk.branch_id === groupBranchId && bk.brand === groupBrand && bk.model === groupModel &&
+      !UNRENTABLE_STATUSES.includes(bk.status)
+    )
+    const priority = [...groupBookings].sort((a, b) =>
+      new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime() ||
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+    const claimed = new Map<string, { start: number; end: number }[]>()
+    for (const b of priority) {
+      const bStart = new Date(b.start_datetime).getTime()
+      const bEnd = new Date(b.end_datetime).getTime()
+      const bike = candidates.find(bk => {
+        if (isBikeBusyInWindow(bk.id, b.start_datetime, b.end_datetime).busy) return false
+        const claims = claimed.get(bk.id) ?? []
+        return !claims.some(c => c.start < bEnd && c.end > bStart)
+      })
+      if (bike) {
+        const claims = claimed.get(bike.id) ?? []
+        claims.push({ start: bStart, end: bEnd })
+        claimed.set(bike.id, claims)
+      } else {
+        brokenModelBookingIds.add(b.id)
+      }
+    }
+  }
+
   const results: BrokenBooking[] = []
 
   for (const b of bookings) {
@@ -142,19 +183,7 @@ export async function findBrokenBookings(supabase: SupabaseClient<any, any, any>
         results.push({ ...base, reason: `รถ ${bike.license_plate} มีคิวจองอื่นชนช่วงเวลาเดียวกัน — ${overlappingBooking.booking_ref} คุณ${overlappingBooking.customer_name}`, fastLane: !!b.fast_lane || !!overlappingBooking.fast_lane })
       }
     } else if (b.requested_brand && b.requested_model) {
-      const candidates = (allBikes ?? []).filter(bk =>
-        bk.branch_id === b.branch_id && bk.brand === b.requested_brand && bk.model === b.requested_model &&
-        !UNRENTABLE_STATUSES.includes(bk.status)
-      )
-      const freeCount = candidates.filter(bk => !isBikeBusyInWindow(bk.id, b.start_datetime, b.end_datetime).busy).length
-      // งานคิวรุ่นเดียวกัน ช่วงเวลาทับกัน ที่จะมาแย่งรถว่างชุดเดียวกัน
-      const competing = bookings.filter(b2 =>
-        b2.id !== b.id && !b2.bike_id && b2.branch_id === b.branch_id &&
-        b2.requested_brand === b.requested_brand && b2.requested_model === b.requested_model &&
-        new Date(b2.start_datetime).getTime() < new Date(b.end_datetime).getTime() &&
-        new Date(b2.end_datetime).getTime() > new Date(b.start_datetime).getTime()
-      ).length
-      if (freeCount - competing <= 0) {
+      if (brokenModelBookingIds.has(b.id)) {
         results.push({ ...base, reason: `ไม่มีรถรุ่น ${b.requested_brand} ${b.requested_model} ว่างพอในช่วงเวลานี้`, fastLane: !!b.fast_lane })
       }
     }
