@@ -105,7 +105,7 @@ export default async function JobsPage() {
       .limit(20)),
 
     applyBranch(supabase.from('bookings')
-      .select('id, booking_ref, start_datetime, customer_name, customer_phone, total_days, daily_rate, requested_brand, requested_model, delivery_type, delivery_address, bikes(id, license_plate, brand, model, color, photo_url)')
+      .select('id, booking_ref, start_datetime, customer_name, customer_phone, total_days, daily_rate, requested_brand, requested_model, original_requested_brand, original_requested_model, reassign_reason, delivery_type, delivery_address, bikes(id, license_plate, brand, model, color, photo_url)')
       .eq('status', 'confirmed')
       .order('start_datetime', { ascending: true })
       .limit(100)),

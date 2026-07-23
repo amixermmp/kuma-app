@@ -98,13 +98,13 @@ function bikeColorHex(name?: string | null): string {
 
 function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
-  meta1, meta2, meta3, statusLabel, statusBg, statusColor,
+  meta1, meta2, meta3, meta4, statusLabel, statusBg, statusColor,
   href, btnColor, btnLabel, contractHref, extendHref, swapHref, cardHref, onCancel, cancelDisabled,
   photoUrl, bikeColor, isLocked, onToggleLock, lockLoading,
 }: {
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
-  meta1: string; meta2?: string; meta3?: string
+  meta1: string; meta2?: string; meta3?: string; meta4?: string
   statusLabel?: string; statusBg?: string; statusColor?: string
   href: string; btnColor?: string; btnLabel?: string
   contractHref?: string
@@ -158,6 +158,11 @@ function JobCard({
         {meta3 && (
           <div style={{ fontSize: '12px', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '6px', padding: '4px 8px', marginBottom: '8px', display: 'inline-block' }}>
             {meta3}
+          </div>
+        )}
+        {meta4 && (
+          <div style={{ fontSize: '12px', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '4px 8px', marginBottom: '8px', display: 'block' }}>
+            {meta4}
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: statusLabel ? 'space-between' : 'flex-start', marginTop: '8px' }}>
@@ -531,6 +536,10 @@ export default function JobsClient({
                   ? `${bike.license_plate} ${bike.brand} ${bike.model}`
                   : `${b.requested_brand ?? ''} ${b.requested_model ?? ''} (ยังไม่ได้กำหนดรถ)`
                 const badge = absHrs >= 24 ? `⚠️ ลูกค้าไม่มา ${Math.floor(absHrs / 24)} วัน` : `⚠️ เลยเวลา ${absHrs} ชม.`
+                const reassignNote = b.original_requested_brand && b.original_requested_model &&
+                  (b.original_requested_brand !== b.requested_brand || b.original_requested_model !== b.requested_model)
+                  ? `⚠️ รุ่นเดิม: ${b.original_requested_brand} ${b.original_requested_model} → เปลี่ยนเป็น: ${b.requested_brand} ${b.requested_model}${b.reassign_reason ? ` (${b.reassign_reason})` : ''} — ลูกค้าอาจถือใบจองรุ่นเดิมมา`
+                  : undefined
                 return (
                   <JobCard
                     key={b.id}
@@ -541,6 +550,7 @@ export default function JobsClient({
                     meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
                     meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
                     meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
+                    meta4={reassignNote}
                     href={`/staff/assign/${b.id}`} btnColor="#111827"
                     cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                     onCancel={() => handleCancel(b.id)}
@@ -557,6 +567,10 @@ export default function JobsClient({
                   ? `${bike.license_plate} ${bike.brand} ${bike.model}`
                   : `${b.requested_brand ?? ''} ${b.requested_model ?? ''} (ยังไม่ได้กำหนดรถ)`
                 const badge = hrs === 0 ? '🔔 ถึงเวลาแล้ว!' : `⏰ อีก ${hrs} ชม.`
+                const reassignNote = b.original_requested_brand && b.original_requested_model &&
+                  (b.original_requested_brand !== b.requested_brand || b.original_requested_model !== b.requested_model)
+                  ? `⚠️ รุ่นเดิม: ${b.original_requested_brand} ${b.original_requested_model} → เปลี่ยนเป็น: ${b.requested_brand} ${b.requested_model}${b.reassign_reason ? ` (${b.reassign_reason})` : ''} — ลูกค้าอาจถือใบจองรุ่นเดิมมา`
+                  : undefined
                 return (
                   <JobCard
                     key={b.id}
@@ -567,6 +581,7 @@ export default function JobsClient({
                     meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
                     meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
                     meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
+                    meta4={reassignNote}
                     statusLabel={bike ? '⬛ รอส่งรถ' : '🟡 ยังไม่ได้เลือกรถ'}
                     statusBg={bike ? '#f1f5f9' : '#fffbeb'} statusColor={bike ? '#111827' : '#d97706'}
                     href={`/staff/assign/${b.id}`} btnColor="#111827"
@@ -583,6 +598,10 @@ export default function JobsClient({
                 const bikeLabel = bike
                   ? `${bike.license_plate} ${bike.brand} ${bike.model}`
                   : `${b.requested_brand ?? ''} ${b.requested_model ?? ''} (ยังไม่ได้กำหนดรถ)`
+                const reassignNote = b.original_requested_brand && b.original_requested_model &&
+                  (b.original_requested_brand !== b.requested_brand || b.original_requested_model !== b.requested_model)
+                  ? `⚠️ รุ่นเดิม: ${b.original_requested_brand} ${b.original_requested_model} → เปลี่ยนเป็น: ${b.requested_brand} ${b.requested_model}${b.reassign_reason ? ` (${b.reassign_reason})` : ''} — ลูกค้าอาจถือใบจองรุ่นเดิมมา`
+                  : undefined
                 return (
                   <JobCard
                     key={b.id}
@@ -593,6 +612,7 @@ export default function JobsClient({
                     meta1={`👤 ${b.customer_name}${b.customer_phone ? ` • ${b.customer_phone}` : ''}`}
                     meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
                     meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
+                    meta4={reassignNote}
                     href={`/staff/assign/${b.id}`} btnColor="#111827"
                     cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                     onCancel={() => handleCancel(b.id)}
