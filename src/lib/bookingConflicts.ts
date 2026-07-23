@@ -149,7 +149,8 @@ export async function findBrokenBookings(supabase: SupabaseClient<any, any, any>
       const bike = candidates.find(bk => {
         if (isBikeBusyInWindow(bk.id, b.start_datetime, b.end_datetime).busy) return false
         const claims = claimed.get(bk.id) ?? []
-        return !claims.some(c => c.start < bEnd && c.end > bStart)
+        // เผื่อ buffer เตรียมรถ/ทำความสะอาดระหว่าง 2 คิวติดกัน เหมือนกับที่ isBikeBusyInWindow ใช้อยู่แล้ว
+        return !claims.some(c => c.start < bEnd + BUFFER_MS && c.end > bStart - BUFFER_MS)
       })
       if (bike) {
         const claims = claimed.get(bike.id) ?? []
