@@ -8,3 +8,6 @@ ALTER TABLE blacklist ADD COLUMN IF NOT EXISTS id_card_number TEXT;
 
 -- เก็บเลขบัตรของลูกค้าไว้ในประวัติ เพื่อให้ตรวจแบล็คลิสต์ครั้งต่อไปแม่นขึ้น แม้ชื่อ/เบอร์จะเปลี่ยน
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS id_card_number TEXT;
+
+-- แนบรูปหลักฐานตอนเพิ่มแบล็คลิสต์ (เช่น รูปบัตร หรือโพสเตือนภัยจากที่อื่น) — ใช้ auto-fill ชื่อ/เลขบัตรได้ถ้าเป็นรูปบัตร
+ALTER TABLE blacklist ADD COLUMN IF NOT EXISTS photo_url TEXT;

@@ -9,9 +9,10 @@ type Props = {
   folder: string
   onUpload: (url: string, path: string) => void
   onRemove?: () => void
+  uploadEndpoint?: string
 }
 
-export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove }: Props) {
+export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove, uploadEndpoint = '/api/staff/upload' }: Props) {
   const [status, setStatus] = useState<'idle' | 'uploading' | 'done'>('idle')
   const [preview, setPreview] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -27,7 +28,7 @@ export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove }: 
       fd.append('file', new File([compressed], 'photo.jpg', { type: 'image/jpeg' }))
       fd.append('folder', folder)
 
-      const res = await fetch('/api/staff/upload', { method: 'POST', body: fd })
+      const res = await fetch(uploadEndpoint, { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 

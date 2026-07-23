@@ -13,7 +13,7 @@ export default async function OwnerBlacklistPage() {
   const admin = createAdminClient()
   const { data: entries } = await admin
     .from('blacklist')
-    .select('id, name, phone, id_card_number, reason, created_at')
+    .select('id, name, phone, id_card_number, photo_url, reason, created_at')
     .order('created_at', { ascending: false })
 
   return <BlacklistClient entries={entries ?? []} />

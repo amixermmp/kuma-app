@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   const user = await requireOwner()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { name, phone, idCardNumber, reason } = await request.json()
+  const { name, phone, idCardNumber, reason, photoUrl } = await request.json()
   if (!name?.trim()) return NextResponse.json({ error: 'กรุณาระบุชื่อ' }, { status: 400 })
 
   const admin = createAdminClient()
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     phone: phone?.trim() || null,
     id_card_number: idCardNumber?.trim() || null,
     reason: reason?.trim() || null,
+    photo_url: photoUrl || null,
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
