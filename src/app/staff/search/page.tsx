@@ -29,9 +29,11 @@ type ModelGroup = {
   bikes: BikeResult[]
 }
 
+// ปัดนาทีขึ้นเป็นช่วง 15 นาที (00/15/30/45) เสมอ — ให้ตรงกับตัวเลือกนาทีในหน้าส่งรถ
+// (เดิมปล่อยนาทีดิบ เช่น 19 ผ่านไป พอถึงหน้าส่งรถ dropdown ไม่มีตัวเลือก 19 เลยเด้งไปโชว์ 00 แทนแบบเงียบๆ)
 function nowLocal(offsetMs = 0) {
   const d = new Date(Date.now() + offsetMs)
-  d.setSeconds(0, 0)
+  d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0)
   const p = (n: number) => n.toString().padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }

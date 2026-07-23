@@ -149,12 +149,10 @@ function dateIn(days: number) {
 }
 
 function nowTime() {
+  // ปัดนาทีขึ้นเป็นช่วง 15 นาที (00/15/30/45) เสมอ ไม่ปัดลง — ให้ตรงกับตัวเลือกนาทีที่มีจริง
   const d = new Date()
-  const h = d.getHours()
-  const rawM = d.getMinutes()
-  const m = Math.round(rawM / 15) * 15
-  if (m === 60) return `${((h + 1) % 24).toString().padStart(2, '0')}:00`
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+  d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0)
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
 }
 
 // prefillBooking.start_datetime/end_datetime เป็น UTC ISO string จากฐานข้อมูล — ต้องแปลงเป็นเวลาไทย
