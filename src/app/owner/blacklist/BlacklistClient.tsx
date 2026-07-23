@@ -21,6 +21,7 @@ export default function BlacklistClient({ entries }: { entries: Entry[] }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   // แนบรูป (บัตร/โพสเตือนภัย) — ถ้าอ่านได้ auto-fill ชื่อ/เลขบัตรให้เลย (ไม่ทับถ้าพิมพ์ไว้แล้ว)
   const handlePhotoUpload = useCallback(async (url: string) => {
@@ -66,19 +67,35 @@ export default function BlacklistClient({ entries }: { entries: Entry[] }) {
     setError('')
     try {
       const res = await fetch('/api/owner/blacklist', {
-        method: 'POST',
+        method: editingId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, idCardNumber, reason, photoUrl }),
+        body: JSON.stringify({ id: editingId, name, phone, idCardNumber, reason, photoUrl }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
-      setName(''); setPhone(''); setIdCardNumber(''); setReason(''); setPhotoUrl(''); setOcrHint('')
+      setName(''); setPhone(''); setIdCardNumber(''); setReason(''); setPhotoUrl(''); setOcrHint(''); setEditingId(null)
       router.refresh()
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleEdit = (entry: Entry) => {
+    setEditingId(entry.id)
+    setName(entry.name)
+    setPhone(entry.phone ?? '')
+    setIdCardNumber(entry.id_card_number ?? '')
+    setReason(entry.reason ?? '')
+    setPhotoUrl(entry.photo_url ?? '')
+    setOcrHint('')
+    setError('')
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setName(''); setPhone(''); setIdCardNumber(''); setReason(''); setPhotoUrl(''); setOcrHint(''); setError('')
   }
 
   const handleDelete = async (id: string, entryName: string) => {
@@ -88,6 +105,7 @@ export default function BlacklistClient({ entries }: { entries: Entry[] }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     })
+    if (editingId === id) handleCancelEdit()
     router.refresh()
   }
 
@@ -110,7 +128,9 @@ export default function BlacklistClient({ entries }: { entries: Entry[] }) {
 
       {/* Add form */}
       <div style={{ margin: '16px', background: '#fff', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '12px' }}>เพิ่มรายชื่อ</div>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: editingId ? '#2563eb' : '#374151', marginBottom: '12px' }}>
+          {editingId ? '✏️ แก้ไขรายชื่อ' : 'เพิ่มรายชื่อ'}
+        </div>
         <div className="field-row">
           <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             แนบรูป (บัตร/โพสเตือนภัย) — ไม่บังคับ
@@ -144,13 +164,23 @@ export default function BlacklistClient({ entries }: { entries: Entry[] }) {
             value={reason} onChange={e => setReason(e.target.value)} />
         </div>
         {error && <div style={{ color: '#dc2626', fontSize: '13px', marginBottom: '8px' }}>{error}</div>}
-        <button onClick={handleAdd} disabled={loading} style={{
-          width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
-          background: '#dc2626', color: '#fff', fontWeight: 700, fontSize: '14px',
-          cursor: 'pointer', opacity: loading ? 0.6 : 1,
-        }}>
-          {loading ? 'กำลังบันทึก...' : '+ เพิ่มเข้าบัญชีดำ'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={handleAdd} disabled={loading} style={{
+            flex: 1, padding: '12px', borderRadius: '10px', border: 'none',
+            background: editingId ? '#2563eb' : '#dc2626', color: '#fff', fontWeight: 700, fontSize: '14px',
+            cursor: 'pointer', opacity: loading ? 0.6 : 1,
+          }}>
+            {loading ? 'กำลังบันทึก...' : editingId ? '💾 บันทึกการแก้ไข' : '+ เพิ่มเข้าบัญชีดำ'}
+          </button>
+          {editingId && (
+            <button onClick={handleCancelEdit} style={{
+              padding: '12px 16px', borderRadius: '10px', border: '1px solid #e5e7eb',
+              background: '#fff', color: '#6b7280', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+            }}>
+              ยกเลิก
+            </button>
+          )}
+        </div>
       </div>
 
       {/* List */}
@@ -186,10 +216,16 @@ export default function BlacklistClient({ entries }: { entries: Entry[] }) {
                 เพิ่มเมื่อ {new Date(e.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
               </div>
             </div>
-            <button onClick={() => handleDelete(e.id, e.name)} style={{
-              background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px',
-              padding: '6px 10px', fontSize: '12px', color: '#6b7280', cursor: 'pointer',
-            }}>ปลด</button>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+              <button onClick={() => handleEdit(e)} style={{
+                background: 'none', border: '1px solid #bfdbfe', borderRadius: '8px',
+                padding: '6px 10px', fontSize: '12px', color: '#2563eb', cursor: 'pointer',
+              }}>แก้ไข</button>
+              <button onClick={() => handleDelete(e.id, e.name)} style={{
+                background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px',
+                padding: '6px 10px', fontSize: '12px', color: '#6b7280', cursor: 'pointer',
+              }}>ปลด</button>
+            </div>
           </div>
         ))}
       </div>
