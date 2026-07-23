@@ -20,7 +20,7 @@ export async function findModelBookingConflict(
 
   const [{ data: modelBookings }, { data: modelBikes }] = await Promise.all([
     supabase.from('bookings')
-      .select('id, booking_ref, customer_name, start_datetime, end_datetime')
+      .select('id, booking_ref, customer_name, start_datetime, end_datetime, created_at')
       .eq('branch_id', branchId).eq('requested_brand', brand).eq('requested_model', model)
       .is('bike_id', null).eq('status', 'confirmed')
       .lt('start_datetime', bufferEnd).gt('end_datetime', bufferStart),
@@ -35,8 +35,12 @@ export async function findModelBookingConflict(
 
   if (freeCountExcludingThis >= modelBookings.length) return null
 
-  // เตือนคิวที่ใกล้ถึงกำหนดที่สุดก่อน
-  return [...modelBookings].sort((a, b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime())[0]
+  // เตือนคิวที่ใกล้ถึงกำหนดที่สุดก่อน (คิวใกล้ยังมีเวลาหาคันทดแทนน้อยกว่า) ถ้าวันเวลารับรถตรงกันเป๊ะ
+  // ค่อยดูว่าใครจองไว้ก่อน (created_at)
+  return [...modelBookings].sort((a, b) =>
+    new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime() ||
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  )[0]
 }
 
 export type BrokenBooking = {
@@ -46,6 +50,7 @@ export type BrokenBooking = {
   customer_phone: string | null
   start_datetime: string
   end_datetime: string
+  created_at: string
   branch_id: string
   bike_id: string | null
   requested_brand: string | null
@@ -70,7 +75,7 @@ export async function findBrokenBookings(supabase: SupabaseClient<any, any, any>
   const in14days = new Date(Date.now() + 14 * 86_400_000).toISOString()
 
   let bq = supabase.from('bookings')
-    .select('id, booking_ref, bike_id, branch_id, requested_brand, requested_model, customer_name, customer_phone, start_datetime, end_datetime, fast_lane, bikes(license_plate, brand, model, status)')
+    .select('id, booking_ref, bike_id, branch_id, requested_brand, requested_model, customer_name, customer_phone, start_datetime, end_datetime, created_at, fast_lane, bikes(license_plate, brand, model, status)')
     .eq('status', 'confirmed')
     .lte('start_datetime', in14days)
     .gte('end_datetime', nowIso)
@@ -121,7 +126,7 @@ export async function findBrokenBookings(supabase: SupabaseClient<any, any, any>
     const bike = one(b.bikes)
     const base = {
       id: b.id, booking_ref: b.booking_ref, customer_name: b.customer_name, customer_phone: b.customer_phone,
-      start_datetime: b.start_datetime, end_datetime: b.end_datetime, branch_id: b.branch_id,
+      start_datetime: b.start_datetime, end_datetime: b.end_datetime, created_at: b.created_at, branch_id: b.branch_id,
       bike_id: b.bike_id, requested_brand: b.requested_brand, requested_model: b.requested_model,
     }
 
@@ -155,8 +160,12 @@ export async function findBrokenBookings(supabase: SupabaseClient<any, any, any>
     }
   }
 
-  // เรียงตามวันรับรถที่ใกล้ที่สุดก่อน — คิวที่เร่งด่วนกว่าต้องเห็นก่อน
-  results.sort((a, b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime())
+  // เรียงตามวันรับรถที่ใกล้ที่สุดก่อน — คิวที่เร่งด่วนกว่าต้องเห็นก่อน (ยังมีเวลาหาคันทดแทนน้อยกว่าคิวที่ไกล)
+  // ถ้าวันเวลารับรถตรงกันเป๊ะ ค่อยดูว่าใครจองไว้ก่อน (created_at)
+  results.sort((a, b) =>
+    new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime() ||
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  )
 
   return results
 }
