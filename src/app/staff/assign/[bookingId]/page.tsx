@@ -8,8 +8,9 @@ import AssignBikeClient from './AssignBikeClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AssignBikePage({ params, searchParams }: { params: { bookingId: string }; searchParams: { mode?: string } }) {
+export default async function AssignBikePage({ params, searchParams }: { params: { bookingId: string }; searchParams: { mode?: string; reason?: string } }) {
   const modelOnlyMode = searchParams?.mode === 'model'
+  const reassignReason = searchParams?.reason ?? null
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) redirect('/staff/login')
@@ -89,6 +90,7 @@ export default async function AssignBikePage({ params, searchParams }: { params:
       staffId={staffId}
       modelOnlyMode={modelOnlyMode}
       modelAvailability={modelAvailability}
+      reassignReason={reassignReason}
     />
   )
 }

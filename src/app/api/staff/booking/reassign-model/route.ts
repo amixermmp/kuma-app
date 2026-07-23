@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { bookingId, requestedBrand, requestedModel } = await request.json()
+  const { bookingId, requestedBrand, requestedModel, reason } = await request.json()
   if (!bookingId || !requestedBrand || !requestedModel) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
   const { data: booking } = await supabase
     .from('bookings')
-    .select('id, booking_ref, status, requested_brand, requested_model')
+    .select('id, booking_ref, status, requested_brand, requested_model, original_requested_brand, original_requested_model')
     .eq('id', bookingId)
     .single()
 
@@ -25,9 +25,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'ไม่พบการจอง' }, { status: 404 })
   }
 
+  // เก็บรุ่นที่ลูกค้าจองไว้ตั้งแต่แรกไว้ครั้งเดียว (ถ้าเคยเปลี่ยนมาแล้วรอบก่อน ไม่ทับด้วยรุ่นที่เพิ่งเปลี่ยนล่าสุด)
+  // เอาไว้โชว์เตือนพนักงานหน้าส่งรถ ว่าลูกค้าอาจถือใบจองเดิม (รุ่นแรกสุด) มา
+  const originalBrand = booking.original_requested_brand ?? booking.requested_brand
+  const originalModel = booking.original_requested_model ?? booking.requested_model
+
   const { error } = await supabase
     .from('bookings')
-    .update({ bike_id: null, requested_brand: requestedBrand, requested_model: requestedModel })
+    .update({
+      bike_id: null, requested_brand: requestedBrand, requested_model: requestedModel,
+      original_requested_brand: originalBrand, original_requested_model: originalModel,
+      reassign_reason: reason || null,
+    })
     .eq('id', bookingId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

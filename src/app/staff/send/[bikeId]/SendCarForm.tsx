@@ -87,6 +87,9 @@ type PrefillBooking = {
   total_days: number
   daily_rate: number | null
   notes: string | null
+  original_requested_brand: string | null
+  original_requested_model: string | null
+  reassign_reason: string | null
 } | null
 
 type UpcomingBooking = {
@@ -616,6 +619,26 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
                 🎁 อัพเกรดรถ — คิดราคาตามใบจอง ฿{bookingRate!.toLocaleString()}/วัน (ปกติ ฿{bike.daily_rate.toLocaleString()})
               </div>
             )}
+          </div>
+        )}
+
+        {/* เตือนพนักงาน — ลูกค้าอาจถือใบจองรุ่นเดิมมา ทั้งที่ระบบเปลี่ยนรุ่นให้แล้วตอนแก้คิวมีปัญหา */}
+        {prefillBooking?.original_requested_brand && prefillBooking?.original_requested_model &&
+          (prefillBooking.original_requested_brand !== bike.brand || prefillBooking.original_requested_model !== bike.model) && (
+          <div style={{
+            background: '#fef2f2', border: '1.5px solid #dc2626', borderRadius: '10px',
+            padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#dc2626',
+          }}>
+            ⚠️ <strong>เปลี่ยนรุ่นจากที่จองไว้</strong> — ลูกค้าจองมาเป็น {prefillBooking.original_requested_brand} {prefillBooking.original_requested_model}{' '}
+            แต่ระบบเปลี่ยนเป็น {bike.brand} {bike.model} ให้แล้ว
+            {prefillBooking.reassign_reason && (
+              <div style={{ fontSize: '12px', marginTop: '4px', color: '#991b1b' }}>
+                เหตุผล: {prefillBooking.reassign_reason}
+              </div>
+            )}
+            <div style={{ fontSize: '12px', marginTop: '4px', color: '#991b1b' }}>
+              แจ้งลูกค้าด้วยว่ามีการอัปเกรด/เปลี่ยนรุ่นให้ ถ้าลูกค้าถือใบจองเดิมมาจะได้ไม่งง
+            </div>
           </div>
         )}
 

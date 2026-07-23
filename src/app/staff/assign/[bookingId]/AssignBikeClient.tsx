@@ -26,6 +26,7 @@ type Props = {
   staffId: string
   modelOnlyMode: boolean
   modelAvailability: Record<string, boolean>
+  reassignReason: string | null
 }
 
 function fmtDate(iso: string) {
@@ -39,7 +40,7 @@ function fmtTime(iso: string) {
   })
 }
 
-export default function AssignBikeClient({ booking, assignedBike, availableBikes, staffId, modelOnlyMode, modelAvailability }: Props) {
+export default function AssignBikeClient({ booking, assignedBike, availableBikes, staffId, modelOnlyMode, modelAvailability, reassignReason }: Props) {
   const router = useRouter()
   const [selectedId, setSelectedId] = useState<string | null>(assignedBike?.id ?? null)
   const [loading, setLoading] = useState(false)
@@ -89,7 +90,7 @@ export default function AssignBikeClient({ booking, assignedBike, availableBikes
       const res = await fetch('/api/staff/booking/reassign-model', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id, requestedBrand: selectedGroup.brand, requestedModel: selectedGroup.model }),
+        body: JSON.stringify({ bookingId: booking.id, requestedBrand: selectedGroup.brand, requestedModel: selectedGroup.model, reason: reassignReason }),
       })
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
       router.push('/staff/jobs')
