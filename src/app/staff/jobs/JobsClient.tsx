@@ -70,7 +70,7 @@ type Tab = 'all' | 'sendcar' | 'returncar' | 'active' | 'broken' | 'routine' | '
 // ── main component ───────────────────────────────────────────
 export default function JobsClient({
   sendJobs, overdueRentals, dueSoonRentals, activeRentals, repairs,
-  overdueRoutines, docsDue, monthlyContactAlerts, allMonthlyRentals, brokenBookings,
+  overdueRoutines, upcomingRoutines, docsDue, monthlyContactAlerts, allMonthlyRentals, brokenBookings,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sendJobs: any[]
@@ -84,6 +84,8 @@ export default function JobsClient({
   repairs: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   overdueRoutines: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  upcomingRoutines: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   docsDue: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -613,7 +615,7 @@ export default function JobsClient({
         )}
 
         {/* รูทีน */}
-        {show('routine') && overdueRoutines.length > 0 && (
+        {show('routine') && (overdueRoutines.length > 0 || upcomingRoutines.length > 0) && (
           <>
             <SectionTitle>งานซ่อมบำรุงรูทีน 🔧🛢️</SectionTitle>
             {overdueRoutines.map((r: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -638,6 +640,23 @@ export default function JobsClient({
                 />
               )
             })}
+            <CollapsibleGroup title="กำลังมาถึง" count={upcomingRoutines.length} dotColor="#9ca3af" defaultOpen={false}>
+              {upcomingRoutines.map((r: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+                const bike = r.bikes
+                const days = r.next_due_date ? daysUntil(r.next_due_date) : 0
+                return (
+                  <JobCard
+                    key={r.id} dotColor="#9ca3af"
+                    photoUrl={bike?.photo_url} bikeColor={bike?.color}
+                    title={`${r.task_name ?? 'บำรุงรักษา'} — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
+                    badge={`📅 อีก ${days} วัน`} badgeBg="#f1f5f9" badgeColor="#374151"
+                    meta1={`📅 กำหนด ${fmtDate(r.next_due_date)}`}
+                    href={`/staff/routine?id=${r.id}`} btnColor="#374151"
+                    cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
+                  />
+                )
+              })}
+            </CollapsibleGroup>
           </>
         )}
 

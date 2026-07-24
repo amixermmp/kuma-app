@@ -120,20 +120,27 @@ export default async function JobsPage() {
   ])
 
   const in7days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const overdueRoutines = (routines ?? []).filter((r: any) => {
-    const odometer = r.bikes?.odometer ?? 0
-    // km-based: แจ้งเมื่อเลยกำหนดแล้ว
-    if (r.next_due_km != null && odometer >= r.next_due_km) return true
-    // date-based: แจ้งก่อน 7 วัน
-    if (r.next_due_date != null && r.next_due_date <= in7days) return true
-    return false
-  }).sort((a: any, b: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-    // เรียงจากเร่งด่วนที่สุดก่อน
+  const sortByDueDate = (a: any, b: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const dA = a.next_due_date ?? '9999-99-99'
     const dB = b.next_due_date ?? '9999-99-99'
     return dA.localeCompare(dB)
-  })
+  }
+  // เกินกำหนด/ถึงวันนี้แล้ว — ใช้เป็นตัวเลขนับ "งานค้าง" (ไม่เอา 7 วันข้างหน้ามารวม กันจำนวนดูเยอะเกินจริง)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const overdueRoutines = (routines ?? []).filter((r: any) => {
+    const odometer = r.bikes?.odometer ?? 0
+    if (r.next_due_km != null && odometer >= r.next_due_km) return true
+    if (r.next_due_date != null && r.next_due_date <= today) return true
+    return false
+  }).sort(sortByDueDate)
+  // ใกล้ถึงกำหนดใน 7 วันข้างหน้า (ยังไม่ถึงวันนี้) — โชว์แยกไว้ดูล่วงหน้าได้ ไม่นับรวมในตัวเลขงานค้าง
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const upcomingRoutines = (routines ?? []).filter((r: any) => {
+    const odometer = r.bikes?.odometer ?? 0
+    if (r.next_due_km != null && odometer >= r.next_due_km) return false
+    if (r.next_due_date != null && r.next_due_date > today && r.next_due_date <= in7days) return true
+    return false
+  }).sort(sortByDueDate)
 
   // Attach nextDueDate to all active monthly rentals
   const todayDate = new Date()
@@ -211,6 +218,7 @@ export default async function JobsPage() {
       activeRentals={activeRentals ?? []}
       repairs={repairs ?? []}
       overdueRoutines={overdueRoutines}
+      upcomingRoutines={upcomingRoutines}
       docsDue={docsDue ?? []}
       monthlyContactAlerts={monthlyContactAlerts}
       allMonthlyRentals={allMonthlyRentals}

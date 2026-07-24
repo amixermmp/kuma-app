@@ -74,14 +74,13 @@ export default async function StaffHomePage() {
       .select('next_due_km, next_due_date, bikes(odometer)')),
   ])
 
-  // นับ routine ที่เลยกำหนดหรือใกล้ถึงกำหนด 7 วัน (เหมือน jobs page)
-  const in7days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  // นับ routine ที่เกินกำหนดหรือถึงวันนี้เท่านั้น (ไม่เอา 7 วันข้างหน้ามารวม กันจำนวนดูเยอะเกินจริง — เหมือน jobs page)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const routineCount = (routineData ?? []).filter((r: any) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const odometer = (r.bikes as any)?.odometer ?? 0
     if (r.next_due_km != null && odometer >= r.next_due_km) return true
-    if (r.next_due_date && r.next_due_date <= in7days) return true
+    if (r.next_due_date && r.next_due_date <= today) return true
     return false
   }).length
 
