@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { PeriodSelector } from './PeriodSelector'
+import { getBikeIdAtDate } from '@/lib/swapHistory'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,8 +82,10 @@ export default async function OwnerDashboardPage({
       .eq('status', 'confirmed')
       .lte('start_datetime', new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()),
     // Daily rentals — นับเงินตามวันที่เก็บจริง (เปิดสัญญา/ต่อเวลา/ค่าล่วงเวลาตอนคืน)
+    // ดึง bike_id/swap_log ของสัญญาไว้ด้วย (ไม่ join bikes ตรงๆ) เพราะ bike_id ปัจจุบันอาจไม่ใช่คันที่ใช้จริง
+    // ตอนเก็บเงินก้อนนั้น ถ้าสัญญานี้เคยสลับรถกลางทาง — ไปหาราคาคันที่ถูกต้องจาก bikes ที่ดึงมาแล้วด้านบนแทน
     admin.from('rental_payments')
-      .select('amount, kind, paid_at, branch_id, rentals(bikes(license_plate, brand, model))')
+      .select('amount, kind, paid_at, branch_id, rentals(bike_id, swap_log)')
       .is('voided_at', null)
       .gte('paid_at', periodStart.toISOString())
       .lte('paid_at', periodEnd.toISOString()),
@@ -165,11 +168,19 @@ export default async function OwnerDashboardPage({
   }
 
   // Top bikes — from actual payments (นับครั้งเช่าเฉพาะสัญญาใหม่ แต่รายได้รวมต่อเวลา/ล่วงเวลา)
+  // เช็คย้อนหลังว่าคันไหนใช้จริง ณ วันที่เก็บเงินก้อนนั้น (เผื่อสัญญาเคยสลับรถกลางทาง) แทนที่จะยึด
+  // bike_id ปัจจุบันของสัญญาตรงๆ — ไม่งั้นเงินที่เก็บไปก่อนสลับจะถูกนับผิดไปอยู่กับคันใหม่ที่สลับทีหลัง
+  const bikesById = new Map(bikes.map(b => [b.id, b]))
   const bikeRevMap: Record<string, { label: string; revenue: number; count: number }> = {}
   for (const p of rentalPayments) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rental = Array.isArray((p as any).rentals) ? (p as any).rentals[0] : (p as any).rentals
-    const bike = Array.isArray(rental?.bikes) ? rental.bikes[0] : rental?.bikes as { license_plate?: string; brand?: string; model?: string } | null
+    const rental = Array.isArray((p as any).rentals) ? (p as any).rentals[0] : (p as any).rentals as { bike_id?: string; swap_log?: unknown } | null
+    if (!rental?.bike_id) continue
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const paidDateStr = String(p.paid_at).slice(0, 10)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const historicalBikeId = getBikeIdAtDate(rental.bike_id, rental.swap_log as any, paidDateStr)
+    const bike = bikesById.get(historicalBikeId)
     if (!bike?.license_plate) continue
     const key = bike.license_plate
     if (!bikeRevMap[key]) bikeRevMap[key] = { label: `${bike.brand} ${bike.model} — ${bike.license_plate}`, revenue: 0, count: 0 }

@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   } else {
     const { data: rental, error } = await supabase
       .from('rentals')
-      .select('id, bike_id, branch_id, bikes(license_plate, branch_id), customers(name)')
+      .select('id, bike_id, branch_id, swap_log, bikes(license_plate, branch_id), customers(name)')
       .eq('id', rentalId)
       .in('status', ['active', 'extended'])
       .single()
@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
     customerName = (rental.customers as any)?.name ?? '—'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     oldPlate = (rental.bikes as any)?.license_plate ?? oldBikeId
+    existingSwapLog = Array.isArray(rental.swap_log) ? rental.swap_log : []
   }
 
   if (oldBikeId === newBikeId) {
@@ -119,9 +120,20 @@ export async function POST(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   } else {
+    const logEntry = {
+      date: new Date().toISOString().split('T')[0],
+      from_bike_id: oldBikeId,
+      from_plate: oldPlate,
+      to_bike_id: newBikeId,
+      to_plate: newPlate,
+      type: swapType,
+      reason: reason ?? null,
+      staff_id: staffId,
+    }
+
     const { error } = await supabase
       .from('rentals')
-      .update({ bike_id: newBikeId, branch_id: newBike.branch_id })
+      .update({ bike_id: newBikeId, branch_id: newBike.branch_id, swap_log: [...existingSwapLog, logEntry] })
       .eq('id', rentalId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
