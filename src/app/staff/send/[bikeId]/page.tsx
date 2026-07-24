@@ -54,7 +54,29 @@ export default async function SendCarPage({
     .gt('start_datetime', new Date().toISOString())
     .order('start_datetime', { ascending: true })
   if (booking?.id) upcomingBookingsQuery = upcomingBookingsQuery.neq('id', booking.id)
-  const { data: upcomingBookings } = await upcomingBookingsQuery
+
+  // คิวจองแบบ "ระบุแค่รุ่น" (bike_id ยังว่าง) ของรุ่น/สาขาเดียวกัน ก็ต้องเผื่อเป็นเพดานคืนรถด้วย —
+  // เดิมเช็คแค่คิวที่ปักคันนี้ตรงๆ ทำให้ลากคืนรถเลยจุดที่คิวแบบรุ่นต้องการรถได้แบบไม่มีคำเตือนล่วงหน้า
+  // จนกดบันทึกถึงจะโดนเตือน Fast lane ทีเดียว — พนักงานเผื่อเวลาให้ลูกค้าไม่ถูกตั้งแต่ต้น
+  let modelBookingsQuery = supabase
+    .from('bookings')
+    .select('id, booking_ref, customer_name, start_datetime')
+    .is('bike_id', null)
+    .eq('branch_id', bike.branch_id)
+    .eq('requested_brand', bike.brand)
+    .eq('requested_model', bike.model)
+    .eq('status', 'confirmed')
+    .gt('start_datetime', new Date().toISOString())
+    .order('start_datetime', { ascending: true })
+  if (booking?.id) modelBookingsQuery = modelBookingsQuery.neq('id', booking.id)
+
+  const [{ data: upcomingBookings }, { data: modelBookings }] = await Promise.all([
+    upcomingBookingsQuery,
+    modelBookingsQuery,
+  ])
+
+  const allUpcomingBookings = [...(upcomingBookings ?? []), ...(modelBookings ?? [])]
+    .sort((a, b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime())
 
   return (
     <SendCarForm
@@ -64,7 +86,7 @@ export default async function SendCarPage({
       prefillBooking={booking}
       prefillFrom={searchParams.from}
       prefillTo={searchParams.to}
-      upcomingBookings={upcomingBookings ?? []}
+      upcomingBookings={allUpcomingBookings}
     />
   )
 }

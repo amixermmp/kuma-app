@@ -197,9 +197,11 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const [customerHotel, setCustomerHotel] = useState(draft?.customerHotel ?? prefillBooking?.customer_hotel ?? '')
 
   // ── Dates ─────────────────────────────────────────────────────────────────
+  // วันเวลารับรถ = "ตอนนี้" เสมอ (ไม่ใช้เวลาที่จองไว้เดิม) — ตามนโยบายเริ่มนับสัญญาจากเวลามารับจริง
+  // ไม่ว่าจะมาก่อน/ตรง/หลังเวลาที่จองไว้ (ถ้าใช้เวลาจองเดิมตอนลูกค้ามาสาย จะคำนวณ arrivalDeltaMs
+  // ด้านล่างผิด กลายเป็น 0 ทั้งที่มาสายจริง ทำให้เพดานคืนรถขยับตามเวลาจริงไม่ถูกต้อง)
   const [startDate, setStartDate] = useState(() => {
     if (draft?.startDate) return draft.startDate
-    if (prefillBooking?.start_datetime) return bkkDatePart(prefillBooking.start_datetime)
     if (prefillFrom) return prefillFrom.split('T')[0]
     return todayLocal()
   })
@@ -212,7 +214,6 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const [startTime, setStartTime] = useState(() => {
     if (draft?.startTime) return draft.startTime
     if (prefillFrom?.includes('T')) return prefillFrom.split('T')[1].slice(0, 5)
-    if (prefillBooking?.start_datetime) return bkkTimePart(prefillBooking.start_datetime)
     return nowTime()
   })
   // เวลาคืน — แยกอิสระจากเวลารับ (ค่าเริ่มต้น = เวลารับ เผื่อไม่ได้ปรับ) รองรับเช่าแบบวันเดย์ทริป
