@@ -99,13 +99,13 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
   const currentEffectiveDailyRate = bike.daily_rate - (isStudentPromo ? STUDENT_PROMO_DISCOUNT : 0)
   const extendFromDt = useMemo(() => new Date(rental.expected_end_datetime), [rental.expected_end_datetime])
 
-  // ราคาสะสมถ้าเช่ารวมเป็น (total_days + n) วัน คิดด้วยสูตรร้าน (เช่า 7 จ่าย 5 / cap รายเดือน)
-  // ใช้เฉพาะตอนกดปุ่ม "รายสัปดาห์" (จ่ายเป็นก้อนทีเดียว) เท่านั้น — ใช้ได้เฉพาะกรณีไม่เคยสลับรถ
-  // (ถ้าสลับแล้ว คิดวันที่ต่อแยกเป็นสัญญาย่อยเริ่มนับใหม่จากกำหนดคืนเดิม กันเรทเก่า/ใหม่ปนกันในสูตรเดียว)
-  const cumulativePriceFor = (n: number) => calcRentQuote(startDt, rental.total_days + n, effectiveDailyRate, monthlyRate).total
-  const weeklyPromoIncrementalCostFor = (n: number) => rateChangedFromSwap
-    ? calcRentQuote(extendFromDt, n, currentEffectiveDailyRate, monthlyRate).total
-    : cumulativePriceFor(n) - rental.total_amount
+  // ราคาปุ่ม "รายสัปดาห์" (จ่ายเป็นก้อนทีเดียว) — คิดเป็นสัญญาย่อยแยกอิสระ เริ่มนับใหม่จากกำหนดคืนเดิม
+  // เสมอ ไม่เอายอดที่จ่ายมาแล้ว (rental.total_amount) มาหักลบ เพราะยอดนั้นอาจมาจากการทยอยจ่ายทีละวัน
+  // สะสมมาก่อน (ไม่ได้โปร) — เดิมสูตร "คิดรวมทั้งสัญญาแล้วลบยอดจ่ายเดิม" ทำให้ยอดทยอยจ่ายที่สะสมไว้
+  // มีผลเหมือนถูกนับเป็นส่วนหนึ่งของแพ็กเกจ 7 วัน ปลดล็อกส่วนลดให้ทั้งที่ไม่ได้จ่ายเป็นก้อนจริง
+  // (บางเคสยอดจ่ายสะสมมากกว่าราคาสัญญารวมตามสูตรโปรด้วยซ้ำ ทำให้ปุ่มรายสัปดาห์ขึ้น ฿0)
+  const weeklyPromoIncrementalCostFor = (n: number) =>
+    calcRentQuote(extendFromDt, n, rateChangedFromSwap ? currentEffectiveDailyRate : effectiveDailyRate, monthlyRate).total
   // ราคาเต็มไม่มีโปร — ใช้กับการทยอยจ่ายทีละวัน (พิมพ์เองหรือกด +1 วัน)
   const flatIncrementalCostFor = (n: number) => n * (rateChangedFromSwap ? currentEffectiveDailyRate : effectiveDailyRate)
 
