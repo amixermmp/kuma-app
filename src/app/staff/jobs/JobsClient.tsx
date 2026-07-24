@@ -386,6 +386,7 @@ export default function JobsClient({
                     meta4={reassignNote}
                     meta5={blacklistNote}
                     href={`/staff/assign/${b.id}`} btnColor="#111827"
+                    editHref={`/staff/booking/edit/${b.id}`}
                     cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                     onCancel={() => handleCancel(b.id)}
                     cancelDisabled={cancelling === b.id}
@@ -452,6 +453,7 @@ export default function JobsClient({
                     meta4={reassignNote}
                     meta5={blacklistNote}
                     href={`/staff/assign/${b.id}`} btnColor="#111827"
+                    editHref={`/staff/booking/edit/${b.id}`}
                     cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                     onCancel={() => handleCancel(b.id)}
                     cancelDisabled={cancelling === b.id}

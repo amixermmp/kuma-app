@@ -40,7 +40,7 @@ export function bikeColorHex(name?: string | null): string {
 export function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
   meta1, meta2, meta3, meta4, meta5, statusLabel, statusBg, statusColor,
-  href, btnColor, btnLabel, contractHref, extendHref, swapHref, cardHref, onCancel, cancelDisabled,
+  href, btnColor, btnLabel, contractHref, extendHref, swapHref, editHref, cardHref, onCancel, cancelDisabled,
   photoUrl, bikeColor, isLocked, onToggleLock, lockLoading,
 }: {
   dotColor: string; title: string
@@ -51,6 +51,7 @@ export function JobCard({
   contractHref?: string
   extendHref?: string
   swapHref?: string
+  editHref?: string
   cardHref?: string
   onCancel?: () => void
   cancelDisabled?: boolean
@@ -154,6 +155,15 @@ export function JobCard({
                 border: '1px solid #ddd6fe',
               }}>
                 🔄 สลับรถ
+              </Link>
+            )}
+            {editHref && (
+              <Link href={editHref} style={{
+                fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px',
+                background: '#eff6ff', color: '#2563eb', textDecoration: 'none',
+                border: '1px solid #bfdbfe',
+              }}>
+                ✏️ แก้ไข
               </Link>
             )}
             {onToggleLock && (
