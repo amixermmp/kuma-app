@@ -122,10 +122,12 @@ export async function findModelBookingConflict(
 }
 
 /**
- * เช็คว่าคิวจองนี้ (thisBooking) จะได้รถจริงไหมถ้าจัดให้รุ่น (brand, model) — จำลองจัดสรรรวมกับคิวจองอื่น
- * ที่แข่งรุ่นเดียวกันในช่วงเวลาที่ทับกัน (ทั้งเจาะจงคันและระบุแค่รุ่น) ตามลำดับความสำคัญเดียวกับคิวมีปัญหา
- * (ใกล้วันรับก่อน แล้วตามลำดับจอง) ใช้ตอนเปลี่ยนรุ่นที่จอง — เดิมหน้านั้นแค่นับรถว่างเฉยๆ ไม่กันคิวจองแบบรุ่น
- * อื่นที่แข่งอยู่ ทำให้โชว์ "ว่าง" ทั้งที่จริงคิวมีปัญหาจะจับได้ว่าไม่พอถ้าลองสลับไปจริง
+ * เช็คว่าคิวจองนี้ (thisBooking) จะได้รถจริงไหมถ้าจัดให้รุ่น (brand, model) แบบ "เข้มงวด" —
+ * ต้องได้รถเองด้วย AND ต้องไม่ไปแย่งคิวจองอื่นของรุ่นนี้ที่ตอนนี้ยังได้รถอยู่ดีๆ ให้กลายเป็นคิวมีปัญหาแทน
+ * (จำลองจัดสรร 2 รอบ — ไม่มี thisBooking กับมี thisBooking แล้วเทียบว่ามีใครหลุดจากที่เคยได้รถไหม)
+ * ใช้ตอนเปลี่ยนรุ่นที่จองจากหน้าคิวมีปัญหา (คิวยังมาไม่ถึง ไม่ใช่เคสรถเสียเร่งด่วนที่ลูกค้ารออยู่ตรงหน้า
+ * ซึ่งใช้ findModelBookingConflict + Fast lane แยกต่างหาก ยอมแย่งได้เพราะเร่งด่วนกว่าจริง)
+ * ป้องกันเคส "สลับรุ่นแก้คิวนี้ได้ แต่ดันไปทำอีกคิวพังแทนแบบเงียบๆ" ซึ่งไม่ได้แก้อะไรเลยในภาพรวม
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function wouldBookingGetBikeForModel(
@@ -167,40 +169,48 @@ export async function wouldBookingGetBikeForModel(
     })
   }
 
-  // รถที่ถูกจองแบบเจาะจงคันไปแล้ว (เฉพาะคันที่เป็นรุ่นนี้จริง) ถือเป็น "ครองพื้นที่" ถาวรสำหรับช่วงนั้น
-  const claimed = new Map<string, { start: number; end: number }[]>()
-  for (const sc of specificBookings ?? []) {
-    if (!candidateIds.has(sc.bike_id)) continue
-    const arr = claimed.get(sc.bike_id) ?? []
-    arr.push({ start: new Date(sc.start_datetime).getTime(), end: new Date(sc.end_datetime).getTime() })
-    claimed.set(sc.bike_id, arr)
-  }
-
-  // รวมคิวแข่งแบบระบุแค่รุ่น (ไม่รวมตัวเอง) + ตัวเอง แล้วเรียงตามลำดับความสำคัญเดียวกับคิวมีปัญหา
-  const others = (modelBookings ?? []).filter(b => b.id !== thisBooking.id)
-  const priority = [...others, thisBooking].sort((a, b) =>
-    new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime() ||
-    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  )
-
-  for (const b of priority) {
-    const bStart = new Date(b.start_datetime).getTime()
-    const bEnd = new Date(b.end_datetime).getTime()
-    const bike = (candidates ?? []).find(bk => {
-      if (isBikeBusyInWindow(bk.id, b.start_datetime, b.end_datetime)) return false
-      const claims = claimed.get(bk.id) ?? []
-      return !claims.some(c => c.start < bEnd + BUFFER_MS && c.end > bStart - BUFFER_MS)
-    })
-    if (bike) {
-      const claims = claimed.get(bike.id) ?? []
-      claims.push({ start: bStart, end: bEnd })
-      claimed.set(bike.id, claims)
-      if (b.id === thisBooking.id) return true
-    } else if (b.id === thisBooking.id) {
-      return false
+  // จำลองจัดสรรตามลำดับความสำคัญเดียวกับคิวมีปัญหา (ใกล้วันรับก่อน แล้วตามลำดับจอง)
+  // คืนค่า id ของคิวที่ "ได้รถ" ทั้งหมดในรอบจำลองนั้น — เรียกซ้ำได้ไม่ชนกันเพราะสร้าง claimed ใหม่ทุกครั้ง
+  function allocate(pool: { id: string; start_datetime: string; end_datetime: string; created_at: string }[]): Set<string> {
+    const claimed = new Map<string, { start: number; end: number }[]>()
+    for (const sc of specificBookings ?? []) {
+      if (!candidateIds.has(sc.bike_id)) continue
+      const arr = claimed.get(sc.bike_id) ?? []
+      arr.push({ start: new Date(sc.start_datetime).getTime(), end: new Date(sc.end_datetime).getTime() })
+      claimed.set(sc.bike_id, arr)
     }
+    const priority = [...pool].sort((a, b) =>
+      new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime() ||
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+    const succeeded = new Set<string>()
+    for (const b of priority) {
+      const bStart = new Date(b.start_datetime).getTime()
+      const bEnd = new Date(b.end_datetime).getTime()
+      const bike = (candidates ?? []).find(bk => {
+        if (isBikeBusyInWindow(bk.id, b.start_datetime, b.end_datetime)) return false
+        const claims = claimed.get(bk.id) ?? []
+        return !claims.some(c => c.start < bEnd + BUFFER_MS && c.end > bStart - BUFFER_MS)
+      })
+      if (bike) {
+        const claims = claimed.get(bike.id) ?? []
+        claims.push({ start: bStart, end: bEnd })
+        claimed.set(bike.id, claims)
+        succeeded.add(b.id)
+      }
+    }
+    return succeeded
   }
-  return false
+
+  const others = (modelBookings ?? []).filter(b => b.id !== thisBooking.id)
+  const beforeSucceeded = allocate(others)
+  const afterSucceeded = allocate([...others, thisBooking])
+
+  if (!afterSucceeded.has(thisBooking.id)) return false
+  for (const id of Array.from(beforeSucceeded)) {
+    if (!afterSucceeded.has(id)) return false // มีคิวที่เคยได้รถอยู่ดีๆ โดนแย่งไป — ไม่ยอมให้เสนอรุ่นนี้
+  }
+  return true
 }
 
 export type BrokenBooking = {
