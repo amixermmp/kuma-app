@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
+import { recalcNeverDoneRoutines } from '@/lib/routines'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ bikeId: string }> }) {
   const supabase = await createClient()
@@ -25,6 +26,20 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bike
   const admin = createAdminClient()
   const { error } = await admin.from('bikes').update(update).eq('id', bikeId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if ('odometer' in update) {
+    await recalcNeverDoneRoutines(admin, bikeId, Number(update.odometer) || 0)
+  }
+
+  const { data: bike } = await admin.from('bikes').select('license_plate').eq('id', bikeId).single()
+  await writeLog({
+    actorType: 'owner',
+    actorId: user.id,
+    actorName: user.email ?? 'Owner',
+    action: 'bike_updated',
+    description: `แก้ไขข้อมูลรถ ${bike?.license_plate ?? bikeId} — ${Object.keys(update).join(', ')}`,
+    metadata: { bikeId, changed: update },
+  })
 
   return NextResponse.json({ success: true })
 }
@@ -55,7 +70,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     admin.from('rentals').delete().eq('bike_id', bikeId),
     admin.from('monthly_rentals').delete().eq('bike_id', bikeId),
     admin.from('bookings').delete().eq('bike_id', bikeId),
-    admin.from('repair_jobs').delete().eq('bike_id', bikeId),
+    admin.from('repairs').delete().eq('bike_id', bikeId),
+    admin.from('bike_routines').delete().eq('bike_id', bikeId),
   ])
 
   // ดึงข้อมูลรถก่อนลบ เพื่อ log

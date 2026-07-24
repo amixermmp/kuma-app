@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
+import { hasOpenContract } from '@/lib/availability'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -48,6 +49,10 @@ export async function POST(request: NextRequest) {
   const currentBikeBranch = (rental.bikes as any)?.branch_id ?? rental.branch_id
   if (newBike.branch_id !== currentBikeBranch) {
     return NextResponse.json({ error: 'รถต้องอยู่สาขาเดียวกัน' }, { status: 400 })
+  }
+  // Guard: สถานะรถอาจค้าง — เช็คสัญญาจริงด้วย กันสลับไปคันที่มีสัญญาค้าง
+  if (await hasOpenContract(supabase, newBikeId)) {
+    return NextResponse.json({ error: 'รถคันนี้ยังมีสัญญาค้างอยู่ สลับไปไม่ได้' }, { status: 409 })
   }
 
   // Build swap log entry

@@ -67,18 +67,22 @@ export default async function DocsPage({
   let query = supabase
     .from('bike_documents')
     .select('id, bike_id, doc_type, expiry_date, doc_photo_url, notes, bikes(license_plate, brand, model)')
-    .in('doc_type', ['tax', 'pob'])
+    .in('doc_type', ['tax', 'pob', 'registration'])
     .order('expiry_date', { ascending: true, nullsFirst: true })
     .eq('bike_id', bikeId)
 
   const { data: rawDocs } = await query
 
-  const docs: DocItem[] = (rawDocs ?? []).map(d => ({
+  // หน้าเล่ม (registration) = เอกสารถาวร ไม่มีวันหมดอายุ — แยกออกจากลิสต์เตือน
+  const regRaw = (rawDocs ?? []).find(d => d.doc_type === 'registration')
+  const regDoc = regRaw ? { id: regRaw.id, doc_photo_url: regRaw.doc_photo_url } : null
+
+  const docs: DocItem[] = (rawDocs ?? []).filter(d => d.doc_type !== 'registration').map(d => ({
     ...d,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     bikes: (d as any).bikes,
     ...calcUrgency(d.expiry_date),
   }))
 
-  return <DocsClient docs={docs} bikeId={bikeId} backHref="/staff/docs" />
+  return <DocsClient docs={docs} bikeId={bikeId} backHref="/staff/docs" regDoc={regDoc} />
 }

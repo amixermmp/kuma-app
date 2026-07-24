@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logStaffAction } from '@/lib/log'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
   // Verify selected bike has no conflicts
   const bufferStart = new Date(new Date(booking.start_datetime).getTime() - 3 * 3_600_000).toISOString()
   const bufferEnd = new Date(new Date(booking.end_datetime).getTime() + 3 * 3_600_000).toISOString()
+  const nowIso = new Date().toISOString()
 
   const [{ data: rentalConflict }, { data: bookingConflict }, { data: monthlyConflict }] = await Promise.all([
     supabase.from('rentals')
@@ -35,7 +37,7 @@ export async function POST(request: NextRequest) {
       .eq('bike_id', bikeId)
       .in('status', ['active', 'extended'])
       .lt('start_datetime', bufferEnd)
-      .gt('expected_end_datetime', bufferStart)
+      .or(`expected_end_datetime.gt.${bufferStart},expected_end_datetime.lte.${nowIso}`)
       .maybeSingle(),
     supabase.from('bookings')
       .select('id')
@@ -65,6 +67,11 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: 'บันทึกไม่สำเร็จ' }, { status: 500 })
   }
+
+  const { data: bike } = await supabase.from('bikes').select('license_plate').eq('id', bikeId).single()
+  await logStaffAction(staffId, 'booking_assigned',
+    `กำหนดรถให้การจอง — ${bike?.license_plate ?? bikeId}`,
+    { bookingId, bikeId })
 
   return NextResponse.json({ success: true })
 }

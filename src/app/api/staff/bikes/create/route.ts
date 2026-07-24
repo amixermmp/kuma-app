@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { writeLog } from '@/lib/log'
 
 export async function POST(request: NextRequest) {
   const supabaseAuth = await createClient()
@@ -54,6 +55,15 @@ export async function POST(request: NextRequest) {
   }
 
   const bikeId = bike.id
+
+  await writeLog({
+    actorType: 'owner',
+    actorId: user.id,
+    actorName: user.email ?? 'Owner',
+    action: 'bike_created',
+    description: `เพิ่มรถใหม่ ${license_plate} (${brand} ${model}) — ฿${daily_rate}/วัน`,
+    metadata: { bikeId, license_plate, brand, model },
+  })
 
   // Create documents (only if has data)
   const docInserts = []

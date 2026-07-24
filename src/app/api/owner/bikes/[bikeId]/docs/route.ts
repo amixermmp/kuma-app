@@ -8,7 +8,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { bikeId } = await params
-  const { pob_expiry, tax_expiry } = await request.json()
+  const { pob_expiry, tax_expiry, registration_photo } = await request.json()
 
   const admin = createAdminClient()
 
@@ -37,6 +37,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         .insert({ bike_id: bikeId, doc_type, expiry_date })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
+  }
+
+  // หน้าเล่มทะเบียน — เอกสารถาวร อัพเดทเฉพาะเมื่อส่งรูปใหม่มา
+  if (registration_photo) {
+    const { error } = await admin
+      .from('bike_documents')
+      .upsert({
+        bike_id: bikeId,
+        doc_type: 'registration',
+        expiry_date: null,
+        doc_photo_url: registration_photo,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'bike_id,doc_type' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

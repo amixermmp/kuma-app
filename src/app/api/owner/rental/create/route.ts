@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
+import { hasOpenContract } from '@/lib/availability'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -25,6 +26,11 @@ export async function POST(request: NextRequest) {
   const { data: bikeRow } = await admin.from('bikes').select('branch_id').eq('id', bikeId).single()
   if (!bikeRow?.branch_id) return NextResponse.json({ error: 'Branch not found' }, { status: 400 })
   const BRANCH_ID = bikeRow.branch_id
+
+  // Guard: กันสัญญาซ้อน — รถที่ยังมีสัญญาค้าง (ยังไม่กดจบ) ห้ามส่งซ้ำ
+  if (await hasOpenContract(admin, bikeId)) {
+    return NextResponse.json({ error: 'รถคันนี้ยังมีสัญญาค้างอยู่ (ยังไม่ได้กดจบสัญญา) — ปิดสัญญาเดิมก่อนจึงจะส่งรถได้' }, { status: 409 })
+  }
 
   // Find or create customer
   let customerId: string
@@ -74,6 +80,15 @@ export async function POST(request: NextRequest) {
     console.error('[owner/rental/create]', rentalErr?.message)
     return NextResponse.json({ error: 'บันทึกการเช่าไม่สำเร็จ' }, { status: 500 })
   }
+
+  // ลงสมุดรายรับ — ค่าเช่าเก็บตอนส่งรถ
+  await admin.from('rental_payments').insert({
+    rental_id: rental.id,
+    branch_id: BRANCH_ID,
+    kind: 'rental',
+    amount: totalAmount ?? 0,
+    paid_at: new Date(startDatetime).toISOString(),
+  })
 
   // Update bike status
   const { error: bikeErr } = await admin
