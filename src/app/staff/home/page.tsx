@@ -207,11 +207,10 @@ export default async function StaffHomePage() {
           {([
             { icon: '🔍', label: 'ค้นหารถ',    href: '/staff/search' },
             { icon: '🛵', label: 'รวมรถ',       href: '/staff/fleet' },
-            { icon: '📅', label: 'ภาพรวมรถว่าง', href: '/staff/availability' },
+            { icon: '🛵➡️', label: 'ส่งรถคิวจอง', href: '/staff/send-queue' },
             { icon: '🔧', label: 'แจ้งรถเสีย',  href: '/staff/broken' },
             { icon: '📄', label: 'งานเอกสาร',  href: '/staff/docs' },
             { icon: '🛢️', label: 'งานรูทีน',   href: '/staff/routine' },
-            { icon: '🛵➡️', label: 'ส่งรถคิวจอง', href: '/staff/send-queue' },
           ] as const).map(({ icon, label, href }) => (
             <Link key={href} href={href} style={{
               display: 'flex',
