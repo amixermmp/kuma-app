@@ -6,17 +6,35 @@ import { JobCard, fmtDate, fmtTime, hoursUntil, isTodayBkk } from '@/components/
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function SendCarQueueClient({ jobs }: { jobs: any[] }) {
   const [query, setQuery] = useState('')
+  const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set())
+  const [cancelling, setCancelling] = useState<string | null>(null)
+
+  const handleCancel = async (bookingId: string) => {
+    if (!window.confirm('ยืนยันยกเลิกการจองนี้?')) return
+    setCancelling(bookingId)
+    try {
+      await fetch('/api/staff/booking/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId }),
+      })
+      setCancelledIds(prev => { const s = new Set(prev); s.add(bookingId); return s })
+    } finally {
+      setCancelling(null)
+    }
+  }
 
   const filtered = useMemo(() => {
+    const visible = jobs.filter((b: any) => !cancelledIds.has(b.id)) // eslint-disable-line @typescript-eslint/no-explicit-any
     const q = query.trim().toLowerCase()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const list = !q ? jobs : jobs.filter((b: any) =>
+    const list = !q ? visible : visible.filter((b: any) =>
       (b.customer_name ?? '').toLowerCase().includes(q) ||
       (b.customer_phone ?? '').toLowerCase().includes(q)
     )
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return [...list].sort((a: any, b: any) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime())
-  }, [jobs, query])
+  }, [jobs, query, cancelledIds])
 
   return (
     <div className="section-pad">
@@ -32,13 +50,13 @@ export default function SendCarQueueClient({ jobs }: { jobs: any[] }) {
         }}
       />
 
-      {jobs.length === 0 && (
+      {filtered.length === 0 && !query.trim() && (
         <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '20px 0' }}>
           ไม่มีคิวส่งรถตอนนี้
         </div>
       )}
 
-      {jobs.length > 0 && filtered.length === 0 && (
+      {filtered.length === 0 && query.trim() && (
         <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '20px 0' }}>
           ไม่พบคิวจองที่ตรงกับ &quot;{query}&quot;
         </div>
@@ -78,6 +96,8 @@ export default function SendCarQueueClient({ jobs }: { jobs: any[] }) {
             meta5={blacklistNote}
             href={`/staff/assign/${b.id}`} btnColor="#111827"
             cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
+            onCancel={() => handleCancel(b.id)}
+            cancelDisabled={cancelling === b.id}
           />
         )
       })}
