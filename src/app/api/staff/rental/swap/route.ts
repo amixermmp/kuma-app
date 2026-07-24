@@ -28,11 +28,12 @@ export async function POST(request: NextRequest) {
   let customerName: string
   let oldPlate: string
   let existingSwapLog: unknown[] = []
+  let oldMonthlyRate = 0
 
   if (rentalType === 'monthly') {
     const { data: rental, error } = await supabase
       .from('monthly_rentals')
-      .select('id, bike_id, branch_id, swap_log, bikes(license_plate, branch_id), customers(name)')
+      .select('id, bike_id, branch_id, monthly_rate, swap_log, bikes(license_plate, branch_id), customers(name)')
       .eq('id', rentalId)
       .eq('status', 'active')
       .single()
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     oldPlate = (rental.bikes as any)?.license_plate ?? oldBikeId
     existingSwapLog = Array.isArray(rental.swap_log) ? rental.swap_log : []
+    oldMonthlyRate = rental.monthly_rate
   } else {
     const { data: rental, error } = await supabase
       .from('rentals')
@@ -104,6 +106,10 @@ export async function POST(request: NextRequest) {
       type: swapType,
       reason: reason ?? null,
       staff_id: staffId,
+      // เก็บราคาก่อน/หลังสลับไว้ — ให้รอบบิลที่กำหนดชำระก่อนวันสลับยังอ้างอิงราคาเดิมได้ถูกต้อง
+      // (ราคาใหม่มีผลแค่รอบถัดไป ไม่ย้อนหลังไปเก็บเพิ่มจากรอบที่ตกลงราคาไว้แล้ว)
+      old_rate: oldMonthlyRate,
+      new_rate: newBike.monthly_rate,
     }
 
     const { error } = await supabase

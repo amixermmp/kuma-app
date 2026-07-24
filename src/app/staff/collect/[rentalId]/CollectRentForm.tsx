@@ -33,6 +33,7 @@ type Period = {
   label: string
   payments: Payment[]
   totalPaid: number
+  periodRate: number
   fullyPaid: boolean
   isOverdue: boolean
 }
@@ -59,7 +60,9 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
   const customer = rental.customers
   const monthlyRate = rental.monthly_rate
   const { isOverdue } = currentPeriod
-  const remaining = monthlyRate - currentPeriod.totalPaid
+  // ใช้ราคาของ "งวดนี้" เสมอ (periodRate) ไม่ใช่ราคาปัจจุบันของสัญญา — เผื่อเคยสลับรถหลังงวดนี้กำหนด
+  // ชำระไปแล้ว งวดนั้นยังอ้างอิงราคาเดิม ราคาใหม่มีผลแค่งวดถัดไปที่กำหนดชำระหลังวันสลับ
+  const remaining = currentPeriod.periodRate - currentPeriod.totalPaid
 
   const [payDate, setPayDate]     = useState(new Date().toISOString().split('T')[0])
   const [payMethod, setPayMethod] = useState(PAYMENT_METHODS[0])
@@ -70,7 +73,7 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
 
   const paid = parseFloat(amount) || 0
   const newTotal = currentPeriod.totalPaid + paid
-  const willComplete = newTotal >= monthlyRate
+  const willComplete = newTotal >= currentPeriod.periodRate
 
   const handleSubmit = async () => {
     if (paid <= 0) { setError('กรุณาใส่ยอดที่รับ'); return }
@@ -171,6 +174,16 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
               {isOverdue ? '🔴 ค้างชำระ' : '💰 งวดที่ต้องเก็บ'}
             </div>
 
+            {currentPeriod.periodRate !== monthlyRate && (
+              <div style={{
+                background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px',
+                padding: '10px 14px', marginBottom: '12px', fontSize: '12px', color: '#92400e',
+              }}>
+                🔄 งวดนี้เคยตกลงราคาไว้ที่ ฿{currentPeriod.periodRate.toLocaleString()}/เดือน ก่อนสลับรถ
+                — เก็บตามราคานี้ (ราคาใหม่ ฿{monthlyRate.toLocaleString()} มีผลตั้งแต่งวดถัดไป)
+              </div>
+            )}
+
             {/* Period box */}
             <div style={{
               background: isOverdue ? '#fef2f2' : '#f0fdf4',
@@ -180,7 +193,7 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
                 {currentPeriod.label}
               </div>
               <div style={{ fontSize: '28px', fontWeight: 800, color: isOverdue ? '#dc2626' : '#16a34a', margin: '6px 0' }}>
-                ฿{monthlyRate.toLocaleString()}
+                ฿{currentPeriod.periodRate.toLocaleString()}
               </div>
               <div style={{ fontSize: '12px', color: isOverdue ? '#dc2626' : '#16a34a' }}>
                 ครบกำหนด: {fmtDate(currentPeriod.dueDate)}
@@ -197,7 +210,7 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
                 <div style={{ height: '8px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{
                     height: '100%', borderRadius: '4px', background: '#16a34a',
-                    width: `${Math.min(100, (currentPeriod.totalPaid / monthlyRate) * 100)}%`,
+                    width: `${Math.min(100, (currentPeriod.totalPaid / currentPeriod.periodRate) * 100)}%`,
                   }} />
                 </div>
               </div>
@@ -214,7 +227,7 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
               />
               {paid > 0 && !willComplete && (
                 <div style={{ fontSize: '12px', color: '#d97706', marginTop: '4px' }}>
-                  🟡 จ่ายบางส่วน — ยังค้าง ฿{(monthlyRate - newTotal).toLocaleString()}
+                  🟡 จ่ายบางส่วน — ยังค้าง ฿{(currentPeriod.periodRate - newTotal).toLocaleString()}
                 </div>
               )}
               {paid > 0 && willComplete && (
@@ -256,9 +269,9 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
               const label = p.fullyPaid
                 ? 'ครบแล้ว'
                 : p.isOverdue
-                  ? `เลท — ค้าง ฿${(monthlyRate - p.totalPaid).toLocaleString()}`
+                  ? `เลท — ค้าง ฿${(p.periodRate - p.totalPaid).toLocaleString()}`
                   : p.totalPaid > 0
-                    ? `บางส่วน — ค้าง ฿${(monthlyRate - p.totalPaid).toLocaleString()}`
+                    ? `บางส่วน — ค้าง ฿${(p.periodRate - p.totalPaid).toLocaleString()}`
                     : 'รอชำระ'
               return (
                 <div key={p.dueDate} style={{ marginBottom: '10px', borderBottom: '1px solid #f3f4f6', paddingBottom: '10px' }}>

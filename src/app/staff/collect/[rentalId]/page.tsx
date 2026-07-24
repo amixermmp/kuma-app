@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getApplicableMonthlyRate } from '@/lib/monthlyRate'
 import CollectRentForm from './CollectRentForm'
 
 export const dynamic = 'force-dynamic'
@@ -29,7 +30,7 @@ export default async function CollectRentPage({ params }: { params: Promise<{ re
     supabase
       .from('monthly_rentals')
       .select(`
-        id, start_date, payment_day, monthly_rate, deposit_amount, status,
+        id, start_date, payment_day, monthly_rate, deposit_amount, status, swap_log,
         bikes(id, license_plate, brand, model),
         customers(id, name, phone, workplace)
       `)
@@ -40,6 +41,7 @@ export default async function CollectRentPage({ params }: { params: Promise<{ re
       .from('monthly_payments')
       .select('*')
       .eq('monthly_rental_id', rentalId)
+      .is('voided_at', null)
       .order('paid_date', { ascending: true }),
   ])
 
@@ -62,9 +64,11 @@ export default async function CollectRentPage({ params }: { params: Promise<{ re
     const thYear = dueDate.getFullYear() + 543
     const label = `เดือนที่ ${i + 1} — ${MONTH_NAMES[dueDate.getMonth()]} ${thYear}`
 
+    // เคยสลับรถหลังรอบนี้กำหนดชำระไปแล้วไหม — ถ้าใช่ใช้ราคาเดิมตอนนั้น ไม่ใช่ราคาใหม่ที่อาจแพงกว่า
+    const periodRate = getApplicableMonthlyRate(rental.monthly_rate, rental.swap_log, dueDateStr)
     const periodPayments = (payments ?? []).filter(p => p.due_date === dueDateStr)
     const totalPaid = periodPayments.reduce((s, p) => s + Number(p.amount), 0)
-    const fullyPaid = totalPaid >= rental.monthly_rate
+    const fullyPaid = totalPaid >= periodRate
     const isOverdue = !fullyPaid && now > dueDate
 
     return {
@@ -73,6 +77,7 @@ export default async function CollectRentPage({ params }: { params: Promise<{ re
       label,
       payments: periodPayments,
       totalPaid,
+      periodRate,
       fullyPaid,
       isOverdue,
     }

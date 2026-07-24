@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logStaffAction } from '@/lib/log'
+import { getApplicableMonthlyRate } from '@/lib/monthlyRate'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -19,7 +21,7 @@ export async function POST(request: NextRequest) {
   // Get monthly_rental to know the rate
   const { data: rental } = await supabase
     .from('monthly_rentals')
-    .select('monthly_rate')
+    .select('monthly_rate, swap_log, bikes(license_plate), customers(name)')
     .eq('id', monthlyRentalId)
     .single()
 
@@ -31,10 +33,13 @@ export async function POST(request: NextRequest) {
     .select('amount')
     .eq('monthly_rental_id', monthlyRentalId)
     .eq('due_date', dueDate)
+    .is('voided_at', null)
 
+  // ถ้าเคยสลับรถหลังรอบนี้กำหนดชำระไปแล้ว ใช้ราคาเดิมตอนนั้น ไม่ใช่ราคาใหม่ที่อาจแพงกว่า (กันเก็บเกินย้อนหลัง)
+  const applicableRate = getApplicableMonthlyRate(rental.monthly_rate, rental.swap_log, dueDate)
   const alreadyPaid = (existing ?? []).reduce((s, p) => s + Number(p.amount), 0)
   const newTotal = alreadyPaid + amountPaid
-  const status = newTotal >= rental.monthly_rate ? 'paid' : 'partial'
+  const status = newTotal >= applicableRate ? 'paid' : 'partial'
 
   // Insert new payment record
   const { error } = await supabase.from('monthly_payments').insert({
@@ -58,6 +63,14 @@ export async function POST(request: NextRequest) {
       .lte('due_date', dueDate)
       .in('status', ['pending', 'overdue'])
   }
+
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const plate = (Array.isArray((rental as any).bikes) ? (rental as any).bikes[0] : (rental as any).bikes)?.license_plate ?? ''
+  const custName = (Array.isArray((rental as any).customers) ? (rental as any).customers[0] : (rental as any).customers)?.name ?? ''
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  await logStaffAction(staffId, 'monthly_collected',
+    `เก็บค่าเช่ารายเดือน ${plate} — ${custName} — ฿${Number(amountPaid).toLocaleString()} (${status === 'paid' ? 'ครบงวด' : 'บางส่วน'})`,
+    { monthlyRentalId, dueDate, amountPaid, status })
 
   return NextResponse.json({ success: true, status })
 }
