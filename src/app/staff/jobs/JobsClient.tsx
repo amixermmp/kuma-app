@@ -370,6 +370,7 @@ export default function JobsClient({
                   (b.original_requested_brand !== b.requested_brand || b.original_requested_model !== b.requested_model)
                   ? `⚠️ รุ่นเดิม: ${b.original_requested_brand} ${b.original_requested_model} → เปลี่ยนเป็น: ${b.requested_brand} ${b.requested_model}${b.reassign_reason ? ` (${b.reassign_reason})` : ''} — ลูกค้าอาจถือใบจองรุ่นเดิมมา`
                   : undefined
+                const blacklistNote = b.blacklist_watch ? `🔍 เฝ้าระวัง — ${b.blacklist_watch_reason ?? 'ตรงกับแบล็คลิสต์'}` : undefined
                 return (
                   <JobCard
                     key={b.id}
@@ -381,6 +382,7 @@ export default function JobsClient({
                     meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
                     meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
                     meta4={reassignNote}
+                    meta5={blacklistNote}
                     href={`/staff/assign/${b.id}`} btnColor="#111827"
                     cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                     onCancel={() => handleCancel(b.id)}
@@ -401,6 +403,7 @@ export default function JobsClient({
                   (b.original_requested_brand !== b.requested_brand || b.original_requested_model !== b.requested_model)
                   ? `⚠️ รุ่นเดิม: ${b.original_requested_brand} ${b.original_requested_model} → เปลี่ยนเป็น: ${b.requested_brand} ${b.requested_model}${b.reassign_reason ? ` (${b.reassign_reason})` : ''} — ลูกค้าอาจถือใบจองรุ่นเดิมมา`
                   : undefined
+                const blacklistNote = b.blacklist_watch ? `🔍 เฝ้าระวัง — ${b.blacklist_watch_reason ?? 'ตรงกับแบล็คลิสต์'}` : undefined
                 return (
                   <JobCard
                     key={b.id}
@@ -412,6 +415,7 @@ export default function JobsClient({
                     meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
                     meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
                     meta4={reassignNote}
+                    meta5={blacklistNote}
                     statusLabel={bike ? '⬛ รอส่งรถ' : '🟡 ยังไม่ได้เลือกรถ'}
                     statusBg={bike ? '#f1f5f9' : '#fffbeb'} statusColor={bike ? '#111827' : '#d97706'}
                     href={`/staff/assign/${b.id}`} btnColor="#111827"
@@ -432,6 +436,7 @@ export default function JobsClient({
                   (b.original_requested_brand !== b.requested_brand || b.original_requested_model !== b.requested_model)
                   ? `⚠️ รุ่นเดิม: ${b.original_requested_brand} ${b.original_requested_model} → เปลี่ยนเป็น: ${b.requested_brand} ${b.requested_model}${b.reassign_reason ? ` (${b.reassign_reason})` : ''} — ลูกค้าอาจถือใบจองรุ่นเดิมมา`
                   : undefined
+                const blacklistNote = b.blacklist_watch ? `🔍 เฝ้าระวัง — ${b.blacklist_watch_reason ?? 'ตรงกับแบล็คลิสต์'}` : undefined
                 return (
                   <JobCard
                     key={b.id}
@@ -443,6 +448,7 @@ export default function JobsClient({
                     meta2={`📅 รับรถ ${fmtDate(b.start_datetime)} ${fmtTime(b.start_datetime)} น. • ${b.total_days} วัน`}
                     meta3={b.delivery_type === 'offsite' ? `🛵 ส่งนอกสถานที่ — ${b.delivery_address || 'ไม่ระบุที่อยู่'}` : undefined}
                     meta4={reassignNote}
+                    meta5={blacklistNote}
                     href={`/staff/assign/${b.id}`} btnColor="#111827"
                     cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                     onCancel={() => handleCancel(b.id)}

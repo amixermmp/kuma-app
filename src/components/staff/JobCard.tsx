@@ -39,13 +39,13 @@ export function bikeColorHex(name?: string | null): string {
 
 export function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
-  meta1, meta2, meta3, meta4, statusLabel, statusBg, statusColor,
+  meta1, meta2, meta3, meta4, meta5, statusLabel, statusBg, statusColor,
   href, btnColor, btnLabel, contractHref, extendHref, swapHref, cardHref, onCancel, cancelDisabled,
   photoUrl, bikeColor, isLocked, onToggleLock, lockLoading,
 }: {
   dotColor: string; title: string
   badge: string; badgeBg: string; badgeColor: string
-  meta1: string; meta2?: string; meta3?: string; meta4?: string
+  meta1: string; meta2?: string; meta3?: string; meta4?: string; meta5?: string
   statusLabel?: string; statusBg?: string; statusColor?: string
   href: string; btnColor?: string; btnLabel?: string
   contractHref?: string
@@ -104,6 +104,11 @@ export function JobCard({
         {meta4 && (
           <div style={{ fontSize: '12px', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '4px 8px', marginBottom: '8px', display: 'block' }}>
             {meta4}
+          </div>
+        )}
+        {meta5 && (
+          <div style={{ fontSize: '12px', color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '4px 8px', marginBottom: '8px', display: 'block' }}>
+            {meta5}
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: statusLabel ? 'space-between' : 'flex-start', marginTop: '8px' }}>

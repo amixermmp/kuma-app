@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import { logStaffAction } from '@/lib/log'
 import { getBusyBikeIds, BUFFER_MS } from '@/lib/availability'
+import { checkBlacklist } from '@/lib/blacklist'
 
 function genRef() {
   const d = new Date()
@@ -107,6 +108,10 @@ export async function POST(request: NextRequest) {
 
   const bookingRef = genRef()
 
+  // เช็คแบล็คลิสต์ตอนจอง — ไม่บล็อก แค่แท็กไว้เตือนพนักงานล่วงหน้าก่อนลูกค้ามาถึง
+  // (ยังไม่มีเลขบัตรตอนนี้ เช็คได้แค่ชื่อ/เบอร์ ส่วนเช็คแบบเข้มด้วยเลขบัตรทำอีกทีตอนส่งรถจริง)
+  const blacklistHit = await checkBlacklist(supabase, { name: customerName, phone: customerPhone })
+
   const { data: booking, error } = await supabase
     .from('bookings')
     .insert({
@@ -133,6 +138,10 @@ export async function POST(request: NextRequest) {
       delivery_type: deliveryType === 'offsite' ? 'offsite' : 'shop',
       delivery_address: deliveryType === 'offsite' ? (deliveryAddress || null) : null,
       ...(hasConflict && overrideConflict ? { fast_lane: true } : {}),
+      ...(blacklistHit ? {
+        blacklist_watch: true,
+        blacklist_watch_reason: `ชื่อ/เบอร์ตรงกับแบล็คลิสต์ "${blacklistHit.name}"${blacklistHit.reason ? ` — ${blacklistHit.reason}` : ''} (ตรงจาก${blacklistHit.matchedBy === 'phone' ? 'เบอร์โทร' : 'ชื่อ'})`,
+      } : {}),
     })
     .select('id, booking_ref')
     .single()
@@ -148,7 +157,8 @@ export async function POST(request: NextRequest) {
   }
   await logStaffAction(staffId, 'booking_created',
     `จองคิว ${booking.booking_ref} — ${bikeText} — ลูกค้า ${customerName} (${customerPhone}) — ฿${Number(totalAmount ?? 0).toLocaleString()} / ${totalDays} วัน` +
-      (hasConflict && overrideConflict ? ' ⚡ Fast lane จองซ้อนคิว/รุ่นไม่พอ' : ''),
+      (hasConflict && overrideConflict ? ' ⚡ Fast lane จองซ้อนคิว/รุ่นไม่พอ' : '') +
+      (blacklistHit ? ' ⚠️ ตรงกับแบล็คลิสต์' : ''),
     { bookingId: booking.id, bikeId: bikeId ?? null, requestedBrand, requestedModel, totalAmount })
 
   return NextResponse.json({ success: true, bookingId: booking.id, bookingRef: booking.booking_ref })
