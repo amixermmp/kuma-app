@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds } from '@/lib/staffBranch'
 import { getBusyBikeIds, BUFFER_MS } from '@/lib/availability'
+import { getModelBikeAvailability } from '@/lib/bookingConflicts'
 
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies()
@@ -14,9 +15,6 @@ export async function GET(request: NextRequest) {
   const to = searchParams.get('to')
 
   if (!from || !to) return NextResponse.json({ error: 'Missing params' }, { status: 400 })
-
-  const bufferStart = new Date(new Date(from).getTime() - BUFFER_MS)
-  const bufferEnd = new Date(new Date(to).getTime() + BUFFER_MS)
 
   const supabase = createAdminClient()
 
@@ -38,21 +36,25 @@ export async function GET(request: NextRequest) {
   if (!bikes) return NextResponse.json({ bikes: [] })
 
   const nowIso = new Date().toISOString()
+  const bufferStart = new Date(new Date(from).getTime() - BUFFER_MS).toISOString()
+  const bufferEnd = new Date(new Date(to).getTime() + BUFFER_MS).toISOString()
 
   // รถไม่ว่างจากสัญญาเช่า — ตัวกลาง เดียวกับทุกจุดในระบบ (กันเกินกำหนดยังไม่คืนหลุดคิว)
-  const [busySet, { data: rentalConflicts }, { data: bookingConflicts }] = await Promise.all([
+  const [busySet, { data: rentalConflicts }, { data: specificBookings }] = await Promise.all([
     getBusyBikeIds(supabase, from, to),
     // รายละเอียดสัญญา — ใช้โชว์เหตุผลเท่านั้น ไม่ใช่ตัวตัดสินว่าว่างไหม (busySet ตัดสินแล้ว)
     supabase
       .from('rentals')
       .select('bike_id, start_datetime, expected_end_datetime')
       .in('status', ['active', 'extended']),
+    // คิวจองที่เจาะจงคันไปแล้ว (bike_id ระบุแล้ว) — ใช้โชว์เหตุผลรายคัน
     supabase
       .from('bookings')
-      .select('bike_id, branch_id, requested_brand, requested_model, start_datetime, end_datetime')
+      .select('bike_id, start_datetime, end_datetime')
       .in('status', ['confirmed'])
-      .lt('start_datetime', bufferEnd.toISOString())
-      .gt('end_datetime', bufferStart.toISOString()),
+      .not('bike_id', 'is', null)
+      .lt('start_datetime', bufferEnd)
+      .gt('end_datetime', bufferStart),
   ])
 
   const rentalDetail = new Map<string, { start: string; end: string; overdue: boolean }>()
@@ -64,25 +66,29 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  // Specific-bike bookings (bike_id is set)
   const bookingMap = new Map<string, { start: string; end: string }>()
-  // Model-based bookings (bike_id = null) — นับแยกตามสาขา ไม่ให้จองสาขาอื่นมากันรถสาขาเรา
-  const modelBookingCount = new Map<string, number>()
-  for (const b of bookingConflicts ?? []) {
-    if (b.bike_id) {
-      if (!busySet.has(b.bike_id)) {
-        bookingMap.set(b.bike_id, { start: b.start_datetime, end: b.end_datetime })
-      }
-    } else if (b.requested_brand && b.requested_model) {
-      const key = `${b.branch_id ?? ''}__${b.requested_brand}__${b.requested_model}`
-      modelBookingCount.set(key, (modelBookingCount.get(key) ?? 0) + 1)
-    }
+  for (const b of specificBookings ?? []) {
+    if (!busySet.has(b.bike_id)) bookingMap.set(b.bike_id, { start: b.start_datetime, end: b.end_datetime })
   }
 
   const fmt = (iso: string) => new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })
 
-  // Track how many "slots" each model-based booking has consumed
-  const modelBookingUsed = new Map<string, number>()
+  // รถที่ว่างทางกายภาพ (ผ่าน repair/locked/rented/ติดจองเจาะจงคันแล้ว) — เอาไปเช็คต่อว่าคิวจองแบบ
+  // "ระบุแค่รุ่น" ของรุ่นนั้นกินโควต้าไปกี่คันจริง แบบคิดรวมการต่อคิวในคันเดียวกันได้ (bin packing)
+  const physicallyFreeBikes = bikes.filter(bike =>
+    bike.status !== 'repair' && bike.status !== 'locked' &&
+    !busySet.has(bike.id) && !bookingMap.has(bike.id)
+  )
+  const modelGroups = new Map<string, { branchId: string; brand: string; model: string }>()
+  for (const bike of physicallyFreeBikes) {
+    const key = `${bike.branch_id ?? ''}__${bike.brand}__${bike.model}`
+    if (!modelGroups.has(key)) modelGroups.set(key, { branchId: bike.branch_id ?? '', brand: bike.brand, model: bike.model })
+  }
+  const modelFreeIds = new Map<string, Set<string>>()
+  await Promise.all(Array.from(modelGroups.entries()).map(async ([key, g]) => {
+    const avail = await getModelBikeAvailability(supabase, g.branchId, g.brand, g.model, from, to)
+    modelFreeIds.set(key, new Set(avail.freeBikeIds))
+  }))
 
   const result = bikes.map(bike => {
     if (bike.status === 'repair') {
@@ -109,12 +115,9 @@ export async function GET(request: NextRequest) {
         conflict_reason: `ติดจอง ${fmt(booking.start)}–${fmt(booking.end)}`,
       }
     }
-    // Check if a model-based booking (สาขาเดียวกัน) consumes this available bike
     const modelKey = `${bike.branch_id ?? ''}__${bike.brand}__${bike.model}`
-    const booked = modelBookingCount.get(modelKey) ?? 0
-    const used = modelBookingUsed.get(modelKey) ?? 0
-    if (used < booked) {
-      modelBookingUsed.set(modelKey, used + 1)
+    const freeSet = modelFreeIds.get(modelKey)
+    if (!freeSet?.has(bike.id)) {
       return { ...bike, available: false, conflict_type: 'booked', conflict_reason: 'ถูกจองไว้แล้ว (รอกำหนดคัน)' }
     }
     return { ...bike, available: true, conflict_type: null }

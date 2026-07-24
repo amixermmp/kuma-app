@@ -3,6 +3,72 @@ import { BUFFER_MS, UNRENTABLE_STATUSES, getBusyBikeIds } from './availability'
 
 export type ModelBookingConflict = { id: string; booking_ref: string; customer_name: string; start_datetime: string }
 
+// นับจำนวนรถขั้นต่ำที่ต้องใช้ "พร้อมกันจริง" จากช่วงเวลาที่อาจทับกัน — ถ้าสองช่วงไม่ทับกันเอง
+// ใช้รถคันเดียวสลับกันได้ ไม่ต้องนับเป็น 2 คัน (bin packing) — sweep-line: +1 ตอนเริ่ม -1 ตอนจบ
+// หาค่าที่ทับกันสูงสุด ณ จุดใดจุดหนึ่ง เวลาตรงกันเป๊ะให้จบก่อนเริ่ม (ชนกันพอดีตาม buffer ถือว่าไม่ทับ)
+function maxOverlapCount(intervals: { start: number; end: number }[]): number {
+  const events: { t: number; d: number }[] = []
+  for (const iv of intervals) {
+    events.push({ t: iv.start, d: 1 })
+    events.push({ t: iv.end, d: -1 })
+  }
+  events.sort((a, b) => a.t - b.t || a.d - b.d)
+  let cur = 0, max = 0
+  for (const e of events) {
+    cur += e.d
+    if (cur > max) max = cur
+  }
+  return max
+}
+
+export type ModelAvailability = { totalCount: number; freeBikeIds: string[] }
+
+/**
+ * หารถว่างจริงของรุ่นนี้ในช่วง [fromIso, toIso] แบบคิดรวมการต่อคิวในคันเดียวกันได้ (bin packing)
+ * เดิมทุกจุดที่เช็ค "รุ่นนี้ว่างไหม" นับแค่จำนวนคิวจองแบบระบุรุ่นที่ทับช่วงเวลา แล้วหักออกจากจำนวนรถตรงๆ
+ * ทำให้คิวจองสองคิวที่ไม่ทับกันเอง (เช่น คิวแรกคืนเช้า คิวสองรับบ่ายวันเดียวกัน) โดนนับเป็น 2 คันทั้งที่
+ * ใช้รถคันเดียวสลับกันได้จริง — พาลูกค้าที่ควรจองได้ให้ขึ้น "ไม่มีรถว่าง" ทั้งที่ยังว่างจริงอยู่
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getModelBikeAvailability(
+  supabase: SupabaseClient<any, any, any>,
+  branchId: string, brand: string, model: string,
+  fromIso: string, toIso: string,
+  excludeBikeId?: string,
+): Promise<ModelAvailability> {
+  const bufferStart = new Date(new Date(fromIso).getTime() - BUFFER_MS).toISOString()
+  const bufferEnd = new Date(new Date(toIso).getTime() + BUFFER_MS).toISOString()
+
+  const [{ data: candidates }, busyIds, { data: specificBookings }, { data: modelBookings }] = await Promise.all([
+    supabase.from('bikes').select('id')
+      .eq('branch_id', branchId).eq('brand', brand).eq('model', model)
+      .not('status', 'in', `("${UNRENTABLE_STATUSES.join('","')}")`),
+    getBusyBikeIds(supabase, fromIso, toIso),
+    supabase.from('bookings').select('bike_id, start_datetime, end_datetime')
+      .eq('status', 'confirmed').not('bike_id', 'is', null)
+      .lt('start_datetime', bufferEnd).gt('end_datetime', bufferStart),
+    supabase.from('bookings').select('start_datetime, end_datetime')
+      .eq('branch_id', branchId).eq('requested_brand', brand).eq('requested_model', model)
+      .is('bike_id', null).eq('status', 'confirmed')
+      .lt('start_datetime', bufferEnd).gt('end_datetime', bufferStart),
+  ])
+
+  const candidateIds = (candidates ?? []).map(b => b.id).filter(id => id !== excludeBikeId)
+  const specificallyBusy = new Set((specificBookings ?? []).map(b => b.bike_id))
+  const physicallyFreeIds = candidateIds.filter(id => !busyIds.has(id) && !specificallyBusy.has(id))
+
+  const intervals = (modelBookings ?? []).map(b => ({
+    start: new Date(b.start_datetime).getTime() - BUFFER_MS,
+    end: new Date(b.end_datetime).getTime() + BUFFER_MS,
+  }))
+  const used = Math.min(maxOverlapCount(intervals), physicallyFreeIds.length)
+
+  return {
+    totalCount: (candidates ?? []).length,
+    freeBikeIds: physicallyFreeIds.slice(used),
+  }
+}
+
 /**
  * เช็คว่าถ้าเอารถคันนี้ (excludeBikeId) ไปใช้ในช่วง [startIso, endIso] จะทำให้คิวจองแบบ
  * "ระบุแค่รุ่น ไม่เจาะจงคัน" (bike_id เป็น null) ของรุ่นเดียวกันในสาขาเดียวกันขาดรถหรือไม่
