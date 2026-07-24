@@ -392,9 +392,11 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const isLongRental      = totalDays >= 30
   const isMonthlyContract = isLongRental && contractType === 'monthly'
 
-  // ราคาฐาน: ถ้ามาจากใบจองที่เรทถูกกว่ารถคันนี้ = อัพเกรดคงราคาเดิมตามที่รับปากลูกค้า
+  // ราคาฐาน: คิดราคาที่ถูกกว่าเสมอระหว่างใบจองเดิมกับคันที่ส่งจริง (กันลูกค้าโดนเก็บแพงกว่าที่ตกลงไว้
+  // เวลาระบบเปลี่ยนรุ่นให้ตอนแก้คิวมีปัญหา) — รายรับจะได้ตรงกับที่ตกลงไว้จริง ไม่เพี้ยน
   const bookingRate = prefillBooking?.daily_rate ? Number(prefillBooking.daily_rate) : null
   const isUpgradePrice = bookingRate != null && bookingRate < bike.daily_rate
+  const isCheaperActualPrice = bookingRate != null && bookingRate > bike.daily_rate
   const baseDailyRate = isUpgradePrice ? bookingRate! : bike.daily_rate
 
   // โปรราคานักศึกษา — owner ตั้งค่าเองว่าสาขา/รุ่นไหนร่วมรายการ (ว่าง = ทุกสาขา/ทุกรุ่น) และลดกี่บาท/วัน
@@ -621,6 +623,11 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             {isUpgradePrice && (
               <div style={{ marginTop: '4px', color: '#7c3aed', fontWeight: 700 }}>
                 🎁 อัพเกรดรถ — คิดราคาตามใบจอง ฿{bookingRate!.toLocaleString()}/วัน (ปกติ ฿{bike.daily_rate.toLocaleString()})
+              </div>
+            )}
+            {isCheaperActualPrice && (
+              <div style={{ marginTop: '4px', color: '#16a34a', fontWeight: 700 }}>
+                💚 คิดราคาคันที่ส่งจริง ฿{bike.daily_rate.toLocaleString()}/วัน (ถูกกว่าที่จองไว้ ฿{bookingRate!.toLocaleString()})
               </div>
             )}
           </div>
