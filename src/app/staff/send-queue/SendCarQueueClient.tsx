@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { JobCard, fmtDate, fmtTime, hoursUntil, isTodayBkk } from '@/components/staff/JobCard'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function SendCarQueue({ jobs }: { jobs: any[] }) {
+export default function SendCarQueueClient({ jobs }: { jobs: any[] }) {
   const [query, setQuery] = useState('')
 
   const filtered = useMemo(() => {
@@ -18,14 +18,8 @@ export default function SendCarQueue({ jobs }: { jobs: any[] }) {
     return [...list].sort((a: any, b: any) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime())
   }, [jobs, query])
 
-  if (jobs.length === 0) return null
-
   return (
-    <div style={{ marginTop: '20px' }}>
-      <div style={{ color: '#6b7280', fontSize: '13px', fontWeight: 600, paddingBottom: '10px' }}>
-        ส่งรถคิวจอง
-      </div>
-
+    <div className="section-pad">
       <input
         type="text"
         value={query}
@@ -38,7 +32,13 @@ export default function SendCarQueue({ jobs }: { jobs: any[] }) {
         }}
       />
 
-      {filtered.length === 0 && (
+      {jobs.length === 0 && (
+        <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '20px 0' }}>
+          ไม่มีคิวส่งรถตอนนี้
+        </div>
+      )}
+
+      {jobs.length > 0 && filtered.length === 0 && (
         <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '20px 0' }}>
           ไม่พบคิวจองที่ตรงกับ &quot;{query}&quot;
         </div>

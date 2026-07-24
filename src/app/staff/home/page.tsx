@@ -2,7 +2,6 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import TabBar from '@/components/staff/TabBar'
-import SendCarQueue from './SendCarQueue'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
 
@@ -48,7 +47,6 @@ export default async function StaffHomePage() {
     { count: docsCount },
     { count: sendCount },
     { data: routineData },
-    { data: sendJobs },
   ] = await Promise.all([
     supabase.from('staff').select('name, branches(name)').eq('id', staffId).single(),
 
@@ -74,13 +72,6 @@ export default async function StaffHomePage() {
 
     applyBike(supabase.from('bike_routines')
       .select('next_due_km, next_due_date, bikes(odometer)')),
-
-    // รายการ "ส่งรถ" เต็ม — ให้หมวดค้นหาด่วนท้ายหน้าแรก
-    applyBranch(supabase.from('bookings')
-      .select('id, booking_ref, start_datetime, customer_name, customer_phone, total_days, daily_rate, requested_brand, requested_model, original_requested_brand, original_requested_model, reassign_reason, delivery_type, delivery_address, bikes(id, license_plate, brand, model, color, photo_url)')
-      .eq('status', 'confirmed')
-      .order('start_datetime', { ascending: true })
-      .limit(100)),
   ])
 
   // นับ routine ที่เลยกำหนดหรือใกล้ถึงกำหนด 7 วัน (เหมือน jobs page)
@@ -220,6 +211,7 @@ export default async function StaffHomePage() {
             { icon: '🔧', label: 'แจ้งรถเสีย',  href: '/staff/broken' },
             { icon: '📄', label: 'งานเอกสาร',  href: '/staff/docs' },
             { icon: '🛢️', label: 'งานรูทีน',   href: '/staff/routine' },
+            { icon: '🛵➡️', label: 'ส่งรถคิวจอง', href: '/staff/send-queue' },
           ] as const).map(({ icon, label, href }) => (
             <Link key={href} href={href} style={{
               display: 'flex',
@@ -244,8 +236,6 @@ export default async function StaffHomePage() {
             </Link>
           ))}
         </div>
-
-        <SendCarQueue jobs={sendJobs ?? []} />
 
       </div>
     </div>
