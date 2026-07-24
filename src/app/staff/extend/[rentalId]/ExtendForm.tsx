@@ -93,12 +93,21 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
   const monthlyRate = bike.monthly_rate || bike.daily_rate * 30
   const startDt = useMemo(() => new Date(rental.start_datetime), [rental.start_datetime])
 
+  // เคยสลับรถระหว่างเช่าไหม (เช่นรถเสียกลางทาง) — ถ้าใช่ วันที่ต่อเวลาใหม่ต้องคิดตามเรทคันปัจจุบัน
+  // ไม่ใช่คันเดิมตอนทำสัญญา (ช่วงที่จ่ายไปแล้วก่อนสลับไม่โดนแตะ — rental.total_amount เดิมไม่เปลี่ยน)
+  const rateChangedFromSwap = bike.daily_rate !== rental.daily_rate
+  const currentEffectiveDailyRate = bike.daily_rate - (isStudentPromo ? STUDENT_PROMO_DISCOUNT : 0)
+  const extendFromDt = useMemo(() => new Date(rental.expected_end_datetime), [rental.expected_end_datetime])
+
   // ราคาสะสมถ้าเช่ารวมเป็น (total_days + n) วัน คิดด้วยสูตรร้าน (เช่า 7 จ่าย 5 / cap รายเดือน)
-  // ใช้เฉพาะตอนกดปุ่ม "รายสัปดาห์" (จ่ายเป็นก้อนทีเดียว) เท่านั้น
+  // ใช้เฉพาะตอนกดปุ่ม "รายสัปดาห์" (จ่ายเป็นก้อนทีเดียว) เท่านั้น — ใช้ได้เฉพาะกรณีไม่เคยสลับรถ
+  // (ถ้าสลับแล้ว คิดวันที่ต่อแยกเป็นสัญญาย่อยเริ่มนับใหม่จากกำหนดคืนเดิม กันเรทเก่า/ใหม่ปนกันในสูตรเดียว)
   const cumulativePriceFor = (n: number) => calcRentQuote(startDt, rental.total_days + n, effectiveDailyRate, monthlyRate).total
-  const weeklyPromoIncrementalCostFor = (n: number) => cumulativePriceFor(n) - rental.total_amount
+  const weeklyPromoIncrementalCostFor = (n: number) => rateChangedFromSwap
+    ? calcRentQuote(extendFromDt, n, currentEffectiveDailyRate, monthlyRate).total
+    : cumulativePriceFor(n) - rental.total_amount
   // ราคาเต็มไม่มีโปร — ใช้กับการทยอยจ่ายทีละวัน (พิมพ์เองหรือกด +1 วัน)
-  const flatIncrementalCostFor = (n: number) => n * effectiveDailyRate
+  const flatIncrementalCostFor = (n: number) => n * (rateChangedFromSwap ? currentEffectiveDailyRate : effectiveDailyRate)
 
   const paymentNum = parseFloat(payment) || 0
   const existingCredit = rental.outstanding_credit ?? 0
@@ -117,11 +126,12 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
       }
       return { daysCovered: n, newCredit: totalAvailable - costAtN }
     }
-    // ทยอยจ่ายทีละวัน — ราคาเต็มตรงไปตรงมา ไม่มีส่วนลดสะสม
-    const n = Math.floor(totalAvailable / effectiveDailyRate)
-    return { daysCovered: n, newCredit: totalAvailable - n * effectiveDailyRate }
+    // ทยอยจ่ายทีละวัน — ราคาเต็มตรงไปตรงมา ไม่มีส่วนลดสะสม (เรทคันปัจจุบันถ้าเคยสลับรถ)
+    const dayRate = rateChangedFromSwap ? currentEffectiveDailyRate : effectiveDailyRate
+    const n = Math.floor(totalAvailable / dayRate)
+    return { daysCovered: n, newCredit: totalAvailable - n * dayRate }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalAvailable, useWeeklyPromo, rental.total_days, rental.total_amount, effectiveDailyRate, monthlyRate])
+  }, [totalAvailable, useWeeklyPromo, rental.total_days, rental.total_amount, effectiveDailyRate, monthlyRate, rateChangedFromSwap, currentEffectiveDailyRate])
 
   const newEnd = useMemo(() => new Date(startDt.getTime() + (rental.total_days + daysCovered) * 86_400_000), [startDt, rental.total_days, daysCovered])
 
@@ -291,6 +301,17 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
             </span>
           </div>
         </div>
+
+        {rateChangedFromSwap && (
+          <div style={{
+            background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px',
+            padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#92400e',
+          }}>
+            🔄 <strong>เคยสลับรถระหว่างเช่า</strong> — ช่วงที่จ่ายไปแล้วยังคิดราคาคันเดิมเหมือนเดิม
+            (฿{effectiveDailyRate.toLocaleString()}/วัน) แต่วันที่ต่อเวลาเพิ่มใหม่นี้จะคิดราคาคันปัจจุบัน
+            (฿{currentEffectiveDailyRate.toLocaleString()}/วัน)
+          </div>
+        )}
 
         {/* Payment input */}
         <div className="card">
