@@ -4,6 +4,7 @@ import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import { logStaffAction } from '@/lib/log'
 import { getBusyBikeIds, BUFFER_MS } from '@/lib/availability'
 import { checkBlacklist } from '@/lib/blacklist'
+import { getModelBikeAvailability } from '@/lib/bookingConflicts'
 
 function genRef() {
   const d = new Date()
@@ -73,31 +74,11 @@ export async function POST(request: NextRequest) {
   }
 
   // If model-based: verify there is at least one available bike of that model
+  // (คิดรวมการต่อคิวในคันเดียวกันได้ — bin packing แทนการนับจำนวนคิวจองตรงๆ)
   if (!bikeId && requestedBrand && requestedModel) {
-    const [{ data: candidateBikes }, { data: bookingConflicts }] = await Promise.all([
-      supabase.from('bikes')
-        .select('id, brand, model')
-        .eq('branch_id', BRANCH_ID)
-        .eq('brand', requestedBrand)
-        .eq('model', requestedModel)
-        .not('status', 'in', '("repair","maintenance","locked","retired","inactive")'),
-      supabase.from('bookings')
-        .select('bike_id, requested_brand, requested_model')
-        .eq('branch_id', BRANCH_ID)
-        .eq('status', 'confirmed')
-        .lt('start_datetime', bufferEnd)
-        .gt('end_datetime', bufferStart),
-    ])
+    const availability = await getModelBikeAvailability(supabase, BRANCH_ID, requestedBrand, requestedModel, startDatetime, endDatetime)
 
-    // Count model-based bookings that consume available slots
-    const modelBookingCount = (bookingConflicts ?? [])
-      .filter(b => !b.bike_id && b.requested_brand === requestedBrand && b.requested_model === requestedModel)
-      .length
-
-    const freeBikes = (candidateBikes ?? []).filter(b => !busyIds.has(b.id) && !(bookingConflicts ?? []).some(bc => bc.bike_id === b.id))
-    const actualAvailable = freeBikes.length - modelBookingCount
-
-    hasConflict = actualAvailable <= 0
+    hasConflict = availability.freeBikeIds.length <= 0
     if (hasConflict && !overrideConflict) {
       return NextResponse.json({
         error: `ไม่มี ${requestedBrand} ${requestedModel} ว่างในช่วงเวลานี้ — ใช้ Fast lane เพื่อจองไว้ก่อนได้ (ระบบจะเตือนให้หารถเพิ่ม/จัดรถให้ทันเมื่อใกล้ถึงกำหนด)`,

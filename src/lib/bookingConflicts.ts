@@ -35,11 +35,12 @@ export async function getModelBikeAvailability(
   branchId: string, brand: string, model: string,
   fromIso: string, toIso: string,
   excludeBikeId?: string,
+  excludeBookingId?: string,
 ): Promise<ModelAvailability> {
   const bufferStart = new Date(new Date(fromIso).getTime() - BUFFER_MS).toISOString()
   const bufferEnd = new Date(new Date(toIso).getTime() + BUFFER_MS).toISOString()
 
-  const [{ data: candidates }, busyIds, { data: specificBookings }, { data: modelBookings }] = await Promise.all([
+  const [{ data: candidates }, busyIds, { data: specificBookings }, { data: modelBookingsRaw }] = await Promise.all([
     supabase.from('bikes').select('id')
       .eq('branch_id', branchId).eq('brand', brand).eq('model', model)
       .not('status', 'in', `("${UNRENTABLE_STATUSES.join('","')}")`),
@@ -47,19 +48,23 @@ export async function getModelBikeAvailability(
     supabase.from('bookings').select('bike_id, start_datetime, end_datetime')
       .eq('status', 'confirmed').not('bike_id', 'is', null)
       .lt('start_datetime', bufferEnd).gt('end_datetime', bufferStart),
-    supabase.from('bookings').select('start_datetime, end_datetime')
+    supabase.from('bookings').select('id, start_datetime, end_datetime')
       .eq('branch_id', branchId).eq('requested_brand', brand).eq('requested_model', model)
       .is('bike_id', null).eq('status', 'confirmed')
       .lt('start_datetime', bufferEnd).gt('end_datetime', bufferStart),
   ])
+  // ตอนแก้ไขวันของคิวจองเดิม ไม่นับตัวเองเป็นคู่แข่งชิงโควต้ารุ่น (ไม่งั้นจะชนกับตัวเองปลอมๆ)
+  const modelBookings = (modelBookingsRaw ?? []).filter(b => b.id !== excludeBookingId)
 
   const candidateIds = (candidates ?? []).map(b => b.id).filter(id => id !== excludeBikeId)
   const specificallyBusy = new Set((specificBookings ?? []).map(b => b.bike_id))
   const physicallyFreeIds = candidateIds.filter(id => !busyIds.has(id) && !specificallyBusy.has(id))
 
-  const intervals = (modelBookings ?? []).map(b => ({
-    start: new Date(b.start_datetime).getTime() - BUFFER_MS,
-    end: new Date(b.end_datetime).getTime() + BUFFER_MS,
+  // หาร BUFFER_MS ครึ่งหนึ่งขยายแต่ละฝั่ง เพราะ sweep-line เทียบทั้งคู่ที่ขยายแล้ว — ถ้าขยายเต็มทั้งคู่
+  // จะกลายเป็นต้องเว้นช่องว่างจริง 2 เท่าของ buffer ที่ตั้งใจไว้ (นับ buffer ซ้อนสองรอบโดยไม่ตั้งใจ)
+  const intervals = modelBookings.map(b => ({
+    start: new Date(b.start_datetime).getTime() - BUFFER_MS / 2,
+    end: new Date(b.end_datetime).getTime() + BUFFER_MS / 2,
   }))
   const used = Math.min(maxOverlapCount(intervals), physicallyFreeIds.length)
 
@@ -99,7 +104,14 @@ export async function findModelBookingConflict(
   const busyIds = await getBusyBikeIds(supabase, startIso, endIso)
   const freeCountExcludingThis = (modelBikes ?? []).filter(b => b.id !== excludeBikeId && !busyIds.has(b.id)).length
 
-  if (freeCountExcludingThis >= modelBookings.length) return null
+  // คิดรวมการต่อคิวในคันเดียวกันได้ (bin packing) — สองคิวที่ไม่ทับกันเองใช้รถคันเดียวสลับกันได้
+  // ไม่ต้องนับเป็น 2 คัน (เดิมนับจำนวนคิวจองตรงๆ ทำให้เตือนชนคิวเกินจริงบ่อยเกินไป)
+  // หาร BUFFER_MS ครึ่งหนึ่งขยายแต่ละฝั่ง กันนับ buffer ซ้อนสองรอบ (ดูเหตุผลเดียวกับ getModelBikeAvailability)
+  const neededSimultaneously = maxOverlapCount(modelBookings.map(b => ({
+    start: new Date(b.start_datetime).getTime() - BUFFER_MS / 2,
+    end: new Date(b.end_datetime).getTime() + BUFFER_MS / 2,
+  })))
+  if (freeCountExcludingThis >= neededSimultaneously) return null
 
   // เตือนคิวที่ใกล้ถึงกำหนดที่สุดก่อน (คิวใกล้ยังมีเวลาหาคันทดแทนน้อยกว่า) ถ้าวันเวลารับรถตรงกันเป๊ะ
   // ค่อยดูว่าใครจองไว้ก่อน (created_at)
