@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { findModelBookingConflict } from '@/lib/bookingConflicts'
 import SendCarForm from './SendCarForm'
 
 export const dynamic = 'force-dynamic'
@@ -75,7 +76,21 @@ export default async function SendCarPage({
     modelBookingsQuery,
   ])
 
-  const allUpcomingBookings = [...(upcomingBookings ?? []), ...(modelBookings ?? [])]
+  // คิวแบบระบุแค่รุ่นไม่ได้แปลว่าต้องได้ "คันนี้" เป๊ะๆ เสมอ — ถ้ารุ่นนี้มีหลายคัน คันอื่นอาจว่างพอรับคิวนั้น
+  // แทนได้อยู่แล้ว เอาตัวแรกมาเป็นเพดานตรงๆ (ไม่มองรถคันอื่นในรุ่นเดียวกันเลย) ทำให้เพดานโชว์ต่ำเกินจริง
+  // เช็คจริงทีละคิว (จำลองจัดสรรแบบเดียวกับคิวมีปัญหา) หาคิวแรกที่ "คันนี้" ขาดไม่ได้จริงๆ เท่านั้น
+  let bindingModelBooking: { id: string; booking_ref: string; customer_name: string; start_datetime: string } | null = null
+  if (modelBookings && modelBookings.length > 0) {
+    const sendFromIso = new Date().toISOString()
+    for (const mb of modelBookings) {
+      const conflict = await findModelBookingConflict(
+        supabase, bike.branch_id, bike.brand, bike.model, bike.id, sendFromIso, mb.start_datetime,
+      )
+      if (conflict) { bindingModelBooking = conflict; break }
+    }
+  }
+
+  const allUpcomingBookings = [...(upcomingBookings ?? []), ...(bindingModelBooking ? [bindingModelBooking] : [])]
     .sort((a, b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime())
 
   return (
