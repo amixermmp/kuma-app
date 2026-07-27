@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
 import { hasOpenContract } from '@/lib/availability'
+import { isRealPhone } from '@/lib/customer'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -32,14 +33,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'รถคันนี้ยังมีสัญญาค้างอยู่ (ยังไม่ได้กดจบสัญญา) — ปิดสัญญาเดิมก่อนจึงจะส่งรถได้' }, { status: 409 })
   }
 
-  // Find or create customer
+  // Find or create customer — match ด้วยเบอร์โทรเฉพาะเบอร์ที่ดูจริง (>= 9 หลัก) เท่านั้น กันลูกค้าที่ไม่มี
+  // เบอร์จริงพิมพ์ "," หรือ "-" ผ่าน required field เฉยๆ แล้วไปจับคู่ทับลูกค้าคนอื่นที่ทำแบบเดียวกัน
   let customerId: string
-  const { data: existing } = await admin
-    .from('customers')
-    .select('id')
-    .eq('phone', customerPhone)
-    .eq('branch_id', BRANCH_ID)
-    .maybeSingle()
+  const { data: existing } = isRealPhone(customerPhone)
+    ? await admin
+        .from('customers')
+        .select('id')
+        .eq('phone', customerPhone)
+        .eq('branch_id', BRANCH_ID)
+        .maybeSingle()
+    : { data: null }
 
   if (existing) {
     customerId = existing.id

@@ -6,6 +6,7 @@ import { recalcNeverDoneRoutines } from '@/lib/routines'
 import { checkBlacklist } from '@/lib/blacklist'
 import { hasOpenContract } from '@/lib/availability'
 import { findModelBookingConflict } from '@/lib/bookingConflicts'
+import { isRealPhone } from '@/lib/customer'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -95,14 +96,17 @@ export async function POST(request: NextRequest) {
     }, { status: 403 })
   }
 
-  // Upsert customer
+  // Upsert customer — match ด้วยเบอร์โทรเฉพาะเบอร์ที่ดูจริง (>= 9 หลัก) เท่านั้น กันลูกค้าที่ไม่มี
+  // เบอร์จริงพิมพ์ "," หรือ "-" ผ่าน required field เฉยๆ แล้วไปจับคู่ทับลูกค้าคนอื่นที่ทำแบบเดียวกัน
   let customerId: string
-  const { data: existing } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('phone', customer.phone)
-    .eq('branch_id', BRANCH_ID)
-    .maybeSingle()
+  const { data: existing } = isRealPhone(customer.phone)
+    ? await supabase
+        .from('customers')
+        .select('id')
+        .eq('phone', customer.phone)
+        .eq('branch_id', BRANCH_ID)
+        .maybeSingle()
+    : { data: null }
 
   if (existing) {
     customerId = existing.id
