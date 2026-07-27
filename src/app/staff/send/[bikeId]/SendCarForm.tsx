@@ -128,6 +128,7 @@ type PhotoState = {
   damage: string
   payment: string
   student_id_card: string
+  accommodation_proof: string
 }
 
 // ── Draft persistence ─────────────────────────────────────────────────────────
@@ -241,7 +242,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
   // ── Photos ────────────────────────────────────────────────────────────────
   const [photos, setPhotos] = useState<PhotoState>(draft?.photos ?? {
-    id_card: '', selfie: '', with_bike: '', damage: '', payment: '', student_id_card: '',
+    id_card: '', selfie: '', with_bike: '', damage: '', payment: '', student_id_card: '', accommodation_proof: '',
   })
 
   // ── Lock (daily only; monthly = auto-locked) ──────────────────────────────
@@ -462,6 +463,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     if (!customerName.trim())  { setError('กรุณาใส่ชื่อลูกค้า'); return }
     if (!customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
     if (!idCardNumber.trim())  { setError('กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต (อ่านจากบัตรอัตโนมัติไม่ได้ ต้องกรอกเอง)'); return }
+    if (!photos.accommodation_proof) { setError('กรุณาแนบหลักฐานที่พัก/โรงแรม'); return }
     if (blacklistHit) { setError(`⛔ ${blacklistHit.name} ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้`); return }
     if (studentPromo && studentPromoEligible && !photos.student_id_card) {
       setError('ใช้สิทธิราคานักศึกษา — กรุณาแนบรูปบัตรนิสิต/นักศึกษาด้วย'); return
@@ -1017,10 +1019,15 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             <PhotoUpload icon="🛵" hint="ลูกค้ายืนคู่รถก่อนรับ" folder={folder}
               onUpload={setPhoto('with_bike')} onRemove={clearPhoto('with_bike')} />
           </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
+          <div className="field-row">
             <label className="field-label">🔍 รูปตำหนิรถก่อนเช่า *</label>
             <PhotoUpload icon="📷" hint="ถ่ายรูปรอบคันก่อนส่ง" folder={folder}
               onUpload={setPhoto('damage')} onRemove={clearPhoto('damage')} />
+          </div>
+          <div className="field-row" style={{ marginBottom: 0 }}>
+            <label className="field-label">📎 หลักฐานที่พัก/โรงแรม *</label>
+            <PhotoUpload icon="🏨" hint="ถ่ายรูปหรืออัพโหลดใบจอง/หน้าจอโรงแรม" folder={folder}
+              onUpload={setPhoto('accommodation_proof')} onRemove={clearPhoto('accommodation_proof')} />
           </div>
         </div>
 

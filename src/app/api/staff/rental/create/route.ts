@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต' }, { status: 400 })
   }
 
-  const REQUIRED_PHOTOS = ['id_card', 'selfie', 'with_bike', 'damage', 'payment']
+  const REQUIRED_PHOTOS = ['id_card', 'selfie', 'with_bike', 'damage', 'payment', 'accommodation_proof']
   const missingPhotos = REQUIRED_PHOTOS.filter(k => !photos?.[k])
   if (missingPhotos.length > 0) {
-    return NextResponse.json({ error: 'กรุณาอัปโหลดรูปภาพให้ครบ (บัตร, รูปถ่าย, รถ, ตำหนิ, ชำระเงิน)' }, { status: 400 })
+    return NextResponse.json({ error: 'กรุณาอัปโหลดรูปภาพให้ครบ (บัตร, รูปถ่าย, รถ, ตำหนิ, ชำระเงิน, ที่พัก)' }, { status: 400 })
   }
   // มีส่วนลด (ราคานักศึกษา) ต้องแนบรูปบัตรนิสิต/นักศึกษาด้วยเสมอ — เช็คซ้ำฝั่งเซิร์ฟเวอร์ ไม่พึ่งแค่หน้าเว็บ
   if ((discount ?? 0) > 0 && !photos?.student_id_card) {
