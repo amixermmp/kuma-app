@@ -11,17 +11,26 @@ export function isThaiIdNumber(idCardNumber: string): boolean {
   return /^\d{13}$/.test(idCardNumber.replace(/\D/g, '')) && idCardNumber.replace(/\D/g, '').length === 13
 }
 
-// เทียบชื่อบัตรประชาชนกับชื่อผู้โอนในสลิป — สลิปบางแบบมีแค่ชื่อจริงไม่มีนามสกุล จึงเทียบแค่ตามจำนวน
-// คำที่สลิปมีจริง (ชื่อจริงอย่างเดียวก็เทียบแค่ชื่อจริง) ไม่ตรง = ไม่ใช่เจ้าของบัตรคนเดียวกับที่โอนเงิน
+const TITLES = ['นาย', 'นาง', 'นางสาว', 'น.ส.', 'mr', 'mr.', 'mrs', 'mrs.', 'ms', 'ms.', 'miss']
+
+// เทียบชื่อบัตรประชาชนกับชื่อผู้โอนในสลิป — ตัดคำนำหน้า (นาย/นาง/นางสาว/Mr/Ms ฯลฯ) ออกก่อนเทียบเสมอ
+// กันเคสฝั่งนึงมีคำนำหน้าอีกฝั่งไม่มีแล้วคำเทียบเยื้องกันทั้งชื่อ
+// สลิปธนาคารมักย่อนามสกุลเหลือ "อักษรตัวแรก + จุด" (เช่น "สุขญาติ" -> "ส.") ไม่ใช่แค่ตัดทิ้งทั้งคำ —
+// ถ้าเจอคำย่อแบบนี้เทียบแค่ตัวอักษรแรกของนามสกุลในบัตรว่าใช่ตัวเดียวกันไหม แทนที่จะฟ้องว่าไม่ตรงเลย
 // ถ้าอ่านชื่อจากสลิปไม่ได้เลย (ค่าว่าง) ถือว่าเทียบไม่ได้ ไม่นับเป็นไม่ตรง (ให้ผ่านไปก่อน ไม่ใช่บล็อกเพราะ OCR ล้มเหลว)
 export function idAndSlipNameMatch(idName: string, slipName: string): boolean {
-  const norm = (s: string) => s.trim().toLowerCase()
-  const idParts = norm(idName).split(/\s+/).filter(Boolean)
-  const slipParts = norm(slipName).split(/\s+/).filter(Boolean)
+  const parts = (s: string) => s.trim().toLowerCase().split(/\s+/).filter(Boolean).filter(p => !TITLES.includes(p))
+  const idParts = parts(idName)
+  const slipParts = parts(slipName)
   if (slipParts.length === 0) return true
   const compareCount = Math.min(idParts.length, slipParts.length)
   for (let i = 0; i < compareCount; i++) {
-    if (idParts[i] !== slipParts[i]) return false
+    const idPart = idParts[i]
+    const slipPart = slipParts[i]
+    if (idPart === slipPart) continue
+    const slipAbbrev = slipPart.replace(/\.$/, '')
+    if (slipAbbrev.length === 1 && idPart.startsWith(slipAbbrev)) continue
+    return false
   }
   return true
 }
