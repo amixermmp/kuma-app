@@ -6,7 +6,7 @@ import { recalcNeverDoneRoutines } from '@/lib/routines'
 import { checkBlacklist } from '@/lib/blacklist'
 import { hasOpenContract } from '@/lib/availability'
 import { findModelBookingConflict } from '@/lib/bookingConflicts'
-import { isRealPhone } from '@/lib/customer'
+import { isRealPhone, isThaiIdNumber } from '@/lib/customer'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     photos,
     signature,
     overrideBookingConflict,
+    slipCustomerName, slipNameMismatchConfirmed,
   } = body
 
   if (!bikeId || !staffId || !customer?.name || !customer?.phone || !startDate || !monthlyRate) {
@@ -30,6 +31,10 @@ export async function POST(request: NextRequest) {
   }
   if (!customer?.idCardNumber) {
     return NextResponse.json({ error: 'กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต' }, { status: 400 })
+  }
+  // นโยบายร้าน: บัตรไทยต้องโอนเงินเท่านั้น จ่ายเงินสดได้เฉพาะต่างชาติ (พาสปอร์ต) — เช็คซ้ำฝั่งเซิร์ฟเวอร์
+  if (paymentMethod === 'cash' && isThaiIdNumber(customer.idCardNumber)) {
+    return NextResponse.json({ error: 'บัตรประชาชนไทย — จ่ายเงินสดไม่ได้ ต้องโอนเงินเท่านั้น' }, { status: 400 })
   }
 
   let BRANCH_ID: string
@@ -201,8 +206,13 @@ export async function POST(request: NextRequest) {
     actorName: staffName,
     action: 'monthly_created',
     description: `เช่ารายเดือน — ลูกค้า ${customer.name} (${customer.phone}) — ฿${monthlyRate.toLocaleString()}/เดือน` +
-      (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : ''),
-    metadata: { rentalId: rental.id, bikeId, customerId, monthlyRate, fastLaneOverBookingId: conflict && overrideBookingConflict ? conflict.id : null },
+      (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : '') +
+      (slipNameMismatchConfirmed ? ` ⚡ ยืนยันชื่อสลิปไม่ตรงบัตร — บัตร "${customer.name}" ผู้โอน "${slipCustomerName}"` : ''),
+    metadata: {
+      rentalId: rental.id, bikeId, customerId, monthlyRate,
+      fastLaneOverBookingId: conflict && overrideBookingConflict ? conflict.id : null,
+      slipNameMismatch: slipNameMismatchConfirmed ? { idName: customer.name, slipName: slipCustomerName } : null,
+    },
   })
 
   return NextResponse.json({

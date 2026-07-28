@@ -7,6 +7,7 @@ import SignaturePad from '@/components/SignaturePad'
 import TabBar from '@/components/staff/TabBar'
 import { addTab } from '@/lib/tabStore'
 import { calcShortPrice, calcLongPrice, calendarDays } from '@/lib/pricing'
+import { isThaiIdNumber, idAndSlipNameMatch } from '@/lib/customer'
 
 // ── Success screen ───────────────────────────────────────────────────────────
 function SuccessScreen({ rentalId, type, bikeId, fastLaneConflictId }: { rentalId: string; type: 'daily' | 'monthly'; bikeId: string; fastLaneConflictId?: string | null }) {
@@ -290,6 +291,19 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const [ocrError,        setOcrError]        = useState('')
   const [idCardNumber,    setIdCardNumber]    = useState('')
 
+  // ── ชื่อผู้โอนในสลิป vs ชื่อบัตรประชาชน — กันสวมรอยใช้บัตรคนอื่นโอนเงินแทน ──────
+  const [slipOcrLoading,       setSlipOcrLoading]       = useState(false)
+  const [slipOcrName,          setSlipOcrName]          = useState('')
+  const [slipMismatchConfirmed, setSlipMismatchConfirmed] = useState(false)
+
+  // บัตรไทย 13 หลัก = บังคับโอนอย่างเดียว (นโยบายร้าน) ต่างชาติ/พาสปอร์ตเลือกเงินสดได้
+  const isThaiId = isThaiIdNumber(idCardNumber)
+  const slipNameMismatch = slipOcrName !== '' && !idAndSlipNameMatch(customerName, slipOcrName)
+
+  useEffect(() => {
+    if (isThaiId && paymentMethod === 'cash') setPaymentMethod('transfer')
+  }, [isThaiId, paymentMethod])
+
   const folder = `send/${bike.id}`
 
   const setPhoto = useCallback((key: keyof PhotoState) => (url: string) =>
@@ -332,6 +346,32 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerName, customerPhone, setPhoto])
+
+  // OCR สลิปโอนเงิน — อ่านชื่อผู้โอนมาเทียบกับชื่อบัตรประชาชน กันสวมรอยใช้บัตรคนอื่นแล้วให้คนอื่นโอนแทน
+  const handlePaymentSlipUpload = useCallback(async (url: string) => {
+    setPhoto('payment')(url)
+    setSlipOcrName('')
+    setSlipMismatchConfirmed(false)
+    setSlipOcrLoading(true)
+    try {
+      const res = await fetch('/api/staff/ocr-slip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: url }),
+      })
+      const data = await res.json()
+      if (data.name) setSlipOcrName(data.name)
+    } catch {
+      // อ่านสลิปไม่สำเร็จ — ไม่ต้องเตือน แค่เทียบชื่อไม่ได้เฉยๆ ไม่บล็อกเพราะ OCR ล้มเหลว
+    } finally {
+      setSlipOcrLoading(false)
+    }
+  }, [setPhoto])
+
+  // ชื่อบัตร/ชื่อสลิปเปลี่ยน (เช่นแก้ชื่อ หรืออัปโหลดสลิปใหม่) — ต้องยืนยันสวมรอยใหม่เสมอ ไม่ค้างจากรอบก่อน
+  useEffect(() => {
+    setSlipMismatchConfirmed(false)
+  }, [customerName, slipOcrName])
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const startDt    = new Date(`${startDate}T${startTime}:00`)
@@ -469,6 +509,21 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
       setError('ใช้สิทธิราคานักศึกษา — กรุณาแนบรูปบัตรนิสิต/นักศึกษาด้วย'); return
     }
     if (!validDates)           { setError('กรุณาเลือกช่วงวันเช่าให้ถูกต้อง'); return }
+    if (paymentMethod === 'cash' && isThaiId) { setError('บัตรประชาชนไทย — จ่ายเงินสดไม่ได้ ต้องโอนเงินเท่านั้น'); return }
+
+    // ชื่อผู้โอนในสลิปไม่ตรงกับบัตรประชาชน — บล็อกไว้ก่อน ต้องกดยืนยันแบบ Fast lane ถึงผ่านได้
+    // (ระบบจะบันทึก log ไว้เป็นหลักฐานว่าใครยืนยันข้ามเมื่อไหร่)
+    let slipMismatchOverridden = slipMismatchConfirmed
+    if (paymentMethod === 'transfer' && slipNameMismatch && !slipMismatchOverridden) {
+      const ok = confirm(
+        `⚡ ชื่อในสลิปไม่ตรงกับบัตรประชาชน\n\n` +
+        `บัตรประชาชน: ${customerName}\nผู้โอนเงิน: ${slipOcrName}\n\n` +
+        `ยืนยันว่าตรวจสอบแล้วว่าเป็นเจ้าของบัตรตัวจริง (Fast lane — ระบบจะบันทึกไว้)?`
+      )
+      if (!ok) { setError('กรุณาตรวจสอบชื่อผู้โอนกับลูกค้าก่อนดำเนินการต่อ'); return }
+      slipMismatchOverridden = true
+      setSlipMismatchConfirmed(true)
+    }
 
     // Lock is required for daily/onetime
     if (!isMonthlyContract && lockBike === null) {
@@ -509,6 +564,8 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             photos,
             signature: signature ?? null,
             overrideBookingConflict,
+            slipCustomerName: slipOcrName || null,
+            slipNameMismatchConfirmed: slipNameMismatch && slipMismatchOverridden,
           }),
         })
         let res = await sendMonthlyPayload(false)
@@ -555,6 +612,8 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             signature: signature ?? null,
             lockBike:  lockBike ?? false,
             excludeBookingId: prefillBooking?.id ?? null,
+            slipCustomerName: slipOcrName || null,
+            slipNameMismatchConfirmed: slipNameMismatch && slipMismatchOverridden,
             overrideBookingConflict,
           }),
         })
@@ -1058,18 +1117,27 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           <div className="field-row">
             <label className="field-label">วิธีชำระ</label>
             <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-              {(['cash', 'transfer'] as const).map(m => (
-                <button key={m} onClick={() => setPaymentMethod(m)} style={{
-                  padding: '7px 18px', borderRadius: '20px', border: '1.5px solid',
-                  fontSize: '13px', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
-                  background: paymentMethod === m ? '#111827' : '#fff',
-                  color: paymentMethod === m ? '#fff' : '#6b7280',
-                  borderColor: paymentMethod === m ? '#111827' : '#e5e7eb',
-                }}>
-                  {m === 'cash' ? '💵 เงินสด' : '📱 สลิปโอน'}
-                </button>
-              ))}
+              {(['cash', 'transfer'] as const).map(m => {
+                const disabled = m === 'cash' && isThaiId
+                return (
+                  <button key={m} disabled={disabled} onClick={() => setPaymentMethod(m)} style={{
+                    padding: '7px 18px', borderRadius: '20px', border: '1.5px solid',
+                    fontSize: '13px', cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'inherit',
+                    background: paymentMethod === m ? '#111827' : '#fff',
+                    color: disabled ? '#d1d5db' : paymentMethod === m ? '#fff' : '#6b7280',
+                    borderColor: paymentMethod === m ? '#111827' : '#e5e7eb',
+                    opacity: disabled ? 0.6 : 1,
+                  }}>
+                    {m === 'cash' ? '💵 เงินสด' : '📱 สลิปโอน'}
+                  </button>
+                )
+              })}
             </div>
+            {isThaiId && (
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+                บัตรประชาชนไทย — จ่ายเงินสดไม่ได้ ต้องโอนเงินอย่างเดียว
+              </div>
+            )}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div className="field-row" style={{ marginBottom: 0 }}>
@@ -1078,15 +1146,34 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
                 value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
             </div>
             <div className="field-row" style={{ marginBottom: 0 }}>
-              <label className="field-label">💳 หลักฐานการชำระ</label>
+              <label className="field-label">
+                💳 หลักฐานการชำระ{' '}
+                {slipOcrLoading && <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 400 }}>⏳ กำลังอ่านสลิป...</span>}
+              </label>
               <PhotoUpload
                 icon={paymentMethod === 'cash' ? '💵' : '📱'}
                 hint={paymentMethod === 'cash' ? 'ถ่ายรูปเงินสด' : 'อัพโหลดสลิป'}
                 folder={folder}
-                onUpload={setPhoto('payment')} onRemove={clearPhoto('payment')}
+                onUpload={paymentMethod === 'transfer' ? handlePaymentSlipUpload : setPhoto('payment')}
+                onRemove={() => { clearPhoto('payment')(); setSlipOcrName('') }}
               />
             </div>
           </div>
+          {slipNameMismatch && (
+            <div style={{
+              background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px',
+              padding: '10px 14px', marginTop: '10px', fontSize: '13px', color: '#dc2626',
+            }}>
+              <strong>⚠️ ชื่อในสลิปไม่ตรงกับบัตรประชาชน</strong>
+              <div style={{ fontSize: '12px', marginTop: '6px', lineHeight: 1.6 }}>
+                🪪 บัตรประชาชน: <strong>{customerName}</strong><br />
+                💳 ผู้โอน: <strong>{slipOcrName}</strong>
+              </div>
+              <div style={{ fontSize: '12px', marginTop: '4px', color: '#991b1b' }}>
+                โปรดตรวจสอบกับลูกค้าก่อนดำเนินการต่อ
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ⑨ ล็อครถ (daily / onetime only) */}

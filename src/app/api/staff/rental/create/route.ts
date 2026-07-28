@@ -7,7 +7,7 @@ import { hasOpenContract } from '@/lib/availability'
 import { findModelBookingConflict } from '@/lib/bookingConflicts'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
 import { checkBlacklist } from '@/lib/blacklist'
-import { isRealPhone } from '@/lib/customer'
+import { isRealPhone, isThaiIdNumber } from '@/lib/customer'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     dailyRate, totalDays, totalAmount, depositAmount,
     discount, paymentMethod, fuelLevel, odometer, photos, signature, lockBike,
     excludeBookingId, overrideBookingConflict,
+    slipCustomerName, slipNameMismatchConfirmed,
   } = body
 
   if (!bikeId || !customer?.name || !customer?.phone || !startDatetime || !endDatetime) {
@@ -28,6 +29,10 @@ export async function POST(request: NextRequest) {
   }
   if (!customer?.idCardNumber) {
     return NextResponse.json({ error: 'กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต' }, { status: 400 })
+  }
+  // นโยบายร้าน: บัตรไทยต้องโอนเงินเท่านั้น จ่ายเงินสดได้เฉพาะต่างชาติ (พาสปอร์ต) — เช็คซ้ำฝั่งเซิร์ฟเวอร์
+  if (paymentMethod === 'cash' && isThaiIdNumber(customer.idCardNumber)) {
+    return NextResponse.json({ error: 'บัตรประชาชนไทย — จ่ายเงินสดไม่ได้ ต้องโอนเงินเท่านั้น' }, { status: 400 })
   }
 
   const REQUIRED_PHOTOS = ['id_card', 'selfie', 'with_bike', 'damage', 'payment', 'accommodation_proof']
@@ -193,8 +198,13 @@ export async function POST(request: NextRequest) {
     actorName: staffName,
     action: 'rental_created',
     description: `ส่งรถให้ลูกค้า ${customer.name} (${customer.phone}) — ฿${totalAmount?.toLocaleString() ?? 0} / ${totalDays} วัน` +
-      (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : ''),
-    metadata: { rentalId: rental.id, bikeId, customerId, totalAmount, totalDays, fastLaneOverBookingId: conflict && overrideBookingConflict ? conflict.id : null },
+      (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : '') +
+      (slipNameMismatchConfirmed ? ` ⚡ ยืนยันชื่อสลิปไม่ตรงบัตร — บัตร "${customer.name}" ผู้โอน "${slipCustomerName}"` : ''),
+    metadata: {
+      rentalId: rental.id, bikeId, customerId, totalAmount, totalDays,
+      fastLaneOverBookingId: conflict && overrideBookingConflict ? conflict.id : null,
+      slipNameMismatch: slipNameMismatchConfirmed ? { idName: customer.name, slipName: slipCustomerName } : null,
+    },
   })
 
   return NextResponse.json({ success: true, rentalId: rental.id })
