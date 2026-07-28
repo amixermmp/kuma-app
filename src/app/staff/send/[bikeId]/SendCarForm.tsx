@@ -198,6 +198,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const [customerPhone, setCustomerPhone] = useState(draft?.customerPhone ?? prefillBooking?.customer_phone ?? '')
   const [customerHotel, setCustomerHotel] = useState(draft?.customerHotel ?? prefillBooking?.customer_hotel ?? '')
 
+  // ── จุดคืนรถ (optional, รายวันเท่านั้น) ให้พนักงานกะอื่นรู้ว่าต้องไปรับคืนที่ไหน ──
+  const [returnType,    setReturnType]    = useState<'shop' | 'offsite' | null>(null)
+  const [returnAddress, setReturnAddress] = useState('')
+
   // ── Dates ─────────────────────────────────────────────────────────────────
   // วันเวลารับรถ = "ตอนนี้" เสมอ (ไม่ใช้เวลาที่จองไว้เดิม) — ตามนโยบายเริ่มนับสัญญาจากเวลามารับจริง
   // ไม่ว่าจะมาก่อน/ตรง/หลังเวลาที่จองไว้ (ถ้าใช้เวลาจองเดิมตอนลูกค้ามาสาย จะคำนวณ arrivalDeltaMs
@@ -614,6 +618,8 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             excludeBookingId: prefillBooking?.id ?? null,
             slipCustomerName: slipOcrName || null,
             slipNameMismatchConfirmed: slipNameMismatch && slipMismatchOverridden,
+            returnType,
+            returnAddress: returnType === 'offsite' ? returnAddress.trim() : null,
             overrideBookingConflict,
           }),
         })
@@ -882,6 +888,36 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             </div>
           )}
         </div>
+
+        {/* จุดคืนรถ — optional, ให้พนักงานกะอื่นรู้ว่าต้องไปรับที่ไหนตอนถึงกำหนดคืน */}
+        {!isMonthlyContract && (
+          <div className="card">
+            <div className="card-title">จุดคืนรถ</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setReturnType(returnType === 'shop' ? null : 'shop')} style={{
+                flex: 1, padding: '10px', borderRadius: '10px',
+                border: `2px solid ${returnType === 'shop' ? '#111827' : '#e5e7eb'}`,
+                background: returnType === 'shop' ? '#f1f5f9' : '#fff',
+                color: returnType === 'shop' ? '#111827' : '#6b7280',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>🏠 คืนที่ร้าน</button>
+              <button onClick={() => setReturnType(returnType === 'offsite' ? null : 'offsite')} style={{
+                flex: 1, padding: '10px', borderRadius: '10px',
+                border: `2px solid ${returnType === 'offsite' ? '#0ea5e9' : '#e5e7eb'}`,
+                background: returnType === 'offsite' ? '#f0f9ff' : '#fff',
+                color: returnType === 'offsite' ? '#0369a1' : '#6b7280',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>🛵 คืนที่อื่น</button>
+            </div>
+            {returnType === 'offsite' && (
+              <textarea className="field-input" rows={2}
+                placeholder="เช่น โรงแรม ABC ห้อง 203 หรือปักหมุด/ลิงก์แผนที่"
+                value={returnAddress} onChange={e => setReturnAddress(e.target.value)}
+                style={{ marginTop: '10px', resize: 'none' }}
+              />
+            )}
+          </div>
+        )}
 
         {/* ② ½ โปรโมชั่น — โชว์เฉพาะตอนมีโปรราคานักศึกษาตั้งค่าไว้แล้ว และรถคันนี้ร่วมรายการ */}
         {studentPromoConfig && studentPromoEligible && (

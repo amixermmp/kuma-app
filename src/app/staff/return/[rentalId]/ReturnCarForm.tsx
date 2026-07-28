@@ -20,6 +20,8 @@ type Rental = {
   status: string
   notes: string | null
   discount: number
+  return_type: string | null
+  return_address: string | null
   bikes: { id: string; license_plate: string; brand: string; model: string; odometer: number; daily_rate: number; monthly_rate: number | null }
   customers: { id: string; name: string; phone: string }
 }
@@ -158,6 +160,27 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
       <TabBar />
 
       <div className="section-pad">
+
+        {/* จุดคืนรถ — เด่นไว้ก่อนเลย เผื่อกะอื่นรับคืนต้องรู้ว่าไปรับที่ไหน */}
+        {rental.return_type === 'offsite' && (
+          <div style={{
+            background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: '10px',
+            padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#0369a1',
+          }}>
+            <strong>🛵 นัดรับคืนนอกสถานที่</strong>
+            {rental.return_address && (
+              <div style={{ fontSize: '13px', marginTop: '4px', color: '#0c4a6e' }}>{rental.return_address}</div>
+            )}
+          </div>
+        )}
+        {rental.return_type === 'shop' && (
+          <div style={{
+            background: '#f1f5f9', border: '1.5px solid #e5e7eb', borderRadius: '10px',
+            padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#111827',
+          }}>
+            <strong>🏠 นัดคืนที่ร้าน</strong>
+          </div>
+        )}
 
         {/* Rental summary */}
         <div className="card" style={{ borderTop: '3px solid #111827' }}>

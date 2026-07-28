@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     discount, paymentMethod, fuelLevel, odometer, photos, signature, lockBike,
     excludeBookingId, overrideBookingConflict,
     slipCustomerName, slipNameMismatchConfirmed,
+    returnType, returnAddress,
   } = body
 
   if (!bikeId || !customer?.name || !customer?.phone || !startDatetime || !endDatetime) {
@@ -145,6 +146,8 @@ export async function POST(request: NextRequest) {
       notes: `น้ำมัน ${fuelLevel}/8 แถบ • ไมล์ ${odometer}`,
       send_photos: photos ?? {},
       customer_signature: signature ?? null,
+      return_type: returnType ?? null,
+      return_address: returnType === 'offsite' ? (returnAddress || null) : null,
     })
     .select('id')
     .single()
