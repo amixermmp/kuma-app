@@ -99,6 +99,40 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
   const currentEffectiveDailyRate = bike.daily_rate - (isStudentPromo ? STUDENT_PROMO_DISCOUNT : 0)
   const extendFromDt = useMemo(() => new Date(rental.expected_end_datetime), [rental.expected_end_datetime])
 
+  // ── เช็คก่อนว่าต่อได้ไหม (แยกอิสระจากเงินโดยสิ้นเชิง) ─────────────────────────
+  // ให้พนักงานตอบลูกค้าได้ทันทีตอนแค่ถามว่า "ต่ออีก N วัน/ชม. ได้ไหม" โดยยังไม่ต้องรับเงิน/บันทึกอะไร
+  const [checkDays, setCheckDays] = useState('')
+  const [checkHours, setCheckHours] = useState('')
+  const [checking, setChecking] = useState(false)
+  const [checkResult, setCheckResult] = useState<{
+    ok: boolean
+    checkedEndIso: string
+    conflict: { bookingRef: string; customerName: string; startDatetime: string } | null
+    error?: string
+  } | null>(null)
+
+  const handleCheck = async () => {
+    const d = parseFloat(checkDays) || 0
+    const h = parseFloat(checkHours) || 0
+    if (d <= 0 && h <= 0) return
+    const checkedEndIso = new Date(extendFromDt.getTime() + d * 86_400_000 + h * 3_600_000).toISOString()
+    setChecking(true)
+    setCheckResult(null)
+    try {
+      const res = await fetch('/api/staff/rental/extend/check', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rentalId: rental.id, newEndDatetime: checkedEndIso }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setCheckResult({ ok: false, checkedEndIso, conflict: null, error: data.error || 'เช็คไม่สำเร็จ' }); return }
+      setCheckResult({ ok: data.ok, checkedEndIso, conflict: data.conflict })
+    } catch {
+      setCheckResult({ ok: false, checkedEndIso, conflict: null, error: 'เช็คไม่สำเร็จ ลองอีกครั้ง' })
+    } finally {
+      setChecking(false)
+    }
+  }
+
   // ราคาปุ่ม "รายสัปดาห์" (จ่ายเป็นก้อนทีเดียว) — คิดเป็นสัญญาย่อยแยกอิสระ เริ่มนับใหม่จากกำหนดคืนเดิม
   // เสมอ ไม่เอายอดที่จ่ายมาแล้ว (rental.total_amount) มาหักลบ เพราะยอดนั้นอาจมาจากการทยอยจ่ายทีละวัน
   // สะสมมาก่อน (ไม่ได้โปร) — เดิมสูตร "คิดรวมทั้งสัญญาแล้วลบยอดจ่ายเดิม" ทำให้ยอดทยอยจ่ายที่สะสมไว้
@@ -300,6 +334,59 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
               ฿{effectiveDailyRate.toLocaleString()}{isStudentPromo && <span style={{ color: '#7c3aed', fontWeight: 700 }}> 🎓 โปรนักศึกษา</span>}
             </span>
           </div>
+        </div>
+
+        {/* เช็คก่อนว่าต่อได้ไหม — แยกอิสระจากเงินโดยสิ้นเชิง ไว้ตอบลูกค้าก่อนตัดสินใจ ไม่บันทึกอะไรเลย */}
+        <div className="card">
+          <div className="card-title">🔍 เช็คก่อนว่าต่อได้ไหม</div>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px' }}>
+            ไม่เก็บเงิน ไม่บันทึกอะไรทั้งสิ้น — ใช้ตอบลูกค้าก่อนตัดสินใจได้เลย
+          </div>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+            <div style={{ flex: 1 }}>
+              <label className="field-label">ต่ออีกกี่วัน</label>
+              <input className="field-input" type="number" min={0} placeholder="0"
+                value={checkDays}
+                onChange={e => { setCheckDays(e.target.value); setCheckResult(null) }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="field-label">ต่ออีกกี่ชม.</label>
+              <input className="field-input" type="number" min={0} placeholder="0"
+                value={checkHours}
+                onChange={e => { setCheckHours(e.target.value); setCheckResult(null) }} />
+            </div>
+          </div>
+          <button
+            onClick={handleCheck}
+            disabled={checking || (!checkDays && !checkHours)}
+            style={{
+              width: '100%', padding: '11px', borderRadius: '10px', border: '1.5px solid #2563eb',
+              background: checking ? '#f3f4f6' : '#eff6ff', color: '#2563eb', fontWeight: 700, fontSize: '14px',
+              cursor: checking || (!checkDays && !checkHours) ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {checking ? '⏳ กำลังเช็ค...' : '🔍 เช็คเลย'}
+          </button>
+          {checkResult && (
+            <div style={{
+              marginTop: '12px', borderRadius: '10px', padding: '10px 14px', fontSize: '13px',
+              background: checkResult.error ? '#fef2f2' : checkResult.ok ? '#f0fdf4' : '#fef2f2',
+              border: `1.5px solid ${checkResult.error ? '#fecaca' : checkResult.ok ? '#bbf7d0' : '#fecaca'}`,
+              color: checkResult.error ? '#dc2626' : checkResult.ok ? '#16a34a' : '#dc2626',
+            }}>
+              {checkResult.error ? (
+                <>⚠️ {checkResult.error}</>
+              ) : checkResult.ok ? (
+                <><strong>✅ ต่อได้ ไม่ชนคิวจอง</strong> — ถึง {fmtDate(checkResult.checkedEndIso)}</>
+              ) : (
+                <>
+                  <strong>⛔ ต่อแบบนี้ไม่ได้ปกติ — ชนคิวจอง</strong><br />
+                  {checkResult.conflict?.bookingRef} — คุณ{checkResult.conflict?.customerName} รับรถ {checkResult.conflict ? fmtDate(checkResult.conflict.startDatetime) : ''}
+                  <div style={{ fontSize: '12px', marginTop: '4px' }}>ต้องใช้ Fast lane ยืนยันถึงจะต่อได้จริง</div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {rateChangedFromSwap && (
