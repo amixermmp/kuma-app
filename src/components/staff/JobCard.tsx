@@ -40,7 +40,7 @@ export function bikeColorHex(name?: string | null): string {
 export function JobCard({
   dotColor, title, badge, badgeBg, badgeColor,
   meta1, meta2, meta3, meta4, meta5, statusLabel, statusBg, statusColor,
-  href, btnColor, btnLabel, contractHref, extendHref, swapHref, editHref, cardHref, onCancel, cancelDisabled,
+  href, btnColor, btnLabel, contractHref, extendHref, swapHref, editHref, convertMonthlyHref, cardHref, onCancel, cancelDisabled,
   photoUrl, bikeColor, isLocked, onToggleLock, lockLoading,
 }: {
   dotColor: string; title: string
@@ -52,6 +52,7 @@ export function JobCard({
   extendHref?: string
   swapHref?: string
   editHref?: string
+  convertMonthlyHref?: string
   cardHref?: string
   onCancel?: () => void
   cancelDisabled?: boolean
@@ -164,6 +165,15 @@ export function JobCard({
                 border: '1px solid #bfdbfe',
               }}>
                 ✏️ แก้ไข
+              </Link>
+            )}
+            {convertMonthlyHref && (
+              <Link href={convertMonthlyHref} style={{
+                fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px',
+                background: '#f0fdfa', color: '#0d9488', textDecoration: 'none',
+                border: '1px solid #99f6e4',
+              }}>
+                📅 แปลงรายเดือน
               </Link>
             )}
             {onToggleLock && (

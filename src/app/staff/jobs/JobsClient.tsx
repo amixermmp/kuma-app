@@ -586,6 +586,7 @@ export default function JobsClient({
                   contractHref={`/staff/contract/${job.id}`}
                   extendHref={`/staff/extend/${job.id}`}
                   swapHref={`/staff/swap/daily/${job.id}`}
+                  convertMonthlyHref={`/staff/rental/convert-to-monthly/${job.id}`}
                   isLocked={isLocked}
                   lockLoading={lockLoadingId === bike?.id}
                   onToggleLock={bike?.id ? () => handleToggleLock(bike.id, isLocked) : undefined}
