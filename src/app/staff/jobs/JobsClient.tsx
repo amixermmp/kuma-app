@@ -480,6 +480,7 @@ export default function JobsClient({
                     badge="🔴 เกินกำหนด!" badgeBg="#fef2f2" badgeColor="#dc2626"
                     meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
                     meta2={`⏱ เกินมา ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)} ${fmtTime(job.expected_end_datetime)}`}
+                    meta3={job.return_type === 'offsite' ? `🛵 คืนที่: ${job.return_address || 'นอกสถานที่'}` : undefined}
                     href={`/staff/return/${job.id}`} btnColor="#dc2626"
                     cardHref={`/staff/bikes/${bike.id}/menu`}
                     contractHref={`/staff/contract/${job.id}`}
@@ -501,6 +502,7 @@ export default function JobsClient({
                     badge={`⚠️ ${fmtTime(job.expected_end_datetime)} น.`} badgeBg="#fffbeb" badgeColor="#d97706"
                     meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
                     meta2={`⏱ อีก ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)}`}
+                    meta3={job.return_type === 'offsite' ? `🛵 คืนที่: ${job.return_address || 'นอกสถานที่'}` : undefined}
                     href={`/staff/return/${job.id}`} btnColor={urgent ? '#d97706' : '#4b5563'}
                     cardHref={`/staff/bikes/${bike.id}/menu`}
                     contractHref={`/staff/contract/${job.id}`}
@@ -520,6 +522,7 @@ export default function JobsClient({
                     badge={`📅 ${fmtDate(job.expected_end_datetime)}`} badgeBg="#f1f5f9" badgeColor="#374151"
                     meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
                     meta2={`📅 กำหนด ${fmtDate(job.expected_end_datetime)} ${fmtTime(job.expected_end_datetime)}`}
+                    meta3={job.return_type === 'offsite' ? `🛵 คืนที่: ${job.return_address || 'นอกสถานที่'}` : undefined}
                     href={`/staff/return/${job.id}`} btnColor="#4b5563"
                     cardHref={`/staff/bikes/${bike.id}/menu`}
                     contractHref={`/staff/contract/${job.id}`}

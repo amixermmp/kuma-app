@@ -58,14 +58,14 @@ export default async function JobsPage() {
   ] = await Promise.all([
     Promise.all([
     applyBike(supabase.from('rentals')
-      .select('id, expected_end_datetime, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
+      .select('id, expected_end_datetime, return_type, return_address, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
       .lt('expected_end_datetime', nowIso)
       .in('status', ['active', 'extended'])
       .order('expected_end_datetime', { ascending: true })
       .limit(20)),
 
     applyBike(supabase.from('rentals')
-      .select('id, expected_end_datetime, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
+      .select('id, expected_end_datetime, return_type, return_address, bikes(id, license_plate, brand, model, color, photo_url), customers(name, phone)')
       .gte('expected_end_datetime', nowIso)
       .in('status', ['active', 'extended'])
       .order('expected_end_datetime', { ascending: true })
