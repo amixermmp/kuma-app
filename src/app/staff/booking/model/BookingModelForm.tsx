@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC } from '@/lib/time'
@@ -64,10 +64,16 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
     } catch { /* silent */ }
   }, [])
 
+  // ล็อคกันกดซ้อน (สองแตะบนมือถือ/เน็ตช้าแล้วกดซ้ำ) — ใช้ ref เพราะ React state
+  // อัพเดตแบบ async ทำให้ setLoading(true) เพียงอย่างเดียวกันไม่ทันในบางเคส
+  const submittingRef = useRef(false)
+
   const handleSubmit = async () => {
+    if (submittingRef.current) return
     if (!customerName.trim())  { setError('กรุณาใส่ชื่อลูกค้า'); return }
     if (!customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
     if (deliveryType === 'offsite' && !deliveryAddress.trim()) { setError('กรุณาใส่สถานที่ส่งรถ'); return }
+    submittingRef.current = true
     setLoading(true); setError('')
     try {
       const sendBookingPayload = (overrideConflict: boolean) => fetch('/api/staff/booking/create', {
@@ -108,6 +114,7 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
     } finally {
+      submittingRef.current = false
       setLoading(false)
     }
   }
