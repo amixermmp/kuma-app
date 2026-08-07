@@ -8,8 +8,6 @@ export async function compressImage(file: File, maxKB = 200): Promise<Blob> {
     const objectUrl = URL.createObjectURL(file)
 
     img.onload = () => {
-      URL.revokeObjectURL(objectUrl)
-
       let { width, height } = img
 
       // Downscale if larger than 1920px on either side
@@ -24,8 +22,12 @@ export async function compressImage(file: File, maxKB = 200): Promise<Blob> {
       canvas.width = width
       canvas.height = height
       const ctx = canvas.getContext('2d')
-      if (!ctx) { reject(new Error('Canvas not supported')); return }
+      if (!ctx) { URL.revokeObjectURL(objectUrl); reject(new Error('Canvas not supported')); return }
       ctx.drawImage(img, 0, 0, width, height)
+      // revoke หลังวาดเสร็จเท่านั้น — canvas มีข้อมูลพิกเซลของตัวเองแล้วตอนนี้ ไม่ต้องพึ่ง blob เดิมอีก
+      // เดิม revoke ก่อน drawImage บางเบราว์เซอร์/มือถือ (โดยเฉพาะรูปใหญ่จากกล้องรุ่นใหม่) จะลบข้อมูลจริง
+      // ก่อนวาดทัน กลายเป็นวาดได้รูปดำล้วนแทน (race condition ไม่ใช่ทุกครั้ง)
+      URL.revokeObjectURL(objectUrl)
 
       // Reduce quality until ≤ maxKB
       let quality = 0.85
