@@ -1,20 +1,38 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/compressImage'
 
-export default function CheckinForm({ staffName, branchName, redirectTo }: {
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' })
+}
+
+export default function CheckinForm({ staffName, branchName, redirectTo, alreadyCheckedInAt }: {
   staffName: string
   branchName: string
   redirectTo: string
+  alreadyCheckedInAt: string | null
 }) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
+  const submittingRef = useRef(false)
   const [preview, setPreview] = useState<string | null>(null)
   const [file, setFile] = useState<Blob | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [checkedInAt, setCheckedInAt] = useState<string | null>(alreadyCheckedInAt)
+
+  // เช็คอินไปแล้ววันนี้ (เช่น เข้าหน้านี้ซ้ำ) — แค่รีเฟรชคุกกี้ ไม่ต้องถ่ายรูปใหม่
+  useEffect(() => {
+    if (!alreadyCheckedInAt) return
+    fetch('/api/staff/checkin/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleFile = async (f: File) => {
     setError('')
@@ -30,7 +48,8 @@ export default function CheckinForm({ staffName, branchName, redirectTo }: {
   }
 
   const confirm = async () => {
-    if (!file) return
+    if (!file || submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setError('')
     try {
@@ -49,11 +68,17 @@ export default function CheckinForm({ staffName, branchName, redirectTo }: {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'บันทึกไม่สำเร็จ')
 
+      if (data.alreadyCheckedIn) {
+        setCheckedInAt(data.checkedInAt)
+        return
+      }
+
       router.push(redirectTo)
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่')
       setSubmitting(false)
+      submittingRef.current = false
     }
   }
 
@@ -66,7 +91,18 @@ export default function CheckinForm({ staffName, branchName, redirectTo }: {
       </div>
 
       <div style={{ flex: 1, padding: '8px 24px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        {!preview ? (
+        {checkedInAt ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '14px' }}>✅</div>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: '16px', marginBottom: '4px' }}>เช็คอินไปแล้ววันนี้</div>
+            <div style={{ color: 'rgba(255,255,255,.6)', fontSize: '13px', marginBottom: '24px' }}>เมื่อเวลา {fmtTime(checkedInAt)}</div>
+            <button onClick={() => { router.push(redirectTo); router.refresh() }} style={{
+              width: '100%', padding: '15px', borderRadius: '14px', border: 'none',
+              background: '#e11d48', color: '#fff', fontSize: '15px', fontWeight: 800,
+              fontFamily: 'inherit', cursor: 'pointer',
+            }}>ไปต่อ →</button>
+          </div>
+        ) : !preview ? (
           <label style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             gap: '14px', background: 'rgba(255,255,255,.06)', border: '1.5px dashed rgba(255,255,255,.25)',

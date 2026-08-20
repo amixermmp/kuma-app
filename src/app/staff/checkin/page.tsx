@@ -17,12 +17,26 @@ export default async function StaffCheckinPage({
   const { redirect: redirectTo } = await searchParams
 
   const supabase = createAdminClient()
-  const { data: staffRow } = await supabase.from('staff').select('name, branches(name)').eq('id', staffId).single()
+
+  const H7 = 7 * 60 * 60 * 1000
+  const bkkNow = new Date(Date.now() + H7)
+  const todayStartIso = new Date(Date.UTC(bkkNow.getUTCFullYear(), bkkNow.getUTCMonth(), bkkNow.getUTCDate()) - H7).toISOString()
+
+  const [{ data: staffRow }, { data: already }] = await Promise.all([
+    supabase.from('staff').select('name, branches(name)').eq('id', staffId).single(),
+    supabase.from('staff_checkins').select('checked_in_at').eq('staff_id', staffId)
+      .gte('checked_in_at', todayStartIso).order('checked_in_at', { ascending: true }).limit(1).maybeSingle(),
+  ])
   const staffName = staffRow?.name ?? 'Staff'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const branchName = (staffRow as any)?.branches?.name ?? 'Kuma Bikes'
 
   return (
-    <CheckinForm staffName={staffName} branchName={branchName} redirectTo={redirectTo || '/staff/home'} />
+    <CheckinForm
+      staffName={staffName}
+      branchName={branchName}
+      redirectTo={redirectTo || '/staff/home'}
+      alreadyCheckedInAt={already?.checked_in_at ?? null}
+    />
   )
 }
