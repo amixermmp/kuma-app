@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
-import { recalcNeverDoneRoutines } from '@/lib/routines'
+import { recalcNeverDoneRoutines, calcRoutineUrgency } from '@/lib/routines'
 import { hasOpenContract } from '@/lib/availability'
 
 function extractStoragePath(url: string): string | null {
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   // Get existing send_photos before clearing
   const { data: existing } = await supabase
     .from('rentals')
-    .select('branch_id, send_photos, customers(name, phone), bikes(license_plate)')
+    .select('branch_id, send_photos, customers(name, phone), bikes(license_plate, odometer)')
     .eq('id', rentalId)
     .single()
 
@@ -123,6 +123,19 @@ export async function POST(request: NextRequest) {
     await recalcNeverDoneRoutines(supabase, bikeId, Number(returnOdometer))
   }
 
+  // เช็ครูทีนถึงกำหนดไหม ณ ตอนรับคืนนี้เลย — จังหวะที่รถอยู่ตรงหน้าพอดี กันลืมเช็คตอนเย็นเพราะรถถูกเช่าไปอีกก่อน
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const existingBike = Array.isArray(existing?.bikes) ? existing.bikes[0] : existing?.bikes as any
+  const currentOdometer = returnOdometer ? Number(returnOdometer) : (existingBike?.odometer ?? 0)
+  const { data: routines } = await supabase
+    .from('bike_routines')
+    .select('task_name, next_due_km, next_due_date')
+    .eq('bike_id', bikeId)
+  const routineDue = (routines ?? [])
+    .map(r => ({ ...r, ...calcRoutineUrgency(r, currentOdometer) }))
+    .filter(r => r.urgency === 'overdue')
+    .map(r => ({ taskName: r.task_name, dueReason: r.due_reason }))
+
   // Lookup staff name
   const { data: staffRow } = await supabase.from('staff').select('name').eq('id', staffId).single()
   const staffName = staffRow?.name ?? staffId
@@ -152,5 +165,5 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, routineDue })
 }

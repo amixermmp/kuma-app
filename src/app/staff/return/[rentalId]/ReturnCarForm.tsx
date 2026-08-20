@@ -104,6 +104,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [overrideOvertime, setOverrideOvertime] = useState('')
+  const [routineDue, setRoutineDue] = useState<{ taskName: string; dueReason: string }[] | null>(null)
 
   const damage = parseFloat(damageFee) || 0
   const finalOvertimeCharge = overrideOvertime !== '' ? Math.max(0, parseFloat(overrideOvertime) || 0) : overtimeCharge
@@ -138,6 +139,10 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
+      if (Array.isArray(data.routineDue) && data.routineDue.length > 0) {
+        setRoutineDue(data.routineDue)
+        return
+      }
       router.push('/staff/home')
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
@@ -429,6 +434,39 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
         </button>
 
       </div>
+
+      {/* คันนี้ถึงกำหนดรูทีน — เตือนตอนรับคืนสดๆ เลย กันลืมเพราะรถถูกเช่าไปอีกก่อนถึงรอบเช็คเย็น */}
+      {routineDue && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(17,24,39,.85)', zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
+        }}>
+          <div style={{ background: '#fff', borderRadius: '20px', padding: '24px', maxWidth: '360px', width: '100%' }}>
+            <div style={{ fontSize: '40px', textAlign: 'center', marginBottom: '10px' }}>🛢️</div>
+            <div style={{ fontSize: '17px', fontWeight: 800, textAlign: 'center', color: '#111827', marginBottom: '4px' }}>
+              {bike.license_plate} ถึงกำหนดบำรุงรักษา
+            </div>
+            <div style={{ fontSize: '13px', textAlign: 'center', color: '#6b7280', marginBottom: '16px' }}>
+              โปรดตรวจสอบก่อนปล่อยเช่าคันนี้อีก
+            </div>
+            <div style={{ background: '#fef2f2', borderRadius: '12px', padding: '12px 14px', marginBottom: '16px' }}>
+              {routineDue.map((r, i) => (
+                <div key={i} style={{ padding: '4px 0', borderTop: i > 0 ? '1px solid #fecaca' : 'none' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{r.taskName}</div>
+                  <div style={{ fontSize: '12px', color: '#dc2626' }}>{r.dueReason}</div>
+                </div>
+              ))}
+            </div>
+            <button
+              className="btn btn-success"
+              style={{ width: '100%' }}
+              onClick={() => router.push('/staff/home')}
+            >
+              ✓ รับทราบ
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

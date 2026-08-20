@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
+import { calcRoutineUrgency, type RoutineUrgency } from '@/lib/routines'
 import RoutineClient from './RoutineClient'
 import BikeSelectClient from '@/components/staff/BikeSelectClient'
 
@@ -21,31 +22,8 @@ export type RoutineItem = {
   last_cost: number | null
   receipt_url: string | null
   bikes: { license_plate: string; brand: string; model: string; odometer: number }
-  urgency: 'overdue' | 'warning' | 'ok'
+  urgency: RoutineUrgency
   due_reason: string
-}
-
-function calcRoutineUrgency(r: Omit<RoutineItem, 'urgency' | 'due_reason'>, odometer: number): { urgency: RoutineItem['urgency']; due_reason: string } {
-  const today = Date.now()
-
-  // km-based check
-  if (r.next_due_km != null) {
-    const diff = odometer - r.next_due_km
-    if (diff >= 0) return { urgency: 'overdue', due_reason: `ถึงกำหนดแล้ว! (${odometer.toLocaleString()} กม. / กำหนด ${r.next_due_km.toLocaleString()} กม.)` }
-    if (diff >= -500) return { urgency: 'warning', due_reason: `อีก ${Math.abs(diff)} กม. จะถึงกำหนด` }
-  }
-
-  // date-based check
-  if (r.next_due_date) {
-    const days = Math.ceil((new Date(r.next_due_date).getTime() - today) / 86_400_000)
-    if (days <= 0) return { urgency: 'overdue', due_reason: `ถึงกำหนดตามวันที่ (${new Date(r.next_due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })})` }
-    if (days <= 14) return { urgency: 'warning', due_reason: `อีก ${days} วันจะถึงกำหนด` }
-  }
-
-  if (r.next_due_km == null && !r.next_due_date) {
-    return { urgency: 'ok', due_reason: 'ยังไม่ตั้งค่ากำหนด' }
-  }
-  return { urgency: 'ok', due_reason: 'ปกติ' }
 }
 
 export default async function RoutinePage({ searchParams }: { searchParams: Promise<{ id?: string; bikeId?: string }> }) {
