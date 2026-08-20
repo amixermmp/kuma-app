@@ -7,14 +7,17 @@ type Props = {
   current: string
   currentFrom?: string
   currentTo?: string
+  currentBranch?: string
   basePath?: string
 }
 
-export function PeriodSelector({ current, currentFrom, currentTo, basePath = '/owner/dashboard' }: Props) {
+export function PeriodSelector({ current, currentFrom, currentTo, currentBranch, basePath = '/owner/dashboard' }: Props) {
   const router = useRouter()
   const [showCustom, setShowCustom] = useState(current === 'custom')
   const [from, setFrom] = useState(currentFrom ?? '')
   const [to, setTo] = useState(currentTo ?? '')
+
+  const branchQS = currentBranch ? `&branch=${currentBranch}` : ''
 
   const handleSelect = (val: string) => {
     if (val === 'custom') {
@@ -22,12 +25,12 @@ export function PeriodSelector({ current, currentFrom, currentTo, basePath = '/o
       return
     }
     setShowCustom(false)
-    router.push(`${basePath}?period=${val}`)
+    router.push(`${basePath}?period=${val}${branchQS}`)
   }
 
   const applyCustom = () => {
     if (!from || !to) return
-    router.push(`${basePath}?period=custom&from=${from}&to=${to}`)
+    router.push(`${basePath}?period=custom&from=${from}&to=${to}${branchQS}`)
   }
 
   return (
