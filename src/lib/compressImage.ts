@@ -49,3 +49,39 @@ export async function compressImage(file: File, maxKB = 200): Promise<Blob> {
     img.src = objectUrl
   })
 }
+
+/**
+ * Downscale an image to ≤ maxDim px while keeping PNG transparency (no JPEG re-encode).
+ * ใช้กับกรอบ/สติ๊กเกอร์ที่ต้องคงพื้นหลังโปร่งใสไว้ — compressImage() ข้างบนบังคับเป็น JPEG ทำให้พื้นโปร่งใสหายไป
+ */
+export async function compressImagePng(file: File, maxDim = 1600): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const objectUrl = URL.createObjectURL(file)
+
+    img.onload = () => {
+      let { width, height } = img
+      if (width > maxDim || height > maxDim) {
+        const ratio = Math.min(maxDim / width, maxDim / height)
+        width = Math.round(width * ratio)
+        height = Math.round(height * ratio)
+      }
+
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { URL.revokeObjectURL(objectUrl); reject(new Error('Canvas not supported')); return }
+      ctx.drawImage(img, 0, 0, width, height)
+      URL.revokeObjectURL(objectUrl)
+
+      canvas.toBlob(blob => {
+        if (!blob) { reject(new Error('Compression failed')); return }
+        resolve(blob)
+      }, 'image/png')
+    }
+
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Image load failed')) }
+    img.src = objectUrl
+  })
+}

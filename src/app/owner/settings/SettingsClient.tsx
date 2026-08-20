@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import Link from 'next/link'
+import { compressImagePng } from '@/lib/compressImage'
 
 type Shop = Record<string, any>
 type Staff = { id: string; name: string; pin: string; branch_id: string | null; allowed_branch_ids: string[] | null; is_active: boolean; branches?: { name: string } | null }
@@ -131,17 +132,18 @@ function BranchMarketingCard({ branch, initial }: { branch: Branch; initial?: Br
   const upload = async (kind: 'frame' | 'sticker', file: File) => {
     setUploading(kind)
     try {
+      const compressed = await compressImagePng(file)
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', new File([compressed], 'image.png', { type: 'image/png' }))
       fd.append('folder', 'branch-marketing')
       const res = await fetch('/api/owner/upload', { method: 'POST', body: fd })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) throw new Error(data.error ?? data.detail ?? `HTTP ${res.status}`)
       if (kind === 'frame') { setFrameUrl(data.url); await save({ frame_url: data.url }) }
       else { setStickerUrl(data.url); await save({ sticker_url: data.url }) }
-    } catch {
-      setMsg('❌ อัพโหลดไม่สำเร็จ')
-      setTimeout(() => setMsg(''), 3000)
+    } catch (e) {
+      setMsg('❌ ' + (e instanceof Error ? e.message : 'อัพโหลดไม่สำเร็จ'))
+      setTimeout(() => setMsg(''), 5000)
     } finally {
       setUploading(null)
     }
