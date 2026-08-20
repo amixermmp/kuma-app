@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   // Upsert branch_settings row
   const { data: existing } = await admin
     .from('branch_settings')
-    .select('id')
+    .select('branch_id')
     .eq('branch_id', BRANCH_ID)
     .maybeSingle()
 

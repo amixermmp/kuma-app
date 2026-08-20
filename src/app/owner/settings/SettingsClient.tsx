@@ -125,8 +125,13 @@ function BranchMarketingCard({ branch, initial }: { branch: Branch; initial?: Br
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ branch_id: branch.id, frame_url: frameUrl, sticker_url: stickerUrl, ...fields }),
     })
-    setMsg(res.ok ? '✅ บันทึกแล้ว' : '❌ เกิดข้อผิดพลาด')
-    setTimeout(() => setMsg(''), 3000)
+    if (res.ok) {
+      setMsg('✅ บันทึกแล้ว')
+    } else {
+      const data = await res.json().catch(() => null)
+      setMsg('❌ ' + (data?.error ?? `บันทึกไม่สำเร็จ (HTTP ${res.status})`))
+    }
+    setTimeout(() => setMsg(''), 5000)
   }
 
   const upload = async (kind: 'frame' | 'sticker', file: File) => {

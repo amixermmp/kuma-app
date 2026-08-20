@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
   const { data: existing } = await admin
     .from('branch_settings')
-    .select('id')
+    .select('branch_id')
     .eq('branch_id', branch_id)
     .maybeSingle()
 
