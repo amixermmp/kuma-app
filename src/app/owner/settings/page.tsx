@@ -25,7 +25,7 @@ export default async function SettingsPage() {
     branchId
       ? admin.from('branch_settings').select('terms_photo_url, manual_photo_url, contract_photo_url').eq('branch_id', branchId).maybeSingle()
       : Promise.resolve({ data: null }),
-    admin.from('branch_settings').select('branch_id, line_token, line_liff_id, promptpay_id, line_notify_customer'),
+    admin.from('branch_settings').select('branch_id, line_token, line_liff_id, promptpay_id, line_notify_customer, frame_url, sticker_url'),
   ])
 
   return (

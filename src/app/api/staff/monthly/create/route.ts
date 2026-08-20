@@ -7,6 +7,7 @@ import { checkBlacklist } from '@/lib/blacklist'
 import { hasOpenContract } from '@/lib/availability'
 import { findModelBookingConflict } from '@/lib/bookingConflicts'
 import { isRealPhone, isThaiIdNumber } from '@/lib/customer'
+import { queueMarketingPhoto } from '@/lib/marketingPhotos'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -165,6 +166,9 @@ export async function POST(request: NextRequest) {
   if (rErr || !rental) {
     return NextResponse.json({ error: rErr?.message ?? 'บันทึกสัญญาไม่สำเร็จ' }, { status: 500 })
   }
+
+  // คัดลอกรูปคู่รถเข้าคิวโปรโมท (best-effort ไม่ block การส่งรถ)
+  await queueMarketingPhoto(supabase, BRANCH_ID, rental.id, 'monthly', photos?.with_bike)
 
   // Update bike status + odometer + fuel
   await supabase.from('bikes').update({

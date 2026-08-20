@@ -8,6 +8,7 @@ import { findModelBookingConflict } from '@/lib/bookingConflicts'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
 import { checkBlacklist } from '@/lib/blacklist'
 import { isRealPhone, isThaiIdNumber } from '@/lib/customer'
+import { queueMarketingPhoto } from '@/lib/marketingPhotos'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -155,6 +156,9 @@ export async function POST(request: NextRequest) {
   if (rentalErr || !rental) {
     return NextResponse.json({ error: 'บันทึกการเช่าไม่สำเร็จ' }, { status: 500 })
   }
+
+  // คัดลอกรูปคู่รถเข้าคิวโปรโมท (best-effort ไม่ block การส่งรถ)
+  await queueMarketingPhoto(supabase, BRANCH_ID, rental.id, 'daily', photos?.with_bike)
 
   // ลงสมุดรายรับ — ค่าเช่าเก็บตอนส่งรถ (best-effort ไม่ block การส่งรถ)
   await supabase.from('rental_payments').insert({
