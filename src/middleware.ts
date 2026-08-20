@@ -23,6 +23,22 @@ export async function middleware(request: NextRequest) {
     if (!staffId) {
       return NextResponse.redirect(new URL('/staff/login', request.url))
     }
+
+    // บังคับลงทะเบียนเข้างาน — ตั้งแต่ 08:00 เวลาไทยของทุกวัน ถ้ายังไม่เช็คอินวันนี้ เด้งไปหน้าเช็คอินก่อน
+    // ทำอย่างอื่นไม่ได้ (คุกกี้ kuma_checkin_date ตั้งตอนเช็คอินสำเร็จ — เร็วกว่า query DB ทุก request)
+    if (pathname !== '/staff/checkin') {
+      const H7 = 7 * 60 * 60 * 1000
+      const bkkNow = new Date(Date.now() + H7)
+      const todayStr = bkkNow.toISOString().split('T')[0]
+      const pastGateTime = bkkNow.getUTCHours() >= 8
+      const checkinDate = request.cookies.get('kuma_checkin_date')?.value
+      if (pastGateTime && checkinDate !== todayStr) {
+        const url = new URL('/staff/checkin', request.url)
+        url.searchParams.set('redirect', pathname)
+        return NextResponse.redirect(url)
+      }
+    }
+
     return NextResponse.next()
   }
 
