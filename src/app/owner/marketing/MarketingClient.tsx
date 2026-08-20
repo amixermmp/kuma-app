@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -28,6 +28,12 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
   const [error, setError] = useState('')
   const [adjusting, setAdjusting] = useState(false)
   const imgRef = useRef<HTMLImageElement>(null)
+
+  // ใส่กรอบอัตโนมัติทันทีที่รูปเข้าคิว — ไม่ต้องกดเอง กดแค่ตอนอยากปรับตำแหน่งสติ๊กเกอร์
+  useEffect(() => {
+    if (!photo.processedUrl && hasFrame) process()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photo.id])
 
   const process = async () => {
     setBusy(true); setError('')
