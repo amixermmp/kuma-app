@@ -1,32 +1,22 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
-import SettingsClient from './SettingsClient'
 
 export const dynamic = 'force-dynamic'
+
+const CATEGORIES = [
+  { icon: '🏢', label: 'ร้านค้า', sub: 'ข้อมูลร้าน, สาขา, ราคา/ค่าล่วงเวลา', href: '/owner/settings/shop', color: '#111827' },
+  { icon: '👤', label: 'พนักงาน', sub: 'เพิ่ม/แก้ไข/ปิดการใช้งานพนักงาน', href: '/owner/settings/staff', color: '#374151' },
+  { icon: '🎁', label: 'โปรโมชั่น', sub: 'จัดการส่วนลด/แพ็คเกจ', href: '/owner/settings/promos', color: '#be185d' },
+  { icon: '📄', label: 'เอกสารร้าน', sub: 'สัญญา/ข้อกำหนด/คู่มือ ขึ้นทุกคัน', href: '/owner/settings/docs', color: '#0369a1' },
+  { icon: '🔔', label: 'แจ้งเตือน', sub: 'เกณฑ์แจ้งเตือน + LINE ทั้งร้าน/รายสาขา', href: '/owner/settings/notifications', color: '#00b900' },
+  { icon: '🖼️', label: 'รูปโปรโมท', sub: 'กรอบ/สติ๊กเกอร์ปิดหน้า รายสาขา', href: '/owner/settings/marketing', color: '#a78bfa' },
+] as const
 
 export default async function SettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/owner/login')
-
-  const admin = createAdminClient()
-
-  // Resolve primary branch first — needed for branch_settings query and to pass to client
-  const { data: primaryBranch } = await admin.from('branches').select('id').order('name').limit(1).single()
-  const branchId = primaryBranch?.id ?? ''
-
-  const [shopRes, staffRes, branchRes, promoRes, branchDocRes, branchLineRes] = await Promise.all([
-    admin.from('shop_settings').select('*').limit(1).maybeSingle(),
-    admin.from('staff').select('id, name, pin, branch_id, is_active, branches(name)').order('name'),
-    admin.from('branches').select('id, name').order('name'),
-    admin.from('promotions').select('id, name, code, description, discount_type, discount_value, min_days, bonus_days, is_active, is_student_promo').order('created_at'),
-    branchId
-      ? admin.from('branch_settings').select('terms_photo_url, manual_photo_url, contract_photo_url').eq('branch_id', branchId).maybeSingle()
-      : Promise.resolve({ data: null }),
-    admin.from('branch_settings').select('branch_id, line_token, line_liff_id, promptpay_id, line_notify_customer, frame_url, sticker_url'),
-  ])
 
   return (
     <div className="app-wrap">
@@ -39,19 +29,29 @@ export default async function SettingsPage() {
         <div style={{ fontSize: '28px' }}>👑</div>
       </div>
 
-      <SettingsClient
-        shop={shopRes.data ?? {}}
-        staff={(staffRes.data ?? []) as any[]}
-        branches={branchRes.data ?? []}
-        promotions={promoRes.data ?? []}
-        branchId={branchId}
-        branchLine={(branchLineRes.data ?? []) as any[]}
-        branchDocs={{
-          terms_photo_url: branchDocRes.data?.terms_photo_url ?? null,
-          manual_photo_url: branchDocRes.data?.manual_photo_url ?? null,
-          contract_photo_url: (branchDocRes.data as any)?.contract_photo_url ?? null,
-        }}
-      />
+      <div style={{ margin: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {CATEGORIES.map(({ icon, label, sub, href, color }) => (
+          <Link key={href} href={href} style={{ textDecoration: 'none' }}>
+            <div style={{
+              background: '#fff', borderRadius: '14px', padding: '16px',
+              boxShadow: '0 1px 4px rgba(0,0,0,.07)',
+              display: 'flex', alignItems: 'center', gap: '14px',
+              borderLeft: `4px solid ${color}`,
+            }}>
+              <div style={{
+                width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
+                background: `${color}15`, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: '22px',
+              }}>{icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>{label}</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{sub}</div>
+              </div>
+              <div style={{ color: '#d1d5db', fontSize: '18px' }}>›</div>
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   )
 }
