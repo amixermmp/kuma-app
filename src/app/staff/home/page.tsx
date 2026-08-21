@@ -90,119 +90,84 @@ export default async function StaffHomePage() {
   const totalJobs = (overdueCount ?? 0) + (dueSoonCount ?? 0) + (repairCount ?? 0) + (contactCount ?? 0) + (docsCount ?? 0) + (sendCount ?? 0) + routineCount
 
   return (
-    <div className="app-wrap" style={{ background: '#f8fafc' }}>
+    <div className="app-wrap" style={{ background: '#111111' }}>
 
       {/* Header */}
       <div style={{
-        background: 'var(--red)',
-        padding: '18px 16px 28px',
+        padding: '18px 16px 14px',
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
-        borderRadius: '0 0 22px 22px',
       }}>
-        <span style={{ fontSize: '24px' }}>🐻</span>
+        <div style={{
+          width: '34px', height: '34px', borderRadius: '10px', flexShrink: 0,
+          background: '#e5231b', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', fontSize: '16px',
+        }}>🐻</div>
         <div style={{ flex: 1 }}>
-          <div style={{ color: '#fff', fontWeight: 700, fontSize: '17px' }}>
-            สวัสดี, {staffName}!
-          </div>
-          <div style={{ color: 'rgba(255,255,255,.8)', fontSize: '13px' }}>{branchName}</div>
+          <div style={{ color: '#fff', fontWeight: 800, fontSize: '15px', letterSpacing: '0.5px' }}>KUMA</div>
+          <div style={{ color: 'rgba(255,255,255,.55)', fontSize: '11px' }}>{staffName} · {branchName}</div>
         </div>
         <form action="/api/staff/logout" method="post">
           <button type="submit" style={{
-            background: 'rgba(255,255,255,.15)', color: '#fff',
-            border: '1px solid rgba(255,255,255,.3)', borderRadius: '10px',
+            background: 'rgba(255,255,255,.1)', color: '#fff',
+            border: 'none', borderRadius: '10px',
             padding: '8px 12px', fontSize: '13px', fontWeight: 600,
             fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
-          }}>ออกจากระบบ</button>
+          }}>ออก</button>
         </form>
       </div>
       <TabBar />
 
-      <div style={{ padding: '16px', marginTop: '-14px' }}>
-
-        {/* QR Scan */}
+      {/* Bento row: QR scan (big) + job count */}
+      <div style={{ padding: '4px 16px 12px', display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '10px' }}>
         <Link href="/staff/scan" style={{
-          background: '#fff',
-          borderRadius: '16px',
-          padding: '20px 24px',
-          display: 'flex', alignItems: 'center', gap: '16px',
-          color: '#111827',
-          marginBottom: '14px',
-          textDecoration: 'none',
-          boxShadow: '0 4px 14px rgba(225,29,72,.15)',
-          border: '1px solid #fee2e2',
+          background: '#e5231b', borderRadius: '20px', padding: '16px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          minHeight: '128px', textDecoration: 'none',
         }}>
-          <div style={{
-            width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
-            background: 'var(--red-lt)', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: '26px',
-          }}>📷</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '16px', fontWeight: 700 }}>สแกน QR รถ</div>
-            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>แตะเพื่อเปิดกล้องสแกน</div>
+          <span style={{ fontSize: '26px' }}>📷</span>
+          <div style={{ color: '#fff', fontSize: '15px', fontWeight: 700, lineHeight: 1.3 }}>
+            สแกน QR<br />เพื่อเริ่มงาน
           </div>
-          <span style={{ fontSize: '18px', color: 'var(--red)' }}>›</span>
         </Link>
 
-        {/* Job Tasks Summary */}
-        <Link href="/staff/jobs" style={{ textDecoration: 'none', display: 'block', marginBottom: '16px' }}>
+        <Link href="/staff/jobs" style={{
+          background: totalJobs > 0 ? '#2a1414' : '#1e1e1e', borderRadius: '20px', padding: '16px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          minHeight: '128px', textDecoration: 'none',
+        }}>
+          <span style={{ fontSize: '26px' }}>📌</span>
+          <div>
+            <div style={{ color: totalJobs > 0 ? '#f87171' : '#fff', fontSize: '24px', fontWeight: 800 }}>{totalJobs}</div>
+            <div style={{ color: 'rgba(255,255,255,.55)', fontSize: '11px', marginTop: '2px' }}>งานค้าง</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Job breakdown tags (only if there are jobs) */}
+      {totalJobs > 0 && (
+        <Link href="/staff/jobs" style={{ textDecoration: 'none', display: 'block' }}>
           <div style={{
-            borderRadius: '16px', overflow: 'hidden',
-            boxShadow: '0 2px 8px rgba(0,0,0,.08)',
-            border: '1.5px solid #e5e7eb',
+            margin: '0 16px 12px', padding: '12px 14px', borderRadius: '16px',
+            background: '#1e1e1e', display: 'flex', gap: '8px', flexWrap: 'wrap',
           }}>
-            <div style={{
-              background: totalJobs > 0 ? '#111827' : '#f9fafb',
-              padding: '16px 18px',
-              display: 'flex', alignItems: 'center', gap: '14px',
-            }}>
-              <div style={{
-                width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
-                background: totalJobs > 0 ? 'rgba(255,255,255,.15)' : '#e5e7eb',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px',
-              }}>
-                📌
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: '16px', color: totalJobs > 0 ? '#fff' : '#6b7280' }}>
-                  {totalJobs > 0 ? `มีงานค้าง ${totalJobs} รายการ` : 'ไม่มีงานค้าง ✅'}
-                </div>
-                <div style={{ fontSize: '12px', color: totalJobs > 0 ? 'rgba(255,255,255,.75)' : '#9ca3af', marginTop: '3px' }}>
-                  {totalJobs > 0 ? 'แตะเพื่อดูรายละเอียดทั้งหมด →' : 'ทุกอย่างเรียบร้อยดี'}
-                </div>
-              </div>
-              {totalJobs > 0 && (
-                <div style={{
-                  background: 'var(--red)', color: '#fff', borderRadius: '999px',
-                  minWidth: '32px', height: '32px', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontSize: '15px', fontWeight: 800, padding: '0 8px',
-                }}>
-                  {totalJobs}
-                </div>
-              )}
-            </div>
-            {totalJobs > 0 && (
-              <div style={{
-                background: '#fff', padding: '10px 18px',
-                display: 'flex', gap: '8px', flexWrap: 'wrap',
-              }}>
-                {(sendCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#111827', fontWeight: 600 }}>🛵➡️ ส่งรถ {sendCount}</span>}
-                {((overdueCount ?? 0) + (dueSoonCount ?? 0)) > 0 && <span style={{ fontSize: '12px', color: 'var(--red)', fontWeight: 600 }}>⬅️ รับคืน {(overdueCount ?? 0) + (dueSoonCount ?? 0)}</span>}
-                {(repairCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#d97706', fontWeight: 600 }}>🔧 ซ่อม {repairCount}</span>}
-                {(contactCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 600 }}>💰 ติดต่อลูกค้า {contactCount}</span>}
-                {(docsCount ?? 0) > 0 && <span style={{ fontSize: '12px', color: '#374151', fontWeight: 600 }}>📋 เอกสาร {docsCount}</span>}
-                {routineCount > 0 && <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 600 }}>🛢️ รูทีน {routineCount}</span>}
-              </div>
-            )}
+            {(sendCount ?? 0) > 0 && <span style={{ fontSize: '11px', color: '#fff', fontWeight: 600, background: 'rgba(255,255,255,.08)', padding: '4px 10px', borderRadius: '999px' }}>🛵➡️ ส่งรถ {sendCount}</span>}
+            {((overdueCount ?? 0) + (dueSoonCount ?? 0)) > 0 && <span style={{ fontSize: '11px', color: '#f87171', fontWeight: 600, background: 'rgba(229,35,27,.15)', padding: '4px 10px', borderRadius: '999px' }}>⬅️ รับคืน {(overdueCount ?? 0) + (dueSoonCount ?? 0)}</span>}
+            {(repairCount ?? 0) > 0 && <span style={{ fontSize: '11px', color: '#fbbf24', fontWeight: 600, background: 'rgba(255,255,255,.08)', padding: '4px 10px', borderRadius: '999px' }}>🔧 ซ่อม {repairCount}</span>}
+            {(contactCount ?? 0) > 0 && <span style={{ fontSize: '11px', color: '#c4b5fd', fontWeight: 600, background: 'rgba(255,255,255,.08)', padding: '4px 10px', borderRadius: '999px' }}>💰 ติดต่อลูกค้า {contactCount}</span>}
+            {(docsCount ?? 0) > 0 && <span style={{ fontSize: '11px', color: '#fff', fontWeight: 600, background: 'rgba(255,255,255,.08)', padding: '4px 10px', borderRadius: '999px' }}>📋 เอกสาร {docsCount}</span>}
+            {routineCount > 0 && <span style={{ fontSize: '11px', color: '#fbbf24', fontWeight: 600, background: 'rgba(255,255,255,.08)', padding: '4px 10px', borderRadius: '999px' }}>🛢️ รูทีน {routineCount}</span>}
           </div>
         </Link>
+      )}
 
-        {/* Quick actions */}
+      {/* Quick actions — white sheet floating up */}
+      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '18px 16px 24px', minHeight: '200px' }}>
         <div style={{ color: '#6b7280', fontSize: '13px', fontWeight: 600, paddingBottom: '10px' }}>
           เมนูด่วน
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
           {([
             { icon: '🔍', label: 'ค้นหารถ',    href: '/staff/search' },
             { icon: '🛵', label: 'รวมรถ',       href: '/staff/fleet' },
@@ -213,28 +178,27 @@ export default async function StaffHomePage() {
           ] as const).map(({ icon, label, href }) => (
             <Link key={href} href={href} style={{
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
-              gap: '12px',
-              background: '#fff',
-              borderRadius: '14px',
-              padding: '12px 14px',
+              gap: '6px',
+              background: '#f9fafb',
+              borderRadius: '16px',
+              padding: '14px 6px',
               textDecoration: 'none',
               color: '#111827',
               fontWeight: 600,
-              fontSize: '14px',
-              boxShadow: '0 1px 3px rgba(0,0,0,.06)',
-              border: '1px solid #f3f4f6',
+              fontSize: '11px',
+              textAlign: 'center',
             }}>
               <span style={{
-                width: '38px', height: '38px', borderRadius: '11px', flexShrink: 0,
-                background: 'var(--red-lt)', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: '19px',
+                width: '38px', height: '38px', borderRadius: '50%', flexShrink: 0,
+                background: 'rgba(229,35,27,.1)', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: '18px',
               }}>{icon}</span>
               {label}
             </Link>
           ))}
         </div>
-
       </div>
     </div>
   )
