@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC } from '@/lib/time'
 import { calcRentQuote, calendarDays } from '@/lib/pricing'
+import QuarterHourInput from '@/components/staff/QuarterHourInput'
 
 type Bike = {
   id: string
@@ -197,13 +198,11 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
             <div className="card-title">ช่วงเวลา</div>
             <div className="field-row">
               <label className="field-label">📅 วันเริ่มเช่า *</label>
-              <input className="field-input" type="datetime-local"
-                value={from} onChange={e => setFrom(e.target.value)} />
+              <QuarterHourInput value={from} onChange={setFrom} />
             </div>
             <div className="field-row" style={{ marginBottom: 0 }}>
               <label className="field-label">📅 วันที่คืนรถ *</label>
-              <input className="field-input" type="datetime-local"
-                value={to} onChange={e => setTo(e.target.value)} />
+              <QuarterHourInput value={to} onChange={setTo} />
             </div>
           </div>
         )}

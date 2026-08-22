@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC, utcToBangkokLocal } from '@/lib/time'
 import { calcRentQuote, calendarDays } from '@/lib/pricing'
+import QuarterHourInput from '@/components/staff/QuarterHourInput'
 
 type BookingInfo = {
   id: string
@@ -127,11 +128,11 @@ export default function EditBookingForm({ booking, monthlyRate }: { booking: Boo
           <div className="card-title">ช่วงเวลาที่ต้องการ</div>
           <div className="field-row">
             <label className="field-label">📅 วันเริ่มเช่า</label>
-            <input className="field-input" type="datetime-local" value={from} onChange={e => setFrom(e.target.value)} />
+            <QuarterHourInput value={from} onChange={setFrom} />
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">📅 วันที่คืนรถ</label>
-            <input className="field-input" type="datetime-local" value={to} onChange={e => setTo(e.target.value)} />
+            <QuarterHourInput value={to} onChange={setTo} />
           </div>
         </div>
 
