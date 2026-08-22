@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { ArrowLeft, Pin } from 'lucide-react'
 import TabBar from '@/components/staff/TabBar'
 import { JobCard, fmtDate, fmtTime, hoursUntil, isTodayBkk, bikeColorHex } from '@/components/staff/JobCard'
 
@@ -177,15 +178,20 @@ export default function JobsClient({
     <div className="app-wrap">
 
       {/* Header */}
-      <div style={{ background: '#111827', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <Link href="/staff/home" className="app-header-back">←</Link>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '17px', fontWeight: 700, color: '#fff' }}>📌 Job Tasks</div>
-          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,.7)' }}>งานทั้งหมดที่ต้องดำเนินการ</div>
+      <div style={{ background: '#111', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <Link href="/staff/home" style={{ display: 'flex', color: '#fff' }}>
+          <ArrowLeft size={20} strokeWidth={1.75} />
+        </Link>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Pin size={16} color="#e5231b" strokeWidth={2} />
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff' }}>Job Tasks</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,.55)' }}>งานทั้งหมดที่ต้องดำเนินการ</div>
+          </div>
         </div>
         {total > 0 && (
           <div style={{
-            background: '#dc2626', color: '#fff', borderRadius: '999px',
+            background: '#e5231b', color: '#fff', borderRadius: '999px',
             minWidth: '26px', height: '26px', display: 'flex', alignItems: 'center',
             justifyContent: 'center', fontSize: '13px', fontWeight: 700, padding: '0 8px',
           }}>

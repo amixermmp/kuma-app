@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC } from '@/lib/time'
 import { calcRentQuote, calendarDays } from '@/lib/pricing'
+import { Bike as BikeIcon, Home, Send, CalendarCheck } from 'lucide-react'
 
 type Props = {
   brand: string
@@ -122,7 +123,7 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
   return (
     <div className="app-wrap">
 
-      <div className="app-header" style={{ background: '#111827' }}>
+      <div className="app-header" style={{ background: '#111' }}>
         <Link href="/staff/search" className="app-header-back">←</Link>
         <div>
           <h1>จองคิว</h1>
@@ -134,11 +135,16 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
 
         {/* Bike model card */}
         <div style={{
-          background: 'linear-gradient(135deg,#111827,#1e293b)',
+          background: '#111',
           borderRadius: '14px', padding: '14px 16px', marginBottom: '12px',
           color: '#fff', display: 'flex', alignItems: 'center', gap: '14px',
         }}>
-          <div style={{ fontSize: '44px' }}>🛵</div>
+          <div style={{
+            width: '48px', height: '48px', borderRadius: '12px', flexShrink: 0,
+            background: '#e5231b', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <BikeIcon size={24} color="#fff" strokeWidth={1.75} />
+          </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '17px', fontWeight: 800 }}>{brand} {model}</div>
             <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '3px' }}>
@@ -194,18 +200,20 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => setDeliveryType('shop')} style={{
               flex: 1, padding: '10px', borderRadius: '10px',
-              border: `2px solid ${deliveryType === 'shop' ? '#111827' : '#e5e7eb'}`,
-              background: deliveryType === 'shop' ? '#f1f5f9' : '#fff',
-              color: deliveryType === 'shop' ? '#111827' : '#6b7280',
+              border: `2px solid ${deliveryType === 'shop' ? '#e5231b' : '#e5e7eb'}`,
+              background: deliveryType === 'shop' ? 'rgba(229,35,27,.08)' : '#fff',
+              color: deliveryType === 'shop' ? '#e5231b' : '#6b7280',
               fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-            }}>🏠 รับหน้าร้าน</button>
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            }}><Home size={16} strokeWidth={1.75} /> รับหน้าร้าน</button>
             <button onClick={() => setDeliveryType('offsite')} style={{
               flex: 1, padding: '10px', borderRadius: '10px',
-              border: `2px solid ${deliveryType === 'offsite' ? '#0ea5e9' : '#e5e7eb'}`,
-              background: deliveryType === 'offsite' ? '#f0f9ff' : '#fff',
-              color: deliveryType === 'offsite' ? '#0369a1' : '#6b7280',
+              border: `2px solid ${deliveryType === 'offsite' ? '#e5231b' : '#e5e7eb'}`,
+              background: deliveryType === 'offsite' ? 'rgba(229,35,27,.08)' : '#fff',
+              color: deliveryType === 'offsite' ? '#e5231b' : '#6b7280',
               fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-            }}>🛵 ส่งนอกสถานที่</button>
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            }}><Send size={16} strokeWidth={1.75} /> ส่งนอกสถานที่</button>
           </div>
           {deliveryType === 'offsite' && (
             <textarea className="field-input" rows={2}
@@ -224,9 +232,9 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
               <button key={s.key} onClick={() => setSource(s.key)} style={{
                 padding: '8px 16px', borderRadius: '20px', border: '1.5px solid',
                 fontSize: '13px', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
-                background: source === s.key ? '#111827' : '#fff',
+                background: source === s.key ? '#111' : '#fff',
                 color: source === s.key ? '#fff' : '#6b7280',
-                borderColor: source === s.key ? '#111827' : '#e5e7eb',
+                borderColor: source === s.key ? '#111' : '#e5e7eb',
               }}>
                 {s.label}
               </button>
@@ -258,12 +266,13 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
           disabled={loading}
           style={{
             width: '100%', padding: '16px', border: 'none', borderRadius: '12px',
-            background: '#111827', color: '#fff', fontSize: '16px', fontWeight: 700,
+            background: '#e5231b', color: '#fff', fontSize: '16px', fontWeight: 700,
             cursor: 'pointer', fontFamily: 'inherit',
             opacity: loading ? 0.7 : 1, marginBottom: '24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
           }}
         >
-          {loading ? '⏳ กำลังบันทึก...' : '📅 ยืนยันการจอง'}
+          {loading ? 'กำลังบันทึก...' : <><CalendarCheck size={18} strokeWidth={2} /> ยืนยันการจอง</>}
         </button>
 
       </div>
