@@ -300,26 +300,6 @@ body {
 }
 .check-box.checked { background: var(--green); border-color: var(--green); color: #fff; }
 
-.severity-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-.sev-btn {
-  flex: 1;
-  padding: 8px;
-  border-radius: 8px;
-  border: 2px solid var(--border);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-  background: #fff;
-  color: var(--text2);
-}
-.sev-btn.active-low    { border-color: var(--amber); background: var(--amber-lt); color: var(--amber); }
-.sev-btn.active-high   { border-color: var(--danger); background: var(--danger-lt); color: var(--danger); }
-
 /* ── PIN Screen ── */
 .pin-screen {
   background: var(--dark);

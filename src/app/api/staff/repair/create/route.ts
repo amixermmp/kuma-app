@@ -12,8 +12,14 @@ export async function POST(request: NextRequest) {
 
   const BRANCH_ID = await getStaffOwnBranchId(staffId)
 
-  const { bikeId, description } = await request.json()
+  const { bikeId, description, photoUrl, locationType, locationAddress } = await request.json()
   if (!bikeId || !description) return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
+  if (!locationType || (locationType !== 'shop' && locationType !== 'offsite')) {
+    return NextResponse.json({ error: 'กรุณาเลือกตำแหน่งรถ' }, { status: 400 })
+  }
+  if (locationType === 'offsite' && !locationAddress) {
+    return NextResponse.json({ error: 'กรุณาระบุว่ารถอยู่ที่ไหน' }, { status: 400 })
+  }
 
   const supabase = createAdminClient()
 
@@ -25,6 +31,9 @@ export async function POST(request: NextRequest) {
       title: description.substring(0, 100),
       description,
       status: 'in_progress',
+      location_type: locationType,
+      location_address: locationType === 'offsite' ? locationAddress : null,
+      repair_photos: photoUrl ? [{ url: photoUrl, label: 'รูปตอนแจ้งซ่อม' }] : [],
     })
     .select('id')
     .single()

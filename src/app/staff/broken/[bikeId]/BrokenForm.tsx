@@ -19,9 +19,9 @@ type Props = { bike: Bike; staffId: string }
 export default function BrokenForm({ bike, staffId }: Props) {
   const router = useRouter()
   const [description, setDescription] = useState('')
-  const [severity, setSeverity] = useState<'medium' | 'critical'>('medium')
   const [photoUrl, setPhotoUrl] = useState('')
-  const [locationNote, setLocationNote] = useState('')
+  const [locationType, setLocationType] = useState<'shop' | 'offsite' | null>(null)
+  const [locationAddress, setLocationAddress] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,6 +29,8 @@ export default function BrokenForm({ bike, staffId }: Props) {
 
   const handleSubmit = async () => {
     if (!description.trim()) { setError('กรุณาอธิบายอาการของรถ'); return }
+    if (!locationType) { setError('กรุณาเลือกตำแหน่งรถ'); return }
+    if (locationType === 'offsite' && !locationAddress.trim()) { setError('กรุณาระบุว่ารถอยู่ที่ไหน'); return }
     setLoading(true)
     setError('')
     try {
@@ -39,9 +41,9 @@ export default function BrokenForm({ bike, staffId }: Props) {
           bikeId: bike.id,
           staffId,
           description: description.trim(),
-          severity,
           photoUrl: photoUrl || null,
-          locationNote: locationNote.trim() || null,
+          locationType,
+          locationAddress: locationType === 'offsite' ? locationAddress.trim() : null,
         }),
       })
       const data = await res.json()
@@ -68,23 +70,13 @@ export default function BrokenForm({ bike, staffId }: Props) {
       <div className="section-pad">
         <div className="card">
           <div className="card-title">อาการที่พบ</div>
-          <div className="field-row">
+          <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">อธิบายอาการของรถ *</label>
             <textarea className="field-input" rows={4}
               placeholder="เช่น เครื่องไม่ติด, ยางแบน, ไฟหน้าไม่ติด..."
               value={description}
               onChange={e => setDescription(e.target.value)}
             />
-          </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">ระดับความรุนแรง</label>
-            <div className="severity-row">
-              {(['medium', 'critical'] as const).map(s => (
-                <button key={s} onClick={() => setSeverity(s)} className={`sev-btn ${severity === s ? (s === 'medium' ? 'active-low' : 'active-high') : ''}`}>
-                  {s === 'medium' ? '⚠️ ปานกลาง' : '🔴 วิกฤต'}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -100,15 +92,33 @@ export default function BrokenForm({ bike, staffId }: Props) {
         </div>
 
         <div className="card">
-          <div className="card-title">ตำแหน่งรถ / หมายเหตุ</div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">สถานที่ / หมายเหตุเพิ่มเติม</label>
-            <input className="field-input" type="text"
-              placeholder="เช่น อยู่ที่ร้านซ่อมแถวตลาด"
-              value={locationNote}
-              onChange={e => setLocationNote(e.target.value)}
-            />
+          <div className="card-title">ตำแหน่งรถ *</div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => setLocationType('shop')} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${locationType === 'shop' ? '#111827' : '#e5e7eb'}`,
+              background: locationType === 'shop' ? '#f1f5f9' : '#fff',
+              color: locationType === 'shop' ? '#111827' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>🏠 ที่ร้าน</button>
+            <button onClick={() => setLocationType('offsite')} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${locationType === 'offsite' ? '#dc2626' : '#e5e7eb'}`,
+              background: locationType === 'offsite' ? '#fef2f2' : '#fff',
+              color: locationType === 'offsite' ? '#dc2626' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>📍 นอกร้าน</button>
           </div>
+          {locationType === 'offsite' && (
+            <div className="field-row" style={{ marginTop: '10px', marginBottom: 0 }}>
+              <label className="field-label">ระบุว่าอยู่ที่ไหน *</label>
+              <input className="field-input" type="text"
+                placeholder="เช่น หน้าเซเว่นตลาดใหม่, ถนน... ตรงข้าม..."
+                value={locationAddress}
+                onChange={e => setLocationAddress(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
         <div style={{

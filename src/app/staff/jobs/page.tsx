@@ -78,7 +78,7 @@ export default async function JobsPage() {
       .limit(100)),
 
     applyBranch(supabase.from('repairs')
-      .select('id, title, description, status, created_at, bikes(id, license_plate, brand, model, color, photo_url)')
+      .select('id, title, description, status, created_at, location_type, location_address, bikes(id, license_plate, brand, model, color, photo_url)')
       .in('status', ['pending', 'in_progress'])
       .order('created_at', { ascending: false })
       .limit(20)),

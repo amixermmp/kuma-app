@@ -10,6 +10,9 @@ type Repair = {
   description: string
   status: string
   created_at: string
+  location_type: string | null
+  location_address: string | null
+  repair_photos: { url: string; label: string }[] | null
   bikes: { id: string; license_plate: string; brand: string; model: string }
 }
 
@@ -84,11 +87,26 @@ export default function RepairDoneForm({ repair, isFromSwap = false }: Props) {
             <span className="info-val">{fmtDate(repair.created_at)}</span>
           </div>
           <div className="info-row">
+            <span className="info-key">ตำแหน่งรถ</span>
+            <span className="info-val">
+              {repair.location_type === 'offsite'
+                ? `📍 นอกร้าน — ${repair.location_address || 'ไม่ระบุที่อยู่'}`
+                : repair.location_type === 'shop' ? '🏠 อยู่ที่ร้าน' : '—'}
+            </span>
+          </div>
+          <div className="info-row">
             <span className="info-key">สถานะ</span>
             <span className="info-val">
               <span className="badge badge-red">กำลังซ่อม</span>
             </span>
           </div>
+          {repair.repair_photos && repair.repair_photos.length > 0 && (
+            <div style={{ marginTop: '10px' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={repair.repair_photos[0].url} alt="รูปตอนแจ้งซ่อม"
+                style={{ width: '100%', maxHeight: '220px', objectFit: 'cover', borderRadius: '10px', display: 'block' }} />
+            </div>
+          )}
         </div>
 
         <div className="card">

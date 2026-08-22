@@ -673,6 +673,7 @@ export default function JobsClient({
                   badgeBg={isPending ? '#fef2f2' : '#fffbeb'} badgeColor={isPending ? '#dc2626' : '#d97706'}
                   meta1={`⚠️ ${r.title ?? r.description ?? 'ไม่ระบุอาการ'}`}
                   meta2={`📅 แจ้งเมื่อ ${fmtDate(r.created_at)}`}
+                  meta3={r.location_type === 'offsite' ? `📍 นอกร้าน — ${r.location_address || 'ไม่ระบุที่อยู่'}` : r.location_type === 'shop' ? '🏠 อยู่ที่ร้าน' : undefined}
                   href={`/staff/repair/${r.id}`} btnColor={isPending ? '#dc2626' : '#d97706'}
                   cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                 />
