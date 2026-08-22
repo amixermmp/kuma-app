@@ -51,7 +51,6 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
   const [to, setTo]                     = useState(preTo ?? '')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
-  const [customerHotel, setCustomerHotel] = useState('')
   const [source, setSource]             = useState('line')
   const [deliveryType, setDeliveryType] = useState<'shop' | 'offsite'>('shop')
   const [deliveryAddress, setDeliveryAddress] = useState('')
@@ -92,7 +91,6 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
       const { customer } = await res.json()
       if (customer) {
         setCustomerName(customer.name)
-        setCustomerHotel(customer.workplace ?? '')
       }
     } catch { /* silent */ }
   }, [])
@@ -122,7 +120,6 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
           staffId,
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim(),
-          customerHotel: customerHotel.trim() || null,
           startDatetime: bangkokToUTC(from),
           endDatetime: bangkokToUTC(to),
           totalDays,
@@ -251,15 +248,10 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
               onBlur={e => lookupCustomer(e.target.value)}
             />
           </div>
-          <div className="field-row">
+          <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">ชื่อ - นามสกุล *</label>
             <input className="field-input" type="text" placeholder="สมชาย ดีใจ"
               value={customerName} onChange={e => setCustomerName(e.target.value)} />
-          </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">โรงแรม / ที่พัก</label>
-            <input className="field-input" type="text" placeholder="Nap Park Hotel"
-              value={customerHotel} onChange={e => setCustomerHotel(e.target.value)} />
           </div>
         </div>
 

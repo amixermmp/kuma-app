@@ -27,7 +27,6 @@ export default function EditBookingForm({ booking, monthlyRate }: { booking: Boo
   const [to, setTo] = useState(utcToBangkokLocal(booking.endDatetime))
   const [customerName, setCustomerName]   = useState(booking.customerName)
   const [customerPhone, setCustomerPhone] = useState(booking.customerPhone)
-  const [customerHotel, setCustomerHotel] = useState(booking.customerHotel)
   const [notes, setNotes]                 = useState(booking.notes)
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState('')
@@ -55,7 +54,6 @@ export default function EditBookingForm({ booking, monthlyRate }: { booking: Boo
           totalAmount,
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim(),
-          customerHotel: customerHotel.trim() || null,
           notes: notes.trim() || null,
           overrideConflict,
         }),
@@ -142,13 +140,9 @@ export default function EditBookingForm({ booking, monthlyRate }: { booking: Boo
             <label className="field-label">เบอร์โทรศัพท์ *</label>
             <input className="field-input" type="tel" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
           </div>
-          <div className="field-row">
+          <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">ชื่อ - นามสกุล *</label>
             <input className="field-input" type="text" value={customerName} onChange={e => setCustomerName(e.target.value)} />
-          </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">โรงแรม / ที่พัก</label>
-            <input className="field-input" type="text" value={customerHotel} onChange={e => setCustomerHotel(e.target.value)} />
           </div>
         </div>
 
