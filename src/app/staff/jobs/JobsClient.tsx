@@ -70,8 +70,10 @@ type Tab = 'all' | 'sendcar' | 'returncar' | 'active' | 'broken' | 'routine' | '
 
 // ── main component ───────────────────────────────────────────
 export default function JobsClient({
-  sendJobs, overdueRentals, dueSoonRentals, activeRentals, repairs,
-  overdueRoutines, upcomingRoutines, docsDue, monthlyContactAlerts, allMonthlyRentals, brokenBookings,
+  sendJobs: sendJobsRaw, overdueRentals: overdueRentalsRaw, dueSoonRentals: dueSoonRentalsRaw,
+  activeRentals: activeRentalsRaw, repairs: repairsRaw,
+  overdueRoutines: overdueRoutinesRaw, upcomingRoutines: upcomingRoutinesRaw, docsDue: docsDueRaw,
+  monthlyContactAlerts: monthlyContactAlertsRaw, allMonthlyRentals: allMonthlyRentalsRaw, brokenBookings: brokenBookingsRaw,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sendJobs: any[]
@@ -97,10 +99,35 @@ export default function JobsClient({
   brokenBookings: any[]
 }) {
   const [tab, setTab] = useState<Tab>('all')
+  const [search, setSearch] = useState('')
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set())
   const [cancelling, setCancelling] = useState<string | null>(null)
   const [lockOverrides, setLockOverrides] = useState<Record<string, boolean>>({}) // bikeId -> isLocked
   const [lockLoadingId, setLockLoadingId] = useState<string | null>(null)
+
+  // ค้นหาทะเบียน/ชื่อ/เบอร์ลูกค้า — กรองทุกหมวดตั้งแต่ต้นทาง เผื่อรายการเยอะจนต้องเลื่อนหา
+  // (เช่น รถคันนี้โอนมาต่อสัญญา ต้องหาในหมวดรายเดือน/เช่าอยู่ที่รายการยาว)
+  const norm = (s: string) => s.toLowerCase().replace(/\s/g, '')
+  const searchTerm = norm(search)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const matchesSearch = (item: any) => {
+    if (!searchTerm) return true
+    const plate = item.bikes?.license_plate ?? ''
+    const name = item.customers?.name ?? item.customer_name ?? ''
+    const phone = item.customers?.phone ?? item.customer_phone ?? ''
+    return norm(String(plate)).includes(searchTerm) || norm(String(name)).includes(searchTerm) || norm(String(phone)).includes(searchTerm)
+  }
+  const sendJobs = sendJobsRaw.filter(matchesSearch)
+  const overdueRentals = overdueRentalsRaw.filter(matchesSearch)
+  const dueSoonRentals = dueSoonRentalsRaw.filter(matchesSearch)
+  const activeRentals = activeRentalsRaw.filter(matchesSearch)
+  const repairs = repairsRaw.filter(matchesSearch)
+  const overdueRoutines = overdueRoutinesRaw.filter(matchesSearch)
+  const upcomingRoutines = upcomingRoutinesRaw.filter(matchesSearch)
+  const docsDue = docsDueRaw.filter(matchesSearch)
+  const monthlyContactAlerts = monthlyContactAlertsRaw.filter(matchesSearch)
+  const allMonthlyRentals = allMonthlyRentalsRaw.filter(matchesSearch)
+  const brokenBookings = brokenBookingsRaw.filter(matchesSearch)
 
   const handleCancel = async (bookingId: string) => {
     if (!window.confirm('ยืนยันยกเลิกการจองนี้?')) return
@@ -229,6 +256,34 @@ export default function JobsClient({
         })}
       </div>
 
+      {/* ค้นหาทะเบียน/ลูกค้า — กันเลื่อนหาในหมวดที่รายการยาว (รายเดือน, เช่าอยู่ ฯลฯ) */}
+      <div style={{ background: '#fff', padding: '10px 12px', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ position: 'relative' }}>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="🔍 ค้นหาทะเบียน / ชื่อ / เบอร์ลูกค้า"
+            style={{
+              width: '100%', padding: '9px 34px 9px 12px', borderRadius: '10px',
+              border: '1.5px solid #e5e7eb', fontSize: '13px', fontFamily: 'inherit',
+              boxSizing: 'border-box',
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              style={{
+                position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
+                background: '#f3f4f6', border: 'none', borderRadius: '50%',
+                width: '20px', height: '20px', fontSize: '12px', color: '#6b7280', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >✕</button>
+          )}
+        </div>
+      </div>
+
       <div style={{ padding: '0 12px 80px' }}>
 
         {total === 0 && (
@@ -237,7 +292,7 @@ export default function JobsClient({
             background: '#f9fafb', borderRadius: '12px',
             color: '#9ca3af', fontSize: '14px', marginTop: '16px',
           }}>
-            ✅ ไม่มีงานค้างอยู่
+            {search ? `🔍 ไม่พบ "${search}"` : '✅ ไม่มีงานค้างอยู่'}
           </div>
         )}
 
@@ -731,7 +786,7 @@ export default function JobsClient({
             background: '#f9fafb', borderRadius: '12px',
             color: '#9ca3af', fontSize: '14px', marginTop: '16px',
           }}>
-            ✅ ไม่มีงานในหมวดนี้
+            {search ? `🔍 ไม่พบ "${search}" ในหมวดนี้` : '✅ ไม่มีงานในหมวดนี้'}
           </div>
         )}
 
