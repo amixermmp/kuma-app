@@ -146,28 +146,32 @@ function DailyCard({ rental, showBranchName }: { rental: DailyRental; showBranch
   else { pill = { label: `คืน ${fmtDate(rental.expectedEndDatetime)}`, color: '#f87171' }; accentColor = '#ef4444' }
   const lines = [`👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`]
   if (rental.returnType === 'offsite') lines.push(`🛵 คืนที่: ${rental.returnAddress || 'นอกสถานที่'}`)
+  const pills = [pill]
+  if (rental.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${rental.dueTasks.join(', ')}`, color: '#ef4444' })
   return (
     <GridCard
-      accentColor={accentColor}
+      accentColor={rental.dueTasks.length > 0 ? '#ef4444' : accentColor}
       title={`${rental.licensePlate}${branchSuffix(rental.branchName, showBranchName)}`}
       subtitle={`${rental.brand} ${rental.model}`}
       lines={lines}
-      pills={[pill]}
+      pills={pills}
     />
   )
 }
 
 function MonthlyCard({ rental, showBranchName }: { rental: MonthlyRental; showBranchName: boolean }) {
+  const pills = [{ label: 'รายเดือน', color: '#a78bfa' }]
+  if (rental.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${rental.dueTasks.join(', ')}`, color: '#ef4444' })
   return (
     <GridCard
-      accentColor="#a78bfa"
+      accentColor={rental.dueTasks.length > 0 ? '#ef4444' : '#a78bfa'}
       title={`${rental.licensePlate}${branchSuffix(rental.branchName, showBranchName)}`}
       subtitle={`${rental.brand} ${rental.model}`}
       lines={[
         `👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`,
         `฿${rental.monthlyRate.toLocaleString()}/เดือน • ครบวันที่ ${rental.paymentDay}`,
       ]}
-      pills={[{ label: 'รายเดือน', color: '#a78bfa' }]}
+      pills={pills}
     />
   )
 }

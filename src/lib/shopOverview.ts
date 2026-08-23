@@ -30,6 +30,7 @@ export type DailyRental = {
   expectedEndDatetime: string
   returnType: string | null
   returnAddress: string | null
+  dueTasks: string[]
 }
 
 export type MonthlyRental = {
@@ -45,6 +46,7 @@ export type MonthlyRental = {
   startDate: string
   paymentDay: number
   monthlyRate: number
+  dueTasks: string[]
 }
 
 export type RepairJob = {
@@ -97,12 +99,12 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
       .order('license_plate')),
 
     applyBranch(admin.from('rentals')
-      .select('id, bike_id, start_datetime, expected_end_datetime, return_type, return_address, bikes(license_plate, brand, model, color, branches(name)), customers(name, phone)')
+      .select('id, bike_id, start_datetime, expected_end_datetime, return_type, return_address, bikes(license_plate, brand, model, color, odometer, branches(name)), customers(name, phone)')
       .in('status', ['active', 'extended'])
       .order('expected_end_datetime', { ascending: true })),
 
     applyBranch(admin.from('monthly_rentals')
-      .select('id, bike_id, start_date, payment_day, monthly_rate, bikes(license_plate, brand, model, color, branches(name)), customers(name, phone)')
+      .select('id, bike_id, start_date, payment_day, monthly_rate, bikes(license_plate, brand, model, color, odometer, branches(name)), customers(name, phone)')
       .eq('status', 'active')
       .order('payment_day', { ascending: true })),
 
@@ -124,17 +126,22 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
 
   const atShopRaw = (bikesRaw ?? []).filter((b: { id: string }) => !busyBikeIds.has(b.id))
 
-  // รูทีนที่ถึงกำหนดแล้วของรถที่อยู่ในร้าน — ใช้เกณฑ์เดียวกับหน้ารูทีน/แบนเนอร์ตอนคืนรถ
-  const atShopIds = atShopRaw.map((b: { id: string }) => b.id)
+  // รูทีนที่ถึงกำหนดแล้ว — เช็คทุกคันที่โชว์ในหน้านี้ (อยู่ร้าน + เช่ารายวัน + เช่ารายเดือน)
+  // ใช้เกณฑ์เดียวกับหน้ารูทีน/แบนเนอร์ตอนคืนรถ
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const odometerByBike = new Map<string, number>(atShopRaw.map((b: any) => [b.id, b.odometer ?? 0]))
+  for (const r of dailyList) odometerByBike.set(r.bike_id, r.bikes?.odometer ?? 0)
+  for (const r of monthlyList) odometerByBike.set(r.bike_id, r.bikes?.odometer ?? 0)
+
+  const routineCheckIds = Array.from(odometerByBike.keys())
   const dueTasksByBike = new Map<string, string[]>()
-  if (atShopIds.length > 0) {
+  if (routineCheckIds.length > 0) {
     const { data: routines } = await admin
       .from('bike_routines')
       .select('bike_id, task_name, next_due_km, next_due_date')
-      .in('bike_id', atShopIds)
+      .in('bike_id', routineCheckIds)
     for (const r of routines ?? []) {
-      const bike = atShopRaw.find((b: { id: string }) => b.id === r.bike_id)
-      const odometer = bike?.odometer ?? 0
+      const odometer = odometerByBike.get(r.bike_id) ?? 0
       const { urgency } = calcRoutineUrgency({ next_due_km: r.next_due_km, next_due_date: r.next_due_date }, odometer)
       if (urgency === 'overdue') {
         const list = dueTasksByBike.get(r.bike_id) ?? []
@@ -166,6 +173,7 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
     expectedEndDatetime: r.expected_end_datetime,
     returnType: r.return_type,
     returnAddress: r.return_address,
+    dueTasks: dueTasksByBike.get(r.bike_id) ?? [],
   }))
 
   const monthlyRentals: MonthlyRental[] = monthlyList.map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -177,6 +185,7 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
     startDate: r.start_date,
     paymentDay: r.payment_day,
     monthlyRate: r.monthly_rate,
+    dueTasks: dueTasksByBike.get(r.bike_id) ?? [],
   }))
 
   const repairs: RepairJob[] = repairsList.map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
