@@ -48,16 +48,15 @@ export default async function CloseShopPage() {
   }
 
   const groups = await getShopOverviewGroups(admin, [branchId])
-  const expectedPlates = [
-    ...groups.atShop.map(b => b.licensePlate),
-    ...groups.repairs.filter(r => r.locationType === 'shop').map(r => r.licensePlate),
-  ]
+  const shopPlates = groups.atShop.map(b => b.licensePlate)
+  const repairPlates = groups.repairs.filter(r => r.locationType === 'shop').map(r => r.licensePlate)
 
   return (
     <CloseShopClient
       staffName={staffName}
       branchName={branchName}
-      expectedPlates={expectedPlates}
+      shopPlates={shopPlates}
+      repairPlates={repairPlates}
     />
   )
 }

@@ -14,9 +14,10 @@ type PlateEntryStatus =
   | { kind: 'mismatch'; preview: string; url: string; detectedPlates: string[] }
   | { kind: 'manual'; preview: string; url: string; detectedPlates: string[] }
 
-type Props = { staffName: string; branchName: string; expectedPlates: string[] }
+type Props = { staffName: string; branchName: string; shopPlates: string[]; repairPlates: string[] }
 
-export default function CloseShopClient({ staffName, branchName, expectedPlates }: Props) {
+export default function CloseShopClient({ staffName, branchName, shopPlates, repairPlates }: Props) {
+  const expectedPlates = [...shopPlates, ...repairPlates]
   const router = useRouter()
   const selfieInputRef = useRef<HTMLInputElement>(null)
   const activePlateRef = useRef<string | null>(null)
@@ -250,84 +251,25 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
 
         {/* checklist — each row is its own photo-attach point */}
         <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          รายการรถที่ควรอยู่ร้าน ({expectedPlates.length}) — ถ่ายรูปแนบทีละคัน
+          รายการรถที่ควรอยู่ร้าน ({shopPlates.length}) — ถ่ายรูปแนบทีละคัน
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-          {expectedPlates.length === 0 && (
+          {shopPlates.length === 0 && (
             <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af', fontSize: '13px' }}>ไม่มีรถที่ควรอยู่ร้านตอนนี้</div>
           )}
-          {expectedPlates.map(plate => {
-            const status = statusOf(plate)
-            const bg = status.kind === 'matched' || status.kind === 'manual' ? '#f0fdf4'
-              : status.kind === 'mismatch' ? '#fef2f2' : '#f9fafb'
-            const border = status.kind === 'matched' || status.kind === 'manual' ? '#bbf7d0'
-              : status.kind === 'mismatch' ? '#fecaca' : '#e5e7eb'
-            const textColor = status.kind === 'matched' || status.kind === 'manual' ? '#16a34a'
-              : status.kind === 'mismatch' ? '#dc2626' : '#374151'
-
-            return (
-              <div key={plate} style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: '12px', padding: '10px 12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {(status.kind === 'uploading' || status.kind === 'matched' || status.kind === 'mismatch' || status.kind === 'manual') ? (
-                    <div style={{ position: 'relative', flexShrink: 0, width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', background: '#f1f5f9' }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={status.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      {status.kind === 'uploading' && (
-                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px' }}>⏳</div>
-                      )}
-                    </div>
-                  ) : (
-                    <span style={{
-                      width: '48px', height: '48px', borderRadius: '8px', flexShrink: 0,
-                      border: '1.5px dashed #d1d5db', background: '#fff',
-                    }} />
-                  )}
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: textColor }}>{plate}</div>
-                    {status.kind === 'matched' && <div style={{ fontSize: '11px', color: '#16a34a' }}>✅ ตรง</div>}
-                    {status.kind === 'manual' && <div style={{ fontSize: '11px', color: '#16a34a' }}>✋ ยืนยันเอง</div>}
-                    {status.kind === 'mismatch' && (
-                      <div style={{ fontSize: '11px', color: '#dc2626' }}>
-                        ⚠️ ป้ายไม่ตรง{status.detectedPlates.length > 0 ? ` (บอทอ่านได้: ${status.detectedPlates.join(', ')})` : ' (บอทอ่านป้ายไม่ได้)'}
-                      </div>
-                    )}
-                  </div>
-
-                  {status.kind === 'empty' && (
-                    <button onClick={() => openCameraFor(plate)} style={{
-                      flexShrink: 0, padding: '8px 14px', borderRadius: '10px', border: 'none',
-                      background: '#111', color: '#fff', fontSize: '12px', fontWeight: 700,
-                      fontFamily: 'inherit', cursor: 'pointer',
-                    }}>📷 ถ่ายรูป</button>
-                  )}
-                  {status.kind === 'matched' && (
-                    <button onClick={() => openCameraFor(plate)} style={{
-                      flexShrink: 0, padding: '8px 12px', borderRadius: '10px', border: '1.5px solid #bbf7d0',
-                      background: 'transparent', color: '#16a34a', fontSize: '12px', fontWeight: 700,
-                      fontFamily: 'inherit', cursor: 'pointer',
-                    }}>ถ่ายใหม่</button>
-                  )}
-                </div>
-
-                {status.kind === 'mismatch' && (
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                    <button onClick={() => openCameraFor(plate)} style={{
-                      flex: 1, padding: '9px', borderRadius: '10px', border: '1.5px solid #fecaca',
-                      background: '#fff', color: '#dc2626', fontSize: '12px', fontWeight: 700,
-                      fontFamily: 'inherit', cursor: 'pointer',
-                    }}>ถ่ายใหม่</button>
-                    <button onClick={() => confirmManually(plate)} style={{
-                      flex: 1, padding: '9px', borderRadius: '10px', border: 'none',
-                      background: '#111', color: '#fff', fontSize: '12px', fontWeight: 700,
-                      fontFamily: 'inherit', cursor: 'pointer',
-                    }}>ยืนยันว่าใช่คันนี้</button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {shopPlates.map(plate => <PlateRow key={plate} plate={plate} status={statusOf(plate)} openCameraFor={openCameraFor} confirmManually={confirmManually} />)}
         </div>
+
+        {repairPlates.length > 0 && (
+          <>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#b45309', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              🔧 รถเสียที่ร้าน ({repairPlates.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              {repairPlates.map(plate => <PlateRow key={plate} plate={plate} status={statusOf(plate)} openCameraFor={openCameraFor} confirmManually={confirmManually} />)}
+            </div>
+          </>
+        )}
 
         {error && (
           <div style={{ color: '#dc2626', fontSize: '13px', textAlign: 'center', marginBottom: '12px' }}>{error}</div>
@@ -358,6 +300,82 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
           ถ่ายรูปปิดร้าน →
         </button>
       </div>
+    </div>
+  )
+}
+
+function PlateRow({ plate, status, openCameraFor, confirmManually }: {
+  plate: string
+  status: PlateEntryStatus
+  openCameraFor: (plate: string) => void
+  confirmManually: (plate: string) => void
+}) {
+  const bg = status.kind === 'matched' || status.kind === 'manual' ? '#f0fdf4'
+    : status.kind === 'mismatch' ? '#fef2f2' : '#f9fafb'
+  const border = status.kind === 'matched' || status.kind === 'manual' ? '#bbf7d0'
+    : status.kind === 'mismatch' ? '#fecaca' : '#e5e7eb'
+  const textColor = status.kind === 'matched' || status.kind === 'manual' ? '#16a34a'
+    : status.kind === 'mismatch' ? '#dc2626' : '#374151'
+
+  return (
+    <div style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: '12px', padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {(status.kind === 'uploading' || status.kind === 'matched' || status.kind === 'mismatch' || status.kind === 'manual') ? (
+          <div style={{ position: 'relative', flexShrink: 0, width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', background: '#f1f5f9' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={status.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {status.kind === 'uploading' && (
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px' }}>⏳</div>
+            )}
+          </div>
+        ) : (
+          <span style={{
+            width: '48px', height: '48px', borderRadius: '8px', flexShrink: 0,
+            border: '1.5px dashed #d1d5db', background: '#fff',
+          }} />
+        )}
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: textColor }}>{plate}</div>
+          {status.kind === 'matched' && <div style={{ fontSize: '11px', color: '#16a34a' }}>✅ ตรง</div>}
+          {status.kind === 'manual' && <div style={{ fontSize: '11px', color: '#16a34a' }}>✋ ยืนยันเอง</div>}
+          {status.kind === 'mismatch' && (
+            <div style={{ fontSize: '11px', color: '#dc2626' }}>
+              ⚠️ ป้ายไม่ตรง{status.detectedPlates.length > 0 ? ` (บอทอ่านได้: ${status.detectedPlates.join(', ')})` : ' (บอทอ่านป้ายไม่ได้)'}
+            </div>
+          )}
+        </div>
+
+        {status.kind === 'empty' && (
+          <button onClick={() => openCameraFor(plate)} style={{
+            flexShrink: 0, padding: '8px 14px', borderRadius: '10px', border: 'none',
+            background: '#111', color: '#fff', fontSize: '12px', fontWeight: 700,
+            fontFamily: 'inherit', cursor: 'pointer',
+          }}>📷 ถ่ายรูป</button>
+        )}
+        {status.kind === 'matched' && (
+          <button onClick={() => openCameraFor(plate)} style={{
+            flexShrink: 0, padding: '8px 12px', borderRadius: '10px', border: '1.5px solid #bbf7d0',
+            background: 'transparent', color: '#16a34a', fontSize: '12px', fontWeight: 700,
+            fontFamily: 'inherit', cursor: 'pointer',
+          }}>ถ่ายใหม่</button>
+        )}
+      </div>
+
+      {status.kind === 'mismatch' && (
+        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+          <button onClick={() => openCameraFor(plate)} style={{
+            flex: 1, padding: '9px', borderRadius: '10px', border: '1.5px solid #fecaca',
+            background: '#fff', color: '#dc2626', fontSize: '12px', fontWeight: 700,
+            fontFamily: 'inherit', cursor: 'pointer',
+          }}>ถ่ายใหม่</button>
+          <button onClick={() => confirmManually(plate)} style={{
+            flex: 1, padding: '9px', borderRadius: '10px', border: 'none',
+            background: '#111', color: '#fff', fontSize: '12px', fontWeight: 700,
+            fontFamily: 'inherit', cursor: 'pointer',
+          }}>ยืนยันว่าใช่คันนี้</button>
+        </div>
+      )}
     </div>
   )
 }
