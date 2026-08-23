@@ -16,6 +16,7 @@ type BikeResult = {
   year: number | null
   daily_rate: number
   monthly_rate: number | null
+  promo_pay_days: number
   odometer: number
   status: string
   available: boolean
@@ -29,6 +30,7 @@ type ModelGroup = {
   model: string
   daily_rate: number
   monthly_rate: number | null
+  promoPayDays: number
   availableCount: number
   totalCount: number
   bikes: BikeResult[]
@@ -52,7 +54,7 @@ function groupByModel(bikes: BikeResult[]): ModelGroup[] {
   for (const bike of bikes) {
     const key = `${bike.brand}__${bike.model}__${bike.daily_rate}__${bike.monthly_rate ?? ''}`
     if (!map.has(key)) {
-      map.set(key, { key, brand: bike.brand, model: bike.model, daily_rate: bike.daily_rate, monthly_rate: bike.monthly_rate, availableCount: 0, totalCount: 0, bikes: [] })
+      map.set(key, { key, brand: bike.brand, model: bike.model, daily_rate: bike.daily_rate, monthly_rate: bike.monthly_rate, promoPayDays: bike.promo_pay_days, availableCount: 0, totalCount: 0, bikes: [] })
     }
     const g = map.get(key)!
     g.totalCount++
@@ -193,7 +195,7 @@ export default function SearchPage() {
             {/* Available model groups */}
             {availableGroups.map(group => {
               const mcr = group.monthly_rate ?? group.daily_rate * 30
-              const quote = days > 0 ? calcRentQuote(new Date(from), days, group.daily_rate, mcr) : null
+              const quote = days > 0 ? calcRentQuote(new Date(from), days, group.daily_rate, mcr, group.promoPayDays) : null
               const total = quote?.total ?? group.daily_rate * days
               const calcDays = quote?.shortResult?.calcDays ?? days
               const hasDiscount = quote && !quote.isLong && calcDays < days
@@ -243,7 +245,7 @@ export default function SearchPage() {
                       ฿{total.toLocaleString()}
                     </div>
                     <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                      {hasDiscount ? `฿${group.daily_rate.toLocaleString()} × ${calcDays} วัน (โปร 7 วัน จ่าย 5)` : `฿${group.daily_rate.toLocaleString()} × ${days} วัน`}
+                      {hasDiscount ? `฿${group.daily_rate.toLocaleString()} × ${calcDays} วัน (โปร 7 วัน จ่าย ${group.promoPayDays})` : `฿${group.daily_rate.toLocaleString()} × ${days} วัน`}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>

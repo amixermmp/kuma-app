@@ -26,6 +26,7 @@ type Props = {
   periodEnd: string | null
   periodPaidAmount: number
   staffId: string
+  promoPayDays?: number
 }
 
 function fmtDate(iso: string) {
@@ -34,7 +35,7 @@ function fmtDate(iso: string) {
   })
 }
 
-export default function MonthlyEndClient({ rental, totalCollected, monthsRented, periodStart, periodEnd, periodPaidAmount }: Props) {
+export default function MonthlyEndClient({ rental, totalCollected, monthsRented, periodStart, periodEnd, periodPaidAmount, promoPayDays = 5 }: Props) {
   const router = useRouter()
   const bike = rental.bikes
   const customer = rental.customers
@@ -48,7 +49,7 @@ export default function MonthlyEndClient({ rental, totalCollected, monthsRented,
   const actualDaysUsed = Math.max(1, Math.ceil(Math.max(0, now - periodStartMs) / 86_400_000))
   const normalMonthlyRate = bike.monthly_rate || bike.daily_rate * 30
   const recalculatedCharge = isEarly
-    ? calcRentQuote(new Date(periodStartMs), actualDaysUsed, bike.daily_rate, normalMonthlyRate).total
+    ? calcRentQuote(new Date(periodStartMs), actualDaysUsed, bike.daily_rate, normalMonthlyRate, promoPayDays).total
     : periodPaidAmount
   const earlyReturnRefund = isEarly ? Math.max(0, periodPaidAmount - recalculatedCharge) : 0
 

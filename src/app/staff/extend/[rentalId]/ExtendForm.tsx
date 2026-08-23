@@ -31,6 +31,7 @@ type Props = {
   rental: Rental
   staffId: string
   upcomingBookings: UpcomingBooking[]
+  promoPayDays?: number
 }
 
 function fmtDate(iso: string) {
@@ -72,7 +73,7 @@ function ExtendSuccessScreen({ customerName, bikeLabel, newEndIso }: { customerN
   )
 }
 
-export default function ExtendForm({ rental, upcomingBookings }: Props) {
+export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5 }: Props) {
   const router = useRouter()
   const bike = rental.bikes
   const customer = rental.customers
@@ -139,7 +140,7 @@ export default function ExtendForm({ rental, upcomingBookings }: Props) {
   // มีผลเหมือนถูกนับเป็นส่วนหนึ่งของแพ็กเกจ 7 วัน ปลดล็อกส่วนลดให้ทั้งที่ไม่ได้จ่ายเป็นก้อนจริง
   // (บางเคสยอดจ่ายสะสมมากกว่าราคาสัญญารวมตามสูตรโปรด้วยซ้ำ ทำให้ปุ่มรายสัปดาห์ขึ้น ฿0)
   const weeklyPromoIncrementalCostFor = (n: number) =>
-    calcRentQuote(extendFromDt, n, rateChangedFromSwap ? currentEffectiveDailyRate : effectiveDailyRate, monthlyRate).total
+    calcRentQuote(extendFromDt, n, rateChangedFromSwap ? currentEffectiveDailyRate : effectiveDailyRate, monthlyRate, promoPayDays).total
   // ราคาเต็มไม่มีโปร — ใช้กับการทยอยจ่ายทีละวัน (พิมพ์เองหรือกด +1 วัน)
   const flatIncrementalCostFor = (n: number) => n * (rateChangedFromSwap ? currentEffectiveDailyRate : effectiveDailyRate)
 

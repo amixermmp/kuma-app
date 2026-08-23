@@ -14,17 +14,17 @@ export type PriceResult = {
 
 const DAY_MS = 86_400_000
 
-function calcDailySegment(days: number, ndr: number, mcr: number): { calcDays: number; price: number } {
-  const calcDays = Math.floor(days / 7) * 5 + Math.min(days % 7, 5)
+function calcDailySegment(days: number, ndr: number, mcr: number, payDays = 5): { calcDays: number; price: number } {
+  const calcDays = Math.floor(days / 7) * payDays + Math.min(days % 7, payDays)
   return { calcDays, price: Math.min(calcDays * ndr, mcr) }
 }
 
-export function calcShortPrice(totalDays: number, ndr: number): { calcDays: number; total: number } {
-  const calcDays = Math.floor(totalDays / 7) * 5 + Math.min(totalDays % 7, 5)
+export function calcShortPrice(totalDays: number, ndr: number, payDays = 5): { calcDays: number; total: number } {
+  const calcDays = Math.floor(totalDays / 7) * payDays + Math.min(totalDays % 7, payDays)
   return { calcDays, total: calcDays * ndr }
 }
 
-export function calcLongPrice(start: Date, end: Date, ndr: number, mcr: number): PriceResult | null {
+export function calcLongPrice(start: Date, end: Date, ndr: number, mcr: number, payDays = 5): PriceResult | null {
   if (end <= start) return null
 
   let cursor = new Date(start)
@@ -56,7 +56,7 @@ export function calcLongPrice(start: Date, end: Date, ndr: number, mcr: number):
   let calcRemainDays = 0
 
   if (remainDays > 0) {
-    const seg = calcDailySegment(remainDays, ndr, mcr)
+    const seg = calcDailySegment(remainDays, ndr, mcr, payDays)
     calcRemainDays = seg.calcDays
     remainPrice = seg.price
     total += remainPrice
@@ -73,7 +73,8 @@ export function calendarDays(start: Date, end: Date): number {
 }
 
 // ราคารวมจากวันเริ่ม + จำนวนวัน — ให้หน้าจองคิดราคาตรงกับหน้าส่งรถเป๊ะ
-export function calcRentQuote(startDt: Date, totalDays: number, ndr: number, mcr: number): {
+// payDays = จำนวนวันที่จ่ายต่อรอบ 7 วัน (ค่ากลาง 5 = ฟรี 2 วัน) — ตั้งได้ต่อรุ่นผ่าน bike_models.promo_pay_days
+export function calcRentQuote(startDt: Date, totalDays: number, ndr: number, mcr: number, payDays = 5): {
   isLong: boolean
   longResult: PriceResult | null
   shortResult: { calcDays: number; total: number } | null
@@ -81,7 +82,7 @@ export function calcRentQuote(startDt: Date, totalDays: number, ndr: number, mcr
 } {
   const isLong = totalDays >= 30
   const billingEnd = new Date(startDt.getTime() + totalDays * DAY_MS)
-  const longResult = isLong ? calcLongPrice(startDt, billingEnd, ndr, mcr) : null
-  const shortResult = !isLong ? calcShortPrice(totalDays, ndr) : null
+  const longResult = isLong ? calcLongPrice(startDt, billingEnd, ndr, mcr, payDays) : null
+  const shortResult = !isLong ? calcShortPrice(totalDays, ndr, payDays) : null
   return { isLong, longResult, shortResult, total: isLong ? (longResult?.total ?? 0) : (shortResult?.total ?? 0) }
 }

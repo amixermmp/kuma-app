@@ -9,10 +9,10 @@ async function requireOwner() {
   return user
 }
 
-// เพิ่มยี่ห้อ หรือ รุ่น
+// เพิ่มยี่ห้อ หรือ รุ่น หรือแก้ค่าโปรของรุ่น
 export async function POST(request: NextRequest) {
   if (!(await requireOwner())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { type, brand, name } = await request.json()
+  const { type, brand, name, promoPayDays } = await request.json()
   const admin = createAdminClient()
 
   if (type === 'brand') {
@@ -26,6 +26,17 @@ export async function POST(request: NextRequest) {
     if (!brand?.trim() || !name?.trim()) return NextResponse.json({ error: 'กรุณาระบุยี่ห้อและรุ่น' }, { status: 400 })
     const { error } = await admin.from('bike_models').insert({ brand: brand.trim(), name: name.trim() })
     if (error) return NextResponse.json({ error: error.code === '23505' ? 'มีรุ่นนี้อยู่แล้ว' : error.message }, { status: 400 })
+    return NextResponse.json({ success: true })
+  }
+
+  if (type === 'model_promo') {
+    if (!brand?.trim() || !name?.trim()) return NextResponse.json({ error: 'กรุณาระบุยี่ห้อและรุ่น' }, { status: 400 })
+    const value = promoPayDays === null || promoPayDays === undefined ? null : Number(promoPayDays)
+    if (value !== null && (!Number.isInteger(value) || value < 1 || value > 7)) {
+      return NextResponse.json({ error: 'จำนวนวันต้องเป็น 1-7' }, { status: 400 })
+    }
+    const { error } = await admin.from('bike_models').update({ promo_pay_days: value }).eq('brand', brand.trim()).eq('name', name.trim())
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json({ success: true })
   }
 

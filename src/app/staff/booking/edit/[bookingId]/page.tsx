@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
+import { getPromoPayDays } from '@/lib/bikeCatalog'
 import EditBookingForm from './EditBookingForm'
 
 export const dynamic = 'force-dynamic'
@@ -50,6 +51,10 @@ export default async function EditBookingPage({ params }: { params: { bookingId:
     monthlyRate = modelBike?.monthly_rate ?? booking.daily_rate * 30
   }
 
+  const promoBrand = bike?.brand ?? booking.requested_brand
+  const promoModel = bike?.model ?? booking.requested_model
+  const promoPayDays = promoBrand && promoModel ? await getPromoPayDays(supabase, promoBrand, promoModel) : 5
+
   return (
     <EditBookingForm
       booking={{
@@ -65,6 +70,7 @@ export default async function EditBookingPage({ params }: { params: { bookingId:
         dailyRate: booking.daily_rate,
       }}
       monthlyRate={monthlyRate}
+      promoPayDays={promoPayDays}
     />
   )
 }

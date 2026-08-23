@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getPromoPayDays } from '@/lib/bikeCatalog'
 import BookingModelForm from './BookingModelForm'
 
 export const dynamic = 'force-dynamic'
@@ -28,6 +29,8 @@ export default async function BookingModelPage({
     .limit(1)
     .maybeSingle()
 
+  const promoPayDays = await getPromoPayDays(admin, brand, model)
+
   return (
     <BookingModelForm
       brand={brand}
@@ -37,6 +40,7 @@ export default async function BookingModelPage({
       from={from}
       to={to}
       staffId={staffId}
+      promoPayDays={promoPayDays}
     />
   )
 }

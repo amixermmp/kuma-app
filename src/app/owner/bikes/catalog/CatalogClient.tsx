@@ -10,6 +10,10 @@ export default function CatalogClient({ brands, models }: { brands: string[]; mo
   const [err, setErr] = useState('')
   const [newBrand, setNewBrand] = useState('')
   const [newModel, setNewModel] = useState<Record<string, string>>({})
+  const [promoDays, setPromoDays] = useState<Record<string, string>>(
+    Object.fromEntries(models.map(m => [`${m.brand}__${m.name}`, m.promoPayDays != null ? String(m.promoPayDays) : '']))
+  )
+  const [promoMsg, setPromoMsg] = useState<Record<string, string>>({})
 
   const call = async (method: 'POST' | 'DELETE', body: object) => {
     setBusy(true); setErr('')
@@ -28,6 +32,15 @@ export default function CatalogClient({ brands, models }: { brands: string[]; mo
   const addModel = async (brand: string) => {
     const name = newModel[brand] ?? ''
     if (await call('POST', { type: 'model', brand, name })) setNewModel(p => ({ ...p, [brand]: '' }))
+  }
+  const savePromoDays = async (brand: string, name: string) => {
+    const key = `${brand}__${name}`
+    const raw = promoDays[key] ?? ''
+    const value = raw.trim() === '' ? null : parseInt(raw, 10)
+    setPromoMsg(p => ({ ...p, [key]: '' }))
+    const ok = await call('POST', { type: 'model_promo', brand, name, promoPayDays: value })
+    setPromoMsg(p => ({ ...p, [key]: ok ? '✅' : '❌' }))
+    setTimeout(() => setPromoMsg(p => ({ ...p, [key]: '' })), 2000)
   }
 
   return (
@@ -58,13 +71,29 @@ export default function CatalogClient({ brands, models }: { brands: string[]; mo
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
               {brandModels.length === 0 && <div style={{ fontSize: '12px', color: '#9ca3af' }}>ยังไม่มีรุ่น</div>}
-              {brandModels.map(m => (
-                <div key={m.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: '#f9fafb', borderRadius: '8px' }}>
-                  <span style={{ flex: 1, fontSize: '13px', color: '#374151' }}>{m.name}</span>
-                  <button disabled={busy} onClick={() => call('DELETE', { type: 'model', brand, name: m.name })}
-                    style={{ color: '#9ca3af', background: 'none', border: 'none', fontSize: '16px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+              {brandModels.map(m => {
+                const key = `${brand}__${m.name}`
+                return (
+                <div key={m.name} style={{ padding: '6px 10px', background: '#f9fafb', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ flex: 1, fontSize: '13px', color: '#374151' }}>{m.name}</span>
+                    <button disabled={busy} onClick={() => call('DELETE', { type: 'model', brand, name: m.name })}
+                      style={{ color: '#9ca3af', background: 'none', border: 'none', fontSize: '16px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                    <span style={{ fontSize: '11px', color: '#9ca3af' }}>โปรจ่าย</span>
+                    <input type="number" min={1} max={7} className="field-input" style={{ width: '52px', padding: '4px 6px', fontSize: '12px' }}
+                      placeholder="5" value={promoDays[key] ?? ''}
+                      onChange={e => setPromoDays(p => ({ ...p, [key]: e.target.value }))} />
+                    <span style={{ fontSize: '11px', color: '#9ca3af' }}>จาก 7 วัน</span>
+                    <button disabled={busy} onClick={() => savePromoDays(brand, m.name)}
+                      style={{ marginLeft: 'auto', color: '#111827', background: 'none', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '11px', padding: '3px 8px', cursor: 'pointer' }}>
+                      {promoMsg[key] || 'บันทึก'}
+                    </button>
+                  </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
 
             <div style={{ display: 'flex', gap: '8px' }}>

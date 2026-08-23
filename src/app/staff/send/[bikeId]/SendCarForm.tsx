@@ -120,6 +120,7 @@ type Props = {
   prefillFrom?: string  // datetime-local Bangkok format e.g. "2026-07-01T10:00"
   prefillTo?: string
   upcomingBookings?: UpcomingBooking[]
+  promoPayDays?: number
 }
 
 type PhotoState = {
@@ -183,7 +184,7 @@ function bkkTimePart(iso: string): string {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings }: Props) {
+export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings, promoPayDays = 5 }: Props) {
   const DRAFT_KEY = `send_draft_${bike.id}`
 
   useEffect(() => {
@@ -456,16 +457,16 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const ndr = studentPromo && studentPromoEligible ? baseDailyRate - studentDiscountPerDay : baseDailyRate
   const mcr = parseFloat(mMonthlyRate) || bike.monthly_rate || bike.daily_rate * 30
 
-  const longResult  = isLongRental && totalDays > 0 ? calcLongPrice(startDt, billingEndDt, ndr, mcr) : null
-  const shortResult = !isLongRental ? calcShortPrice(totalDays, ndr) : null
+  const longResult  = isLongRental && totalDays > 0 ? calcLongPrice(startDt, billingEndDt, ndr, mcr, promoPayDays) : null
+  const shortResult = !isLongRental ? calcShortPrice(totalDays, ndr, promoPayDays) : null
 
   const daysTotal  = isLongRental ? (longResult?.total ?? 0) : (shortResult?.total ?? 0)
   const totalAmount = isMonthlyContract ? mcr : daysTotal
 
   // Discount = difference from non-student price (for record-keeping)
   const normalDaysTotal = isLongRental
-    ? (calcLongPrice(startDt, billingEndDt, baseDailyRate, mcr)?.total ?? 0)
-    : calcShortPrice(totalDays, baseDailyRate).total
+    ? (calcLongPrice(startDt, billingEndDt, baseDailyRate, mcr, promoPayDays)?.total ?? 0)
+    : calcShortPrice(totalDays, baseDailyRate, promoPayDays).total
   const discount = studentPromo ? Math.max(0, normalDaysTotal - daysTotal) : 0
 
   // Payment day for monthly = same day as start date

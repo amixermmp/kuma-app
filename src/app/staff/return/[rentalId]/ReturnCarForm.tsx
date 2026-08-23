@@ -29,6 +29,7 @@ type Rental = {
 type Props = {
   rental: Rental
   staffId: string
+  promoPayDays?: number
 }
 
 function fmtDate(iso: string) {
@@ -47,7 +48,7 @@ const CHECKLIST = [
   'แผ่นป้ายทะเบียน ปกติ',
 ]
 
-export default function ReturnCarForm({ rental, staffId }: Props) {
+export default function ReturnCarForm({ rental, staffId, promoPayDays = 5 }: Props) {
   const router = useRouter()
   const bike = rental.bikes
   const customer = rental.customers
@@ -90,7 +91,7 @@ export default function ReturnCarForm({ rental, staffId }: Props) {
   const effectiveDailyRate = rental.daily_rate - (isStudentPromo ? STUDENT_PROMO_DISCOUNT : 0)
   const normalMonthlyRate = bike.monthly_rate || bike.daily_rate * 30
   const recalculatedCharge = isEarly
-    ? calcRentQuote(new Date(rental.start_datetime), actualDaysUsed, effectiveDailyRate, normalMonthlyRate).total
+    ? calcRentQuote(new Date(rental.start_datetime), actualDaysUsed, effectiveDailyRate, normalMonthlyRate, promoPayDays).total
     : rental.total_amount
   // คืนเฉพาะกรณีจ่ายไปแล้วมากกว่าที่ควรจ่ายจริง — ไม่มีทางเรียกเก็บเพิ่มจากการคืนก่อน
   const earlyReturnRefund = isEarly ? Math.max(0, rental.total_amount - recalculatedCharge) : 0

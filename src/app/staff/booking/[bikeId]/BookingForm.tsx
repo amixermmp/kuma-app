@@ -27,6 +27,7 @@ type Props = {
   promotions: unknown[] // kept for API compat, not rendered
   preFrom: string | null
   preTo: string | null
+  promoPayDays?: number
 }
 
 const SOURCES = [
@@ -44,7 +45,7 @@ function fmtDateShort(iso: string) {
   })
 }
 
-export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
+export default function BookingForm({ bike, staffId, preFrom, preTo, promoPayDays = 5 }: Props) {
   const router = useRouter()
 
   const [from, setFrom]                 = useState(preFrom ?? '')
@@ -69,7 +70,7 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
   const mcr = bike.monthly_rate ?? bike.daily_rate * 30
   const isLong = totalDays >= 30
 
-  const quote = startDt && totalDays > 0 ? calcRentQuote(startDt, totalDays, ndr, mcr) : null
+  const quote = startDt && totalDays > 0 ? calcRentQuote(startDt, totalDays, ndr, mcr, promoPayDays) : null
   const longResult  = quote?.longResult ?? null
   const shortResult = quote?.shortResult ?? null
 
@@ -77,7 +78,7 @@ export default function BookingForm({ bike, staffId, preFrom, preTo }: Props) {
 
   // discount = diff from non-student price (for API record)
   const normalTotal = startDt && totalDays > 0
-    ? calcRentQuote(startDt, totalDays, bike.daily_rate, mcr).total
+    ? calcRentQuote(startDt, totalDays, bike.daily_rate, mcr, promoPayDays).total
     : 0
   const discount = studentPromo ? Math.max(0, normalTotal - totalAmount) : 0
 

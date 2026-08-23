@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getPromoPayDays } from '@/lib/bikeCatalog'
 import MonthlyEndClient from './MonthlyEndClient'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +35,10 @@ export default async function MonthlyEndPage({ params }: { params: Promise<{ id:
 
   if (!rental) redirect('/staff/home')
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rentalBike = (rental as any).bikes
+  const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model) : 5
+
   const totalCollected = (payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
 
   const startDate = new Date(rental.start_date)
@@ -60,6 +65,7 @@ export default async function MonthlyEndPage({ params }: { params: Promise<{ id:
       periodEnd={periodEnd}
       periodPaidAmount={periodPaidAmount}
       staffId={staffId}
+      promoPayDays={promoPayDays}
     />
   )
 }

@@ -15,6 +15,7 @@ type Props = {
   from: string
   to: string
   staffId: string
+  promoPayDays?: number
 }
 
 const SOURCES = [
@@ -35,7 +36,7 @@ function fmtTime(iso: string) {
   })
 }
 
-export default function BookingModelForm({ brand, model, dailyRate, monthlyRate, from, to, staffId }: Props) {
+export default function BookingModelForm({ brand, model, dailyRate, monthlyRate, from, to, staffId, promoPayDays = 5 }: Props) {
   const router = useRouter()
 
   const [customerName, setCustomerName]   = useState('')
@@ -49,7 +50,7 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
 
   // ใช้ตารางคิดเงินกลางตัวเดียวกับหน้าส่งรถ (โปร 7 วันจ่าย 5 + cap รายเดือน)
   const totalDays   = calendarDays(new Date(from), new Date(to))
-  const quote       = calcRentQuote(new Date(from), totalDays, dailyRate, monthlyRate)
+  const quote       = calcRentQuote(new Date(from), totalDays, dailyRate, monthlyRate, promoPayDays)
   const totalAmount = quote.total
 
   const lookupCustomer = useCallback(async (phone: string) => {

@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getPromoPayDays } from '@/lib/bikeCatalog'
 import ReturnCarForm from './ReturnCarForm'
 
 export const dynamic = 'force-dynamic'
@@ -27,5 +28,9 @@ export default async function ReturnCarPage({ params }: { params: { rentalId: st
   if (!rental) redirect('/staff/home')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <ReturnCarForm rental={rental as any} staffId={staffId} />
+  const rentalBike = (rental as any).bikes
+  const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model) : 5
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return <ReturnCarForm rental={rental as any} staffId={staffId} promoPayDays={promoPayDays} />
 }

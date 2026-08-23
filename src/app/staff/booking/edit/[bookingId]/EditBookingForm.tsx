@@ -20,7 +20,7 @@ type BookingInfo = {
   dailyRate: number
 }
 
-export default function EditBookingForm({ booking, monthlyRate }: { booking: BookingInfo; monthlyRate: number }) {
+export default function EditBookingForm({ booking, monthlyRate, promoPayDays = 5 }: { booking: BookingInfo; monthlyRate: number; promoPayDays?: number }) {
   const router = useRouter()
 
   const [from, setFrom] = useState(utcToBangkokLocal(booking.startDatetime))
@@ -34,7 +34,7 @@ export default function EditBookingForm({ booking, monthlyRate }: { booking: Boo
 
   const validDates = from && to && new Date(to) > new Date(from)
   const totalDays   = validDates ? calendarDays(new Date(from), new Date(to)) : 0
-  const quote       = validDates ? calcRentQuote(new Date(from), totalDays, booking.dailyRate, monthlyRate) : null
+  const quote       = validDates ? calcRentQuote(new Date(from), totalDays, booking.dailyRate, monthlyRate, promoPayDays) : null
   const totalAmount = quote?.total ?? 0
 
   const handleSubmit = async () => {

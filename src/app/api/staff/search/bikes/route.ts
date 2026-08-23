@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds } from '@/lib/staffBranch'
 import { getBusyBikeIds, BUFFER_MS } from '@/lib/availability'
 import { getModelBikeAvailability } from '@/lib/bookingConflicts'
+import { getBikeCatalog } from '@/lib/bikeCatalog'
 
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies()
@@ -73,6 +74,11 @@ export async function GET(request: NextRequest) {
 
   const fmt = (iso: string) => new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })
 
+  // โปร "จ่ายกี่วัน จาก 7 วัน" ตั้งได้ต่อรุ่นผ่าน bike_models.promo_pay_days — ไม่ตั้งไว้ = ค่ากลาง 5
+  const { models: catalogModels } = await getBikeCatalog()
+  const promoDaysByModel = new Map(catalogModels.map(m => [`${m.brand}__${m.name}`, m.promoPayDays ?? 5]))
+  const getPromoDays = (brand: string, model: string) => promoDaysByModel.get(`${brand}__${model}`) ?? 5
+
   // รถที่ว่างทางกายภาพ (ผ่าน repair/locked/rented/ติดจองเจาะจงคันแล้ว) — เอาไปเช็คต่อว่าคิวจองแบบ
   // "ระบุแค่รุ่น" ของรุ่นนั้นกินโควต้าไปกี่คันจริง แบบคิดรวมการต่อคิวในคันเดียวกันได้ (bin packing)
   const physicallyFreeBikes = bikes.filter(bike =>
@@ -90,7 +96,9 @@ export async function GET(request: NextRequest) {
     modelFreeIds.set(key, new Set(avail.freeBikeIds))
   }))
 
-  const result = bikes.map(bike => {
+  const bikesWithPromo = bikes.map(b => ({ ...b, promo_pay_days: getPromoDays(b.brand, b.model) }))
+
+  const result = bikesWithPromo.map(bike => {
     if (bike.status === 'repair') {
       return { ...bike, available: false, conflict_type: 'repair', conflict_reason: 'อยู่ระหว่างซ่อม' }
     }

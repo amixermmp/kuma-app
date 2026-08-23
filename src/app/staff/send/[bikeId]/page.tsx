@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { findModelBookingConflict } from '@/lib/bookingConflicts'
+import { getPromoPayDays } from '@/lib/bikeCatalog'
 import SendCarForm from './SendCarForm'
 
 export const dynamic = 'force-dynamic'
@@ -93,6 +94,8 @@ export default async function SendCarPage({
   const allUpcomingBookings = [...(upcomingBookings ?? []), ...(bindingModelBooking ? [bindingModelBooking] : [])]
     .sort((a, b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime())
 
+  const promoPayDays = await getPromoPayDays(supabase, bike.brand, bike.model)
+
   return (
     <SendCarForm
       bike={bike}
@@ -102,6 +105,7 @@ export default async function SendCarPage({
       prefillFrom={searchParams.from}
       prefillTo={searchParams.to}
       upcomingBookings={allUpcomingBookings}
+      promoPayDays={promoPayDays}
     />
   )
 }
