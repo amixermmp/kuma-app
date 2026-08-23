@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { selfiePhotoUrl, platePhotos, manuallyFoundPlates, explanation } = await request.json()
+  const { selfiePhotoUrl, plateEntries, manuallyConfirmedPlates, explanation } = await request.json()
   if (!selfiePhotoUrl) return NextResponse.json({ error: 'ไม่มีรูปถ่ายคู่ร้าน' }, { status: 400 })
 
   const admin = createAdminClient()
@@ -38,20 +38,40 @@ export async function POST(request: NextRequest) {
     ...groups.repairs.filter(r => r.locationType === 'shop').map(r => r.licensePlate),
   ]
 
-  // รวมป้ายที่ "พบแล้ว" จาก OCR จริง (จาก platePhotos ที่ client ส่งมาพร้อมรูป) + ที่พนักงานแตะยืนยันเอง
-  // ไม่เชื่อ "foundPlates" ที่ client อาจส่งมาตรงๆ โดยไม่มีรูป/เหตุผลรองรับ
+  // ผูกรูปเข้ากับป้ายที่ถูกอ้างตามที่ client ส่งมา แล้วเช็คซ้ำฝั่ง server ว่าบอทอ่านได้ตรงกับป้ายนั้นจริงไหม
+  // ไม่เชื่อ "found/matched" ที่ client อาจส่งมาตรงๆ — คำนวณ botVerified ใหม่จาก detectedPlates ดิบเสมอ
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const detectedAll: string[] = (platePhotos ?? []).flatMap((p: any) => Array.isArray(p?.detectedPlates) ? p.detectedPlates : [])
-  const foundSet = new Set<string>([
-    ...detectedAll.map(normalizePlate),
-    ...((manuallyFoundPlates ?? []) as string[]).map(normalizePlate),
-  ])
-  const found = expectedPlates.filter(p => foundSet.has(normalizePlate(p)))
-  const missing = expectedPlates.filter(p => !foundSet.has(normalizePlate(p)))
+  const entryByPlate = new Map<string, any>(
+    (plateEntries ?? []).map((e: any) => [normalizePlate(e?.plate ?? ''), e])
+  )
+  const manualSet = new Set<string>(((manuallyConfirmedPlates ?? []) as string[]).map(normalizePlate))
+
+  const found = expectedPlates.filter(p => {
+    const np = normalizePlate(p)
+    const entry = entryByPlate.get(np)
+    const botMatch = Array.isArray(entry?.detectedPlates) && entry.detectedPlates.some((d: string) => normalizePlate(d) === np)
+    return botMatch || manualSet.has(np)
+  })
+  const missing = expectedPlates.filter(p => !found.includes(p))
 
   if (missing.length > 0 && !explanation?.trim()) {
     return NextResponse.json({ error: 'กรุณาอธิบายรถที่ยังหาไม่พบ' }, { status: 400 })
   }
+
+  const plate_photos = expectedPlates
+    .map(p => entryByPlate.get(normalizePlate(p)))
+    .filter(Boolean)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((e: any) => {
+      const np = normalizePlate(e.plate)
+      const detectedPlates: string[] = Array.isArray(e.detectedPlates) ? e.detectedPlates : []
+      return {
+        plate: e.plate,
+        url: e.url,
+        detectedPlates,
+        botVerified: detectedPlates.some(d => normalizePlate(d) === np),
+      }
+    })
 
   const { data: session, error } = await admin
     .from('staff_closeshops')
@@ -59,8 +79,7 @@ export async function POST(request: NextRequest) {
       staff_id: staffId,
       branch_id: branchId,
       selfie_photo_url: selfiePhotoUrl,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      plate_photos: (platePhotos ?? []).map((p: any) => ({ url: p.url, detectedPlates: p.detectedPlates ?? [] })),
+      plate_photos,
       expected_plates: expectedPlates,
       found_plates: found,
       missing_plates: missing,

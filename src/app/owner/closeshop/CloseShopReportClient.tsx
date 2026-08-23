@@ -9,7 +9,7 @@ export type CloseShopRow = {
   id: string
   closedAt: string
   selfiePhotoUrl: string
-  platePhotos: { url: string; detectedPlates: string[] }[]
+  platePhotos: { url: string; detectedPlates: string[]; plate: string | null; botVerified: boolean | null }[]
   expectedPlates: string[]
   foundPlates: string[]
   missingPlates: string[]
@@ -133,15 +133,48 @@ export default function CloseShopReportClient({ rows, branches, period, from, to
                       </div>
                     )}
 
-                    {r.platePhotos.length > 0 && (
-                      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', padding: '0 14px 12px' }}>
-                        {r.platePhotos.map((p, i) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img key={i} src={p.url} alt="" onClick={() => setZoomed(p.url)}
-                            style={{ width: '52px', height: '52px', borderRadius: '8px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0 }} />
-                        ))}
-                      </div>
-                    )}
+                    {(() => {
+                      const hasPerPlateData = r.platePhotos.some(p => p.plate !== null)
+                      if (!hasPerPlateData) {
+                        return r.platePhotos.length > 0 && (
+                          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', padding: '0 14px 12px' }}>
+                            {r.platePhotos.map((p, i) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img key={i} src={p.url} alt="" onClick={() => setZoomed(p.url)}
+                                style={{ width: '52px', height: '52px', borderRadius: '8px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0 }} />
+                            ))}
+                          </div>
+                        )
+                      }
+                      const byPlate = new Map(r.platePhotos.filter(p => p.plate !== null).map(p => [p.plate as string, p]))
+                      return (
+                        <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {r.expectedPlates.map(plate => {
+                            const photo = byPlate.get(plate)
+                            return (
+                              <div key={plate} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {photo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={photo.url} alt="" onClick={() => setZoomed(photo.url)}
+                                    style={{ width: '36px', height: '36px', borderRadius: '7px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0 }} />
+                                ) : (
+                                  <div style={{ width: '36px', height: '36px', borderRadius: '7px', flexShrink: 0, border: '1.5px dashed #e5e7eb' }} />
+                                )}
+                                <div style={{ flex: 1, fontSize: '12px', fontWeight: 700, color: '#374151' }}>{plate}</div>
+                                {photo && photo.botVerified === false && (
+                                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '2px 7px', borderRadius: '10px' }}>
+                                    ✋ ยืนยันเอง — ควรตรวจสอบ
+                                  </div>
+                                )}
+                                {!photo && (
+                                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>ไม่มีรูป</div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )
               })}

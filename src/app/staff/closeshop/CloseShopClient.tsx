@@ -1,32 +1,31 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { compressImage } from '@/lib/compressImage'
 import { normalizePlate } from '@/lib/plate'
 
-type PlatePhoto = {
-  id: string
-  preview: string
-  url: string
-  detectedPlates: string[]
-  ocrLoading: boolean
-}
+type PlateEntryStatus =
+  | { kind: 'empty' }
+  | { kind: 'uploading'; preview: string }
+  | { kind: 'matched'; preview: string; url: string; detectedPlates: string[] }
+  | { kind: 'mismatch'; preview: string; url: string; detectedPlates: string[] }
+  | { kind: 'manual'; preview: string; url: string; detectedPlates: string[] }
 
 type Props = { staffName: string; branchName: string; expectedPlates: string[] }
 
 export default function CloseShopClient({ staffName, branchName, expectedPlates }: Props) {
   const router = useRouter()
   const selfieInputRef = useRef<HTMLInputElement>(null)
+  const activePlateRef = useRef<string | null>(null)
   const plateInputRef = useRef<HTMLInputElement>(null)
   const submittingRef = useRef(false)
 
   const [step, setStep] = useState<'plates' | 'selfie'>('plates')
 
-  const [platePhotos, setPlatePhotos] = useState<PlatePhoto[]>([])
-  const [overrides, setOverrides] = useState<Map<string, boolean>>(new Map())
+  const [entries, setEntries] = useState<Map<string, PlateEntryStatus>>(new Map())
   const [explanation, setExplanation] = useState('')
 
   const [selfieFile, setSelfieFile] = useState<Blob | null>(null)
@@ -34,39 +33,43 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const ocrFoundSet = useMemo(() => {
-    const set = new Set<string>()
-    for (const photo of platePhotos) {
-      for (const detected of photo.detectedPlates) {
-        const nd = normalizePlate(detected)
-        const match = expectedPlates.find(p => normalizePlate(p) === nd)
-        if (match) set.add(normalizePlate(match))
-      }
-    }
-    return set
-  }, [platePhotos, expectedPlates])
+  const statusOf = (plate: string): PlateEntryStatus =>
+    entries.get(normalizePlate(plate)) ?? { kind: 'empty' }
 
-  const isFound = (plate: string) => {
-    const np = normalizePlate(plate)
-    if (overrides.has(np)) return overrides.get(np)!
-    return ocrFoundSet.has(np)
-  }
-  const toggle = (plate: string) => {
-    const np = normalizePlate(plate)
-    setOverrides(prev => { const m = new Map(prev); m.set(np, !isFound(plate)); return m })
-  }
-
-  const foundPlates = expectedPlates.filter(isFound)
-  const missingPlates = expectedPlates.filter(p => !isFound(p))
+  const foundPlates = expectedPlates.filter(p => {
+    const k = statusOf(p).kind
+    return k === 'matched' || k === 'manual'
+  })
+  const missingPlates = expectedPlates.filter(p => !foundPlates.includes(p))
   const needsExplanation = missingPlates.length > 0
-  const canProceed = (!needsExplanation || explanation.trim().length > 0) && platePhotos.every(p => !p.ocrLoading)
+  const canProceed = (!needsExplanation || explanation.trim().length > 0) &&
+    expectedPlates.every(p => statusOf(p).kind !== 'uploading')
 
-  // ── plate photos ──
+  const confirmManually = (plate: string) => {
+    const np = normalizePlate(plate)
+    setEntries(prev => {
+      const cur = prev.get(np)
+      if (!cur || cur.kind !== 'mismatch') return prev
+      const m = new Map(prev)
+      m.set(np, { kind: 'manual', preview: cur.preview, url: cur.url, detectedPlates: cur.detectedPlates })
+      return m
+    })
+  }
+
+  // ── plate photos (one per checklist row) ──
+  const openCameraFor = (plate: string) => {
+    activePlateRef.current = plate
+    plateInputRef.current?.click()
+  }
+
   const handlePlatePhoto = async (f: File) => {
+    const plate = activePlateRef.current
+    if (!plate) return
+    const np = normalizePlate(plate)
+    setError('')
     const compressed = await compressImage(f, 300)
     const preview = URL.createObjectURL(compressed)
-    const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`
-    setPlatePhotos(prev => [...prev, { id, preview, url: '', detectedPlates: [], ocrLoading: true }])
+    setEntries(prev => { const m = new Map(prev); m.set(np, { kind: 'uploading', preview }); return m })
     try {
       const fd = new FormData()
       fd.append('file', new File([compressed], 'plate.jpg', { type: 'image/jpeg' }))
@@ -82,9 +85,15 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
       })
       const ocrData = await ocrRes.json()
       const detected: string[] = Array.isArray(ocrData.plates) ? ocrData.plates : []
-      setPlatePhotos(prev => prev.map(p => p.id === id ? { ...p, url: uploadData.url, detectedPlates: detected, ocrLoading: false } : p))
+      const isMatch = detected.some(d => normalizePlate(d) === np)
+      setEntries(prev => {
+        const m = new Map(prev)
+        m.set(np, { kind: isMatch ? 'matched' : 'mismatch', preview, url: uploadData.url, detectedPlates: detected })
+        return m
+      })
     } catch {
-      setPlatePhotos(prev => prev.map(p => p.id === id ? { ...p, ocrLoading: false } : p))
+      setEntries(prev => { const m = new Map(prev); m.set(np, { kind: 'empty' }); return m })
+      setError('อัพโหลด/ตรวจรูปไม่สำเร็จ กรุณาลองใหม่')
     }
   }
 
@@ -114,15 +123,23 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
       const uploadData = await uploadRes.json()
       if (!uploadRes.ok) throw new Error(uploadData.error ?? 'อัพโหลดรูปไม่สำเร็จ')
 
-      const manuallyFoundPlates = expectedPlates
-        .filter(p => isFound(p) && !ocrFoundSet.has(normalizePlate(p)))
+      const plateEntries: { plate: string; url: string; detectedPlates: string[] }[] = []
+      const manuallyConfirmedPlates: string[] = []
+      for (const plate of expectedPlates) {
+        const status = statusOf(plate)
+        if (status.kind === 'matched' || status.kind === 'mismatch' || status.kind === 'manual') {
+          plateEntries.push({ plate, url: status.url, detectedPlates: status.detectedPlates })
+        }
+        if (status.kind === 'manual') manuallyConfirmedPlates.push(plate)
+      }
+
       const res = await fetch('/api/staff/closeshop/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selfiePhotoUrl: uploadData.url,
-          platePhotos: platePhotos.map(p => ({ url: p.url, detectedPlates: p.detectedPlates })),
-          manuallyFoundPlates,
+          plateEntries,
+          manuallyConfirmedPlates,
           explanation: explanation.trim() || null,
         }),
       })
@@ -200,10 +217,24 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
           <ArrowLeft size={20} strokeWidth={1.75} />
         </Link>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff' }}>ปิดร้าน — ถ่ายรูปป้ายทะเบียน</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff' }}>ปิดร้าน — ถ่ายรูปป้ายทะเบียนทีละคัน</div>
           <div style={{ fontSize: '11px', color: 'rgba(255,255,255,.55)' }}>{branchName}</div>
         </div>
       </div>
+
+      {/* hidden shared camera input — retargeted per-row via activePlateRef */}
+      <input
+        ref={plateInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        style={{ display: 'none' }}
+        onChange={e => {
+          const f = e.target.files?.[0]
+          if (f) handlePlatePhoto(f)
+          if (plateInputRef.current) plateInputRef.current.value = ''
+        }}
+      />
 
       <div style={{ padding: '16px 12px 100px' }}>
         {/* summary */}
@@ -217,71 +248,90 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
           </div>
         </div>
 
-        {/* photo capture */}
-        <label style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-          background: '#111', color: '#fff', borderRadius: '14px', padding: '16px',
-          marginBottom: '14px', cursor: 'pointer', fontWeight: 700, fontSize: '14px',
-        }}>
-          <input
-            ref={plateInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            style={{ display: 'none' }}
-            onChange={e => {
-              const f = e.target.files?.[0]
-              if (f) handlePlatePhoto(f)
-              if (plateInputRef.current) plateInputRef.current.value = ''
-            }}
-          />
-          📷 ถ่ายรูปป้ายทะเบียน ({platePhotos.length} รูป)
-        </label>
-
-        {platePhotos.length > 0 && (
-          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '14px' }}>
-            {platePhotos.map(p => (
-              <div key={p.id} style={{ position: 'relative', flexShrink: 0, width: '72px', height: '72px', borderRadius: '10px', overflow: 'hidden', background: '#f1f5f9' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                {p.ocrLoading && (
-                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px' }}>
-                    ⏳
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* checklist */}
+        {/* checklist — each row is its own photo-attach point */}
         <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          รายการรถที่ควรอยู่ร้าน ({expectedPlates.length})
+          รายการรถที่ควรอยู่ร้าน ({expectedPlates.length}) — ถ่ายรูปแนบทีละคัน
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
           {expectedPlates.length === 0 && (
             <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af', fontSize: '13px' }}>ไม่มีรถที่ควรอยู่ร้านตอนนี้</div>
           )}
           {expectedPlates.map(plate => {
-            const found = isFound(plate)
+            const status = statusOf(plate)
+            const bg = status.kind === 'matched' || status.kind === 'manual' ? '#f0fdf4'
+              : status.kind === 'mismatch' ? '#fef2f2' : '#f9fafb'
+            const border = status.kind === 'matched' || status.kind === 'manual' ? '#bbf7d0'
+              : status.kind === 'mismatch' ? '#fecaca' : '#e5e7eb'
+            const textColor = status.kind === 'matched' || status.kind === 'manual' ? '#16a34a'
+              : status.kind === 'mismatch' ? '#dc2626' : '#374151'
+
             return (
-              <button key={plate} onClick={() => toggle(plate)} style={{
-                display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left',
-                background: found ? '#f0fdf4' : '#f9fafb', border: `1.5px solid ${found ? '#bbf7d0' : '#e5e7eb'}`,
-                borderRadius: '10px', padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-                <span style={{
-                  width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0,
-                  border: `2px solid ${found ? '#16a34a' : '#d1d5db'}`, background: found ? '#16a34a' : '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {found && <span style={{ color: '#fff', fontSize: '12px', fontWeight: 900 }}>✓</span>}
-                </span>
-                <span style={{ fontSize: '14px', fontWeight: 700, color: found ? '#16a34a' : '#374151' }}>{plate}</span>
-              </button>
+              <div key={plate} style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: '12px', padding: '10px 12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {(status.kind === 'uploading' || status.kind === 'matched' || status.kind === 'mismatch' || status.kind === 'manual') ? (
+                    <div style={{ position: 'relative', flexShrink: 0, width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', background: '#f1f5f9' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={status.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {status.kind === 'uploading' && (
+                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px' }}>⏳</div>
+                      )}
+                    </div>
+                  ) : (
+                    <span style={{
+                      width: '48px', height: '48px', borderRadius: '8px', flexShrink: 0,
+                      border: '1.5px dashed #d1d5db', background: '#fff',
+                    }} />
+                  )}
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: textColor }}>{plate}</div>
+                    {status.kind === 'matched' && <div style={{ fontSize: '11px', color: '#16a34a' }}>✅ ตรง</div>}
+                    {status.kind === 'manual' && <div style={{ fontSize: '11px', color: '#16a34a' }}>✋ ยืนยันเอง</div>}
+                    {status.kind === 'mismatch' && (
+                      <div style={{ fontSize: '11px', color: '#dc2626' }}>
+                        ⚠️ ป้ายไม่ตรง{status.detectedPlates.length > 0 ? ` (บอทอ่านได้: ${status.detectedPlates.join(', ')})` : ' (บอทอ่านป้ายไม่ได้)'}
+                      </div>
+                    )}
+                  </div>
+
+                  {status.kind === 'empty' && (
+                    <button onClick={() => openCameraFor(plate)} style={{
+                      flexShrink: 0, padding: '8px 14px', borderRadius: '10px', border: 'none',
+                      background: '#111', color: '#fff', fontSize: '12px', fontWeight: 700,
+                      fontFamily: 'inherit', cursor: 'pointer',
+                    }}>📷 ถ่ายรูป</button>
+                  )}
+                  {status.kind === 'matched' && (
+                    <button onClick={() => openCameraFor(plate)} style={{
+                      flexShrink: 0, padding: '8px 12px', borderRadius: '10px', border: '1.5px solid #bbf7d0',
+                      background: 'transparent', color: '#16a34a', fontSize: '12px', fontWeight: 700,
+                      fontFamily: 'inherit', cursor: 'pointer',
+                    }}>ถ่ายใหม่</button>
+                  )}
+                </div>
+
+                {status.kind === 'mismatch' && (
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                    <button onClick={() => openCameraFor(plate)} style={{
+                      flex: 1, padding: '9px', borderRadius: '10px', border: '1.5px solid #fecaca',
+                      background: '#fff', color: '#dc2626', fontSize: '12px', fontWeight: 700,
+                      fontFamily: 'inherit', cursor: 'pointer',
+                    }}>ถ่ายใหม่</button>
+                    <button onClick={() => confirmManually(plate)} style={{
+                      flex: 1, padding: '9px', borderRadius: '10px', border: 'none',
+                      background: '#111', color: '#fff', fontSize: '12px', fontWeight: 700,
+                      fontFamily: 'inherit', cursor: 'pointer',
+                    }}>ยืนยันว่าใช่คันนี้</button>
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>
+
+        {error && (
+          <div style={{ color: '#dc2626', fontSize: '13px', textAlign: 'center', marginBottom: '12px' }}>{error}</div>
+        )}
 
         {/* explanation */}
         {needsExplanation && (

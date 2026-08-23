@@ -68,7 +68,10 @@ export default async function CloseShopReportPage({
     id: s.id,
     closedAt: s.closed_at,
     selfiePhotoUrl: s.selfie_photo_url,
-    platePhotos: (s.plate_photos ?? []).map((p: any) => ({ url: p.url, detectedPlates: p.detectedPlates ?? [] })),
+    platePhotos: (s.plate_photos ?? []).map((p: any) => ({
+      url: p.url, detectedPlates: p.detectedPlates ?? [],
+      plate: p.plate ?? null, botVerified: p.botVerified ?? null,
+    })),
     expectedPlates: s.expected_plates ?? [],
     foundPlates: s.found_plates ?? [],
     missingPlates: s.missing_plates ?? [],
