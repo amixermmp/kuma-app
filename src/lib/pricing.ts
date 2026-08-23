@@ -19,9 +19,9 @@ function calcDailySegment(days: number, ndr: number, mcr: number, payDays = 5): 
   return { calcDays, price: Math.min(calcDays * ndr, mcr) }
 }
 
-export function calcShortPrice(totalDays: number, ndr: number, payDays = 5): { calcDays: number; total: number } {
+export function calcShortPrice(totalDays: number, ndr: number, mcr: number, payDays = 5): { calcDays: number; total: number } {
   const calcDays = Math.floor(totalDays / 7) * payDays + Math.min(totalDays % 7, payDays)
-  return { calcDays, total: calcDays * ndr }
+  return { calcDays, total: Math.min(calcDays * ndr, mcr) }
 }
 
 export function calcLongPrice(start: Date, end: Date, ndr: number, mcr: number, payDays = 5): PriceResult | null {
@@ -83,6 +83,6 @@ export function calcRentQuote(startDt: Date, totalDays: number, ndr: number, mcr
   const isLong = totalDays >= 30
   const billingEnd = new Date(startDt.getTime() + totalDays * DAY_MS)
   const longResult = isLong ? calcLongPrice(startDt, billingEnd, ndr, mcr, payDays) : null
-  const shortResult = !isLong ? calcShortPrice(totalDays, ndr, payDays) : null
+  const shortResult = !isLong ? calcShortPrice(totalDays, ndr, mcr, payDays) : null
   return { isLong, longResult, shortResult, total: isLong ? (longResult?.total ?? 0) : (shortResult?.total ?? 0) }
 }

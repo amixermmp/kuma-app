@@ -458,7 +458,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const mcr = parseFloat(mMonthlyRate) || bike.monthly_rate || bike.daily_rate * 30
 
   const longResult  = isLongRental && totalDays > 0 ? calcLongPrice(startDt, billingEndDt, ndr, mcr, promoPayDays) : null
-  const shortResult = !isLongRental ? calcShortPrice(totalDays, ndr, promoPayDays) : null
+  const shortResult = !isLongRental ? calcShortPrice(totalDays, ndr, mcr, promoPayDays) : null
 
   const daysTotal  = isLongRental ? (longResult?.total ?? 0) : (shortResult?.total ?? 0)
   const totalAmount = isMonthlyContract ? mcr : daysTotal
@@ -466,7 +466,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   // Discount = difference from non-student price (for record-keeping)
   const normalDaysTotal = isLongRental
     ? (calcLongPrice(startDt, billingEndDt, baseDailyRate, mcr, promoPayDays)?.total ?? 0)
-    : calcShortPrice(totalDays, baseDailyRate, promoPayDays).total
+    : calcShortPrice(totalDays, baseDailyRate, mcr, promoPayDays).total
   const discount = studentPromo ? Math.max(0, normalDaysTotal - daysTotal) : 0
 
   // Payment day for monthly = same day as start date
