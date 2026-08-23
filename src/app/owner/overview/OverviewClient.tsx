@@ -56,22 +56,22 @@ export default function OverviewClient({ groups, showBranchName }: Props) {
 
       {show('atshop') && (
         <Section title="รถอยู่ที่ร้านตอนนี้" count={groups.atShop.length} showHeader={filter === 'all'}>
-          {groups.atShop.map(b => <AtShopRow key={b.id} bike={b} showBranchName={showBranchName} />)}
+          {groups.atShop.map(b => <AtShopCard key={b.id} bike={b} showBranchName={showBranchName} />)}
         </Section>
       )}
       {show('daily') && (
         <Section title="เช่ารายวัน/รายสัปดาห์" count={groups.dailyRentals.length} showHeader={filter === 'all'}>
-          {groups.dailyRentals.map(r => <DailyRow key={r.id} rental={r} showBranchName={showBranchName} />)}
+          {groups.dailyRentals.map(r => <DailyCard key={r.id} rental={r} showBranchName={showBranchName} />)}
         </Section>
       )}
       {show('monthly') && (
         <Section title="เช่ารายเดือน" count={groups.monthlyRentals.length} showHeader={filter === 'all'}>
-          {groups.monthlyRentals.map(r => <MonthlyRow key={r.id} rental={r} showBranchName={showBranchName} />)}
+          {groups.monthlyRentals.map(r => <MonthlyCard key={r.id} rental={r} showBranchName={showBranchName} />)}
         </Section>
       )}
       {show('repair') && (
         <Section title="ซ่อม" count={groups.repairs.length} showHeader={filter === 'all'}>
-          {groups.repairs.map(r => <RepairRow key={r.id} repair={r} showBranchName={showBranchName} />)}
+          {groups.repairs.map(r => <RepairCard key={r.id} repair={r} showBranchName={showBranchName} />)}
         </Section>
       )}
     </div>
@@ -90,27 +90,32 @@ function Section({ title, count, showHeader, children }: { title: string; count:
           {title} ({count})
         </div>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>{children}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>{children}</div>
     </div>
   )
 }
 
-function RowShell({ dotColor, title, badge, badgeColor, meta1, meta2, meta3 }: {
-  dotColor: string; title: string; badge: string; badgeColor: string
-  meta1: string; meta2?: string; meta3?: string
+function GridCard({ accentColor, title, subtitle, lines, pills }: {
+  accentColor: string; title: string; subtitle: string
+  lines: string[]
+  pills: { label: string; color: string }[]
 }) {
   return (
     <div style={{
-      background: '#1e293b', borderRadius: '12px', padding: '12px 14px',
-      border: '1px solid rgba(255,255,255,.06)', borderLeft: `3px solid ${dotColor}`,
+      background: '#1e293b', borderRadius: '14px', padding: '12px 12px 10px',
+      border: '1px solid rgba(255,255,255,.06)', borderTop: `3px solid ${accentColor}`,
+      display: 'flex', flexDirection: 'column', gap: '3px',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '4px' }}>
-        <span style={{ fontSize: '14px', fontWeight: 700, color: '#e2e8f0' }}>{title}</span>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: badgeColor, whiteSpace: 'nowrap' }}>{badge}</span>
+      <div style={{ fontSize: '14px', fontWeight: 800, color: '#e2e8f0' }}>{title}</div>
+      <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '2px' }}>{subtitle}</div>
+      {lines.map((l, i) => (
+        <div key={i} style={{ fontSize: '11px', color: '#94a3b8' }}>{l}</div>
+      ))}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+        {pills.map((p, i) => (
+          <span key={i} style={{ fontSize: '10px', fontWeight: 700, color: p.color, display: 'inline-block' }}>{p.label}</span>
+        ))}
       </div>
-      <div style={{ fontSize: '12px', color: '#94a3b8' }}>{meta1}</div>
-      {meta2 && <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{meta2}</div>}
-      {meta3 && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{meta3}</div>}
     </div>
   )
 }
@@ -119,58 +124,65 @@ function branchSuffix(name: string, show: boolean) {
   return show && name ? ` • ${name}` : ''
 }
 
-function AtShopRow({ bike, showBranchName }: { bike: AtShopBike; showBranchName: boolean }) {
+function AtShopCard({ bike, showBranchName }: { bike: AtShopBike; showBranchName: boolean }) {
+  const pills = [{ label: 'ว่าง', color: '#22c55e' }]
+  if (bike.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${bike.dueTasks.join(', ')}`, color: '#ef4444' })
   return (
-    <RowShell
-      dotColor="#22c55e"
-      title={`${bike.brand} ${bike.model}`}
-      badge="ว่าง" badgeColor="#22c55e"
-      meta1={`ทะเบียน ${bike.licensePlate}${branchSuffix(bike.branchName, showBranchName)}`}
-      meta2={`📍 ${bike.odometer.toLocaleString()} กม. • ฿${bike.dailyRate.toLocaleString()}/วัน`}
+    <GridCard
+      accentColor={bike.dueTasks.length > 0 ? '#ef4444' : '#22c55e'}
+      title={`${bike.licensePlate}${branchSuffix(bike.branchName, showBranchName)}`}
+      subtitle={`${bike.brand} ${bike.model}`}
+      lines={[`📍 ${bike.odometer.toLocaleString()} กม. • ฿${bike.dailyRate.toLocaleString()}/วัน`]}
+      pills={pills}
     />
   )
 }
 
-function DailyRow({ rental, showBranchName }: { rental: DailyRental; showBranchName: boolean }) {
+function DailyCard({ rental, showBranchName }: { rental: DailyRental; showBranchName: boolean }) {
   const hrs = hoursUntil(rental.expectedEndDatetime)
-  let badge: string, badgeColor: string, dotColor: string
-  if (hrs < 0) { badge = `เกินกำหนด ${Math.abs(hrs)} ชม.`; badgeColor = '#ef4444'; dotColor = '#ef4444' }
-  else if (isTodayBkk(rental.expectedEndDatetime)) { badge = `คืนวันนี้ ${fmtTime(rental.expectedEndDatetime)}`; badgeColor = '#f59e0b'; dotColor = '#f59e0b' }
-  else { badge = `คืน ${fmtDate(rental.expectedEndDatetime)}`; badgeColor = '#f87171'; dotColor = '#ef4444' }
+  let pill: { label: string; color: string }, accentColor: string
+  if (hrs < 0) { pill = { label: `เกินกำหนด ${Math.abs(hrs)} ชม.`, color: '#ef4444' }; accentColor = '#ef4444' }
+  else if (isTodayBkk(rental.expectedEndDatetime)) { pill = { label: `คืนวันนี้ ${fmtTime(rental.expectedEndDatetime)}`, color: '#f59e0b' }; accentColor = '#f59e0b' }
+  else { pill = { label: `คืน ${fmtDate(rental.expectedEndDatetime)}`, color: '#f87171' }; accentColor = '#ef4444' }
+  const lines = [`👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`]
+  if (rental.returnType === 'offsite') lines.push(`🛵 คืนที่: ${rental.returnAddress || 'นอกสถานที่'}`)
   return (
-    <RowShell
-      dotColor={dotColor}
-      title={`${rental.brand} ${rental.model}`}
-      badge={badge} badgeColor={badgeColor}
-      meta1={`ทะเบียน ${rental.licensePlate}${branchSuffix(rental.branchName, showBranchName)}`}
-      meta2={`👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`}
-      meta3={rental.returnType === 'offsite' ? `🛵 คืนที่: ${rental.returnAddress || 'นอกสถานที่'}` : undefined}
+    <GridCard
+      accentColor={accentColor}
+      title={`${rental.licensePlate}${branchSuffix(rental.branchName, showBranchName)}`}
+      subtitle={`${rental.brand} ${rental.model}`}
+      lines={lines}
+      pills={[pill]}
     />
   )
 }
 
-function MonthlyRow({ rental, showBranchName }: { rental: MonthlyRental; showBranchName: boolean }) {
+function MonthlyCard({ rental, showBranchName }: { rental: MonthlyRental; showBranchName: boolean }) {
   return (
-    <RowShell
-      dotColor="#a78bfa"
-      title={`${rental.brand} ${rental.model}`}
-      badge="รายเดือน" badgeColor="#a78bfa"
-      meta1={`ทะเบียน ${rental.licensePlate}${branchSuffix(rental.branchName, showBranchName)}`}
-      meta2={`👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`}
-      meta3={`฿${rental.monthlyRate.toLocaleString()}/เดือน • ครบวันที่ ${rental.paymentDay} ทุกเดือน`}
+    <GridCard
+      accentColor="#a78bfa"
+      title={`${rental.licensePlate}${branchSuffix(rental.branchName, showBranchName)}`}
+      subtitle={`${rental.brand} ${rental.model}`}
+      lines={[
+        `👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`,
+        `฿${rental.monthlyRate.toLocaleString()}/เดือน • ครบวันที่ ${rental.paymentDay}`,
+      ]}
+      pills={[{ label: 'รายเดือน', color: '#a78bfa' }]}
     />
   )
 }
 
-function RepairRow({ repair, showBranchName }: { repair: RepairJob; showBranchName: boolean }) {
+function RepairCard({ repair, showBranchName }: { repair: RepairJob; showBranchName: boolean }) {
   return (
-    <RowShell
-      dotColor="#f59e0b"
-      title={`${repair.brand} ${repair.model}`}
-      badge={repair.status === 'in_progress' ? 'กำลังซ่อม' : 'รอซ่อม'} badgeColor="#f59e0b"
-      meta1={`ทะเบียน ${repair.licensePlate}${branchSuffix(repair.branchName, showBranchName)}`}
-      meta2={repair.description}
-      meta3={repair.locationType === 'offsite' ? `📍 นอกร้าน — ${repair.locationAddress || 'ไม่ระบุที่อยู่'}` : '🏠 อยู่ที่ร้าน'}
+    <GridCard
+      accentColor="#f59e0b"
+      title={`${repair.licensePlate}${branchSuffix(repair.branchName, showBranchName)}`}
+      subtitle={`${repair.brand} ${repair.model}`}
+      lines={[
+        repair.description,
+        repair.locationType === 'offsite' ? `📍 นอกร้าน — ${repair.locationAddress || 'ไม่ระบุที่อยู่'}` : '🏠 อยู่ที่ร้าน',
+      ]}
+      pills={[{ label: repair.status === 'in_progress' ? 'กำลังซ่อม' : 'รอซ่อม', color: '#f59e0b' }]}
     />
   )
 }

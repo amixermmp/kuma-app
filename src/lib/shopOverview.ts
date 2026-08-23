@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { calcRoutineUrgency } from '@/lib/routines'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any>
@@ -9,10 +10,10 @@ export type AtShopBike = {
   brand: string
   model: string
   color: string | null
-  photoUrl: string | null
   odometer: number
   dailyRate: number
   branchName: string
+  dueTasks: string[]
 }
 
 export type DailyRental = {
@@ -22,7 +23,6 @@ export type DailyRental = {
   brand: string
   model: string
   color: string | null
-  photoUrl: string | null
   branchName: string
   customerName: string
   customerPhone: string
@@ -39,7 +39,6 @@ export type MonthlyRental = {
   brand: string
   model: string
   color: string | null
-  photoUrl: string | null
   branchName: string
   customerName: string
   customerPhone: string
@@ -55,7 +54,6 @@ export type RepairJob = {
   brand: string
   model: string
   color: string | null
-  photoUrl: string | null
   branchName: string
   title: string
   description: string
@@ -79,7 +77,6 @@ function bikeJoin(b: any) {
     brand: b?.brand ?? '',
     model: b?.model ?? '',
     color: b?.color ?? null,
-    photoUrl: b?.photo_url ?? null,
     branchName: b?.branches?.name ?? '',
   }
 }
@@ -95,22 +92,22 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
     { data: repairsRaw },
   ] = await Promise.all([
     applyBranch(admin.from('bikes')
-      .select('id, license_plate, brand, model, color, photo_url, odometer, daily_rate, branches(name)')
+      .select('id, license_plate, brand, model, color, odometer, daily_rate, branches(name)')
       .eq('status', 'available')
       .order('license_plate')),
 
     applyBranch(admin.from('rentals')
-      .select('id, bike_id, start_datetime, expected_end_datetime, return_type, return_address, bikes(license_plate, brand, model, color, photo_url, branches(name)), customers(name, phone)')
+      .select('id, bike_id, start_datetime, expected_end_datetime, return_type, return_address, bikes(license_plate, brand, model, color, branches(name)), customers(name, phone)')
       .in('status', ['active', 'extended'])
       .order('expected_end_datetime', { ascending: true })),
 
     applyBranch(admin.from('monthly_rentals')
-      .select('id, bike_id, start_date, payment_day, monthly_rate, bikes(license_plate, brand, model, color, photo_url, branches(name)), customers(name, phone)')
+      .select('id, bike_id, start_date, payment_day, monthly_rate, bikes(license_plate, brand, model, color, branches(name)), customers(name, phone)')
       .eq('status', 'active')
       .order('payment_day', { ascending: true })),
 
     applyBranch(admin.from('repairs')
-      .select('id, bike_id, title, description, status, location_type, location_address, created_at, bikes(license_plate, brand, model, color, photo_url, branches(name))')
+      .select('id, bike_id, title, description, status, location_type, location_address, created_at, bikes(license_plate, brand, model, color, branches(name))')
       .in('status', ['pending', 'in_progress'])
       .order('created_at', { ascending: false })),
   ])
@@ -125,19 +122,39 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
     ...monthlyList.map((r: { bike_id: string }) => r.bike_id),
   ])
 
-  const atShop: AtShopBike[] = (bikesRaw ?? [])
-    .filter((b: { id: string }) => !busyBikeIds.has(b.id))
-    .map((b: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-      id: b.id,
-      licensePlate: b.license_plate,
-      brand: b.brand,
-      model: b.model,
-      color: b.color,
-      photoUrl: b.photo_url,
-      odometer: b.odometer ?? 0,
-      dailyRate: b.daily_rate ?? 0,
-      branchName: b.branches?.name ?? '',
-    }))
+  const atShopRaw = (bikesRaw ?? []).filter((b: { id: string }) => !busyBikeIds.has(b.id))
+
+  // รูทีนที่ถึงกำหนดแล้วของรถที่อยู่ในร้าน — ใช้เกณฑ์เดียวกับหน้ารูทีน/แบนเนอร์ตอนคืนรถ
+  const atShopIds = atShopRaw.map((b: { id: string }) => b.id)
+  const dueTasksByBike = new Map<string, string[]>()
+  if (atShopIds.length > 0) {
+    const { data: routines } = await admin
+      .from('bike_routines')
+      .select('bike_id, task_name, next_due_km, next_due_date')
+      .in('bike_id', atShopIds)
+    for (const r of routines ?? []) {
+      const bike = atShopRaw.find((b: { id: string }) => b.id === r.bike_id)
+      const odometer = bike?.odometer ?? 0
+      const { urgency } = calcRoutineUrgency({ next_due_km: r.next_due_km, next_due_date: r.next_due_date }, odometer)
+      if (urgency === 'overdue') {
+        const list = dueTasksByBike.get(r.bike_id) ?? []
+        list.push(r.task_name)
+        dueTasksByBike.set(r.bike_id, list)
+      }
+    }
+  }
+
+  const atShop: AtShopBike[] = atShopRaw.map((b: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+    id: b.id,
+    licensePlate: b.license_plate,
+    brand: b.brand,
+    model: b.model,
+    color: b.color,
+    odometer: b.odometer ?? 0,
+    dailyRate: b.daily_rate ?? 0,
+    branchName: b.branches?.name ?? '',
+    dueTasks: dueTasksByBike.get(b.id) ?? [],
+  }))
 
   const dailyRentals: DailyRental[] = dailyList.map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
     id: r.id,

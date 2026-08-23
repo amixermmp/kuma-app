@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Store } from 'lucide-react'
 import TabBar from '@/components/staff/TabBar'
-import { JobCard, fmtDate, fmtTime, hoursUntil, isTodayBkk } from '@/components/staff/JobCard'
+import { fmtDate, fmtTime, hoursUntil, isTodayBkk } from '@/components/staff/JobCard'
 import type { AtShopBike, DailyRental, MonthlyRental, RepairJob, ShopOverviewGroups } from '@/lib/shopOverview'
 
 type FilterKey = 'all' | 'atshop' | 'daily' | 'monthly' | 'repair'
@@ -94,7 +94,7 @@ export default function OverviewClient({ groups, branchName }: Props) {
         />
       </div>
 
-      <div style={{ padding: '4px 12px 80px' }}>
+      <div style={{ background: '#f8fafc', padding: '4px 12px 80px', minHeight: '100%' }}>
         {show('atshop') && (
           <Section title="รถอยู่ที่ร้านตอนนี้" count={atShop.length} showHeader={filter === 'all'}>
             {atShop.map(b => <AtShopCard key={b.id} bike={b} />)}
@@ -132,88 +132,122 @@ function Section({ title, count, showHeader, children }: { title: string; count:
       {showHeader && (
         <div style={{
           fontSize: '12px', fontWeight: 700, color: '#6b7280',
-          padding: '16px 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px',
+          padding: '16px 2px 8px', textTransform: 'uppercase', letterSpacing: '0.5px',
         }}>
           {title} ({count})
         </div>
       )}
-      {children}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '4px' }}>
+        {children}
+      </div>
     </div>
   )
 }
 
-function AtShopCard({ bike }: { bike: AtShopBike }) {
+function GridCard({ href, accentColor, title, subtitle, lines, pills }: {
+  href: string; accentColor: string; title: string; subtitle: string
+  lines: string[]
+  pills: { label: string; bg: string; color: string }[]
+}) {
   return (
-    <JobCard
-      dotColor="#16a34a"
-      title={`${bike.brand} ${bike.model}`}
-      badge="ว่าง" badgeBg="#f0fdf4" badgeColor="#16a34a"
-      meta1={`ทะเบียน ${bike.licensePlate}`}
-      meta2={`📍 ${bike.odometer.toLocaleString()} กม. • ฿${bike.dailyRate.toLocaleString()}/วัน`}
-      photoUrl={bike.photoUrl}
-      bikeColor={bike.color}
+    <Link href={href} style={{ textDecoration: 'none' }}>
+      <div style={{
+        background: '#fff', borderRadius: '14px', padding: '12px 12px 10px',
+        border: `1.5px solid ${accentColor}33`, borderTop: `3px solid ${accentColor}`,
+        height: '100%', boxSizing: 'border-box',
+        display: 'flex', flexDirection: 'column', gap: '3px',
+      }}>
+        <div style={{ fontWeight: 800, fontSize: '14px', color: '#111827' }}>{title}</div>
+        <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>{subtitle}</div>
+        {lines.map((l, i) => (
+          <div key={i} style={{ fontSize: '11px', color: '#374151' }}>{l}</div>
+        ))}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+          {pills.map((p, i) => (
+            <span key={i} style={{
+              fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px',
+              background: p.bg, color: p.color, display: 'inline-block',
+            }}>{p.label}</span>
+          ))}
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+function AtShopCard({ bike }: { bike: AtShopBike }) {
+  const pills = [{ label: 'ว่าง', bg: '#f0fdf4', color: '#16a34a' }]
+  if (bike.dueTasks.length > 0) {
+    pills.push({ label: `🛢️ ถึงกำหนด: ${bike.dueTasks.join(', ')}`, bg: '#fef2f2', color: '#dc2626' })
+  }
+  return (
+    <GridCard
       href={`/staff/bikes/${bike.id}/menu`}
-      btnLabel="ดู →"
+      accentColor={bike.dueTasks.length > 0 ? '#dc2626' : '#16a34a'}
+      title={bike.licensePlate}
+      subtitle={`${bike.brand} ${bike.model}`}
+      lines={[
+        bike.color ? `สี ${bike.color}` : '',
+        `📍 ${bike.odometer.toLocaleString()} กม. • ฿${bike.dailyRate.toLocaleString()}/วัน`,
+      ].filter(Boolean)}
+      pills={pills}
     />
   )
 }
 
 function DailyCard({ rental }: { rental: DailyRental }) {
   const hrs = hoursUntil(rental.expectedEndDatetime)
-  let badge: string, badgeBg: string, badgeColor: string, dotColor: string
+  let pill: { label: string; bg: string; color: string }, accentColor: string
   if (hrs < 0) {
-    badge = `⏱ เกินกำหนด ${Math.abs(hrs)} ชม.`; badgeBg = '#fee2e2'; badgeColor = '#b91c1c'; dotColor = '#b91c1c'
+    pill = { label: `เกินกำหนด ${Math.abs(hrs)} ชม.`, bg: '#fee2e2', color: '#b91c1c' }; accentColor = '#b91c1c'
   } else if (isTodayBkk(rental.expectedEndDatetime)) {
-    badge = `⚠️ คืนวันนี้ ${fmtTime(rental.expectedEndDatetime)}`; badgeBg = '#fffbeb'; badgeColor = '#d97706'; dotColor = '#d97706'
+    pill = { label: `คืนวันนี้ ${fmtTime(rental.expectedEndDatetime)}`, bg: '#fffbeb', color: '#d97706' }; accentColor = '#d97706'
   } else {
-    badge = `📅 คืน ${fmtDate(rental.expectedEndDatetime)}`; badgeBg = '#fef2f2'; badgeColor = '#dc2626'; dotColor = '#dc2626'
+    pill = { label: `คืน ${fmtDate(rental.expectedEndDatetime)}`, bg: '#fef2f2', color: '#dc2626' }; accentColor = '#dc2626'
   }
+  const lines = [`👤 ${rental.customerName}`]
+  if (rental.customerPhone) lines.push(`📞 ${rental.customerPhone}`)
+  if (rental.returnType === 'offsite') lines.push(`🛵 คืนที่: ${rental.returnAddress || 'นอกสถานที่'}`)
   return (
-    <JobCard
-      dotColor={dotColor}
-      title={`${rental.brand} ${rental.model}`}
-      badge={badge} badgeBg={badgeBg} badgeColor={badgeColor}
-      meta1={`ทะเบียน ${rental.licensePlate}`}
-      meta2={`👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`}
-      meta3={rental.returnType === 'offsite' ? `🛵 คืนที่: ${rental.returnAddress || 'นอกสถานที่'}` : undefined}
-      photoUrl={rental.photoUrl}
-      bikeColor={rental.color}
+    <GridCard
       href={`/staff/bikes/${rental.bikeId}/menu`}
-      btnLabel="ดู →"
+      accentColor={accentColor}
+      title={rental.licensePlate}
+      subtitle={`${rental.brand} ${rental.model}`}
+      lines={lines}
+      pills={[pill]}
     />
   )
 }
 
 function MonthlyCard({ rental }: { rental: MonthlyRental }) {
   return (
-    <JobCard
-      dotColor="#7c3aed"
-      title={`${rental.brand} ${rental.model}`}
-      badge="รายเดือน" badgeBg="#faf5ff" badgeColor="#7c3aed"
-      meta1={`ทะเบียน ${rental.licensePlate}`}
-      meta2={`👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`}
-      meta3={`฿${rental.monthlyRate.toLocaleString()}/เดือน • ครบวันที่ ${rental.paymentDay} ทุกเดือน`}
-      photoUrl={rental.photoUrl}
-      bikeColor={rental.color}
+    <GridCard
       href={`/staff/bikes/${rental.bikeId}/menu`}
-      btnLabel="ดู →"
+      accentColor="#7c3aed"
+      title={rental.licensePlate}
+      subtitle={`${rental.brand} ${rental.model}`}
+      lines={[
+        `👤 ${rental.customerName}`,
+        `฿${rental.monthlyRate.toLocaleString()}/เดือน • ครบวันที่ ${rental.paymentDay}`,
+      ]}
+      pills={[{ label: 'รายเดือน', bg: '#faf5ff', color: '#7c3aed' }]}
     />
   )
 }
 
 function RepairCard({ repair }: { repair: RepairJob }) {
   return (
-    <JobCard
-      dotColor="#d97706"
-      title={`${repair.brand} ${repair.model}`}
-      badge={repair.status === 'in_progress' ? 'กำลังซ่อม' : 'รอซ่อม'} badgeBg="#fffbeb" badgeColor="#d97706"
-      meta1={`ทะเบียน ${repair.licensePlate}`}
-      meta2={repair.description}
-      meta3={repair.locationType === 'offsite' ? `📍 นอกร้าน — ${repair.locationAddress || 'ไม่ระบุที่อยู่'}` : '🏠 อยู่ที่ร้าน'}
-      photoUrl={repair.photoUrl}
-      bikeColor={repair.color}
+    <GridCard
       href={`/staff/repair/${repair.id}`}
-      btnLabel="ดู →"
+      accentColor="#d97706"
+      title={repair.licensePlate}
+      subtitle={`${repair.brand} ${repair.model}`}
+      lines={[
+        repair.description,
+        repair.locationType === 'offsite' ? `📍 นอกร้าน — ${repair.locationAddress || 'ไม่ระบุที่อยู่'}` : '🏠 อยู่ที่ร้าน',
+      ]}
+      pills={[{ label: repair.status === 'in_progress' ? 'กำลังซ่อม' : 'รอซ่อม', bg: '#fffbeb', color: '#d97706' }]}
     />
   )
 }
