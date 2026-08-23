@@ -498,6 +498,7 @@ export default async function OwnerDashboardPage({
           { icon: '📜', label: 'Activity Log',    sub: 'ใครทำอะไร เมื่อไหร่ในระบบ',           href: '/owner/logs',       color: '#cbd5e1' },
           { icon: '🧾', label: 'Statement บัญชี',  sub: 'รายรับรายจ่ายทุกสาขา + waive รายการผิด', href: '/owner/statement',  color: '#22c55e' },
           { icon: '📸', label: 'การเข้างาน',       sub: 'เวลาเข้างานพนักงานแต่ละสาขา',         href: '/owner/attendance', color: '#38bdf8' },
+          { icon: '🔒', label: 'ปิดร้าน',          sub: 'สต็อกรถตอนปิดร้าน + รูปหลักฐาน',      href: '/owner/closeshop',  color: '#38bdf8' },
           { icon: '🖼️', label: 'รูปโปรโมท',        sub: 'ใส่กรอบ/ปิดหน้ารูปคู่รถ พร้อมโพส',      href: '/owner/marketing',  color: '#a78bfa' },
           { icon: '💸', label: 'บันทึกค่าใช้จ่าย', sub: 'รายจ่ายประจำเดือนของร้าน',           href: '/owner/expenses',   color: '#ef4444' },
           { icon: '⛔', label: 'บัญชีแบล็คลิสต์',  sub: 'มิจฉาชีพ/ขโมยรถ — เช็คอัตโนมัติตอนทำสัญญา', href: '/owner/blacklist',  color: '#ef4444' },

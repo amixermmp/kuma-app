@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 
-export type Branch = { id: string; name: string }
+export type Branch = { id: string; name: string; closeTimeEarliest?: string | null }
 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

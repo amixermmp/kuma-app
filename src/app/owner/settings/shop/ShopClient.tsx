@@ -5,6 +5,37 @@ import { Section, Field, SaveBtn, SettingsHeader, type Branch } from '../_shared
 
 type Shop = Record<string, any>
 
+function BranchCloseTimeRow({ branch }: { branch: Branch }) {
+  const [time, setTime] = useState(branch.closeTimeEarliest ?? '')
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const save = async () => {
+    setLoading(true)
+    const res = await fetch('/api/owner/settings/branch-closetime', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ branch_id: branch.id, close_time_earliest: time || null }),
+    })
+    setLoading(false)
+    setMsg(res.ok ? '✅' : '❌')
+    setTimeout(() => setMsg(''), 2000)
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: '14px', fontWeight: 600 }}>{branch.name}</div>
+        <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '1px' }}>เวลาปิดร้านเร็วสุด</div>
+      </div>
+      <input type="time" className="field-input" style={{ width: '110px' }} value={time} onChange={e => setTime(e.target.value)} />
+      <button onClick={save} disabled={loading} className="btn" style={{ padding: '8px 12px', fontSize: '12px', width: 'auto' }}>
+        {loading ? '⏳' : msg || '💾'}
+      </button>
+    </div>
+  )
+}
+
 function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: (branch: Branch) => void }) {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -136,11 +167,7 @@ export default function ShopClient({ shop, branches: initialBranches }: { shop: 
 
         <Section title="จัดการสาขา">
           {branches.map(b => (
-            <div key={b.id} style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 600 }}>{b.name}</div>
-              </div>
-            </div>
+            <BranchCloseTimeRow key={b.id} branch={b} />
           ))}
           <div style={{ padding: '12px 16px' }}>
             <button onClick={() => setBranchModal(true)} className="btn" style={{ border: '1.5px solid #374151', color: '#374151', background: '#fff', width: '100%' }}>
