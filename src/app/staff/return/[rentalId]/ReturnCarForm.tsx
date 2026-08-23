@@ -6,7 +6,7 @@ import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
 import TabBar from '@/components/staff/TabBar'
 import { addTab } from '@/lib/tabStore'
-import { calcRentQuote } from '@/lib/pricing'
+import { calcRentQuote, calcLateHours, calcOvertimeCharge, OVERTIME_HOURLY_RATE } from '@/lib/pricing'
 
 type Rental = {
   id: string
@@ -61,21 +61,15 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5 }: Pro
     })
   }, [rental.id, bike.license_plate])
 
-  // Overtime — grace period 0–30 นาที = ฟรี, หลังจากนั้นคิดเป็นชั่วโมง
-  const HOURLY_RATE = 50
+  // Overtime — grace period 0–30 นาที = ฟรี, หลังจากนั้นคิดเป็นชั่วโมง (สูตรกลาง ใช้ร่วมกับพรีวิวราคาตอนค้นหา/จอง)
   const now = Date.now()
   const expectedMs = new Date(rental.expected_end_datetime).getTime()
   const isLate = now > expectedMs
   const lateMs = Math.max(0, now - expectedMs)
   const lateMinutes = lateMs / 60_000
-  // 0–30 min grace → 0 ชั่วโมง; เกิน 30 นาที → เศษ ≤30 นาทีในชั่วโมงนั้นไม่ปัดขึ้น, >30 นาที ปัดขึ้น
-  const lateWholeHours = Math.floor(lateMs / 3_600_000)
-  const lateRemainMs = lateMs % 3_600_000
-  const lateHours = lateMinutes <= 30 ? 0 : lateWholeHours + (lateRemainMs > 30 * 60_000 ? 1 : 0)
+  const lateHours = calcLateHours(lateMs)
   const lateChargeIsDay = lateHours >= 5
-  const grossOvertimeCharge = lateHours === 0 ? 0
-    : lateChargeIsDay ? Math.ceil(lateHours / 24) * rental.daily_rate
-    : lateHours * HOURLY_RATE
+  const grossOvertimeCharge = calcOvertimeCharge(lateHours, rental.daily_rate)
   // หักเครดิตที่ลูกค้าจ่ายค้างไว้จากการต่อเวลาก่อนหน้า
   const credit = rental.outstanding_credit ?? 0
   const overtimeCharge = Math.max(0, grossOvertimeCharge - credit)
@@ -306,7 +300,7 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5 }: Pro
               <span style={{ fontSize: '13px', color: '#374151' }}>
                 {lateChargeIsDay
                   ? `เกิน ${lateHours} ชม. → คิด ${Math.ceil(lateHours / 24)} วัน × ฿${rental.daily_rate.toLocaleString()}`
-                  : `เกิน ${lateHours} ชม. × ฿${HOURLY_RATE}/ชม.`}
+                  : `เกิน ${lateHours} ชม. × ฿${OVERTIME_HOURLY_RATE}/ชม.`}
               </span>
               <span style={{ fontSize: '16px', fontWeight: 700, color: '#dc2626', textDecoration: credit > 0 ? 'line-through' : 'none', opacity: credit > 0 ? 0.6 : 1 }}>
                 ฿{grossOvertimeCharge.toLocaleString()}

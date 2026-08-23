@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC } from '@/lib/time'
-import { calcRentQuote, calendarDays } from '@/lib/pricing'
+import { calcRentQuote, calendarDays, calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
 import { Bike as BikeIcon, Home, Send, CalendarCheck } from 'lucide-react'
 
 type Props = {
@@ -51,7 +51,10 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
   // ใช้ตารางคิดเงินกลางตัวเดียวกับหน้าส่งรถ (โปร 7 วันจ่าย 5 + cap รายเดือน)
   const totalDays   = calendarDays(new Date(from), new Date(to))
   const quote       = calcRentQuote(new Date(from), totalDays, dailyRate, monthlyRate, promoPayDays)
-  const totalAmount = quote.total
+  // เศษชั่วโมงเกินขอบเขตวันที่คิดราคาไปแล้ว — รวมเข้าราคาที่เสนอลูกค้าเลย
+  const excessHours = totalDays > 0 ? calcExcessHours(new Date(from), new Date(to), totalDays) : 0
+  const overtimeEstimate = calcOvertimeCharge(excessHours, dailyRate)
+  const totalAmount = quote.total + overtimeEstimate
 
   const lookupCustomer = useCallback(async (phone: string) => {
     if (phone.replace(/\D/g, '').length < 9) return
@@ -157,6 +160,11 @@ export default function BookingModelForm({ brand, model, dailyRate, monthlyRate,
                 {!quote.isLong && quote.shortResult && quote.shortResult.calcDays < totalDays
                   ? ` (คิด ${quote.shortResult.calcDays} วัน)` : ''}
               </span>
+              {overtimeEstimate > 0 && (
+                <span style={{ background: 'rgba(217,119,6,.35)', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 700 }}>
+                  ⏱ รวมล่วงเวลา {excessHours} ชม. (+฿{overtimeEstimate.toLocaleString()})
+                </span>
+              )}
             </div>
           </div>
         </div>

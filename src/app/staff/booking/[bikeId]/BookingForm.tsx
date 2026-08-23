@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC } from '@/lib/time'
-import { calcRentQuote, calendarDays } from '@/lib/pricing'
+import { calcRentQuote, calendarDays, calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
 import QuarterHourInput from '@/components/staff/QuarterHourInput'
 import { Bike as BikeIcon, GraduationCap, Home, Send, CalendarCheck } from 'lucide-react'
 
@@ -74,13 +74,17 @@ export default function BookingForm({ bike, staffId, preFrom, preTo, promoPayDay
   const longResult  = quote?.longResult ?? null
   const shortResult = quote?.shortResult ?? null
 
-  const totalAmount = quote?.total ?? 0
-
-  // discount = diff from non-student price (for API record)
+  // discount = diff from non-student price (for API record) — เทียบแค่ราคาฐาน ไม่รวมล่วงเวลา
+  // (ล่วงเวลาไม่เกี่ยวกับส่วนลดนักศึกษา คิดเท่ากันทุกคน)
   const normalTotal = startDt && totalDays > 0
     ? calcRentQuote(startDt, totalDays, bike.daily_rate, mcr, promoPayDays).total
     : 0
-  const discount = studentPromo ? Math.max(0, normalTotal - totalAmount) : 0
+  const discount = studentPromo ? Math.max(0, normalTotal - (quote?.total ?? 0)) : 0
+
+  // เศษชั่วโมงเกินขอบเขตวันที่คิดราคาไปแล้ว — รวมเข้าราคาที่เสนอลูกค้าเลย จะได้ไม่ต้องมาเก็บเพิ่มทีหลังถ้าคืนตรงเวลาที่ตกลง
+  const excessHours = startDt && endDt && totalDays > 0 ? calcExcessHours(startDt, endDt, totalDays) : 0
+  const overtimeEstimate = calcOvertimeCharge(excessHours, bike.daily_rate)
+  const totalAmount = (quote?.total ?? 0) + overtimeEstimate
 
   const freeWeeks = Math.floor(totalDays / 7)
 

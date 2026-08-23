@@ -86,3 +86,34 @@ export function calcRentQuote(startDt: Date, totalDays: number, ndr: number, mcr
   const shortResult = !isLong ? calcShortPrice(totalDays, ndr, mcr, payDays) : null
   return { isLong, longResult, shortResult, total: isLong ? (longResult?.total ?? 0) : (shortResult?.total ?? 0) }
 }
+
+// ── ค่าล่วงเวลา — ใช้ทั้งตอนคืนรถจริง (เทียบเวลาจริงกับกำหนดคืน) และตอนพรีวิวราคาตอนค้นหา/จอง
+// (เทียบเวลาที่เลือกกับ "ขอบเขตวันเต็ม" ที่ calendarDays คิดให้ไปแล้ว จะได้เห็นราคารวมจริงก่อนตัดสินใจ) ──
+export const OVERTIME_HOURLY_RATE = 50
+const OVERTIME_GRACE_MIN = 30
+const OVERTIME_DAY_THRESHOLD_HOURS = 5
+
+// จำนวนชั่วโมงที่ต้องคิดค่าล่วงเวลา จาก ms ที่เกินมา — ฟรี 30 นาทีแรก จากนั้นปัดขึ้นเป็นชั่วโมงถ้าเกิน 30 นาทีในชั่วโมงนั้น
+export function calcLateHours(lateMs: number): number {
+  if (lateMs <= 0) return 0
+  const lateMinutes = lateMs / 60_000
+  if (lateMinutes <= OVERTIME_GRACE_MIN) return 0
+  const lateWholeHours = Math.floor(lateMs / 3_600_000)
+  const lateRemainMs = lateMs % 3_600_000
+  return lateWholeHours + (lateRemainMs > OVERTIME_GRACE_MIN * 60_000 ? 1 : 0)
+}
+
+// ค่าล่วงเวลาจากจำนวนชั่วโมง — คิดรายชั่วโมงจนถึง 5 ชม. แล้วสลับเป็นคิดเต็มวันแทน (ไม่มีทางเกินราคา 1 วัน/24 ชม.)
+export function calcOvertimeCharge(lateHours: number, dailyRate: number): number {
+  if (lateHours <= 0) return 0
+  return lateHours >= OVERTIME_DAY_THRESHOLD_HOURS
+    ? Math.ceil(lateHours / 24) * dailyRate
+    : lateHours * OVERTIME_HOURLY_RATE
+}
+
+// ชั่วโมงที่เกินจาก "ขอบเขตวันเต็ม" ที่ calendarDays นับให้ — ใช้พรีวิวค่าล่วงเวลาที่จะเกิดขึ้นจริงตอนคืน
+// ถ้าเลือกเวลาคืนตรงกับเวลาที่รับ (คูณ 24 ชม.พอดี) จะไม่มีส่วนเกิน
+export function calcExcessHours(startDt: Date, endDt: Date, days: number): number {
+  const boundaryMs = startDt.getTime() + days * DAY_MS
+  return calcLateHours(Math.max(0, endDt.getTime() - boundaryMs))
+}

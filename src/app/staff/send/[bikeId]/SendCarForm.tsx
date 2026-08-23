@@ -6,7 +6,7 @@ import PhotoUpload from '@/components/PhotoUpload'
 import SignaturePad from '@/components/SignaturePad'
 import TabBar from '@/components/staff/TabBar'
 import { addTab } from '@/lib/tabStore'
-import { calcShortPrice, calcLongPrice, calendarDays } from '@/lib/pricing'
+import { calcShortPrice, calcLongPrice, calendarDays, calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
 import { isThaiIdNumber, idAndSlipNameMatch } from '@/lib/customer'
 
 // ── Success screen ───────────────────────────────────────────────────────────
@@ -384,7 +384,8 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const validDates = startDate && endDate && endDt > startDt
 
   // Duration — นับเป็นวันปฏิทิน (ไม่สนเวลารับ-คืนเป๊ะ) ขั้นต่ำ 1 วัน — รองรับเช่าคืนวันเดียวกัน (เดย์ทริป)
-  // เศษชั่วโมงที่เกินกำหนดตอนคืนจริงไปคิดเป็นค่าล่วงเวลาแยกตอนรับคืนแทน (ไม่เกี่ยวกับตรงนี้)
+  // เศษชั่วโมงที่เกินขอบเขตวันตรงนี้ถูกรวมเข้าราคาที่เก็บล่วงหน้าไปแล้ว (ดู overtimeEstimate ด้านล่าง)
+  // ถ้าคืนช้ากว่าที่ตกลงไว้อีก ค่อยคิดค่าล่วงเวลาเพิ่มตอนรับคืนจริงแยกต่างหาก
   const totalDays      = validDates ? calendarDays(startDt, endDt) : 0
   const billingDays    = totalDays
 
@@ -461,13 +462,17 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const shortResult = !isLongRental ? calcShortPrice(totalDays, ndr, mcr, promoPayDays) : null
 
   const daysTotal  = isLongRental ? (longResult?.total ?? 0) : (shortResult?.total ?? 0)
-  const totalAmount = isMonthlyContract ? mcr : daysTotal
 
-  // Discount = difference from non-student price (for record-keeping)
+  // Discount = difference from non-student price (for record-keeping) — เทียบแค่ราคาฐาน ไม่รวมล่วงเวลา
   const normalDaysTotal = isLongRental
     ? (calcLongPrice(startDt, billingEndDt, baseDailyRate, mcr, promoPayDays)?.total ?? 0)
     : calcShortPrice(totalDays, baseDailyRate, mcr, promoPayDays).total
   const discount = studentPromo ? Math.max(0, normalDaysTotal - daysTotal) : 0
+
+  // เศษชั่วโมงเกินขอบเขตวันที่คิดราคาไปแล้ว — เก็บล่วงหน้าไปเลยตอนส่งรถ (ไม่เกี่ยวกับสัญญารายเดือน)
+  const excessHours = !isMonthlyContract && totalDays > 0 ? calcExcessHours(startDt, endDt, totalDays) : 0
+  const overtimeEstimate = calcOvertimeCharge(excessHours, baseDailyRate)
+  const totalAmount = isMonthlyContract ? mcr : daysTotal + overtimeEstimate
 
   // Payment day for monthly = same day as start date
   const paymentDay = startDate
@@ -1000,6 +1005,12 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
                     <span style={{ fontWeight: 700 }}>-฿{discount.toLocaleString()}</span>
                   </div>
                 )}
+                {overtimeEstimate > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ opacity: .8 }}>⏱ เกินขอบเขตวัน {excessHours} ชม.</span>
+                    <span style={{ fontWeight: 700 }}>+฿{overtimeEstimate.toLocaleString()}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
                   <span>รวมสุทธิ</span>
                   <span style={{ fontWeight: 900 }}>฿{totalAmount.toLocaleString()}</span>
@@ -1008,7 +1019,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             )}
 
             {/* Breakdown — short rental */}
-            {!isLongRental && shortResult && (freeWeeks > 0 || discount > 0) && (
+            {!isLongRental && shortResult && (freeWeeks > 0 || discount > 0 || overtimeEstimate > 0) && (
               <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
                 {freeWeeks > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
@@ -1017,9 +1028,15 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
                   </div>
                 )}
                 {discount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: overtimeEstimate > 0 ? '6px' : '0' }}>
                     <span style={{ opacity: .8 }}>🎓 ลดนักศึกษา ({shortResult.calcDays} วัน × ฿50)</span>
                     <span style={{ fontWeight: 700 }}>-฿{discount.toLocaleString()}</span>
+                  </div>
+                )}
+                {overtimeEstimate > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '0' }}>
+                    <span style={{ opacity: .8 }}>⏱ เกินขอบเขตวัน {excessHours} ชม.</span>
+                    <span style={{ fontWeight: 700 }}>+฿{overtimeEstimate.toLocaleString()}</span>
                   </div>
                 )}
               </div>

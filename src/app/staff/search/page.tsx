@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Bike, Zap, CalendarPlus } from 'lucide-react'
 import { bangkokToUTC } from '@/lib/time'
-import { calcRentQuote, calendarDays } from '@/lib/pricing'
+import { calcRentQuote, calendarDays, calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
 import QuarterHourInput from '@/components/staff/QuarterHourInput'
 
 type BikeResult = {
@@ -194,9 +194,13 @@ export default function SearchPage() {
             {availableGroups.map(group => {
               const mcr = group.monthly_rate ?? group.daily_rate * 30
               const quote = days > 0 ? calcRentQuote(new Date(from), days, group.daily_rate, mcr, group.promoPayDays) : null
-              const total = quote?.total ?? group.daily_rate * days
+              const baseTotal = quote?.total ?? group.daily_rate * days
               const calcDays = quote?.shortResult?.calcDays ?? days
               const hasDiscount = quote && !quote.isLong && calcDays < days
+              // เศษชั่วโมงเกินจากขอบเขตวันที่คิดราคาไปแล้ว — พรีวิวค่าล่วงเวลาที่จะเกิดจริงตอนคืน ให้เสนอลูกค้าเป็นราคาเดียวได้เลย
+              const excessHours = days > 0 ? calcExcessHours(new Date(from), new Date(to), days) : 0
+              const overtimeEstimate = calcOvertimeCharge(excessHours, group.daily_rate)
+              const total = baseTotal + overtimeEstimate
               return (
               <div key={group.key} style={{
                 background: '#fff', borderRadius: '16px', marginBottom: '10px',
@@ -245,6 +249,11 @@ export default function SearchPage() {
                     <div style={{ fontSize: '11px', color: '#6b7280' }}>
                       {hasDiscount ? `฿${group.daily_rate.toLocaleString()} × ${calcDays} วัน (โปร 7 วัน จ่าย ${group.promoPayDays})` : `฿${group.daily_rate.toLocaleString()} × ${days} วัน`}
                     </div>
+                    {overtimeEstimate > 0 && (
+                      <div style={{ fontSize: '11px', color: '#d97706', marginTop: '2px' }}>
+                        + ล่วงเวลา {excessHours} ชม. (฿{overtimeEstimate.toLocaleString()})
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <Link
