@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Bike, Zap, CalendarPlus } from 'lucide-react'
 import { bangkokToUTC } from '@/lib/time'
+import { calcRentQuote } from '@/lib/pricing'
 import QuarterHourInput from '@/components/staff/QuarterHourInput'
 
 type BikeResult = {
@@ -14,6 +15,7 @@ type BikeResult = {
   color: string | null
   year: number | null
   daily_rate: number
+  monthly_rate: number | null
   odometer: number
   status: string
   available: boolean
@@ -26,6 +28,7 @@ type ModelGroup = {
   brand: string
   model: string
   daily_rate: number
+  monthly_rate: number | null
   availableCount: number
   totalCount: number
   bikes: BikeResult[]
@@ -47,9 +50,9 @@ function daysBetween(from: string, to: string) {
 function groupByModel(bikes: BikeResult[]): ModelGroup[] {
   const map = new Map<string, ModelGroup>()
   for (const bike of bikes) {
-    const key = `${bike.brand}__${bike.model}__${bike.daily_rate}`
+    const key = `${bike.brand}__${bike.model}__${bike.daily_rate}__${bike.monthly_rate ?? ''}`
     if (!map.has(key)) {
-      map.set(key, { key, brand: bike.brand, model: bike.model, daily_rate: bike.daily_rate, availableCount: 0, totalCount: 0, bikes: [] })
+      map.set(key, { key, brand: bike.brand, model: bike.model, daily_rate: bike.daily_rate, monthly_rate: bike.monthly_rate, availableCount: 0, totalCount: 0, bikes: [] })
     }
     const g = map.get(key)!
     g.totalCount++
@@ -188,7 +191,13 @@ export default function SearchPage() {
             )}
 
             {/* Available model groups */}
-            {availableGroups.map(group => (
+            {availableGroups.map(group => {
+              const mcr = group.monthly_rate ?? group.daily_rate * 30
+              const quote = days > 0 ? calcRentQuote(new Date(from), days, group.daily_rate, mcr) : null
+              const total = quote?.total ?? group.daily_rate * days
+              const calcDays = quote?.shortResult?.calcDays ?? days
+              const hasDiscount = quote && !quote.isLong && calcDays < days
+              return (
               <div key={group.key} style={{
                 background: '#fff', borderRadius: '16px', marginBottom: '10px',
                 border: '0.5px solid #e5e7eb', overflow: 'hidden',
@@ -206,6 +215,7 @@ export default function SearchPage() {
                     </div>
                     <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
                       ฿{group.daily_rate.toLocaleString()}/วัน
+                      {group.monthly_rate != null && ` • ฿${group.monthly_rate.toLocaleString()}/เดือน`}
                     </div>
                     <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       <span style={{
@@ -230,10 +240,10 @@ export default function SearchPage() {
                 }}>
                   <div>
                     <div style={{ fontSize: '17px', fontWeight: 700, color: '#111827' }}>
-                      ฿{(group.daily_rate * days).toLocaleString()}
+                      ฿{total.toLocaleString()}
                     </div>
                     <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                      ฿{group.daily_rate.toLocaleString()} × {days} วัน
+                      {hasDiscount ? `฿${group.daily_rate.toLocaleString()} × ${calcDays} วัน (โปร 7 วัน จ่าย 5)` : `฿${group.daily_rate.toLocaleString()} × ${days} วัน`}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -260,7 +270,8 @@ export default function SearchPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
 
             {/* Unavailable groups */}
             {unavailableGroups.length > 0 && (

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   // Get bikes filtered to staff's branches
   let bikesQuery = supabase
     .from('bikes')
-    .select('id, branch_id, license_plate, brand, model, color, year, daily_rate, odometer, status')
+    .select('id, branch_id, license_plate, brand, model, color, year, daily_rate, monthly_rate, odometer, status')
     .order('daily_rate', { ascending: true })
 
   if (allowedBranchIds) {
