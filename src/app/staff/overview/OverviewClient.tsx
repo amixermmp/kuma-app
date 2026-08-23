@@ -175,8 +175,12 @@ function GridCard({ href, accentColor, title, subtitle, lines, pills }: {
   )
 }
 
+const OK_COLOR = '#16a34a'
+const ISSUE_COLOR = '#dc2626'
+
 function AtShopCard({ bike }: { bike: AtShopBike }) {
-  const pills = [{ label: 'ว่าง', bg: '#f0fdf4', color: '#16a34a' }]
+  const hasIssue = bike.dueTasks.length > 0 || bike.docTasks.length > 0
+  const pills = [{ label: 'ว่าง', bg: '#f0fdf4', color: OK_COLOR }]
   if (bike.dueTasks.length > 0) {
     pills.push({ label: `🛢️ ถึงกำหนด: ${bike.dueTasks.join(', ')}`, bg: '#fef2f2', color: '#dc2626' })
   }
@@ -186,13 +190,13 @@ function AtShopCard({ bike }: { bike: AtShopBike }) {
   return (
     <GridCard
       href={`/staff/bikes/${bike.id}/menu`}
-      accentColor={bike.dueTasks.length > 0 ? '#dc2626' : '#16a34a'}
+      accentColor={hasIssue ? ISSUE_COLOR : OK_COLOR}
       title={bike.licensePlate}
       subtitle={`${bike.brand} ${bike.model}`}
       lines={[
-        bike.color ? `สี ${bike.color}` : '',
-        `📍 ${bike.odometer.toLocaleString()} กม. • ฿${bike.dailyRate.toLocaleString()}/วัน`,
-      ].filter(Boolean)}
+        `สี ${bike.color ?? '-'}`,
+        `฿${bike.dailyRate.toLocaleString()}/วัน`,
+      ]}
       pills={pills}
     />
   )
@@ -200,15 +204,17 @@ function AtShopCard({ bike }: { bike: AtShopBike }) {
 
 function DailyCard({ rental }: { rental: DailyRental }) {
   const hrs = hoursUntil(rental.expectedEndDatetime)
-  let pill: { label: string; bg: string; color: string }, accentColor: string
-  if (hrs < 0) {
-    pill = { label: `เกินกำหนด ${Math.abs(hrs)} ชม.`, bg: '#fee2e2', color: '#b91c1c' }; accentColor = '#b91c1c'
+  const overdue = hrs < 0
+  let pill: { label: string; bg: string; color: string }
+  if (overdue) {
+    pill = { label: `เกินกำหนด ${Math.abs(hrs)} ชม.`, bg: '#fee2e2', color: '#b91c1c' }
   } else if (isTodayBkk(rental.expectedEndDatetime)) {
-    pill = { label: `คืนวันนี้ ${fmtTime(rental.expectedEndDatetime)}`, bg: '#fffbeb', color: '#d97706' }; accentColor = '#d97706'
+    pill = { label: `คืนวันนี้ ${fmtTime(rental.expectedEndDatetime)}`, bg: '#fffbeb', color: '#d97706' }
   } else {
-    pill = { label: `คืน ${fmtDate(rental.expectedEndDatetime)}`, bg: '#fef2f2', color: '#dc2626' }; accentColor = '#dc2626'
+    pill = { label: `คืน ${fmtDate(rental.expectedEndDatetime)}`, bg: '#f1f5f9', color: '#374151' }
   }
-  const lines = [`👤 ${rental.customerName}`]
+  const hasIssue = overdue || rental.dueTasks.length > 0 || rental.docTasks.length > 0
+  const lines = [`สี ${rental.color ?? '-'}`, `👤 ${rental.customerName}`]
   if (rental.customerPhone) lines.push(`📞 ${rental.customerPhone}`)
   if (rental.returnType === 'offsite') lines.push(`🛵 คืนที่: ${rental.returnAddress || 'นอกสถานที่'}`)
   const pills = [pill]
@@ -217,7 +223,7 @@ function DailyCard({ rental }: { rental: DailyRental }) {
   return (
     <GridCard
       href={`/staff/bikes/${rental.bikeId}/menu`}
-      accentColor={accentColor}
+      accentColor={hasIssue ? ISSUE_COLOR : OK_COLOR}
       title={rental.licensePlate}
       subtitle={`${rental.brand} ${rental.model}`}
       lines={lines}
@@ -227,16 +233,18 @@ function DailyCard({ rental }: { rental: DailyRental }) {
 }
 
 function MonthlyCard({ rental }: { rental: MonthlyRental }) {
+  const hasIssue = rental.dueTasks.length > 0 || rental.docTasks.length > 0
   const pills = [{ label: 'รายเดือน', bg: '#faf5ff', color: '#7c3aed' }]
   if (rental.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${rental.dueTasks.join(', ')}`, bg: '#fef2f2', color: '#dc2626' })
   if (rental.docTasks.length > 0) pills.push({ label: `📄 ${rental.docTasks.join(', ')}`, bg: '#f0f9ff', color: '#0369a1' })
   return (
     <GridCard
       href={`/staff/bikes/${rental.bikeId}/menu`}
-      accentColor={rental.dueTasks.length > 0 ? '#dc2626' : '#7c3aed'}
+      accentColor={hasIssue ? ISSUE_COLOR : OK_COLOR}
       title={rental.licensePlate}
       subtitle={`${rental.brand} ${rental.model}`}
       lines={[
+        `สี ${rental.color ?? '-'}`,
         `👤 ${rental.customerName}`,
         `฿${rental.monthlyRate.toLocaleString()}/เดือน • ครบวันที่ ${rental.paymentDay}`,
       ]}

@@ -124,16 +124,20 @@ function branchSuffix(name: string, show: boolean) {
   return show && name ? ` • ${name}` : ''
 }
 
+const OK_COLOR = '#22c55e'
+const ISSUE_COLOR = '#ef4444'
+
 function AtShopCard({ bike, showBranchName }: { bike: AtShopBike; showBranchName: boolean }) {
-  const pills = [{ label: 'ว่าง', color: '#22c55e' }]
+  const hasIssue = bike.dueTasks.length > 0 || bike.docTasks.length > 0
+  const pills = [{ label: 'ว่าง', color: OK_COLOR }]
   if (bike.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${bike.dueTasks.join(', ')}`, color: '#ef4444' })
   if (bike.docTasks.length > 0) pills.push({ label: `📄 ${bike.docTasks.join(', ')}`, color: '#38bdf8' })
   return (
     <GridCard
-      accentColor={bike.dueTasks.length > 0 ? '#ef4444' : '#22c55e'}
+      accentColor={hasIssue ? ISSUE_COLOR : OK_COLOR}
       title={`${bike.licensePlate}${branchSuffix(bike.branchName, showBranchName)}`}
       subtitle={`${bike.brand} ${bike.model}`}
-      lines={[`📍 ${bike.odometer.toLocaleString()} กม. • ฿${bike.dailyRate.toLocaleString()}/วัน`]}
+      lines={[`สี ${bike.color ?? '-'}`, `฿${bike.dailyRate.toLocaleString()}/วัน`]}
       pills={pills}
     />
   )
@@ -141,18 +145,20 @@ function AtShopCard({ bike, showBranchName }: { bike: AtShopBike; showBranchName
 
 function DailyCard({ rental, showBranchName }: { rental: DailyRental; showBranchName: boolean }) {
   const hrs = hoursUntil(rental.expectedEndDatetime)
-  let pill: { label: string; color: string }, accentColor: string
-  if (hrs < 0) { pill = { label: `เกินกำหนด ${Math.abs(hrs)} ชม.`, color: '#ef4444' }; accentColor = '#ef4444' }
-  else if (isTodayBkk(rental.expectedEndDatetime)) { pill = { label: `คืนวันนี้ ${fmtTime(rental.expectedEndDatetime)}`, color: '#f59e0b' }; accentColor = '#f59e0b' }
-  else { pill = { label: `คืน ${fmtDate(rental.expectedEndDatetime)}`, color: '#f87171' }; accentColor = '#ef4444' }
-  const lines = [`👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`]
+  const overdue = hrs < 0
+  let pill: { label: string; color: string }
+  if (overdue) { pill = { label: `เกินกำหนด ${Math.abs(hrs)} ชม.`, color: '#ef4444' } }
+  else if (isTodayBkk(rental.expectedEndDatetime)) { pill = { label: `คืนวันนี้ ${fmtTime(rental.expectedEndDatetime)}`, color: '#f59e0b' } }
+  else { pill = { label: `คืน ${fmtDate(rental.expectedEndDatetime)}`, color: '#94a3b8' } }
+  const hasIssue = overdue || rental.dueTasks.length > 0 || rental.docTasks.length > 0
+  const lines = [`สี ${rental.color ?? '-'}`, `👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`]
   if (rental.returnType === 'offsite') lines.push(`🛵 คืนที่: ${rental.returnAddress || 'นอกสถานที่'}`)
   const pills = [pill]
   if (rental.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${rental.dueTasks.join(', ')}`, color: '#ef4444' })
   if (rental.docTasks.length > 0) pills.push({ label: `📄 ${rental.docTasks.join(', ')}`, color: '#38bdf8' })
   return (
     <GridCard
-      accentColor={rental.dueTasks.length > 0 ? '#ef4444' : accentColor}
+      accentColor={hasIssue ? ISSUE_COLOR : OK_COLOR}
       title={`${rental.licensePlate}${branchSuffix(rental.branchName, showBranchName)}`}
       subtitle={`${rental.brand} ${rental.model}`}
       lines={lines}
@@ -162,15 +168,17 @@ function DailyCard({ rental, showBranchName }: { rental: DailyRental; showBranch
 }
 
 function MonthlyCard({ rental, showBranchName }: { rental: MonthlyRental; showBranchName: boolean }) {
+  const hasIssue = rental.dueTasks.length > 0 || rental.docTasks.length > 0
   const pills = [{ label: 'รายเดือน', color: '#a78bfa' }]
   if (rental.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${rental.dueTasks.join(', ')}`, color: '#ef4444' })
   if (rental.docTasks.length > 0) pills.push({ label: `📄 ${rental.docTasks.join(', ')}`, color: '#38bdf8' })
   return (
     <GridCard
-      accentColor={rental.dueTasks.length > 0 ? '#ef4444' : '#a78bfa'}
+      accentColor={hasIssue ? ISSUE_COLOR : OK_COLOR}
       title={`${rental.licensePlate}${branchSuffix(rental.branchName, showBranchName)}`}
       subtitle={`${rental.brand} ${rental.model}`}
       lines={[
+        `สี ${rental.color ?? '-'}`,
         `👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`,
         `฿${rental.monthlyRate.toLocaleString()}/เดือน • ครบวันที่ ${rental.paymentDay}`,
       ]}
