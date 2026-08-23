@@ -51,12 +51,29 @@ export default async function CloseShopPage() {
   const shopPlates = groups.atShop.map(b => b.licensePlate)
   const repairPlates = groups.repairs.filter(r => r.locationType === 'shop').map(r => r.licensePlate)
 
+  // เช็คว่าวันนี้ (ตามเวลาไทย) ปิดร้านสาขานี้ไปแล้วหรือยัง — เตือนไว้ก่อน แต่ไม่บล็อกการปิดซ้ำ
+  const todayStart = new Date(Date.UTC(bkk.getUTCFullYear(), bkk.getUTCMonth(), bkk.getUTCDate()) - H7)
+  const { data: existingCloseToday } = await admin
+    .from('staff_closeshops')
+    .select('closed_at, staff(name)')
+    .eq('branch_id', branchId)
+    .gte('closed_at', todayStart.toISOString())
+    .order('closed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const alreadyClosedToday = existingCloseToday ? {
+    closedAt: existingCloseToday.closed_at,
+    staffName: (existingCloseToday as any).staff?.name ?? '',
+  } : null
+
   return (
     <CloseShopClient
       staffName={staffName}
       branchName={branchName}
       shopPlates={shopPlates}
       repairPlates={repairPlates}
+      alreadyClosedToday={alreadyClosedToday}
     />
   )
 }

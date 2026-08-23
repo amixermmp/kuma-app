@@ -14,9 +14,15 @@ type PlateEntryStatus =
   | { kind: 'mismatch'; preview: string; url: string; detectedPlates: string[] }
   | { kind: 'manual'; preview: string; url: string; detectedPlates: string[] }
 
-type Props = { staffName: string; branchName: string; shopPlates: string[]; repairPlates: string[] }
+type Props = {
+  staffName: string
+  branchName: string
+  shopPlates: string[]
+  repairPlates: string[]
+  alreadyClosedToday: { closedAt: string; staffName: string } | null
+}
 
-export default function CloseShopClient({ staffName, branchName, shopPlates, repairPlates }: Props) {
+export default function CloseShopClient({ staffName, branchName, shopPlates, repairPlates, alreadyClosedToday }: Props) {
   const expectedPlates = [...shopPlates, ...repairPlates]
   const router = useRouter()
   const selfieInputRef = useRef<HTMLInputElement>(null)
@@ -238,6 +244,15 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
       />
 
       <div style={{ padding: '16px 12px 100px' }}>
+        {alreadyClosedToday && (
+          <div style={{
+            background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '12px',
+            padding: '10px 12px', marginBottom: '14px', fontSize: '12px', color: '#92400e',
+          }}>
+            ⚠️ วันนี้ปิดร้านไปแล้วเมื่อ {new Date(alreadyClosedToday.closedAt).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' })} น. โดย {alreadyClosedToday.staffName} — ยังปิดซ้ำได้ถ้าจำเป็น
+          </div>
+        )}
+
         {/* summary */}
         <div style={{
           background: missingPlates.length === 0 ? '#f0fdf4' : '#fef2f2',
