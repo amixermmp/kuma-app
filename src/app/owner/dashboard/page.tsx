@@ -492,6 +492,7 @@ export default async function OwnerDashboardPage({
       <div style={{ margin: '0 16px 80px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {([
           { icon: '➕', label: 'เพิ่มรถคันใหม่',     sub: 'ลงทะเบียนรถและสร้าง QR Code',       href: '/owner/bikes/add',  color: '#f1f5f9' },
+          { icon: '🏪', label: 'ภาพรวมร้าน',       sub: 'สถานะรถทั้งร้าน แยกตามหมวด',        href: '/owner/overview',   color: '#22c55e' },
           { icon: '🛵', label: 'รายการรถทั้งหมด',  sub: 'ดู/แก้ไขข้อมูลรถทุกสาขา',           href: '/owner/bikes',      color: '#cbd5e1' },
           { icon: '📋', label: 'ประวัติการเช่า',   sub: 'การเช่าที่ active อยู่ + คืนรถ',      href: '/owner/rentals',    color: '#22c55e' },
           { icon: '📜', label: 'Activity Log',    sub: 'ใครทำอะไร เมื่อไหร่ในระบบ',           href: '/owner/logs',       color: '#cbd5e1' },

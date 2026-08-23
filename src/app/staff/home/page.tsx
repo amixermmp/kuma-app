@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ScanLine, Pin, Search, Bike, Send, Wrench, FileText, Droplet, Undo2, Phone } from 'lucide-react'
+import { ScanLine, Pin, Search, Bike, Send, Wrench, FileText, Droplet, Undo2, Phone, Store } from 'lucide-react'
 import TabBar from '@/components/staff/TabBar'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
@@ -93,6 +93,7 @@ export default async function StaffHomePage() {
   const QUICK_ACTIONS = [
     { Icon: Search, label: 'ค้นหารถ',    href: '/staff/search' },
     { Icon: Bike,   label: 'รวมรถ',       href: '/staff/fleet' },
+    { Icon: Store,  label: 'ภาพรวมร้าน', href: '/staff/overview' },
     { Icon: Send,   label: 'ส่งรถคิวจอง', href: '/staff/send-queue' },
     { Icon: Wrench, label: 'แจ้งรถเสีย',  href: '/staff/broken' },
     { Icon: FileText, label: 'งานเอกสาร', href: '/staff/docs' },
