@@ -106,6 +106,13 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
   // ล็อคค้าง: สถานะ locked แต่ไม่มีสัญญาใดๆ — ให้ปลดล็อคได้
   const isStuckLocked = bike.status === 'locked' && !rentalId && !monthlyRentalId
 
+  // สลับรถ — ใช้ได้ทั้งเช่ารายวัน (สัญญา active) และรายเดือน
+  const swapHref = isRented && rentalId
+    ? `/staff/swap/daily/${rentalId}`
+    : isMonthlyRented && monthlyRentalId
+      ? `/staff/swap/monthly/${monthlyRentalId}`
+      : null
+
   const fuelLevel = bike.fuel_level ?? 0
   const fuelDots = Array.from({ length: 8 }, (_, i) => i < fuelLevel ? '●' : '○').join('')
 
@@ -321,6 +328,22 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
             <div style={{ fontSize: '28px', marginBottom: '6px' }}>🛵💥</div>
             <div style={{ fontWeight: 700, fontSize: '14px', color: '#991b1b' }}>แจ้งรถเสีย</div>
             <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>รายงานปัญหา</div>
+          </Link>
+
+          {/* สลับรถ */}
+          <Link
+            href={swapHref ?? '#'}
+            style={{
+              background: swapHref ? '#faf5ff' : '#f8fafc',
+              border: `2px solid ${swapHref ? '#ddd6fe' : '#e2e8f0'}`,
+              borderRadius: '14px', padding: '16px',
+              textDecoration: 'none', opacity: swapHref ? 1 : 0.5,
+              pointerEvents: swapHref ? 'auto' : 'none',
+            }}
+          >
+            <div style={{ fontSize: '28px', marginBottom: '6px' }}>🔄</div>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: '#7c3aed' }}>สลับรถ</div>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>เปลี่ยนเป็นคันอื่น</div>
           </Link>
 
         </div>
