@@ -180,6 +180,9 @@ function AtShopCard({ bike }: { bike: AtShopBike }) {
   if (bike.dueTasks.length > 0) {
     pills.push({ label: `🛢️ ถึงกำหนด: ${bike.dueTasks.join(', ')}`, bg: '#fef2f2', color: '#dc2626' })
   }
+  if (bike.docTasks.length > 0) {
+    pills.push({ label: `📄 ${bike.docTasks.join(', ')}`, bg: '#f0f9ff', color: '#0369a1' })
+  }
   return (
     <GridCard
       href={`/staff/bikes/${bike.id}/menu`}
@@ -210,6 +213,7 @@ function DailyCard({ rental }: { rental: DailyRental }) {
   if (rental.returnType === 'offsite') lines.push(`🛵 คืนที่: ${rental.returnAddress || 'นอกสถานที่'}`)
   const pills = [pill]
   if (rental.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${rental.dueTasks.join(', ')}`, bg: '#fef2f2', color: '#dc2626' })
+  if (rental.docTasks.length > 0) pills.push({ label: `📄 ${rental.docTasks.join(', ')}`, bg: '#f0f9ff', color: '#0369a1' })
   return (
     <GridCard
       href={`/staff/bikes/${rental.bikeId}/menu`}
@@ -225,6 +229,7 @@ function DailyCard({ rental }: { rental: DailyRental }) {
 function MonthlyCard({ rental }: { rental: MonthlyRental }) {
   const pills = [{ label: 'รายเดือน', bg: '#faf5ff', color: '#7c3aed' }]
   if (rental.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${rental.dueTasks.join(', ')}`, bg: '#fef2f2', color: '#dc2626' })
+  if (rental.docTasks.length > 0) pills.push({ label: `📄 ${rental.docTasks.join(', ')}`, bg: '#f0f9ff', color: '#0369a1' })
   return (
     <GridCard
       href={`/staff/bikes/${rental.bikeId}/menu`}

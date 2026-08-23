@@ -127,6 +127,7 @@ function branchSuffix(name: string, show: boolean) {
 function AtShopCard({ bike, showBranchName }: { bike: AtShopBike; showBranchName: boolean }) {
   const pills = [{ label: 'ว่าง', color: '#22c55e' }]
   if (bike.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${bike.dueTasks.join(', ')}`, color: '#ef4444' })
+  if (bike.docTasks.length > 0) pills.push({ label: `📄 ${bike.docTasks.join(', ')}`, color: '#38bdf8' })
   return (
     <GridCard
       accentColor={bike.dueTasks.length > 0 ? '#ef4444' : '#22c55e'}
@@ -148,6 +149,7 @@ function DailyCard({ rental, showBranchName }: { rental: DailyRental; showBranch
   if (rental.returnType === 'offsite') lines.push(`🛵 คืนที่: ${rental.returnAddress || 'นอกสถานที่'}`)
   const pills = [pill]
   if (rental.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${rental.dueTasks.join(', ')}`, color: '#ef4444' })
+  if (rental.docTasks.length > 0) pills.push({ label: `📄 ${rental.docTasks.join(', ')}`, color: '#38bdf8' })
   return (
     <GridCard
       accentColor={rental.dueTasks.length > 0 ? '#ef4444' : accentColor}
@@ -162,6 +164,7 @@ function DailyCard({ rental, showBranchName }: { rental: DailyRental; showBranch
 function MonthlyCard({ rental, showBranchName }: { rental: MonthlyRental; showBranchName: boolean }) {
   const pills = [{ label: 'รายเดือน', color: '#a78bfa' }]
   if (rental.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${rental.dueTasks.join(', ')}`, color: '#ef4444' })
+  if (rental.docTasks.length > 0) pills.push({ label: `📄 ${rental.docTasks.join(', ')}`, color: '#38bdf8' })
   return (
     <GridCard
       accentColor={rental.dueTasks.length > 0 ? '#ef4444' : '#a78bfa'}

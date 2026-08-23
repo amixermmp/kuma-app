@@ -14,6 +14,7 @@ export type AtShopBike = {
   dailyRate: number
   branchName: string
   dueTasks: string[]
+  docTasks: string[]
 }
 
 export type DailyRental = {
@@ -31,6 +32,7 @@ export type DailyRental = {
   returnType: string | null
   returnAddress: string | null
   dueTasks: string[]
+  docTasks: string[]
 }
 
 export type MonthlyRental = {
@@ -47,6 +49,7 @@ export type MonthlyRental = {
   paymentDay: number
   monthlyRate: number
   dueTasks: string[]
+  docTasks: string[]
 }
 
 export type RepairJob = {
@@ -144,10 +147,39 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
       const odometer = odometerByBike.get(r.bike_id) ?? 0
       const { urgency } = calcRoutineUrgency({ next_due_km: r.next_due_km, next_due_date: r.next_due_date }, odometer)
       if (urgency === 'overdue') {
+        // บอกจำนวนวัน/กม.ที่เกินมา ให้เห็นความเร่งด่วนชัดกว่าแค่ชื่องาน
+        let extra = ''
+        if (r.next_due_date) {
+          const days = Math.floor((Date.now() - new Date(r.next_due_date).getTime()) / 86_400_000)
+          if (days > 0) extra = ` (เกิน ${days} วัน)`
+        } else if (r.next_due_km != null && odometer - r.next_due_km > 0) {
+          extra = ` (เกิน ${(odometer - r.next_due_km).toLocaleString()} กม.)`
+        }
         const list = dueTasksByBike.get(r.bike_id) ?? []
-        list.push(r.task_name)
+        list.push(`${r.task_name}${extra}`)
         dueTasksByBike.set(r.bike_id, list)
       }
+    }
+  }
+
+  // เอกสารรถ (ภาษี/พ.ร.บ./ประกัน) ที่ใกล้หมดอายุ — เกณฑ์เดียวกับหน้า Job Tasks
+  const DOC_LABEL: Record<string, string> = { tax: 'ภาษีรถ', pob: 'พ.ร.บ.', insurance: 'ประกันภัย' }
+  const today = new Date().toISOString().split('T')[0]
+  const in30days = new Date(Date.now() + 30 * 86_400_000).toISOString().split('T')[0]
+  const docTasksByBike = new Map<string, string[]>()
+  if (routineCheckIds.length > 0) {
+    const { data: docs } = await admin
+      .from('bike_documents')
+      .select('bike_id, doc_type, expiry_date')
+      .in('bike_id', routineCheckIds)
+      .lte('expiry_date', in30days)
+      .gte('expiry_date', today)
+    for (const d of docs ?? []) {
+      const daysLeft = Math.ceil((new Date(d.expiry_date).getTime() - Date.now()) / 86_400_000)
+      const label = DOC_LABEL[d.doc_type] ?? d.doc_type
+      const list = docTasksByBike.get(d.bike_id) ?? []
+      list.push(`${label} (อีก ${daysLeft} วัน)`)
+      docTasksByBike.set(d.bike_id, list)
     }
   }
 
@@ -161,6 +193,7 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
     dailyRate: b.daily_rate ?? 0,
     branchName: b.branches?.name ?? '',
     dueTasks: dueTasksByBike.get(b.id) ?? [],
+    docTasks: docTasksByBike.get(b.id) ?? [],
   }))
 
   const dailyRentals: DailyRental[] = dailyList.map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -174,6 +207,7 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
     returnType: r.return_type,
     returnAddress: r.return_address,
     dueTasks: dueTasksByBike.get(r.bike_id) ?? [],
+    docTasks: docTasksByBike.get(r.bike_id) ?? [],
   }))
 
   const monthlyRentals: MonthlyRental[] = monthlyList.map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -186,6 +220,7 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
     paymentDay: r.payment_day,
     monthlyRate: r.monthly_rate,
     dueTasks: dueTasksByBike.get(r.bike_id) ?? [],
+    docTasks: docTasksByBike.get(r.bike_id) ?? [],
   }))
 
   const repairs: RepairJob[] = repairsList.map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
