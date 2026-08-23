@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Bike, Zap, CalendarPlus } from 'lucide-react'
 import { bangkokToUTC } from '@/lib/time'
-import { calcRentQuote } from '@/lib/pricing'
+import { calcRentQuote, calendarDays } from '@/lib/pricing'
 import QuarterHourInput from '@/components/staff/QuarterHourInput'
 
 type BikeResult = {
@@ -43,10 +43,6 @@ function nowLocal(offsetMs = 0) {
   d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0)
   const p = (n: number) => n.toString().padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
-}
-
-function daysBetween(from: string, to: string) {
-  return Math.max(1, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000))
 }
 
 function groupByModel(bikes: BikeResult[]): ModelGroup[] {
@@ -95,7 +91,9 @@ export default function SearchPage() {
     }
   }
 
-  const days = from && to ? daysBetween(from, to) : 0
+  // นับวันแบบวันปฏิทิน (ไม่ปัดขึ้นตามเศษชั่วโมง) — สูตรเดียวกับหน้าทำสัญญาจริง เศษชั่วโมงไปคิด
+  // เป็นค่าล่วงเวลาตอนคืนรถแทน ไม่ใช่ปัดเป็นวันเพิ่มตั้งแต่ตอนค้นหา
+  const days = from && to && new Date(to) > new Date(from) ? calendarDays(new Date(from), new Date(to)) : 0
   const groups = results ? groupByModel(results) : []
   // ตัวเลือกกรอง — ดึงจากผลค้นหาจริง
   const brandChoices = Array.from(new Set(groups.map(g => g.brand))).sort()
