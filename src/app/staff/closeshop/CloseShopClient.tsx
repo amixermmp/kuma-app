@@ -23,16 +23,14 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
   const plateInputRef = useRef<HTMLInputElement>(null)
   const submittingRef = useRef(false)
 
-  const [step, setStep] = useState<'selfie' | 'plates'>('selfie')
-  const [selfieFile, setSelfieFile] = useState<Blob | null>(null)
-  const [selfiePreview, setSelfiePreview] = useState<string | null>(null)
-  const [selfieUploaded, setSelfieUploaded] = useState<{ url: string } | null>(null)
-  const [selfieError, setSelfieError] = useState('')
-  const [selfieUploading, setSelfieUploading] = useState(false)
+  const [step, setStep] = useState<'plates' | 'selfie'>('plates')
 
   const [platePhotos, setPlatePhotos] = useState<PlatePhoto[]>([])
   const [overrides, setOverrides] = useState<Map<string, boolean>>(new Map())
   const [explanation, setExplanation] = useState('')
+
+  const [selfieFile, setSelfieFile] = useState<Blob | null>(null)
+  const [selfiePreview, setSelfiePreview] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -61,39 +59,7 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
   const foundPlates = expectedPlates.filter(isFound)
   const missingPlates = expectedPlates.filter(p => !isFound(p))
   const needsExplanation = missingPlates.length > 0
-  const canSubmit = !submitting && (!needsExplanation || explanation.trim().length > 0) && platePhotos.every(p => !p.ocrLoading)
-
-  // ── selfie ──
-  const handleSelfie = async (f: File) => {
-    setSelfieError('')
-    const compressed = await compressImage(f, 300)
-    setSelfieFile(compressed)
-    setSelfiePreview(URL.createObjectURL(compressed))
-  }
-  const retakeSelfie = () => {
-    setSelfiePreview(null)
-    setSelfieFile(null)
-    if (selfieInputRef.current) selfieInputRef.current.value = ''
-  }
-  const confirmSelfie = async () => {
-    if (!selfieFile) return
-    setSelfieUploading(true)
-    setSelfieError('')
-    try {
-      const fd = new FormData()
-      fd.append('file', new File([selfieFile], 'closeshop-selfie.jpg', { type: 'image/jpeg' }))
-      fd.append('folder', 'closeshops')
-      const res = await fetch('/api/staff/upload', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'อัพโหลดรูปไม่สำเร็จ')
-      setSelfieUploaded({ url: data.url })
-      setStep('plates')
-    } catch (e) {
-      setSelfieError(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่')
-    } finally {
-      setSelfieUploading(false)
-    }
-  }
+  const canProceed = (!needsExplanation || explanation.trim().length > 0) && platePhotos.every(p => !p.ocrLoading)
 
   // ── plate photos ──
   const handlePlatePhoto = async (f: File) => {
@@ -122,19 +88,39 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
     }
   }
 
+  // ── selfie (ถ่ายท้ายสุด — ตอนตรวจรถครบ/อธิบายครบแล้วค่อยถ่ายรูปปิดร้านจริง) ──
+  const handleSelfie = async (f: File) => {
+    setError('')
+    const compressed = await compressImage(f, 300)
+    setSelfieFile(compressed)
+    setSelfiePreview(URL.createObjectURL(compressed))
+  }
+  const retakeSelfie = () => {
+    setSelfiePreview(null)
+    setSelfieFile(null)
+    if (selfieInputRef.current) selfieInputRef.current.value = ''
+  }
+
   const submit = async () => {
-    if (!canSubmit || submittingRef.current || !selfieUploaded) return
+    if (!selfieFile || submittingRef.current) return
     submittingRef.current = true
     setSubmitting(true)
     setError('')
     try {
+      const fd = new FormData()
+      fd.append('file', new File([selfieFile], 'closeshop-selfie.jpg', { type: 'image/jpeg' }))
+      fd.append('folder', 'closeshops')
+      const uploadRes = await fetch('/api/staff/upload', { method: 'POST', body: fd })
+      const uploadData = await uploadRes.json()
+      if (!uploadRes.ok) throw new Error(uploadData.error ?? 'อัพโหลดรูปไม่สำเร็จ')
+
       const manuallyFoundPlates = expectedPlates
         .filter(p => isFound(p) && !ocrFoundSet.has(normalizePlate(p)))
       const res = await fetch('/api/staff/closeshop/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          selfiePhotoUrl: selfieUploaded.url,
+          selfiePhotoUrl: uploadData.url,
           platePhotos: platePhotos.map(p => ({ url: p.url, detectedPlates: p.detectedPlates })),
           manuallyFoundPlates,
           explanation: explanation.trim() || null,
@@ -185,20 +171,20 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={selfiePreview} alt="ปิดร้าน" style={{ width: '100%', display: 'block' }} />
               </div>
-              {selfieError && (
-                <div style={{ color: '#fca5a5', fontSize: '13px', textAlign: 'center', marginBottom: '12px' }}>{selfieError}</div>
+              {error && (
+                <div style={{ color: '#fca5a5', fontSize: '13px', textAlign: 'center', marginBottom: '12px' }}>{error}</div>
               )}
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={retakeSelfie} disabled={selfieUploading} style={{
+                <button onClick={retakeSelfie} disabled={submitting} style={{
                   flex: 1, padding: '15px', borderRadius: '14px', border: '1.5px solid rgba(255,255,255,.25)',
                   background: 'transparent', color: '#fff', fontSize: '15px', fontWeight: 700,
                   fontFamily: 'inherit', cursor: 'pointer',
                 }}>ถ่ายใหม่</button>
-                <button onClick={confirmSelfie} disabled={selfieUploading} style={{
+                <button onClick={submit} disabled={submitting} style={{
                   flex: 2, padding: '15px', borderRadius: '14px', border: 'none',
                   background: '#e11d48', color: '#fff', fontSize: '15px', fontWeight: 800,
-                  fontFamily: 'inherit', cursor: selfieUploading ? 'default' : 'pointer', opacity: selfieUploading ? 0.6 : 1,
-                }}>{selfieUploading ? 'กำลังอัพโหลด...' : 'ถ่ายป้ายทะเบียนต่อ →'}</button>
+                  fontFamily: 'inherit', cursor: submitting ? 'default' : 'pointer', opacity: submitting ? 0.6 : 1,
+                }}>{submitting ? 'กำลังบันทึก...' : '✓ ยืนยันปิดร้าน'}</button>
               </div>
             </div>
           )}
@@ -313,20 +299,13 @@ export default function CloseShopClient({ staffName, branchName, expectedPlates 
           </div>
         )}
 
-        {error && (
-          <div style={{
-            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px',
-            padding: '12px', color: '#dc2626', fontSize: '14px', marginBottom: '12px',
-          }}>⚠️ {error}</div>
-        )}
-
-        <button onClick={submit} disabled={!canSubmit} style={{
+        <button onClick={() => setStep('selfie')} disabled={!canProceed} style={{
           width: '100%', padding: '15px', borderRadius: '14px', border: 'none',
-          background: canSubmit ? '#111827' : '#e2e8f0', color: canSubmit ? '#fff' : '#94a3b8',
+          background: canProceed ? '#111827' : '#e2e8f0', color: canProceed ? '#fff' : '#94a3b8',
           fontSize: '15px', fontWeight: 800, fontFamily: 'inherit',
-          cursor: canSubmit ? 'pointer' : 'not-allowed',
+          cursor: canProceed ? 'pointer' : 'not-allowed',
         }}>
-          {submitting ? 'กำลังบันทึก...' : '✓ ยืนยันปิดร้าน'}
+          ถ่ายรูปปิดร้าน →
         </button>
       </div>
     </div>
