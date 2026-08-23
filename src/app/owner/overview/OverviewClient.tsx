@@ -3,9 +3,7 @@
 import { useState } from 'react'
 import type { AtShopBike, DailyRental, MonthlyRental, RepairJob, ShopOverviewGroups } from '@/lib/shopOverview'
 
-type FilterKey = 'all' | 'atshop' | 'daily' | 'monthly' | 'repair'
-
-type Props = { groups: ShopOverviewGroups; showBranchName: boolean }
+type FilterKey = 'all' | 'pending' | 'atshop' | 'daily' | 'monthly' | 'repair'
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short' })
@@ -21,11 +19,26 @@ function isTodayBkk(iso: string) {
   return d(iso) === d(new Date().toISOString())
 }
 
+const OK_COLOR = '#22c55e'
+const ISSUE_COLOR = '#ef4444'
+
+const atShopHasIssue = (b: AtShopBike) => b.dueTasks.length > 0 || b.docTasks.length > 0
+const dailyHasIssue = (r: DailyRental) => hoursUntil(r.expectedEndDatetime) < 0 || r.dueTasks.length > 0 || r.docTasks.length > 0
+const monthlyHasIssue = (r: MonthlyRental) => r.dueTasks.length > 0 || r.docTasks.length > 0
+
+type Props = { groups: ShopOverviewGroups; showBranchName: boolean }
+
 export default function OverviewClient({ groups, showBranchName }: Props) {
   const [filter, setFilter] = useState<FilterKey>('all')
 
+  const pendingAtShop = groups.atShop.filter(atShopHasIssue)
+  const pendingDaily = groups.dailyRentals.filter(dailyHasIssue)
+  const pendingMonthly = groups.monthlyRentals.filter(monthlyHasIssue)
+  const pendingCount = pendingAtShop.length + pendingDaily.length + pendingMonthly.length
+
   const chips: { key: FilterKey; label: string; count: number; color: string }[] = [
     { key: 'all',     label: 'ทั้งหมด',        count: groups.atShop.length + groups.dailyRentals.length + groups.monthlyRentals.length + groups.repairs.length, color: '#e2e8f0' },
+    { key: 'pending', label: 'รอจัดการ',       count: pendingCount, color: '#ef4444' },
     { key: 'atshop',  label: 'อยู่ที่ร้าน',    count: groups.atShop.length,        color: '#22c55e' },
     { key: 'daily',   label: 'รายวัน/สัปดาห์', count: groups.dailyRentals.length,  color: '#ef4444' },
     { key: 'monthly', label: 'รายเดือน',       count: groups.monthlyRentals.length, color: '#a78bfa' },
@@ -54,6 +67,13 @@ export default function OverviewClient({ groups, showBranchName }: Props) {
         })}
       </div>
 
+      {filter === 'pending' && (
+        <Section title="รอจัดการ" count={pendingCount} showHeader={false}>
+          {pendingAtShop.map(b => <AtShopCard key={b.id} bike={b} showBranchName={showBranchName} />)}
+          {pendingDaily.map(r => <DailyCard key={r.id} rental={r} showBranchName={showBranchName} />)}
+          {pendingMonthly.map(r => <MonthlyCard key={r.id} rental={r} showBranchName={showBranchName} />)}
+        </Section>
+      )}
       {show('atshop') && (
         <Section title="รถอยู่ที่ร้านตอนนี้" count={groups.atShop.length} showHeader={filter === 'all'}>
           {groups.atShop.map(b => <AtShopCard key={b.id} bike={b} showBranchName={showBranchName} />)}
@@ -124,11 +144,8 @@ function branchSuffix(name: string, show: boolean) {
   return show && name ? ` • ${name}` : ''
 }
 
-const OK_COLOR = '#22c55e'
-const ISSUE_COLOR = '#ef4444'
-
 function AtShopCard({ bike, showBranchName }: { bike: AtShopBike; showBranchName: boolean }) {
-  const hasIssue = bike.dueTasks.length > 0 || bike.docTasks.length > 0
+  const hasIssue = atShopHasIssue(bike)
   const pills = [{ label: 'ว่าง', color: OK_COLOR }]
   if (bike.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${bike.dueTasks.join(', ')}`, color: '#ef4444' })
   if (bike.docTasks.length > 0) pills.push({ label: `📄 ${bike.docTasks.join(', ')}`, color: '#38bdf8' })
@@ -150,7 +167,7 @@ function DailyCard({ rental, showBranchName }: { rental: DailyRental; showBranch
   if (overdue) { pill = { label: `เกินกำหนด ${Math.abs(hrs)} ชม.`, color: '#ef4444' } }
   else if (isTodayBkk(rental.expectedEndDatetime)) { pill = { label: `คืนวันนี้ ${fmtTime(rental.expectedEndDatetime)}`, color: '#f59e0b' } }
   else { pill = { label: `คืน ${fmtDate(rental.expectedEndDatetime)}`, color: '#94a3b8' } }
-  const hasIssue = overdue || rental.dueTasks.length > 0 || rental.docTasks.length > 0
+  const hasIssue = dailyHasIssue(rental)
   const lines = [`สี ${rental.color ?? '-'}`, `👤 ${rental.customerName}${rental.customerPhone ? ' • ' + rental.customerPhone : ''}`]
   if (rental.returnType === 'offsite') lines.push(`🛵 คืนที่: ${rental.returnAddress || 'นอกสถานที่'}`)
   const pills = [pill]
@@ -168,7 +185,7 @@ function DailyCard({ rental, showBranchName }: { rental: DailyRental; showBranch
 }
 
 function MonthlyCard({ rental, showBranchName }: { rental: MonthlyRental; showBranchName: boolean }) {
-  const hasIssue = rental.dueTasks.length > 0 || rental.docTasks.length > 0
+  const hasIssue = monthlyHasIssue(rental)
   const pills = [{ label: 'รายเดือน', color: '#a78bfa' }]
   if (rental.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${rental.dueTasks.join(', ')}`, color: '#ef4444' })
   if (rental.docTasks.length > 0) pills.push({ label: `📄 ${rental.docTasks.join(', ')}`, color: '#38bdf8' })

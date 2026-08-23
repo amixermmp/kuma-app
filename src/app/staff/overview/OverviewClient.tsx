@@ -7,7 +7,14 @@ import TabBar from '@/components/staff/TabBar'
 import { fmtDate, fmtTime, hoursUntil, isTodayBkk } from '@/components/staff/JobCard'
 import type { AtShopBike, DailyRental, MonthlyRental, RepairJob, ShopOverviewGroups } from '@/lib/shopOverview'
 
-type FilterKey = 'all' | 'atshop' | 'daily' | 'monthly' | 'repair'
+type FilterKey = 'all' | 'pending' | 'atshop' | 'daily' | 'monthly' | 'repair'
+
+const OK_COLOR = '#16a34a'
+const ISSUE_COLOR = '#dc2626'
+
+const atShopHasIssue = (b: AtShopBike) => b.dueTasks.length > 0 || b.docTasks.length > 0
+const dailyHasIssue = (r: DailyRental) => hoursUntil(r.expectedEndDatetime) < 0 || r.dueTasks.length > 0 || r.docTasks.length > 0
+const monthlyHasIssue = (r: MonthlyRental) => r.dueTasks.length > 0 || r.docTasks.length > 0
 
 type Props = { groups: ShopOverviewGroups; branchName: string }
 
@@ -25,8 +32,14 @@ export default function OverviewClient({ groups, branchName }: Props) {
   const monthlyRentals = groups.monthlyRentals.filter(r => matches(r.licensePlate, r.customerName))
   const repairs = groups.repairs.filter(r => matches(r.licensePlate))
 
+  const pendingAtShop = atShop.filter(atShopHasIssue)
+  const pendingDaily = dailyRentals.filter(dailyHasIssue)
+  const pendingMonthly = monthlyRentals.filter(monthlyHasIssue)
+  const pendingCount = pendingAtShop.length + pendingDaily.length + pendingMonthly.length
+
   const chips: { key: FilterKey; label: string; count: number; bg: string; color: string }[] = [
     { key: 'all',     label: 'ทั้งหมด',      count: atShop.length + dailyRentals.length + monthlyRentals.length + repairs.length, bg: '#f1f5f9', color: '#111827' },
+    { key: 'pending', label: 'รอจัดการ',     count: pendingCount, bg: '#fef2f2', color: '#dc2626' },
     { key: 'atshop',  label: 'อยู่ที่ร้าน',   count: atShop.length,        bg: '#f0fdf4', color: '#16a34a' },
     { key: 'daily',   label: 'รายวัน/สัปดาห์', count: dailyRentals.length, bg: '#fef2f2', color: '#dc2626' },
     { key: 'monthly', label: 'รายเดือน',      count: monthlyRentals.length, bg: '#faf5ff', color: '#7c3aed' },
@@ -95,6 +108,13 @@ export default function OverviewClient({ groups, branchName }: Props) {
       </div>
 
       <div style={{ background: '#f8fafc', padding: '4px 12px 80px', minHeight: '100%' }}>
+        {filter === 'pending' && (
+          <Section title="รอจัดการ" count={pendingCount} showHeader={false}>
+            {pendingAtShop.map(b => <AtShopCard key={b.id} bike={b} />)}
+            {pendingDaily.map(r => <DailyCard key={r.id} rental={r} />)}
+            {pendingMonthly.map(r => <MonthlyCard key={r.id} rental={r} />)}
+          </Section>
+        )}
         {show('atshop') && (
           <Section title="รถอยู่ที่ร้านตอนนี้" count={atShop.length} showHeader={filter === 'all'}>
             {atShop.map(b => <AtShopCard key={b.id} bike={b} />)}
@@ -175,11 +195,8 @@ function GridCard({ href, accentColor, title, subtitle, lines, pills }: {
   )
 }
 
-const OK_COLOR = '#16a34a'
-const ISSUE_COLOR = '#dc2626'
-
 function AtShopCard({ bike }: { bike: AtShopBike }) {
-  const hasIssue = bike.dueTasks.length > 0 || bike.docTasks.length > 0
+  const hasIssue = atShopHasIssue(bike)
   const pills = [{ label: 'ว่าง', bg: '#f0fdf4', color: OK_COLOR }]
   if (bike.dueTasks.length > 0) {
     pills.push({ label: `🛢️ ถึงกำหนด: ${bike.dueTasks.join(', ')}`, bg: '#fef2f2', color: '#dc2626' })
@@ -213,7 +230,7 @@ function DailyCard({ rental }: { rental: DailyRental }) {
   } else {
     pill = { label: `คืน ${fmtDate(rental.expectedEndDatetime)}`, bg: '#f1f5f9', color: '#374151' }
   }
-  const hasIssue = overdue || rental.dueTasks.length > 0 || rental.docTasks.length > 0
+  const hasIssue = dailyHasIssue(rental)
   const lines = [`สี ${rental.color ?? '-'}`, `👤 ${rental.customerName}`]
   if (rental.customerPhone) lines.push(`📞 ${rental.customerPhone}`)
   if (rental.returnType === 'offsite') lines.push(`🛵 คืนที่: ${rental.returnAddress || 'นอกสถานที่'}`)
@@ -233,7 +250,7 @@ function DailyCard({ rental }: { rental: DailyRental }) {
 }
 
 function MonthlyCard({ rental }: { rental: MonthlyRental }) {
-  const hasIssue = rental.dueTasks.length > 0 || rental.docTasks.length > 0
+  const hasIssue = monthlyHasIssue(rental)
   const pills = [{ label: 'รายเดือน', bg: '#faf5ff', color: '#7c3aed' }]
   if (rental.dueTasks.length > 0) pills.push({ label: `🛢️ ถึงกำหนด: ${rental.dueTasks.join(', ')}`, bg: '#fef2f2', color: '#dc2626' })
   if (rental.docTasks.length > 0) pills.push({ label: `📄 ${rental.docTasks.join(', ')}`, bg: '#f0f9ff', color: '#0369a1' })
