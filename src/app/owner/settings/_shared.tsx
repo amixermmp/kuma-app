@@ -8,6 +8,8 @@ export type Branch = {
   closeTimeEarliest?: string | null
   paymentQrDailyUrl?: string | null
   paymentQrMonthlyUrl?: string | null
+  lineQrUrl?: string | null
+  lineId?: string | null
 }
 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {

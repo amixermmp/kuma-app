@@ -123,6 +123,8 @@ type Props = {
   promoPayDays?: number
   qrDailyUrl?: string | null
   qrMonthlyUrl?: string | null
+  lineQrUrl?: string | null
+  lineId?: string | null
 }
 
 type PhotoState = {
@@ -186,7 +188,7 @@ function bkkTimePart(iso: string): string {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings, promoPayDays = 5, qrDailyUrl, qrMonthlyUrl }: Props) {
+export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings, promoPayDays = 5, qrDailyUrl, qrMonthlyUrl, lineQrUrl, lineId }: Props) {
   const DRAFT_KEY = `send_draft_${bike.id}`
 
   useEffect(() => {
@@ -1315,6 +1317,29 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
         {showSignPad && (
           <SignaturePad onSave={handleSaveSignature} onClose={() => setShowSignPad(false)} />
+        )}
+
+        {/* ไลน์ร้าน — ตั้งค่าได้ที่หน้าตั้งค่าร้าน แยกต่อสาขา ไม่ตั้งไว้ก็ไม่โชว์ */}
+        {(lineQrUrl || lineId) && (
+          <div className="card" style={{ borderTop: '3px solid #06c755' }}>
+            <div style={{
+              background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px',
+              padding: '10px 14px', marginBottom: '14px', fontSize: '13px', color: '#166534', fontWeight: 600,
+            }}>
+              📱 อย่าลืม! ให้ลูกค้าแอดไลน์ร้าน + ทักทายอย่างน้อย 1 ครั้ง จะได้มีช่องทางติดต่อลูกค้าไว้
+            </div>
+            {lineQrUrl && (
+              <div style={{ textAlign: 'center', marginBottom: lineId ? '12px' : 0 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={lineQrUrl} alt="QR ไลน์ร้าน" style={{ maxWidth: '220px', width: '100%', height: 'auto', borderRadius: '8px' }} />
+              </div>
+            )}
+            {lineId && (
+              <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                LINE ID: {lineId}
+              </div>
+            )}
+          </div>
         )}
 
         {error && (

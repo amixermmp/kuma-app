@@ -119,6 +119,93 @@ function BranchQrRow({ branch }: { branch: Branch }) {
   )
 }
 
+function BranchLineRow({ branch }: { branch: Branch }) {
+  const [qrUrl, setQrUrl] = useState(branch.lineQrUrl ?? '')
+  const [lineId, setLineId] = useState(branch.lineId ?? '')
+  const [uploading, setUploading] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const save = async (fields: { line_qr_url?: string; line_id?: string }) => {
+    const res = await fetch('/api/owner/settings/branch-line-qr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        branch_id: branch.id,
+        line_qr_url: qrUrl,
+        line_id: lineId,
+        ...fields,
+      }),
+    })
+    setMsg(res.ok ? '✅ บันทึกแล้ว' : '❌ เกิดข้อผิดพลาด')
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  const upload = async (file: File) => {
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', 'branch-line-qr')
+      const res = await fetch('/api/owner/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setQrUrl(data.url)
+      await save({ line_qr_url: data.url })
+    } catch (e) {
+      setMsg('❌ ' + (e instanceof Error ? e.message : 'อัพโหลดไม่สำเร็จ'))
+      setTimeout(() => setMsg(''), 3000)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div style={{ border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '14px', margin: '0 16px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+        <span style={{ fontWeight: 800, fontSize: '14px', color: '#111827', flex: 1 }}>📍 {branch.name}</span>
+        {msg && <span style={{ fontSize: '12px', color: msg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{msg}</span>}
+      </div>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>QR ไลน์ร้าน</div>
+          {qrUrl ? (
+            <div style={{ position: 'relative' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qrUrl} alt="QR ไลน์" style={{ width: '100%', height: '90px', objectFit: 'contain', background: '#f3f4f6', borderRadius: '8px' }} />
+              <label style={{
+                position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(17,24,39,.8)', color: '#fff',
+                fontSize: '11px', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
+              }}>
+                {uploading ? '...' : 'เปลี่ยน'}
+                <input type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) upload(f) }} />
+              </label>
+            </div>
+          ) : (
+            <label style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', height: '90px',
+              border: '1.5px dashed #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: '#9ca3af',
+            }}>
+              {uploading ? 'กำลังอัพโหลด...' : '+ อัพโหลด'}
+              <input type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) upload(f) }} />
+            </label>
+          )}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>LINE ID</div>
+          <input className="field-input" value={lineId} onChange={e => setLineId(e.target.value)} placeholder="@kumabike" />
+        </div>
+        <button onClick={() => save({})} className="btn" style={{ padding: '10px 14px', fontSize: '12px', width: 'auto' }}>
+          💾
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: (branch: Branch) => void }) {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -261,11 +348,22 @@ export default function ShopClient({ shop, branches: initialBranches }: { shop: 
 
         <Section title="QR รับเงิน">
           <div style={{ padding: '12px 16px 0', fontSize: '12px', color: '#6b7280' }}>
-            แสดงในสัญญาเช่าที่แชร์ให้ลูกค้า — สาขาไหนไม่อัพโหลดจะไม่มี QR โชว์ในสัญญา
+            แสดงตอนพนักงานทำรายการเช่า (ส่งรถ/สร้างสัญญา) และในสัญญาเช่าที่แชร์ให้ลูกค้า — สาขาไหนไม่อัพโหลดจะไม่มี QR โชว์เลย
           </div>
           <div style={{ padding: '12px 0' }}>
             {branches.map(b => (
               <BranchQrRow key={b.id} branch={b} />
+            ))}
+          </div>
+        </Section>
+
+        <Section title="ไลน์ร้าน">
+          <div style={{ padding: '12px 16px 0', fontSize: '12px', color: '#6b7280' }}>
+            แสดงท้ายฟอร์มส่งรถ เตือนพนักงานให้ลูกค้าแอดไลน์ร้าน — สาขาไหนไม่ตั้งค่าจะไม่มีโชว์เลย
+          </div>
+          <div style={{ padding: '12px 0' }}>
+            {branches.map(b => (
+              <BranchLineRow key={b.id} branch={b} />
             ))}
           </div>
         </Section>

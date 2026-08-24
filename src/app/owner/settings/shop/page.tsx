@@ -15,7 +15,7 @@ export default async function ShopSettingsPage() {
   const [shopRes, branchRes, branchSettingsRes] = await Promise.all([
     admin.from('shop_settings').select('*').limit(1).maybeSingle(),
     admin.from('branches').select('id, name').order('name'),
-    admin.from('branch_settings').select('branch_id, close_time_earliest, payment_qr_daily_url, payment_qr_monthly_url'),
+    admin.from('branch_settings').select('branch_id, close_time_earliest, payment_qr_daily_url, payment_qr_monthly_url, line_qr_url, line_id'),
   ])
 
   const settingsMap = new Map((branchSettingsRes.data ?? []).map(b => [b.branch_id, b]))
@@ -26,6 +26,8 @@ export default async function ShopSettingsPage() {
       closeTimeEarliest: s?.close_time_earliest ?? null,
       paymentQrDailyUrl: s?.payment_qr_daily_url ?? null,
       paymentQrMonthlyUrl: s?.payment_qr_monthly_url ?? null,
+      lineQrUrl: s?.line_qr_url ?? null,
+      lineId: s?.line_id ?? null,
     }
   })
 
