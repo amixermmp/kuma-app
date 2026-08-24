@@ -35,6 +35,12 @@ export default async function SendCarPage({
 
   if (!bike) redirect('/staff/home')
 
+  const { data: branchQr } = await supabase
+    .from('branch_settings')
+    .select('payment_qr_daily_url, payment_qr_monthly_url')
+    .eq('branch_id', bike.branch_id)
+    .maybeSingle()
+
   // Pre-fill from booking if coming from assign flow
   let booking = null
   if (searchParams.bookingId) {
@@ -106,6 +112,8 @@ export default async function SendCarPage({
       prefillTo={searchParams.to}
       upcomingBookings={allUpcomingBookings}
       promoPayDays={promoPayDays}
+      qrDailyUrl={branchQr?.payment_qr_daily_url ?? null}
+      qrMonthlyUrl={branchQr?.payment_qr_monthly_url ?? null}
     />
   )
 }

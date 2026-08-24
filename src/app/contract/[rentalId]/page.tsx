@@ -12,7 +12,7 @@ export default async function PublicContractPage({ params }: { params: Promise<{
     supabase
       .from('rentals')
       .select(`
-        id, start_datetime, expected_end_datetime, total_days, daily_rate,
+        id, branch_id, start_datetime, expected_end_datetime, total_days, daily_rate,
         total_amount, deposit_amount, payment_method, notes,
         customer_signature,
         bikes(license_plate, brand, model, color),
@@ -23,7 +23,7 @@ export default async function PublicContractPage({ params }: { params: Promise<{
     supabase
       .from('monthly_rentals')
       .select(`
-        id, start_date, payment_day, monthly_rate,
+        id, branch_id, start_date, payment_day, monthly_rate,
         deposit_amount, customer_signature,
         bikes(license_plate, brand, model, color),
         customers(name, phone, workplace)
@@ -60,5 +60,15 @@ export default async function PublicContractPage({ params }: { params: Promise<{
 
   if (!rental) notFound()
 
-  return <ContractPublicView rental={rental} shop={shop ?? {}} />
+  // QR รับเงินของสาขานั้น — เลือกตามประเภทการเช่า (รายวัน/รายเดือน ใช้คนละ QR ได้)
+  const { data: branchSettings } = await supabase
+    .from('branch_settings')
+    .select('payment_qr_daily_url, payment_qr_monthly_url')
+    .eq('branch_id', rental.branch_id)
+    .maybeSingle()
+  const qrImageUrl = rental._type === 'monthly'
+    ? branchSettings?.payment_qr_monthly_url ?? null
+    : branchSettings?.payment_qr_daily_url ?? null
+
+  return <ContractPublicView rental={rental} shop={shop ?? {}} qrImageUrl={qrImageUrl} />
 }

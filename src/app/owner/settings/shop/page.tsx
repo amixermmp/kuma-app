@@ -15,11 +15,19 @@ export default async function ShopSettingsPage() {
   const [shopRes, branchRes, branchSettingsRes] = await Promise.all([
     admin.from('shop_settings').select('*').limit(1).maybeSingle(),
     admin.from('branches').select('id, name').order('name'),
-    admin.from('branch_settings').select('branch_id, close_time_earliest'),
+    admin.from('branch_settings').select('branch_id, close_time_earliest, payment_qr_daily_url, payment_qr_monthly_url'),
   ])
 
-  const closeTimeMap = new Map((branchSettingsRes.data ?? []).map(b => [b.branch_id, b.close_time_earliest]))
-  const branches = (branchRes.data ?? []).map(b => ({ ...b, closeTimeEarliest: closeTimeMap.get(b.id) ?? null }))
+  const settingsMap = new Map((branchSettingsRes.data ?? []).map(b => [b.branch_id, b]))
+  const branches = (branchRes.data ?? []).map(b => {
+    const s = settingsMap.get(b.id)
+    return {
+      ...b,
+      closeTimeEarliest: s?.close_time_earliest ?? null,
+      paymentQrDailyUrl: s?.payment_qr_daily_url ?? null,
+      paymentQrMonthlyUrl: s?.payment_qr_monthly_url ?? null,
+    }
+  })
 
   return (
     <div className="app-wrap">

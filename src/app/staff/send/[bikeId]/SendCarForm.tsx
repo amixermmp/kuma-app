@@ -121,6 +121,8 @@ type Props = {
   prefillTo?: string
   upcomingBookings?: UpcomingBooking[]
   promoPayDays?: number
+  qrDailyUrl?: string | null
+  qrMonthlyUrl?: string | null
 }
 
 type PhotoState = {
@@ -184,7 +186,7 @@ function bkkTimePart(iso: string): string {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings, promoPayDays = 5 }: Props) {
+export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings, promoPayDays = 5, qrDailyUrl, qrMonthlyUrl }: Props) {
   const DRAFT_KEY = `send_draft_${bike.id}`
 
   useEffect(() => {
@@ -245,6 +247,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   // ── Payment ───────────────────────────────────────────────────────────────
   const [paymentMethod,  setPaymentMethod]  = useState<'cash' | 'transfer'>(draft?.paymentMethod ?? 'cash')
   const [depositAmount,  setDepositAmount]  = useState(draft?.depositAmount ?? String(bike.deposit_amount ?? 0))
+  const [showQr, setShowQr] = useState(false)
 
   // ── Photos ────────────────────────────────────────────────────────────────
   const [photos, setPhotos] = useState<PhotoState>(draft?.photos ?? {
@@ -1193,6 +1196,30 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               </div>
             )}
           </div>
+
+          {/* QR รับเงิน — ตั้งค่าได้ที่หน้าตั้งค่าร้าน แยกรายวัน/รายเดือน ไม่ตั้งไว้ก็ไม่โชว์ปุ่ม */}
+          {(isMonthlyContract ? qrMonthlyUrl : qrDailyUrl) && (
+            <div style={{ marginBottom: '12px' }}>
+              <button type="button" onClick={() => setShowQr(v => !v)} style={{
+                width: '100%', padding: '12px', borderRadius: '10px', border: '1.5px solid #111827',
+                background: showQr ? '#111827' : '#fff', color: showQr ? '#fff' : '#111827',
+                fontSize: '14px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                📲 {showQr ? 'ซ่อน QR' : 'เปิด QR ให้ลูกค้าสแกน'}
+              </button>
+              {showQr && (
+                <div style={{ textAlign: 'center', padding: '14px', background: '#f9fafb', borderRadius: '10px', marginTop: '8px' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={(isMonthlyContract ? qrMonthlyUrl : qrDailyUrl) ?? ''}
+                    alt="QR รับเงิน"
+                    style={{ maxWidth: '260px', width: '100%', height: 'auto', borderRadius: '8px' }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div className="field-row" style={{ marginBottom: 0 }}>
               <label className="field-label">เงินมัดจำ (฿)</label>

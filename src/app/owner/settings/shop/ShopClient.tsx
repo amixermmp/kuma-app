@@ -36,6 +36,89 @@ function BranchCloseTimeRow({ branch }: { branch: Branch }) {
   )
 }
 
+function BranchQrRow({ branch }: { branch: Branch }) {
+  const [dailyUrl, setDailyUrl] = useState(branch.paymentQrDailyUrl ?? '')
+  const [monthlyUrl, setMonthlyUrl] = useState(branch.paymentQrMonthlyUrl ?? '')
+  const [uploading, setUploading] = useState<'daily' | 'monthly' | null>(null)
+  const [msg, setMsg] = useState('')
+
+  const save = async (fields: { payment_qr_daily_url?: string; payment_qr_monthly_url?: string }) => {
+    const res = await fetch('/api/owner/settings/branch-qr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        branch_id: branch.id,
+        payment_qr_daily_url: dailyUrl,
+        payment_qr_monthly_url: monthlyUrl,
+        ...fields,
+      }),
+    })
+    setMsg(res.ok ? '✅ บันทึกแล้ว' : '❌ เกิดข้อผิดพลาด')
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  const upload = async (kind: 'daily' | 'monthly', file: File) => {
+    setUploading(kind)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', 'branch-payment-qr')
+      const res = await fetch('/api/owner/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      if (kind === 'daily') { setDailyUrl(data.url); await save({ payment_qr_daily_url: data.url }) }
+      else { setMonthlyUrl(data.url); await save({ payment_qr_monthly_url: data.url }) }
+    } catch (e) {
+      setMsg('❌ ' + (e instanceof Error ? e.message : 'อัพโหลดไม่สำเร็จ'))
+      setTimeout(() => setMsg(''), 3000)
+    } finally {
+      setUploading(null)
+    }
+  }
+
+  const QrSlot = ({ kind, label, url }: { kind: 'daily' | 'monthly'; label: string; url: string }) => (
+    <div style={{ flex: 1 }}>
+      <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>{label}</div>
+      {url ? (
+        <div style={{ position: 'relative' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt={label} style={{ width: '100%', height: '90px', objectFit: 'contain', background: '#f3f4f6', borderRadius: '8px' }} />
+          <label style={{
+            position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(17,24,39,.8)', color: '#fff',
+            fontSize: '11px', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
+          }}>
+            {uploading === kind ? '...' : 'เปลี่ยน'}
+            <input type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) upload(kind, f) }} />
+          </label>
+        </div>
+      ) : (
+        <label style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', height: '90px',
+          border: '1.5px dashed #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: '#9ca3af',
+        }}>
+          {uploading === kind ? 'กำลังอัพโหลด...' : '+ อัพโหลด'}
+          <input type="file" accept="image/*" style={{ display: 'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) upload(kind, f) }} />
+        </label>
+      )}
+    </div>
+  )
+
+  return (
+    <div style={{ border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '14px', margin: '0 16px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+        <span style={{ fontWeight: 800, fontSize: '14px', color: '#111827', flex: 1 }}>📍 {branch.name}</span>
+        {msg && <span style={{ fontSize: '12px', color: msg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{msg}</span>}
+      </div>
+      <div style={{ display: 'flex', gap: '10px' }}>
+        <QrSlot kind="daily" label="QR รายวัน" url={dailyUrl} />
+        <QrSlot kind="monthly" label="QR รายเดือน" url={monthlyUrl} />
+      </div>
+    </div>
+  )
+}
+
 function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: (branch: Branch) => void }) {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -173,6 +256,17 @@ export default function ShopClient({ shop, branches: initialBranches }: { shop: 
             <button onClick={() => setBranchModal(true)} className="btn" style={{ border: '1.5px solid #374151', color: '#374151', background: '#fff', width: '100%' }}>
               + เพิ่มสาขา
             </button>
+          </div>
+        </Section>
+
+        <Section title="QR รับเงิน">
+          <div style={{ padding: '12px 16px 0', fontSize: '12px', color: '#6b7280' }}>
+            แสดงในสัญญาเช่าที่แชร์ให้ลูกค้า — สาขาไหนไม่อัพโหลดจะไม่มี QR โชว์ในสัญญา
+          </div>
+          <div style={{ padding: '12px 0' }}>
+            {branches.map(b => (
+              <BranchQrRow key={b.id} branch={b} />
+            ))}
           </div>
         </Section>
 

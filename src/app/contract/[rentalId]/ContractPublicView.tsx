@@ -12,7 +12,7 @@ function fmtTime(iso: string) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ContractPublicView({ rental, shop }: { rental: any; shop: any }) {
+export default function ContractPublicView({ rental, shop, qrImageUrl }: { rental: any; shop: any; qrImageUrl?: string | null }) {
   const bike = rental.bikes ?? {}
   const customer = rental.customers ?? {}
 
@@ -115,6 +115,19 @@ export default function ContractPublicView({ rental, shop }: { rental: any; shop
               </tr>
             </tbody>
           </table>
+
+          {qrImageUrl && (
+            <div style={{
+              background: '#f9fafb', border: '0.5px solid #e0e0e0', borderRadius: '8px',
+              padding: '14px', marginBottom: '14px', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '11px', color: '#555', marginBottom: '8px', fontWeight: 700 }}>
+                💳 ชำระเงินได้ที่ / Payment QR
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qrImageUrl} alt="Payment QR" style={{ maxWidth: '200px', width: '100%', height: 'auto', borderRadius: '6px' }} />
+            </div>
+          )}
 
           <div style={{ fontWeight: 700, fontSize: '12px', borderBottom: '0.5px solid #ccc', paddingBottom: '4px', marginBottom: '8px' }}>
             เงื่อนไขข้อตกลงการเช่า / RENTAL TERMS &amp; CONDITIONS
