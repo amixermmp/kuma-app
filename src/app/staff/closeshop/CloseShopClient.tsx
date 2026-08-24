@@ -14,6 +14,8 @@ type PlateEntryStatus =
   | { kind: 'mismatch'; preview: string; url: string; detectedPlates: string[] }
   | { kind: 'manual'; preview: string; url: string; detectedPlates: string[] }
 
+const BATCH_TARGET = '__batch__'
+
 type Props = {
   staffName: string
   branchName: string
@@ -34,6 +36,8 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
 
   const [entries, setEntries] = useState<Map<string, PlateEntryStatus>>(new Map())
   const [explanation, setExplanation] = useState('')
+  const [batchUploading, setBatchUploading] = useState(false)
+  const [batchSummary, setBatchSummary] = useState('')
 
   const [selfieFile, setSelfieFile] = useState<Blob | null>(null)
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null)
@@ -49,7 +53,7 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
   })
   const missingPlates = expectedPlates.filter(p => !foundPlates.includes(p))
   const needsExplanation = missingPlates.length > 0
-  const canProceed = (!needsExplanation || explanation.trim().length > 0) &&
+  const canProceed = (!needsExplanation || explanation.trim().length > 0) && !batchUploading &&
     expectedPlates.every(p => statusOf(p).kind !== 'uploading')
 
   const confirmManually = (plate: string) => {
@@ -63,10 +67,32 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
     })
   }
 
-  // ── plate photos (one per checklist row) ──
+  // ── plate photos (one per checklist row, or one batch photo matched against several rows) ──
   const openCameraFor = (plate: string) => {
     activePlateRef.current = plate
     plateInputRef.current?.click()
+  }
+  const openBatchCamera = () => {
+    activePlateRef.current = BATCH_TARGET
+    plateInputRef.current?.click()
+  }
+
+  const uploadAndOcr = async (compressed: Blob) => {
+    const fd = new FormData()
+    fd.append('file', new File([compressed], 'plate.jpg', { type: 'image/jpeg' }))
+    fd.append('folder', 'closeshop-plates')
+    const uploadRes = await fetch('/api/staff/upload', { method: 'POST', body: fd })
+    const uploadData = await uploadRes.json()
+    if (!uploadRes.ok) throw new Error(uploadData.error ?? 'อัพโหลดรูปไม่สำเร็จ')
+
+    const ocrRes = await fetch('/api/staff/ocr-plates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrl: uploadData.url }),
+    })
+    const ocrData = await ocrRes.json()
+    const detected: string[] = Array.isArray(ocrData.plates) ? ocrData.plates : []
+    return { url: uploadData.url as string, detected }
   }
 
   const handlePlatePhoto = async (f: File) => {
@@ -78,29 +104,53 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
     const preview = URL.createObjectURL(compressed)
     setEntries(prev => { const m = new Map(prev); m.set(np, { kind: 'uploading', preview }); return m })
     try {
-      const fd = new FormData()
-      fd.append('file', new File([compressed], 'plate.jpg', { type: 'image/jpeg' }))
-      fd.append('folder', 'closeshop-plates')
-      const uploadRes = await fetch('/api/staff/upload', { method: 'POST', body: fd })
-      const uploadData = await uploadRes.json()
-      if (!uploadRes.ok) throw new Error(uploadData.error ?? 'อัพโหลดรูปไม่สำเร็จ')
-
-      const ocrRes = await fetch('/api/staff/ocr-plates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: uploadData.url }),
-      })
-      const ocrData = await ocrRes.json()
-      const detected: string[] = Array.isArray(ocrData.plates) ? ocrData.plates : []
+      const { url, detected } = await uploadAndOcr(compressed)
       const isMatch = detected.some(d => normalizePlate(d) === np)
       setEntries(prev => {
         const m = new Map(prev)
-        m.set(np, { kind: isMatch ? 'matched' : 'mismatch', preview, url: uploadData.url, detectedPlates: detected })
+        m.set(np, { kind: isMatch ? 'matched' : 'mismatch', preview, url, detectedPlates: detected })
         return m
       })
     } catch {
       setEntries(prev => { const m = new Map(prev); m.set(np, { kind: 'empty' }); return m })
       setError('อัพโหลด/ตรวจรูปไม่สำเร็จ กรุณาลองใหม่')
+    }
+  }
+
+  // ถ่ายรูปเดียวเห็นรถหลายคัน — บอทอ่านป้ายทั้งหมดในรูปแล้วจับคู่เข้าแถวที่ตรงกันอัตโนมัติ
+  // ไม่แตะแถวที่ยืนยันแล้ว (matched/manual) — เติมเฉพาะแถวที่ยังว่างหรือยังไม่ตรง
+  const handleBatchPhoto = async (f: File) => {
+    setError('')
+    setBatchSummary('')
+    setBatchUploading(true)
+    try {
+      const compressed = await compressImage(f, 300)
+      const preview = URL.createObjectURL(compressed)
+      const { url, detected } = await uploadAndOcr(compressed)
+
+      // คำนวณรายการที่จับคู่ได้ล่วงหน้าจาก state ปัจจุบัน (ไม่นับซ้ำแถวที่ยืนยันแล้ว)
+      // แล้วค่อย setEntries/setBatchSummary พร้อมกันด้วยค่าที่คำนวณเสร็จแล้ว — กัน race condition
+      // จากการอ่านตัวแปรนับใน closure ของ setEntries updater ซึ่ง React ไม่รับประกันว่าจะรันตรงจุดนี้ทันที
+      const toMatch = expectedPlates.filter(plate => {
+        const np = normalizePlate(plate)
+        const cur = entries.get(np)
+        if (cur && (cur.kind === 'matched' || cur.kind === 'manual')) return false
+        return detected.some(d => normalizePlate(d) === np)
+      })
+      if (toMatch.length > 0) {
+        setEntries(prev => {
+          const m = new Map(prev)
+          for (const plate of toMatch) {
+            m.set(normalizePlate(plate), { kind: 'matched', preview, url, detectedPlates: detected })
+          }
+          return m
+        })
+      }
+      setBatchSummary(toMatch.length > 0 ? `เจอ ${toMatch.length} คันจากรูปนี้` : 'ไม่เจอคันที่ตรงกับรายการจากรูปนี้ ลองถ่ายทีละคันแทน')
+    } catch {
+      setError('อัพโหลด/ตรวจรูปไม่สำเร็จ กรุณาลองใหม่')
+    } finally {
+      setBatchUploading(false)
     }
   }
 
@@ -224,12 +274,12 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
           <ArrowLeft size={20} strokeWidth={1.75} />
         </Link>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff' }}>ปิดร้าน — ถ่ายรูปป้ายทะเบียนทีละคัน</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff' }}>ปิดร้าน — ถ่ายรูปป้ายทะเบียน</div>
           <div style={{ fontSize: '11px', color: 'rgba(255,255,255,.55)' }}>{branchName}</div>
         </div>
       </div>
 
-      {/* hidden shared camera input — retargeted per-row via activePlateRef */}
+      {/* hidden shared camera input — retargeted per-row (or batch) via activePlateRef */}
       <input
         ref={plateInputRef}
         type="file"
@@ -238,7 +288,10 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
         style={{ display: 'none' }}
         onChange={e => {
           const f = e.target.files?.[0]
-          if (f) handlePlatePhoto(f)
+          if (f) {
+            if (activePlateRef.current === BATCH_TARGET) handleBatchPhoto(f)
+            else handlePlatePhoto(f)
+          }
           if (plateInputRef.current) plateInputRef.current.value = ''
         }}
       />
@@ -252,6 +305,22 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
             ⚠️ วันนี้ปิดร้านไปแล้วเมื่อ {new Date(alreadyClosedToday.closedAt).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' })} น. โดย {alreadyClosedToday.staffName} — ยังปิดซ้ำได้ถ้าจำเป็น
           </div>
         )}
+
+        {/* batch photo — fast path: ถ่ายรวมหลายคัน ให้บอทจับคู่อัตโนมัติ */}
+        <button onClick={openBatchCamera} disabled={batchUploading} style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          background: '#111', color: '#fff', border: 'none', borderRadius: '14px', padding: '14px',
+          marginBottom: '6px', fontSize: '14px', fontWeight: 700, fontFamily: 'inherit',
+          cursor: batchUploading ? 'default' : 'pointer', opacity: batchUploading ? 0.6 : 1,
+        }}>
+          {batchUploading ? '⏳ กำลังตรวจรูป...' : '📸 ถ่ายรวมหลายคัน (บอทจับคู่ให้อัตโนมัติ)'}
+        </button>
+        {batchSummary && (
+          <div style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>{batchSummary}</div>
+        )}
+        <div style={{ textAlign: 'center', fontSize: '11px', color: '#9ca3af', marginBottom: '14px' }}>
+          หรือถ่ายทีละคันด้านล่างก็ได้
+        </div>
 
         {/* summary */}
         <div style={{
