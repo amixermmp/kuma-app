@@ -783,14 +783,29 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               </div>
             )}
           </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
+          <div className="field-row">
             <label className="field-label">โรงแรม / ที่พัก</label>
             <input className="field-input" type="text" placeholder="Nap Park Hotel"
               value={customerHotel} onChange={e => setCustomerHotel(e.target.value)} />
           </div>
+          <div className="field-row">
+            <label className="field-label">📄 รูปบัตรประชาชน / พาสปอร์ต *</label>
+            <PhotoUpload icon="🪪" hint="ถ่ายรูปหรืออัพโหลดบัตร" folder={folder}
+              onUpload={handleIdCardUpload} onRemove={clearPhoto('id_card')} />
+          </div>
+          <div className="field-row">
+            <label className="field-label">🤳 รูปคู่บัตรประชาชน *</label>
+            <PhotoUpload icon="🤳" hint="ลูกค้าถือบัตรให้เห็นหน้า" folder={folder}
+              onUpload={setPhoto('selfie')} onRemove={clearPhoto('selfie')} />
+          </div>
+          <div className="field-row" style={{ marginBottom: 0 }}>
+            <label className="field-label">📎 หลักฐานที่พัก/โรงแรม *</label>
+            <PhotoUpload icon="🏨" hint="ถ่ายรูปหรืออัพโหลดใบจอง/หน้าจอโรงแรม" folder={folder}
+              onUpload={setPhoto('accommodation_proof')} onRemove={clearPhoto('accommodation_proof')} />
+          </div>
         </div>
 
-        {/* ② ช่วงเวลาเช่า */}
+        {/* ② ช่วงเวลาเช่า + ประเภทสัญญา + ล็อครถ */}
         <div className="card">
           <div className="card-title">ช่วงเวลาเช่า</div>
 
@@ -929,7 +944,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           </div>
         )}
 
-        {/* ④ Long rental: contract type choice */}
+        {/* ประเภทสัญญา — long rental only */}
         {isLongRental && (
           <div style={{
             background: 'linear-gradient(135deg,#7c3aed,#111827)',
@@ -962,7 +977,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           </div>
         )}
 
-        {/* ⑤ Monthly contract extra fields */}
+        {/* รายละเอียดสัญญารายเดือน */}
         {isMonthlyContract && (
           <div className="card">
             <div className="card-title">รายละเอียดสัญญารายเดือน</div>
@@ -999,58 +1014,54 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           </div>
         )}
 
-        {/* ⑥ รูปภาพ */}
-        <div className="card">
-          <div className="card-title">รูปภาพ</div>
-          <div className="field-row">
-            <label className="field-label">📄 รูปบัตรประชาชน / พาสปอร์ต *</label>
-            <PhotoUpload icon="🪪" hint="ถ่ายรูปหรืออัพโหลดบัตร" folder={folder}
-              onUpload={handleIdCardUpload} onRemove={clearPhoto('id_card')} />
-          </div>
-          <div className="field-row">
-            <label className="field-label">🤳 รูปคู่บัตรประชาชน *</label>
-            <PhotoUpload icon="🤳" hint="ลูกค้าถือบัตรให้เห็นหน้า" folder={folder}
-              onUpload={setPhoto('selfie')} onRemove={clearPhoto('selfie')} />
-          </div>
-          <div className="field-row">
-            <label className="field-label">🛵 รูปคู่รถ *</label>
-            <PhotoUpload icon="🛵" hint="ลูกค้ายืนคู่รถก่อนรับ" folder={folder}
-              onUpload={setPhoto('with_bike')} onRemove={clearPhoto('with_bike')} />
-          </div>
-          <div className="field-row">
-            <label className="field-label">🔍 รูปตำหนิรถก่อนเช่า *</label>
-            <PhotoUpload icon="📷" hint="ถ่ายรูปรอบคันก่อนส่ง" folder={folder}
-              onUpload={setPhoto('damage')} onRemove={clearPhoto('damage')} />
-          </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">📎 หลักฐานที่พัก/โรงแรม *</label>
-            <PhotoUpload icon="🏨" hint="ถ่ายรูปหรืออัพโหลดใบจอง/หน้าจอโรงแรม" folder={folder}
-              onUpload={setPhoto('accommodation_proof')} onRemove={clearPhoto('accommodation_proof')} />
-          </div>
-        </div>
-
-        {/* ⑦ สภาพรถตอนส่ง */}
-        <div className="card">
-          <div className="card-title">สภาพรถตอนส่ง</div>
-          <div className="field-row">
-            <label className="field-label">เลขไมล์ตอนส่งรถ</label>
-            <input className="field-input" type="number" placeholder="14230"
-              value={odometer} onChange={e => setOdometer(e.target.value)} />
-          </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">ระดับน้ำมันตอนส่ง ({fuelLevel}/8)</label>
-            <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} onClick={() => setFuelLevel(i + 1)} style={{
-                  flex: 1, height: '30px', borderRadius: '4px', cursor: 'pointer',
-                  background: i < fuelLevel ? '#16a34a' : '#e5e7eb', transition: 'background .1s',
-                }} />
-              ))}
+        {/* ล็อครถ (daily / onetime only) */}
+        {!isMonthlyContract && (
+          <div className="card" id="lockSection">
+            <div className="card-title">
+              🔒 ต้องการล็อคผลการค้นหาหรือไม่{' '}
+              <span style={{ color: '#dc2626' }}>*</span>
             </div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px' }}>
+              กรุณาเลือกอย่างใดอย่างหนึ่ง — ถ้าไม่เลือกจะบันทึกไม่ได้
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <button onClick={() => { setLockBike(true); setLockError(false) }} style={{
+                border: `2px solid ${lockBike === true ? '#ef4444' : '#e5e7eb'}`,
+                borderRadius: '12px', padding: '16px 10px', textAlign: 'center', cursor: 'pointer',
+                background: lockBike === true ? '#fef2f2' : '#f9fafb',
+                color: lockBike === true ? '#dc2626' : '#374151', fontFamily: 'inherit',
+              }}>
+                <div style={{ fontSize: '28px', marginBottom: '6px' }}>🔒</div>
+                <div style={{ fontSize: '14px', fontWeight: 800 }}>ล็อครถ</div>
+                <div style={{ fontSize: '11px', opacity: .65, marginTop: '4px', lineHeight: 1.4 }}>
+                  ซ่อนจากการค้นหา<br />จนกว่าจะรับรถคืน
+                </div>
+              </button>
+              <button onClick={() => { setLockBike(false); setLockError(false) }} style={{
+                border: `2px solid ${lockBike === false ? '#22c55e' : '#e5e7eb'}`,
+                borderRadius: '12px', padding: '16px 10px', textAlign: 'center', cursor: 'pointer',
+                background: lockBike === false ? '#f0fdf4' : '#f9fafb',
+                color: lockBike === false ? '#15803d' : '#374151', fontFamily: 'inherit',
+              }}>
+                <div style={{ fontSize: '28px', marginBottom: '6px' }}>🔓</div>
+                <div style={{ fontSize: '14px', fontWeight: 800 }}>ไม่ล็อค</div>
+                <div style={{ fontSize: '11px', opacity: .65, marginTop: '4px', lineHeight: 1.4 }}>
+                  รถยังแสดงในระบบ<br />ตามปกติ
+                </div>
+              </button>
+            </div>
+            {lockError && (
+              <div style={{
+                marginTop: '10px', background: '#fef2f2', border: '1px solid #fecaca',
+                borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#dc2626',
+              }}>
+                ⚠️ กรุณาเลือกว่าต้องการล็อครถหรือไม่
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* โปรโมชั่น — โชว์เฉพาะตอนมีโปรราคานักศึกษาตั้งค่าไว้แล้ว และรถคันนี้ร่วมรายการ */}
+        {/* ③ โปรโมชั่น — โชว์เฉพาะตอนมีโปรราคานักศึกษาตั้งค่าไว้แล้ว และรถคันนี้ร่วมรายการ */}
         {studentPromoConfig && studentPromoEligible && (
           <div className="card">
             <div className="card-title">โปรโมชั่น</div>
@@ -1169,7 +1180,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           </div>
         )}
 
-        {/* ⑧ การชำระเงิน */}
+        {/* ④ การชำระเงิน */}
         <div className="card">
           <div className="card-title">การชำระเงิน</div>
           <div className="field-row">
@@ -1247,54 +1258,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           )}
         </div>
 
-        {/* ⑨ ล็อครถ (daily / onetime only) */}
-        {!isMonthlyContract && (
-          <div className="card" id="lockSection">
-            <div className="card-title">
-              🔒 ต้องการล็อคผลการค้นหาหรือไม่{' '}
-              <span style={{ color: '#dc2626' }}>*</span>
-            </div>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px' }}>
-              กรุณาเลือกอย่างใดอย่างหนึ่ง — ถ้าไม่เลือกจะบันทึกไม่ได้
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <button onClick={() => { setLockBike(true); setLockError(false) }} style={{
-                border: `2px solid ${lockBike === true ? '#ef4444' : '#e5e7eb'}`,
-                borderRadius: '12px', padding: '16px 10px', textAlign: 'center', cursor: 'pointer',
-                background: lockBike === true ? '#fef2f2' : '#f9fafb',
-                color: lockBike === true ? '#dc2626' : '#374151', fontFamily: 'inherit',
-              }}>
-                <div style={{ fontSize: '28px', marginBottom: '6px' }}>🔒</div>
-                <div style={{ fontSize: '14px', fontWeight: 800 }}>ล็อครถ</div>
-                <div style={{ fontSize: '11px', opacity: .65, marginTop: '4px', lineHeight: 1.4 }}>
-                  ซ่อนจากการค้นหา<br />จนกว่าจะรับรถคืน
-                </div>
-              </button>
-              <button onClick={() => { setLockBike(false); setLockError(false) }} style={{
-                border: `2px solid ${lockBike === false ? '#22c55e' : '#e5e7eb'}`,
-                borderRadius: '12px', padding: '16px 10px', textAlign: 'center', cursor: 'pointer',
-                background: lockBike === false ? '#f0fdf4' : '#f9fafb',
-                color: lockBike === false ? '#15803d' : '#374151', fontFamily: 'inherit',
-              }}>
-                <div style={{ fontSize: '28px', marginBottom: '6px' }}>🔓</div>
-                <div style={{ fontSize: '14px', fontWeight: 800 }}>ไม่ล็อค</div>
-                <div style={{ fontSize: '11px', opacity: .65, marginTop: '4px', lineHeight: 1.4 }}>
-                  รถยังแสดงในระบบ<br />ตามปกติ
-                </div>
-              </button>
-            </div>
-            {lockError && (
-              <div style={{
-                marginTop: '10px', background: '#fef2f2', border: '1px solid #fecaca',
-                borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#dc2626',
-              }}>
-                ⚠️ กรุณาเลือกว่าต้องการล็อครถหรือไม่
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ⑩ ลายเซ็นลูกค้า */}
+        {/* ⑤ ลายเซ็นลูกค้า */}
         <div className="card">
           <div className="card-title">ลายเซ็นลูกค้า</div>
           {signature ? (
@@ -1319,7 +1283,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           <SignaturePad onSave={handleSaveSignature} onClose={() => setShowSignPad(false)} />
         )}
 
-        {/* ไลน์ร้าน — ตั้งค่าได้ที่หน้าตั้งค่าร้าน แยกต่อสาขา ไม่ตั้งไว้ก็ไม่โชว์ */}
+        {/* ⑥ ไลน์ร้าน — ตั้งค่าได้ที่หน้าตั้งค่าร้าน แยกต่อสาขา ไม่ตั้งไว้ก็ไม่โชว์ */}
         {(lineQrUrl || lineId) && (
           <div className="card" style={{ borderTop: '3px solid #06c755' }}>
             <div style={{
@@ -1341,6 +1305,37 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             )}
           </div>
         )}
+
+        {/* ⑦ ที่ตัวรถ */}
+        <div className="card">
+          <div className="card-title">ที่ตัวรถ</div>
+          <div className="field-row">
+            <label className="field-label">🛵 รูปคู่รถ *</label>
+            <PhotoUpload icon="🛵" hint="ลูกค้ายืนคู่รถก่อนรับ" folder={folder}
+              onUpload={setPhoto('with_bike')} onRemove={clearPhoto('with_bike')} />
+          </div>
+          <div className="field-row">
+            <label className="field-label">🔍 รูปตำหนิรถก่อนเช่า *</label>
+            <PhotoUpload icon="📷" hint="ถ่ายรูปรอบคันก่อนส่ง" folder={folder}
+              onUpload={setPhoto('damage')} onRemove={clearPhoto('damage')} />
+          </div>
+          <div className="field-row">
+            <label className="field-label">เลขไมล์ตอนส่งรถ</label>
+            <input className="field-input" type="number" placeholder="14230"
+              value={odometer} onChange={e => setOdometer(e.target.value)} />
+          </div>
+          <div className="field-row" style={{ marginBottom: 0 }}>
+            <label className="field-label">ระดับน้ำมันตอนส่ง ({fuelLevel}/8)</label>
+            <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} onClick={() => setFuelLevel(i + 1)} style={{
+                  flex: 1, height: '30px', borderRadius: '4px', cursor: 'pointer',
+                  background: i < fuelLevel ? '#16a34a' : '#e5e7eb', transition: 'background .1s',
+                }} />
+              ))}
+            </div>
+          </div>
+        </div>
 
         {error && (
           <div style={{
