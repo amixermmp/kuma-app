@@ -29,17 +29,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true })
   }
 
-  if (type === 'model_promo') {
-    if (!brand?.trim() || !name?.trim()) return NextResponse.json({ error: 'กรุณาระบุยี่ห้อและรุ่น' }, { status: 400 })
-    const value = promoPayDays === null || promoPayDays === undefined ? null : Number(promoPayDays)
-    if (value !== null && (!Number.isInteger(value) || value < 1 || value > 7)) {
-      return NextResponse.json({ error: 'จำนวนวันต้องเป็น 1-7' }, { status: 400 })
-    }
-    const { error } = await admin.from('bike_models').update({ promo_pay_days: value }).eq('brand', brand.trim()).eq('name', name.trim())
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    return NextResponse.json({ success: true })
-  }
-
   if (type === 'branch_pricing') {
     if (!branchId || !brand?.trim() || !name?.trim()) return NextResponse.json({ error: 'กรุณาระบุสาขา ยี่ห้อ และรุ่น' }, { status: 400 })
     const promoValue = promoPayDays === null || promoPayDays === undefined || promoPayDays === '' ? null : Number(promoPayDays)

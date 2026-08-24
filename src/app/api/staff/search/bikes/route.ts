@@ -4,7 +4,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds } from '@/lib/staffBranch'
 import { getBusyBikeIds, BUFFER_MS } from '@/lib/availability'
 import { getModelBikeAvailability } from '@/lib/bookingConflicts'
-import { getBikeCatalog } from '@/lib/bikeCatalog'
 
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies()
@@ -74,11 +73,7 @@ export async function GET(request: NextRequest) {
 
   const fmt = (iso: string) => new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })
 
-  // โปร "จ่ายกี่วัน จาก 7 วัน" ตั้งได้ต่อรุ่นผ่าน bike_models.promo_pay_days (ค่า global) — ไม่ตั้งไว้ = ค่ากลาง 5
-  // และตั้งเจาะจงต่อสาขาผ่าน branch_model_pricing ได้ (มีผลก่อน global เสมอ)
-  const { models: catalogModels } = await getBikeCatalog()
-  const promoDaysByModel = new Map(catalogModels.map(m => [`${m.brand}__${m.name}`, m.promoPayDays ?? 5]))
-
+  // โปร "จ่ายกี่วัน จาก 7 วัน" ตั้งได้เฉพาะต่อสาขาผ่าน branch_model_pricing เท่านั้น — ไม่ตั้งไว้ = ค่ากลาง 5
   const { data: branchPricingRows } = await supabase
     .from('branch_model_pricing')
     .select('branch_id, brand, model, promo_pay_days')
@@ -86,9 +81,7 @@ export async function GET(request: NextRequest) {
   const promoDaysByBranchModel = new Map((branchPricingRows ?? []).map(p => [`${p.branch_id}__${p.brand}__${p.model}`, p.promo_pay_days as number]))
 
   const getPromoDays = (branchId: string | null, brand: string, model: string) =>
-    promoDaysByBranchModel.get(`${branchId ?? ''}__${brand}__${model}`)
-    ?? promoDaysByModel.get(`${brand}__${model}`)
-    ?? 5
+    promoDaysByBranchModel.get(`${branchId ?? ''}__${brand}__${model}`) ?? 5
 
   // รถที่ว่างทางกายภาพ (ผ่าน repair/locked/rented/ติดจองเจาะจงคันแล้ว) — เอาไปเช็คต่อว่าคิวจองแบบ
   // "ระบุแค่รุ่น" ของรุ่นนั้นกินโควต้าไปกี่คันจริง แบบคิดรวมการต่อคิวในคันเดียวกันได้ (bin packing)
