@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { BikeModel } from '@/lib/bikeCatalog'
+import { BranchFilter } from '@/components/BranchFilter'
 
 type PricingEntry = { dailyRate: number | null; monthlyRate: number | null; promoPayDays: number | null }
 type Branch = { id: string; name: string }
@@ -30,10 +31,6 @@ export default function PricingClient({ branches, selectedBranchId, brands, mode
     }))
   )
   const [msg, setMsg] = useState<Record<string, string>>({})
-
-  const setBranch = (branchId: string) => {
-    router.push(`/owner/bikes/pricing?branch=${branchId}`)
-  }
 
   const save = async (brand: string, name: string) => {
     const key = `${brand}__${name}`
@@ -64,12 +61,7 @@ export default function PricingClient({ branches, selectedBranchId, brands, mode
 
   return (
     <div className="section-pad" style={{ paddingTop: '12px' }}>
-      <div className="card" style={{ marginBottom: '12px', padding: '12px 14px' }}>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '8px' }}>สาขา</div>
-        <select className="field-input" value={selectedBranchId} onChange={e => setBranch(e.target.value)}>
-          {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-      </div>
+      <BranchFilter branches={branches} current={selectedBranchId} basePath="/owner/bikes/pricing" theme="light" includeAll={false} />
 
       {err && (
         <div style={{ color: '#dc2626', fontSize: '13px', padding: '10px', background: '#fef2f2', borderRadius: '10px', marginBottom: '12px' }}>⚠️ {err}</div>

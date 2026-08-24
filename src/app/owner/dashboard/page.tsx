@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { PeriodSelector } from './PeriodSelector'
-import { BranchSelector } from './BranchSelector'
+import { BranchFilter } from '@/components/BranchFilter'
 import { Donut, DonutLegend } from './Donut'
 import { getBikeIdAtDate } from '@/lib/swapHistory'
 
@@ -319,7 +319,7 @@ export default async function OwnerDashboardPage({
       </div>
 
       {/* Branch filter */}
-      <BranchSelector branches={branches} current={branch} period={period} from={from} to={to} />
+      <BranchFilter branches={branches} current={branch} basePath="/owner/dashboard" theme="dark" extraParams={{ period, from, to }} />
 
       {/* KPI Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '16px 16px 0' }}>
@@ -488,41 +488,70 @@ export default async function OwnerDashboardPage({
         })}
       </Card>
 
-      {/* Management links */}
-      <div style={{ margin: '0 16px 80px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* Management links — จัดกลุ่มเป็นหมวดให้สแกนหาง่ายขึ้น */}
+      <div style={{ margin: '0 16px 80px' }}>
         {([
-          { icon: '➕', label: 'เพิ่มรถคันใหม่',     sub: 'ลงทะเบียนรถและสร้าง QR Code',       href: '/owner/bikes/add',  color: '#f1f5f9' },
-          { icon: '🏪', label: 'ภาพรวมร้าน',       sub: 'สถานะรถทั้งร้าน แยกตามหมวด',        href: '/owner/overview',   color: '#22c55e' },
-          { icon: '🛵', label: 'รายการรถทั้งหมด',  sub: 'ดู/แก้ไขข้อมูลรถทุกสาขา',           href: '/owner/bikes',      color: '#cbd5e1' },
-          { icon: '📋', label: 'ประวัติการเช่า',   sub: 'การเช่าที่ active อยู่ + คืนรถ',      href: '/owner/rentals',    color: '#22c55e' },
-          { icon: '📜', label: 'Activity Log',    sub: 'ใครทำอะไร เมื่อไหร่ในระบบ',           href: '/owner/logs',       color: '#cbd5e1' },
-          { icon: '🧾', label: 'Statement บัญชี',  sub: 'รายรับรายจ่ายทุกสาขา + waive รายการผิด', href: '/owner/statement',  color: '#22c55e' },
-          { icon: '📸', label: 'การเข้างาน',       sub: 'เวลาเข้างานพนักงานแต่ละสาขา',         href: '/owner/attendance', color: '#38bdf8' },
-          { icon: '🔒', label: 'ปิดร้าน',          sub: 'สต็อกรถตอนปิดร้าน + รูปหลักฐาน',      href: '/owner/closeshop',  color: '#38bdf8' },
-          { icon: '🖼️', label: 'รูปโปรโมท',        sub: 'ใส่กรอบ/ปิดหน้ารูปคู่รถ พร้อมโพส',      href: '/owner/marketing',  color: '#a78bfa' },
-          { icon: '💸', label: 'บันทึกค่าใช้จ่าย', sub: 'รายจ่ายประจำเดือนของร้าน',           href: '/owner/expenses',   color: '#ef4444' },
-          { icon: '⛔', label: 'บัญชีแบล็คลิสต์',  sub: 'มิจฉาชีพ/ขโมยรถ — เช็คอัตโนมัติตอนทำสัญญา', href: '/owner/blacklist',  color: '#ef4444' },
-          { icon: '⚙️', label: 'ตั้งค่าระบบ',      sub: 'พนักงาน, สาขา, โปรโมชั่น',          href: '/owner/settings',   color: '#cbd5e1' },
-        ] as const).map(({ icon, label, sub, href, color }) => (
-          <Link key={href} href={href} style={{ textDecoration: 'none' }}>
-            <div style={{
-              background: '#1e293b', borderRadius: '14px', padding: '16px',
-              border: '1px solid rgba(255,255,255,.06)',
-              display: 'flex', alignItems: 'center', gap: '14px',
-              borderLeft: `4px solid ${color}`,
-            }}>
-              <div style={{
-                width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
-                background: `${color}22`, display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: '22px',
-              }}>{icon}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: '14px', color: '#f1f5f9' }}>{label}</div>
-                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{sub}</div>
-              </div>
-              <div style={{ color: '#475569', fontSize: '18px' }}>›</div>
+          {
+            title: '🏍️ รถ',
+            items: [
+              { icon: '➕', label: 'เพิ่มรถคันใหม่',     sub: 'ลงทะเบียนรถและสร้าง QR Code',       href: '/owner/bikes/add',  color: '#f1f5f9' },
+              { icon: '🛵', label: 'รายการรถทั้งหมด',  sub: 'ดู/แก้ไขข้อมูลรถทุกสาขา',           href: '/owner/bikes',      color: '#cbd5e1' },
+              { icon: '🏪', label: 'ภาพรวมร้าน',       sub: 'สถานะรถทั้งร้าน แยกตามหมวด',        href: '/owner/overview',   color: '#22c55e' },
+            ],
+          },
+          {
+            title: '📊 รายงาน',
+            items: [
+              { icon: '📋', label: 'ประวัติการเช่า',   sub: 'การเช่าที่ active อยู่ + คืนรถ',      href: '/owner/rentals',    color: '#22c55e' },
+              { icon: '🧾', label: 'Statement บัญชี',  sub: 'รายรับรายจ่ายทุกสาขา + waive รายการผิด', href: '/owner/statement',  color: '#22c55e' },
+              { icon: '📸', label: 'การเข้างาน',       sub: 'เวลาเข้างานพนักงานแต่ละสาขา',         href: '/owner/attendance', color: '#38bdf8' },
+              { icon: '🔒', label: 'ปิดร้าน',          sub: 'สต็อกรถตอนปิดร้าน + รูปหลักฐาน',      href: '/owner/closeshop',  color: '#38bdf8' },
+              { icon: '📜', label: 'Activity Log',    sub: 'ใครทำอะไร เมื่อไหร่ในระบบ',           href: '/owner/logs',       color: '#cbd5e1' },
+            ],
+          },
+          {
+            title: '💼 ธุรกิจ',
+            items: [
+              { icon: '🖼️', label: 'รูปโปรโมท',        sub: 'ใส่กรอบ/ปิดหน้ารูปคู่รถ พร้อมโพส',      href: '/owner/marketing',  color: '#a78bfa' },
+              { icon: '💸', label: 'บันทึกค่าใช้จ่าย', sub: 'รายจ่ายประจำเดือนของร้าน',           href: '/owner/expenses',   color: '#ef4444' },
+              { icon: '⛔', label: 'บัญชีแบล็คลิสต์',  sub: 'มิจฉาชีพ/ขโมยรถ — เช็คอัตโนมัติตอนทำสัญญา', href: '/owner/blacklist',  color: '#ef4444' },
+            ],
+          },
+          {
+            title: '⚙️ ระบบ',
+            items: [
+              { icon: '⚙️', label: 'ตั้งค่าระบบ',      sub: 'พนักงาน, สาขา, โปรโมชั่น',          href: '/owner/settings',   color: '#cbd5e1' },
+            ],
+          },
+        ] as const).map(group => (
+          <div key={group.title} style={{ marginBottom: '18px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', paddingLeft: '2px' }}>
+              {group.title}
             </div>
-          </Link>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {group.items.map(({ icon, label, sub, href, color }) => (
+                <Link key={href} href={href} style={{ textDecoration: 'none' }}>
+                  <div style={{
+                    background: '#1e293b', borderRadius: '14px', padding: '16px',
+                    border: '1px solid rgba(255,255,255,.06)',
+                    display: 'flex', alignItems: 'center', gap: '14px',
+                    borderLeft: `4px solid ${color}`,
+                  }}>
+                    <div style={{
+                      width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
+                      background: `${color}22`, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: '22px',
+                    }}>{icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: '14px', color: '#f1f5f9' }}>{label}</div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{sub}</div>
+                    </div>
+                    <div style={{ color: '#475569', fontSize: '18px' }}>›</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 

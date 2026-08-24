@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { BranchFilter } from '@/components/BranchFilter'
 
 export type MarketingPhoto = {
   id: string
@@ -153,14 +153,7 @@ export default function MarketingClient({ photos: initialPhotos, branches, branc
   branch: string
   branchHasFrame: string[]
 }) {
-  const router = useRouter()
   const [photos, setPhotos] = useState(initialPhotos)
-
-  const setBranch = (b: string) => {
-    const params = new URLSearchParams()
-    if (b) params.set('branch', b)
-    router.push(`/owner/marketing?${params}`)
-  }
 
   const updatePhoto = (id: string, updated: Partial<MarketingPhoto>) => {
     setPhotos(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
@@ -176,19 +169,7 @@ export default function MarketingClient({ photos: initialPhotos, branches, branc
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '6px', padding: '12px 16px 0', flexWrap: 'wrap' }}>
-        {[{ id: '', name: 'ทุกสาขา' }, ...branches].map(b => (
-          <button key={b.id} onClick={() => setBranch(b.id)} style={{
-            padding: '6px 14px', borderRadius: '20px', border: '1.5px solid',
-            fontSize: '13px', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
-            background: branch === b.id ? '#111827' : '#fff',
-            color: branch === b.id ? '#fff' : '#6b7280',
-            borderColor: branch === b.id ? '#111827' : '#e5e7eb',
-          }}>
-            {b.name}
-          </button>
-        ))}
-      </div>
+      <BranchFilter branches={branches} current={branch} basePath="/owner/marketing" theme="light" />
 
       {branch && !branchHasFrame.includes(branch) && (
         <div style={{ margin: '12px 16px 0', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '10px 14px', fontSize: '12px', color: '#9a3412' }}>

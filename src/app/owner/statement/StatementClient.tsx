@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { PeriodSelector } from '../dashboard/PeriodSelector'
+import { BranchFilter } from '@/components/BranchFilter'
 
 export type StatementRow = {
   source: 'rental' | 'monthly' | 'expense' | 'repair'
@@ -68,15 +69,6 @@ export default function StatementClient({ rows, branches, period, from, to, bran
     router.refresh()
   }
 
-  const setBranch = (b: string) => {
-    const params = new URLSearchParams()
-    params.set('period', period)
-    if (from) params.set('from', from)
-    if (to) params.set('to', to)
-    if (b) params.set('branch', b)
-    router.push(`/owner/statement?${params}`)
-  }
-
   return (
     <div className="app-wrap">
 
@@ -90,20 +82,7 @@ export default function StatementClient({ rows, branches, period, from, to, bran
         <PeriodSelector current={period} currentFrom={from} currentTo={to} basePath="/owner/statement" />
       </div>
 
-      {/* Branch filter */}
-      <div style={{ display: 'flex', gap: '6px', padding: '12px 16px 0', flexWrap: 'wrap' }}>
-        {[{ id: '', name: 'ทุกสาขา' }, ...branches].map(b => (
-          <button key={b.id} onClick={() => setBranch(b.id)} style={{
-            padding: '6px 14px', borderRadius: '20px', border: '1.5px solid',
-            fontSize: '13px', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
-            background: branch === b.id ? '#111827' : '#fff',
-            color: branch === b.id ? '#fff' : '#6b7280',
-            borderColor: branch === b.id ? '#111827' : '#e5e7eb',
-          }}>
-            {b.name}
-          </button>
-        ))}
-      </div>
+      <BranchFilter branches={branches} current={branch} basePath="/owner/statement" theme="light" extraParams={{ period, from, to }} />
 
       {/* Summary */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', padding: '12px 16px' }}>

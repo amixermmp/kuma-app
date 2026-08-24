@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getShopOverviewGroups } from '@/lib/shopOverview'
-import { BranchSelector } from './BranchSelector'
+import { BranchFilter } from '@/components/BranchFilter'
 import OverviewClient from './OverviewClient'
 
 export const dynamic = 'force-dynamic'
@@ -34,7 +34,7 @@ export default async function OwnerOverviewPage({
         </div>
       </div>
 
-      <BranchSelector branches={branches ?? []} current={branch} />
+      <BranchFilter branches={branches ?? []} current={branch} basePath="/owner/overview" theme="dark" />
 
       <OverviewClient groups={groups} showBranchName={!branch} />
     </div>
