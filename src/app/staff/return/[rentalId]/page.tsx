@@ -18,7 +18,7 @@ export default async function ReturnCarPage({ params }: { params: { rentalId: st
       id, start_datetime, expected_end_datetime,
       total_amount, deposit_amount, daily_rate, total_days, outstanding_credit, status, notes, discount,
       return_type, return_address,
-      bikes(id, license_plate, brand, model, odometer, daily_rate, monthly_rate),
+      bikes(id, license_plate, brand, model, branch_id, odometer, daily_rate, monthly_rate),
       customers(id, name, phone)
     `)
     .eq('id', params.rentalId)
@@ -29,7 +29,7 @@ export default async function ReturnCarPage({ params }: { params: { rentalId: st
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rentalBike = (rental as any).bikes
-  const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model) : 5
+  const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model, rentalBike.branch_id) : 5
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return <ReturnCarForm rental={rental as any} staffId={staffId} promoPayDays={promoPayDays} />

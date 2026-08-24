@@ -19,7 +19,7 @@ export default async function MonthlyEndPage({ params }: { params: Promise<{ id:
       .from('monthly_rentals')
       .select(`
         id, start_date, payment_day, monthly_rate, deposit_amount, status,
-        bikes(id, license_plate, brand, model, odometer, daily_rate, monthly_rate),
+        bikes(id, license_plate, brand, model, branch_id, odometer, daily_rate, monthly_rate),
         customers(id, name, phone)
       `)
       .eq('id', id)
@@ -37,7 +37,7 @@ export default async function MonthlyEndPage({ params }: { params: Promise<{ id:
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rentalBike = (rental as any).bikes
-  const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model) : 5
+  const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model, rentalBike.branch_id) : 5
 
   const totalCollected = (payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
 

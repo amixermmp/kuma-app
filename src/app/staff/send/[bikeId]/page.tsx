@@ -94,7 +94,7 @@ export default async function SendCarPage({
   const allUpcomingBookings = [...(upcomingBookings ?? []), ...(bindingModelBooking ? [bindingModelBooking] : [])]
     .sort((a, b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime())
 
-  const promoPayDays = await getPromoPayDays(supabase, bike.brand, bike.model)
+  const promoPayDays = await getPromoPayDays(supabase, bike.brand, bike.model, bike.branch_id)
 
   return (
     <SendCarForm

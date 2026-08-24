@@ -97,7 +97,9 @@ function DocStatusRow({ icon, name, expiry, hasPhoto }: { icon: string; name: st
   )
 }
 
-export default function BikeDetailClient({ bike, docMap, branches, stats, routines, repairs, brands, models }: {
+type BranchPricing = { dailyRate: number | null; monthlyRate: number | null }
+
+export default function BikeDetailClient({ bike, docMap, branches, stats, routines, repairs, brands, models, pricingByBranch }: {
   bike: Bike
   docMap: Record<string, DocRecord>
   branches: Branch[]
@@ -106,6 +108,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
   repairs: RepairRecord[]
   brands: string[]
   models: BikeModel[]
+  pricingByBranch: Record<string, BranchPricing>
 }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -162,11 +165,17 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
     setTimeout(() => setDocMsg(''), 3000)
   }
 
-  // Branch transfer
+  // Branch transfer — ราคาที่จะใช้ดึงมาจาก pricingByBranch อัตโนมัติ ไม่ต้องพิมพ์เอง
+  // ถ้าสาขาปลายทางยังไม่ได้ตั้งราคาไว้ (ไม่มีใน map หรือค่าเป็น null) ให้คงราคาเดิมของรถไว้
   const [branchId, setBranchId] = useState(bike.branch_id)
-  const [transferRate, setTransferRate] = useState(String(bike.daily_rate))
   const [branchSaving, setBranchSaving] = useState(false)
   const [branchMsg, setBranchMsg] = useState('')
+
+  const targetPricing = pricingByBranch[branchId]
+  const effectiveDailyRate = targetPricing?.dailyRate ?? bike.daily_rate
+  const effectiveMonthlyRate = targetPricing?.monthlyRate ?? bike.monthly_rate
+  const dailyIsConfigured = targetPricing?.dailyRate != null
+  const monthlyIsConfigured = targetPricing?.monthlyRate != null
 
   // Routine editor
   const [routineList, setRoutineList] = useState<Routine[]>(routines)
@@ -293,7 +302,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
     const res = await fetch(`/api/owner/bikes/${bike.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ branch_id: branchId, daily_rate: parseFloat(transferRate) || bike.daily_rate }),
+      body: JSON.stringify({ branch_id: branchId, daily_rate: effectiveDailyRate, monthly_rate: effectiveMonthlyRate }),
     })
     setBranchSaving(false)
     setBranchMsg(res.ok ? '✅ ย้ายสาขาแล้ว' : '❌ เกิดข้อผิดพลาด')
@@ -460,8 +469,19 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
               <option key={b.id} value={b.id}>{b.name}{b.id === bike.branch_id ? ' (ปัจจุบัน)' : ''}</option>
             ))}
           </select>
-          <label className="field-label">ราคาเช่า/วัน ที่สาขาใหม่ (บาท)</label>
-          <input className="field-input" type="number" value={transferRate} onChange={e => setTransferRate(e.target.value)} style={{ marginBottom: '12px' }} />
+          {branchId !== bike.branch_id && (
+            <div style={{ background: '#f9fafb', borderRadius: '10px', padding: '10px 12px', marginBottom: '12px', fontSize: '12px' }}>
+              <div style={{ color: '#374151', fontWeight: 700, marginBottom: '4px' }}>
+                ราคาใหม่: ฿{Number(effectiveDailyRate).toLocaleString()}/วัน
+                {effectiveMonthlyRate != null && ` · ฿${Number(effectiveMonthlyRate).toLocaleString()}/เดือน`}
+              </div>
+              <div style={{ color: dailyIsConfigured || monthlyIsConfigured ? '#16a34a' : '#9ca3af' }}>
+                {dailyIsConfigured || monthlyIsConfigured
+                  ? '✅ ตั้งไว้ที่สาขานี้แล้ว'
+                  : '— ยังไม่ได้ตั้งราคาไว้ที่สาขานี้ ใช้ราคาเดิมของรถแทน'}
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button onClick={saveBranch} disabled={branchSaving || branchId === bike.branch_id} style={{
               background: branchId !== bike.branch_id ? '#e11d48' : '#e5e7eb',

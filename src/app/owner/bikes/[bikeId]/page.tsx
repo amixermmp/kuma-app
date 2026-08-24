@@ -47,6 +47,16 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
 
   const catalog = await getBikeCatalog()
   const bike = bikeRes.data
+
+  // ราคาที่ตั้งไว้ต่อสาขาสำหรับรุ่นนี้ (ทุกสาขา) — ใช้ auto-fill ตอนเลือกสาขาปลายทางย้ายรถ
+  const { data: pricingRows } = await admin
+    .from('branch_model_pricing')
+    .select('branch_id, daily_rate, monthly_rate')
+    .eq('brand', bike.brand)
+    .eq('model', bike.model)
+  const pricingByBranch = Object.fromEntries(
+    (pricingRows ?? []).map(p => [p.branch_id, { dailyRate: p.daily_rate, monthlyRate: p.monthly_rate }])
+  )
   const docs = docsRes.data ?? []
   const branches = branchesRes.data ?? []
   const rentals = statsRes.data ?? []
@@ -82,6 +92,7 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
         repairs={repairs}
         brands={catalog.brands}
         models={catalog.models}
+        pricingByBranch={pricingByBranch}
       />
     </div>
   )

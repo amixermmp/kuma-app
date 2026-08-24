@@ -16,7 +16,7 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
     .from('rentals')
     .select(`
       id, bike_id, start_datetime, expected_end_datetime, total_days, total_amount, daily_rate, discount, outstanding_credit, status,
-      bikes(id, license_plate, brand, model, daily_rate, monthly_rate),
+      bikes(id, license_plate, brand, model, branch_id, daily_rate, monthly_rate),
       customers(id, name)
     `)
     .eq('id', params.rentalId)
@@ -36,7 +36,7 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rentalBike = (rental as any).bikes
-  const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model) : 5
+  const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model, rentalBike.branch_id) : 5
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return <ExtendForm rental={rental as any} staffId={staffId} upcomingBookings={upcomingBookings ?? []} promoPayDays={promoPayDays} />

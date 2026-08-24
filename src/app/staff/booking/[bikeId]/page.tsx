@@ -22,7 +22,7 @@ export default async function BookingPage({
   const [{ data: bike }, { data: promotions }] = await Promise.all([
     supabase
       .from('bikes')
-      .select('id, license_plate, brand, model, color, year, daily_rate, monthly_rate, deposit_amount, odometer')
+      .select('id, license_plate, brand, model, color, year, branch_id, daily_rate, monthly_rate, deposit_amount, odometer')
       .eq('id', params.bikeId)
       .single(),
     supabase
@@ -34,7 +34,7 @@ export default async function BookingPage({
 
   if (!bike) redirect('/staff/search')
 
-  const promoPayDays = await getPromoPayDays(supabase, bike.brand, bike.model)
+  const promoPayDays = await getPromoPayDays(supabase, bike.brand, bike.model, bike.branch_id)
 
   return (
     <BookingForm

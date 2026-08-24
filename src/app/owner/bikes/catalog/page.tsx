@@ -21,6 +21,10 @@ export default async function BikeCatalogPage() {
           <h1>ยี่ห้อ &amp; รุ่นรถ</h1>
           <div className="sub">จัดการตัวเลือกสำหรับหน้าเพิ่มรถ</div>
         </div>
+        <Link href="/owner/bikes/pricing" style={{
+          color: '#fff', fontSize: '13px', fontWeight: 700, textDecoration: 'none',
+          border: '1.5px solid rgba(255,255,255,.35)', borderRadius: '10px', padding: '8px 14px', whiteSpace: 'nowrap',
+        }}>💰 ราคาต่อสาขา</Link>
       </div>
       <CatalogClient brands={brands} models={models} />
     </div>

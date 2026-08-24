@@ -53,7 +53,7 @@ export default async function EditBookingPage({ params }: { params: { bookingId:
 
   const promoBrand = bike?.brand ?? booking.requested_brand
   const promoModel = bike?.model ?? booking.requested_model
-  const promoPayDays = promoBrand && promoModel ? await getPromoPayDays(supabase, promoBrand, promoModel) : 5
+  const promoPayDays = promoBrand && promoModel ? await getPromoPayDays(supabase, promoBrand, promoModel, booking.branch_id) : 5
 
   return (
     <EditBookingForm

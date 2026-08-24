@@ -12,7 +12,7 @@ async function requireOwner() {
 // เพิ่มยี่ห้อ หรือ รุ่น หรือแก้ค่าโปรของรุ่น
 export async function POST(request: NextRequest) {
   if (!(await requireOwner())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { type, brand, name, promoPayDays } = await request.json()
+  const { type, brand, name, promoPayDays, branchId, dailyRate, monthlyRate } = await request.json()
   const admin = createAdminClient()
 
   if (type === 'brand') {
@@ -36,6 +36,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'จำนวนวันต้องเป็น 1-7' }, { status: 400 })
     }
     const { error } = await admin.from('bike_models').update({ promo_pay_days: value }).eq('brand', brand.trim()).eq('name', name.trim())
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json({ success: true })
+  }
+
+  if (type === 'branch_pricing') {
+    if (!branchId || !brand?.trim() || !name?.trim()) return NextResponse.json({ error: 'กรุณาระบุสาขา ยี่ห้อ และรุ่น' }, { status: 400 })
+    const promoValue = promoPayDays === null || promoPayDays === undefined || promoPayDays === '' ? null : Number(promoPayDays)
+    if (promoValue !== null && (!Number.isInteger(promoValue) || promoValue < 1 || promoValue > 7)) {
+      return NextResponse.json({ error: 'จำนวนวันโปรต้องเป็น 1-7' }, { status: 400 })
+    }
+    const dailyValue = dailyRate === null || dailyRate === undefined || dailyRate === '' ? null : Number(dailyRate)
+    const monthlyValue = monthlyRate === null || monthlyRate === undefined || monthlyRate === '' ? null : Number(monthlyRate)
+    const { error } = await admin.from('branch_model_pricing').upsert({
+      branch_id: branchId,
+      brand: brand.trim(),
+      model: name.trim(),
+      daily_rate: dailyValue,
+      monthly_rate: monthlyValue,
+      promo_pay_days: promoValue,
+    }, { onConflict: 'branch_id,brand,model' })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json({ success: true })
   }
