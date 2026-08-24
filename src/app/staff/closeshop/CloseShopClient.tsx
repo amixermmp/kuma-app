@@ -5,14 +5,22 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { compressImage } from '@/lib/compressImage'
-import { normalizePlate } from '@/lib/plate'
+import { normalizePlate, isNearMatch } from '@/lib/plate'
 
 type PlateEntryStatus =
   | { kind: 'empty' }
   | { kind: 'uploading'; preview: string }
   | { kind: 'matched'; preview: string; url: string; detectedPlates: string[] }
+  | { kind: 'near'; preview: string; url: string; detectedPlates: string[] }
   | { kind: 'mismatch'; preview: string; url: string; detectedPlates: string[] }
   | { kind: 'manual'; preview: string; url: string; detectedPlates: string[] }
+
+// จัดกลุ่มผลลัพธ์: ตรงเป๊ะ / ใกล้เคียงมาก (ต่าง 1 ตัวอักษร เช่นบอทอ่านพยัญชนะไทยสับสน) / ไม่ตรงเลย
+function classifyMatch(targetNormalized: string, detected: string[]): 'matched' | 'near' | 'mismatch' {
+  if (detected.some(d => normalizePlate(d) === targetNormalized)) return 'matched'
+  if (detected.some(d => isNearMatch(normalizePlate(d), targetNormalized))) return 'near'
+  return 'mismatch'
+}
 
 const BATCH_TARGET = '__batch__'
 
@@ -60,7 +68,7 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
     const np = normalizePlate(plate)
     setEntries(prev => {
       const cur = prev.get(np)
-      if (!cur || cur.kind !== 'mismatch') return prev
+      if (!cur || (cur.kind !== 'mismatch' && cur.kind !== 'near')) return prev
       const m = new Map(prev)
       m.set(np, { kind: 'manual', preview: cur.preview, url: cur.url, detectedPlates: cur.detectedPlates })
       return m
@@ -105,10 +113,10 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
     setEntries(prev => { const m = new Map(prev); m.set(np, { kind: 'uploading', preview }); return m })
     try {
       const { url, detected } = await uploadAndOcr(compressed)
-      const isMatch = detected.some(d => normalizePlate(d) === np)
+      const kind = classifyMatch(np, detected)
       setEntries(prev => {
         const m = new Map(prev)
-        m.set(np, { kind: isMatch ? 'matched' : 'mismatch', preview, url, detectedPlates: detected })
+        m.set(np, { kind, preview, url, detectedPlates: detected })
         return m
       })
     } catch {
@@ -131,22 +139,29 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
       // คำนวณรายการที่จับคู่ได้ล่วงหน้าจาก state ปัจจุบัน (ไม่นับซ้ำแถวที่ยืนยันแล้ว)
       // แล้วค่อย setEntries/setBatchSummary พร้อมกันด้วยค่าที่คำนวณเสร็จแล้ว — กัน race condition
       // จากการอ่านตัวแปรนับใน closure ของ setEntries updater ซึ่ง React ไม่รับประกันว่าจะรันตรงจุดนี้ทันที
-      const toMatch = expectedPlates.filter(plate => {
-        const np = normalizePlate(plate)
-        const cur = entries.get(np)
-        if (cur && (cur.kind === 'matched' || cur.kind === 'manual')) return false
-        return detected.some(d => normalizePlate(d) === np)
+      const unresolved = expectedPlates.filter(plate => {
+        const cur = entries.get(normalizePlate(plate))
+        return !cur || (cur.kind !== 'matched' && cur.kind !== 'manual')
       })
-      if (toMatch.length > 0) {
+      const toMatch = unresolved.filter(plate => classifyMatch(normalizePlate(plate), detected) === 'matched')
+      const toNear = unresolved.filter(plate => !toMatch.includes(plate) && classifyMatch(normalizePlate(plate), detected) === 'near')
+
+      if (toMatch.length > 0 || toNear.length > 0) {
         setEntries(prev => {
           const m = new Map(prev)
-          for (const plate of toMatch) {
-            m.set(normalizePlate(plate), { kind: 'matched', preview, url, detectedPlates: detected })
-          }
+          for (const plate of toMatch) m.set(normalizePlate(plate), { kind: 'matched', preview, url, detectedPlates: detected })
+          for (const plate of toNear) m.set(normalizePlate(plate), { kind: 'near', preview, url, detectedPlates: detected })
           return m
         })
       }
-      setBatchSummary(toMatch.length > 0 ? `เจอ ${toMatch.length} คันจากรูปนี้` : 'ไม่เจอคันที่ตรงกับรายการจากรูปนี้ ลองถ่ายทีละคันแทน')
+      setBatchSummary(
+        toMatch.length === 0 && toNear.length === 0
+          ? 'ไม่เจอคันที่ตรงกับรายการจากรูปนี้ ลองถ่ายทีละคันแทน'
+          : [
+              toMatch.length > 0 ? `เจอ ${toMatch.length} คันจากรูปนี้` : '',
+              toNear.length > 0 ? `ใกล้เคียง ${toNear.length} คัน (ต้องกดยืนยัน)` : '',
+            ].filter(Boolean).join(' — ')
+      )
     } catch {
       setError('อัพโหลด/ตรวจรูปไม่สำเร็จ กรุณาลองใหม่')
     } finally {
@@ -184,7 +199,7 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
       const manuallyConfirmedPlates: string[] = []
       for (const plate of expectedPlates) {
         const status = statusOf(plate)
-        if (status.kind === 'matched' || status.kind === 'mismatch' || status.kind === 'manual') {
+        if (status.kind === 'matched' || status.kind === 'near' || status.kind === 'mismatch' || status.kind === 'manual') {
           plateEntries.push({ plate, url: status.url, detectedPlates: status.detectedPlates })
         }
         if (status.kind === 'manual') manuallyConfirmedPlates.push(plate)
@@ -395,16 +410,19 @@ function PlateRow({ plate, status, openCameraFor, confirmManually }: {
   confirmManually: (plate: string) => void
 }) {
   const bg = status.kind === 'matched' || status.kind === 'manual' ? '#f0fdf4'
+    : status.kind === 'near' ? '#fffbeb'
     : status.kind === 'mismatch' ? '#fef2f2' : '#f9fafb'
   const border = status.kind === 'matched' || status.kind === 'manual' ? '#bbf7d0'
+    : status.kind === 'near' ? '#fde68a'
     : status.kind === 'mismatch' ? '#fecaca' : '#e5e7eb'
   const textColor = status.kind === 'matched' || status.kind === 'manual' ? '#16a34a'
+    : status.kind === 'near' ? '#b45309'
     : status.kind === 'mismatch' ? '#dc2626' : '#374151'
 
   return (
     <div style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: '12px', padding: '10px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {(status.kind === 'uploading' || status.kind === 'matched' || status.kind === 'mismatch' || status.kind === 'manual') ? (
+        {(status.kind === 'uploading' || status.kind === 'matched' || status.kind === 'near' || status.kind === 'mismatch' || status.kind === 'manual') ? (
           <div style={{ position: 'relative', flexShrink: 0, width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', background: '#f1f5f9' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={status.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -423,6 +441,11 @@ function PlateRow({ plate, status, openCameraFor, confirmManually }: {
           <div style={{ fontSize: '14px', fontWeight: 700, color: textColor }}>{plate}</div>
           {status.kind === 'matched' && <div style={{ fontSize: '11px', color: '#16a34a' }}>✅ ตรง</div>}
           {status.kind === 'manual' && <div style={{ fontSize: '11px', color: '#16a34a' }}>✋ ยืนยันเอง</div>}
+          {status.kind === 'near' && (
+            <div style={{ fontSize: '11px', color: '#b45309' }}>
+              🔎 ใกล้เคียงมาก ต่างแค่ 1 ตัวอักษร (บอทอ่านได้: {status.detectedPlates.join(', ')}) — ใช่คันนี้ไหม?
+            </div>
+          )}
           {status.kind === 'mismatch' && (
             <div style={{ fontSize: '11px', color: '#dc2626' }}>
               ⚠️ ป้ายไม่ตรง{status.detectedPlates.length > 0 ? ` (บอทอ่านได้: ${status.detectedPlates.join(', ')})` : ' (บอทอ่านป้ายไม่ได้)'}
@@ -446,11 +469,12 @@ function PlateRow({ plate, status, openCameraFor, confirmManually }: {
         )}
       </div>
 
-      {status.kind === 'mismatch' && (
+      {(status.kind === 'mismatch' || status.kind === 'near') && (
         <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
           <button onClick={() => openCameraFor(plate)} style={{
-            flex: 1, padding: '9px', borderRadius: '10px', border: '1.5px solid #fecaca',
-            background: '#fff', color: '#dc2626', fontSize: '12px', fontWeight: 700,
+            flex: 1, padding: '9px', borderRadius: '10px',
+            border: `1.5px solid ${status.kind === 'near' ? '#fde68a' : '#fecaca'}`,
+            background: '#fff', color: status.kind === 'near' ? '#b45309' : '#dc2626', fontSize: '12px', fontWeight: 700,
             fontFamily: 'inherit', cursor: 'pointer',
           }}>ถ่ายใหม่</button>
           <button onClick={() => confirmManually(plate)} style={{
