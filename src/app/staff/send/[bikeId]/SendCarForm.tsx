@@ -247,7 +247,6 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   // ── Payment ───────────────────────────────────────────────────────────────
   const [paymentMethod,  setPaymentMethod]  = useState<'cash' | 'transfer'>(draft?.paymentMethod ?? 'cash')
   const [depositAmount,  setDepositAmount]  = useState(draft?.depositAmount ?? String(bike.deposit_amount ?? 0))
-  const [showQr, setShowQr] = useState(false)
 
   // ── Photos ────────────────────────────────────────────────────────────────
   const [photos, setPhotos] = useState<PhotoState>(draft?.photos ?? {
@@ -928,125 +927,6 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           </div>
         )}
 
-        {/* ② ½ โปรโมชั่น — โชว์เฉพาะตอนมีโปรราคานักศึกษาตั้งค่าไว้แล้ว และรถคันนี้ร่วมรายการ */}
-        {studentPromoConfig && studentPromoEligible && (
-          <div className="card">
-            <div className="card-title">โปรโมชั่น</div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setStudentPromo(false)} style={{
-                flex: 1, padding: '10px', borderRadius: '10px',
-                border: `2px solid ${!studentPromo ? '#374151' : '#e5e7eb'}`,
-                background: !studentPromo ? '#f1f5f9' : '#fff',
-                color: !studentPromo ? '#111827' : '#6b7280',
-                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-              }}>ราคาปกติ</button>
-              <button onClick={() => setStudentPromo(true)} style={{
-                flex: 1, padding: '10px', borderRadius: '10px',
-                border: `2px solid ${studentPromo ? '#7c3aed' : '#e5e7eb'}`,
-                background: studentPromo ? '#f5f3ff' : '#fff',
-                color: studentPromo ? '#7c3aed' : '#6b7280',
-                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-              }}>🎓 ราคานักศึกษา</button>
-            </div>
-            {studentPromo && (
-              <>
-                <div style={{ marginTop: '10px', marginBottom: '10px', background: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#111827' }}>
-                  ลด ฿{studentDiscountPerDay.toLocaleString()}/วัน จากราคารายวันปกติ — ไม่รวมค่าเช่ารายเดือน — ต้องแนบรูปบัตรนิสิต/นักศึกษาด้วย
-                </div>
-                <PhotoUpload icon="🎓" hint="ถ่ายรูปหรืออัพโหลดบัตรนิสิต/นักศึกษา" folder={folder}
-                  onUpload={setPhoto('student_id_card')} onRemove={clearPhoto('student_id_card')} />
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ③ Price hero */}
-        {totalDays > 0 && (
-          <div style={{
-            background: isMonthlyContract
-              ? 'linear-gradient(135deg,#7c3aed,#111827)'
-              : 'linear-gradient(135deg,#111827,#111827)',
-            borderRadius: '16px', padding: '18px 16px', marginBottom: '12px', color: '#fff',
-          }}>
-            <div style={{ fontSize: '12px', opacity: .8, marginBottom: '4px' }}>
-              {isMonthlyContract ? 'สัญญารายเดือน' : `${totalDays} วัน`}
-            </div>
-            <div style={{ fontSize: '36px', fontWeight: 900, letterSpacing: '-1px', marginBottom: '8px' }}>
-              {isMonthlyContract
-                ? `฿${Number(mMonthlyRate || 0).toLocaleString()}/เดือน`
-                : `฿${totalAmount.toLocaleString()}`}
-            </div>
-            <div style={{ fontSize: '12px', opacity: .75 }}>
-              {isMonthlyContract
-                ? `จ่ายทุกวันที่ ${paymentDay} ของเดือน`
-                : isLongRental
-                  ? `${longResult?.months.length ?? 0} เดือน + ${longResult?.remainDays ?? 0} วัน • คิดตามสูตร`
-                  : `฿${ndr.toLocaleString()}/วัน × ${shortResult?.calcDays ?? totalDays} วัน`
-                      + (freeWeeks > 0 ? ` (ฟรี ${freeWeeks * 2} วัน)` : '')}
-            </div>
-
-            {/* Breakdown — long rental onetime */}
-            {!isMonthlyContract && isLongRental && longResult && (
-              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
-                {longResult.months.map((m, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ opacity: .8 }}>📅 เดือน {i + 1} ({m.days} วัน)</span>
-                    <span style={{ fontWeight: 700 }}>฿{m.price.toLocaleString()}</span>
-                  </div>
-                ))}
-                {longResult.remainDays > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ opacity: .8 }}>
-                      📆 เศษ {longResult.remainDays} วัน (คิด {longResult.calcRemainDays} วัน × ฿{ndr})
-                    </span>
-                    <span style={{ fontWeight: 700 }}>฿{longResult.remainPrice.toLocaleString()}</span>
-                  </div>
-                )}
-                {discount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ opacity: .8 }}>🎓 ส่วนลดนักศึกษา</span>
-                    <span style={{ fontWeight: 700 }}>-฿{discount.toLocaleString()}</span>
-                  </div>
-                )}
-                {overtimeEstimate > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ opacity: .8 }}>⏱ เกินขอบเขตวัน {excessHours} ชม.</span>
-                    <span style={{ fontWeight: 700 }}>+฿{overtimeEstimate.toLocaleString()}</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
-                  <span>รวมสุทธิ</span>
-                  <span style={{ fontWeight: 900 }}>฿{totalAmount.toLocaleString()}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Breakdown — short rental */}
-            {!isLongRental && shortResult && (freeWeeks > 0 || discount > 0 || overtimeEstimate > 0) && (
-              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
-                {freeWeeks > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ opacity: .8 }}>🎁 ฟรี {freeWeeks * 2} วัน ({freeWeeks} สัปดาห์ × 2 วัน)</span>
-                    <span style={{ fontWeight: 700 }}>—</span>
-                  </div>
-                )}
-                {discount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: overtimeEstimate > 0 ? '6px' : '0' }}>
-                    <span style={{ opacity: .8 }}>🎓 ลดนักศึกษา ({shortResult.calcDays} วัน × ฿50)</span>
-                    <span style={{ fontWeight: 700 }}>-฿{discount.toLocaleString()}</span>
-                  </div>
-                )}
-                {overtimeEstimate > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '0' }}>
-                    <span style={{ opacity: .8 }}>⏱ เกินขอบเขตวัน {excessHours} ชม.</span>
-                    <span style={{ fontWeight: 700 }}>+฿{overtimeEstimate.toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* ④ Long rental: contract type choice */}
         {isLongRental && (
           <div style={{
@@ -1168,6 +1048,125 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           </div>
         </div>
 
+        {/* โปรโมชั่น — โชว์เฉพาะตอนมีโปรราคานักศึกษาตั้งค่าไว้แล้ว และรถคันนี้ร่วมรายการ */}
+        {studentPromoConfig && studentPromoEligible && (
+          <div className="card">
+            <div className="card-title">โปรโมชั่น</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setStudentPromo(false)} style={{
+                flex: 1, padding: '10px', borderRadius: '10px',
+                border: `2px solid ${!studentPromo ? '#374151' : '#e5e7eb'}`,
+                background: !studentPromo ? '#f1f5f9' : '#fff',
+                color: !studentPromo ? '#111827' : '#6b7280',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>ราคาปกติ</button>
+              <button onClick={() => setStudentPromo(true)} style={{
+                flex: 1, padding: '10px', borderRadius: '10px',
+                border: `2px solid ${studentPromo ? '#7c3aed' : '#e5e7eb'}`,
+                background: studentPromo ? '#f5f3ff' : '#fff',
+                color: studentPromo ? '#7c3aed' : '#6b7280',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>🎓 ราคานักศึกษา</button>
+            </div>
+            {studentPromo && (
+              <>
+                <div style={{ marginTop: '10px', marginBottom: '10px', background: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#111827' }}>
+                  ลด ฿{studentDiscountPerDay.toLocaleString()}/วัน จากราคารายวันปกติ — ไม่รวมค่าเช่ารายเดือน — ต้องแนบรูปบัตรนิสิต/นักศึกษาด้วย
+                </div>
+                <PhotoUpload icon="🎓" hint="ถ่ายรูปหรืออัพโหลดบัตรนิสิต/นักศึกษา" folder={folder}
+                  onUpload={setPhoto('student_id_card')} onRemove={clearPhoto('student_id_card')} />
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Price hero */}
+        {totalDays > 0 && (
+          <div style={{
+            background: isMonthlyContract
+              ? 'linear-gradient(135deg,#7c3aed,#111827)'
+              : 'linear-gradient(135deg,#111827,#111827)',
+            borderRadius: '16px', padding: '18px 16px', marginBottom: '12px', color: '#fff',
+          }}>
+            <div style={{ fontSize: '12px', opacity: .8, marginBottom: '4px' }}>
+              {isMonthlyContract ? 'สัญญารายเดือน' : `${totalDays} วัน`}
+            </div>
+            <div style={{ fontSize: '36px', fontWeight: 900, letterSpacing: '-1px', marginBottom: '8px' }}>
+              {isMonthlyContract
+                ? `฿${Number(mMonthlyRate || 0).toLocaleString()}/เดือน`
+                : `฿${totalAmount.toLocaleString()}`}
+            </div>
+            <div style={{ fontSize: '12px', opacity: .75 }}>
+              {isMonthlyContract
+                ? `จ่ายทุกวันที่ ${paymentDay} ของเดือน`
+                : isLongRental
+                  ? `${longResult?.months.length ?? 0} เดือน + ${longResult?.remainDays ?? 0} วัน • คิดตามสูตร`
+                  : `฿${ndr.toLocaleString()}/วัน × ${shortResult?.calcDays ?? totalDays} วัน`
+                      + (freeWeeks > 0 ? ` (ฟรี ${freeWeeks * 2} วัน)` : '')}
+            </div>
+
+            {/* Breakdown — long rental onetime */}
+            {!isMonthlyContract && isLongRental && longResult && (
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
+                {longResult.months.map((m, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ opacity: .8 }}>📅 เดือน {i + 1} ({m.days} วัน)</span>
+                    <span style={{ fontWeight: 700 }}>฿{m.price.toLocaleString()}</span>
+                  </div>
+                ))}
+                {longResult.remainDays > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ opacity: .8 }}>
+                      📆 เศษ {longResult.remainDays} วัน (คิด {longResult.calcRemainDays} วัน × ฿{ndr})
+                    </span>
+                    <span style={{ fontWeight: 700 }}>฿{longResult.remainPrice.toLocaleString()}</span>
+                  </div>
+                )}
+                {discount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ opacity: .8 }}>🎓 ส่วนลดนักศึกษา</span>
+                    <span style={{ fontWeight: 700 }}>-฿{discount.toLocaleString()}</span>
+                  </div>
+                )}
+                {overtimeEstimate > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ opacity: .8 }}>⏱ เกินขอบเขตวัน {excessHours} ชม.</span>
+                    <span style={{ fontWeight: 700 }}>+฿{overtimeEstimate.toLocaleString()}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
+                  <span>รวมสุทธิ</span>
+                  <span style={{ fontWeight: 900 }}>฿{totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Breakdown — short rental */}
+            {!isLongRental && shortResult && (freeWeeks > 0 || discount > 0 || overtimeEstimate > 0) && (
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,.2)' }}>
+                {freeWeeks > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ opacity: .8 }}>🎁 ฟรี {freeWeeks * 2} วัน ({freeWeeks} สัปดาห์ × 2 วัน)</span>
+                    <span style={{ fontWeight: 700 }}>—</span>
+                  </div>
+                )}
+                {discount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: overtimeEstimate > 0 ? '6px' : '0' }}>
+                    <span style={{ opacity: .8 }}>🎓 ลดนักศึกษา ({shortResult.calcDays} วัน × ฿50)</span>
+                    <span style={{ fontWeight: 700 }}>-฿{discount.toLocaleString()}</span>
+                  </div>
+                )}
+                {overtimeEstimate > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '0' }}>
+                    <span style={{ opacity: .8 }}>⏱ เกินขอบเขตวัน {excessHours} ชม.</span>
+                    <span style={{ fontWeight: 700 }}>+฿{overtimeEstimate.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ⑧ การชำระเงิน */}
         <div className="card">
           <div className="card-title">การชำระเงิน</div>
@@ -1197,26 +1196,15 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             )}
           </div>
 
-          {/* QR รับเงิน — ตั้งค่าได้ที่หน้าตั้งค่าร้าน แยกรายวัน/รายเดือน ไม่ตั้งไว้ก็ไม่โชว์ปุ่ม */}
+          {/* QR รับเงิน — ตั้งค่าได้ที่หน้าตั้งค่าร้าน แยกรายวัน/รายเดือน ไม่ตั้งไว้ก็ไม่โชว์อะไร */}
           {(isMonthlyContract ? qrMonthlyUrl : qrDailyUrl) && (
-            <div style={{ marginBottom: '12px' }}>
-              <button type="button" onClick={() => setShowQr(v => !v)} style={{
-                width: '100%', padding: '12px', borderRadius: '10px', border: '1.5px solid #111827',
-                background: showQr ? '#111827' : '#fff', color: showQr ? '#fff' : '#111827',
-                fontSize: '14px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-                📲 {showQr ? 'ซ่อน QR' : 'เปิด QR ให้ลูกค้าสแกน'}
-              </button>
-              {showQr && (
-                <div style={{ textAlign: 'center', padding: '14px', background: '#f9fafb', borderRadius: '10px', marginTop: '8px' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={(isMonthlyContract ? qrMonthlyUrl : qrDailyUrl) ?? ''}
-                    alt="QR รับเงิน"
-                    style={{ maxWidth: '260px', width: '100%', height: 'auto', borderRadius: '8px' }}
-                  />
-                </div>
-              )}
+            <div style={{ textAlign: 'center', padding: '14px', background: '#f9fafb', borderRadius: '10px', marginBottom: '12px' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={(isMonthlyContract ? qrMonthlyUrl : qrDailyUrl) ?? ''}
+                alt="QR รับเงิน"
+                style={{ maxWidth: '260px', width: '100%', height: 'auto', borderRadius: '8px' }}
+              />
             </div>
           )}
 
