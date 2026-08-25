@@ -13,7 +13,7 @@ export default async function RepairDonePage({ params }: { params: { repairId: s
   const supabase = createAdminClient()
   const { data: repair } = await supabase
     .from('repairs')
-    .select('id, title, description, status, created_at, location_type, location_address, repair_photos, bikes(id, license_plate, brand, model)')
+    .select('id, title, description, status, created_at, location_type, location_address, location_log, repair_photos, bikes(id, license_plate, brand, model)')
     .eq('id', params.repairId)
     .single()
 

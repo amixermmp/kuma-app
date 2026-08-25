@@ -47,7 +47,12 @@ export default function BrokenForm({ bike, staffId }: Props) {
         }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
+      if (!res.ok) {
+        // มีงานซ่อมเปิดค้างอยู่แล้ว — พาไปหน้างานซ่อมเดิมแทนที่จะสร้างซ้ำ
+        if (data.repairId) { router.push(`/staff/repair/${data.repairId}`); return }
+        setError(data.error || 'เกิดข้อผิดพลาด')
+        return
+      }
       if (data.conflicts?.length > 0) { setConflicts(data.conflicts); return }
       router.push('/staff/jobs')
     } catch {

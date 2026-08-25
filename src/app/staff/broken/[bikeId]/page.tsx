@@ -19,5 +19,14 @@ export default async function BrokenPage({ params }: { params: { bikeId: string 
 
   if (!bike) redirect('/staff/broken')
 
+  // กันแจ้งซ้ำ — ถ้ารถคันนี้มีงานซ่อมเปิดค้างอยู่แล้ว (เข้าตรงผ่าน URL เก่าข้าม picker มา) พาไปหน้างานซ่อมเดิมแทน
+  const { data: openRepair } = await supabase
+    .from('repairs')
+    .select('id')
+    .eq('bike_id', params.bikeId)
+    .eq('status', 'in_progress')
+    .maybeSingle()
+  if (openRepair) redirect(`/staff/repair/${openRepair.id}`)
+
   return <BrokenForm bike={bike} staffId={staffId} />
 }

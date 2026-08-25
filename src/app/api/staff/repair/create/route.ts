@@ -23,6 +23,17 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient()
 
+  // กันแจ้งซ้ำ — รถคันนี้ต้องไม่มีงานซ่อมเปิดค้างอยู่แล้ว (เผื่อข้าม picker เข้ามาตรงๆ หรือกดส่งซ้ำ)
+  const { data: existingOpen } = await supabase
+    .from('repairs')
+    .select('id')
+    .eq('bike_id', bikeId)
+    .eq('status', 'in_progress')
+    .maybeSingle()
+  if (existingOpen) {
+    return NextResponse.json({ error: 'รถคันนี้มีงานซ่อมเปิดค้างอยู่แล้ว', repairId: existingOpen.id }, { status: 409 })
+  }
+
   const { data: repair, error: repairErr } = await supabase
     .from('repairs')
     .insert({
