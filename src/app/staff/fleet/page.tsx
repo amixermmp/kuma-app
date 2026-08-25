@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds } from '@/lib/staffBranch'
+import { getBranchModelPricingMap, resolveBikeRateFromMap } from '@/lib/bikeCatalog'
 import Link from 'next/link'
 import FleetClient from './FleetClient'
 
@@ -19,7 +20,7 @@ export default async function StaffFleetPage() {
   // ดึงรถตามสาขาที่อนุญาต
   let bikeQuery = supabase
     .from('bikes')
-    .select('id, license_plate, brand, model, color, year, status, daily_rate, photo_url')
+    .select('id, license_plate, brand, model, branch_id, color, year, status, daily_rate, monthly_rate, photo_url')
     .neq('status', 'retired')
     .order('status')
     .order('license_plate')
@@ -28,7 +29,10 @@ export default async function StaffFleetPage() {
     bikeQuery = bikeQuery.in('branch_id', allowedBranchIds)
   }
 
-  const { data: bikes } = await bikeQuery
+  const [{ data: bikes }, pricingMap] = await Promise.all([
+    bikeQuery,
+    getBranchModelPricingMap(supabase),
+  ])
 
   // Cross-check: ถ้ารถมี monthly_rental active อยู่ แต่ status ยังเป็น available → แก้ในหน้านี้
   // (และ patch ฐานข้อมูลไปด้วยเพื่อความถูกต้อง)
@@ -53,7 +57,7 @@ export default async function StaffFleetPage() {
   }
 
   const list = (bikes ?? []).map((b: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-    ...b,
+    ...resolveBikeRateFromMap(b, pricingMap),
     status: rentedByMonthly.has(b.id) ? 'rented' : b.status,
   }))
 

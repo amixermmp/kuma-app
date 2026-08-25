@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds } from '@/lib/staffBranch'
 import { getBusyBikeIds, UNRENTABLE_STATUSES, BUFFER_MS } from '@/lib/availability'
 import { wouldBookingGetBikeForModel } from '@/lib/bookingConflicts'
+import { getBranchModelPricingMap, resolveBikeRateFromMap } from '@/lib/bikeCatalog'
 import AssignBikeClient from './AssignBikeClient'
 
 export const dynamic = 'force-dynamic'
@@ -19,15 +20,18 @@ export default async function AssignBikePage({ params, searchParams }: { params:
 
   const { data: booking } = await supabase
     .from('bookings')
-    .select('*, bikes(id, license_plate, brand, model, color, year, daily_rate, monthly_rate, deposit_amount, odometer)')
+    .select('*, bikes(id, license_plate, brand, model, color, year, branch_id, daily_rate, monthly_rate, deposit_amount, odometer)')
     .eq('id', params.bookingId)
     .single()
 
   if (!booking || booking.status !== 'confirmed') redirect('/staff/jobs')
 
+  const pricingMap = await getBranchModelPricingMap(supabase)
+
   // Determine which model to look for
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const assignedBike = (booking as any).bikes
+  const assignedBikeRaw = (booking as any).bikes
+  const assignedBike = assignedBikeRaw ? resolveBikeRateFromMap(assignedBikeRaw, pricingMap) : assignedBikeRaw
   const targetBrand = booking.requested_brand ?? assignedBike?.brand ?? null
   const targetModel = booking.requested_model ?? assignedBike?.model ?? null
 
@@ -38,7 +42,7 @@ export default async function AssignBikePage({ params, searchParams }: { params:
 
   let bikesQuery = supabase
     .from('bikes')
-    .select('id, license_plate, brand, model, color, year, daily_rate, monthly_rate, deposit_amount, odometer, status')
+    .select('id, license_plate, brand, model, color, year, branch_id, daily_rate, monthly_rate, deposit_amount, odometer, status')
     .not('status', 'in', `("${UNRENTABLE_STATUSES.join('","')}")`)
 
   if (allowedBranchIds) bikesQuery = bikesQuery.in('branch_id', allowedBranchIds)
@@ -63,7 +67,7 @@ export default async function AssignBikePage({ params, searchParams }: { params:
   ])
 
   const availableBikes = (candidateBikes ?? []).map(b => ({
-    ...b,
+    ...resolveBikeRateFromMap(b, pricingMap),
     available: !busyIds.has(b.id),
   }))
 

@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         model: row.model.trim(),
         year: row.year ? parseInt(row.year) : null,
         color: row.color.trim() || null,
-        daily_rate: parseFloat(row.daily_rate),
+        daily_rate: row.daily_rate ? parseFloat(row.daily_rate) : null,
         monthly_rate: row.monthly_rate ? parseFloat(row.monthly_rate) : null,
         deposit_amount: 0,
         odometer: 0,

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
 import { hasOpenContract } from '@/lib/availability'
 import { findBookingConflictsForBike } from '@/lib/bookingConflicts'
+import { resolveSingleBikeRate } from '@/lib/bikeCatalog'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -76,13 +77,15 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 2. Verify new bike ───────────────────────────────────────────────────────
-  const { data: newBike } = await supabase
+  const { data: newBikeRaw } = await supabase
     .from('bikes')
     .select('id, license_plate, brand, model, status, branch_id, monthly_rate, daily_rate')
     .eq('id', newBikeId)
     .single()
 
-  if (!newBike) return NextResponse.json({ error: 'ไม่พบรถคันใหม่' }, { status: 404 })
+  if (!newBikeRaw) return NextResponse.json({ error: 'ไม่พบรถคันใหม่' }, { status: 404 })
+  // เช่ารายเดือนที่สลับคันใหม่จะใช้ราคาคันใหม่ต่อไป — resolve เผื่อคันใหม่ไม่ได้ override ราคาไว้
+  const newBike = await resolveSingleBikeRate(supabase, newBikeRaw)
   if (newBike.status !== 'available') {
     return NextResponse.json({ error: 'รถคันนี้ไม่ว่าง' }, { status: 400 })
   }

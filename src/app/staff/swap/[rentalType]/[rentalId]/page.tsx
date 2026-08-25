@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds } from '@/lib/staffBranch'
+import { getBranchModelPricingMap, resolveBikeRateFromMap } from '@/lib/bikeCatalog'
 import SwapForm from './SwapForm'
 
 export const dynamic = 'force-dynamic'
@@ -64,13 +65,17 @@ export default async function SwapPage({
   const currentBikeId = rental.bikes.id
 
   // ── Available bikes (สาขาเดียวกับรถ, ไม่ใช่คันปัจจุบัน) ──────────────────────
-  const { data: availableBikes } = await supabase
-    .from('bikes')
-    .select('id, license_plate, brand, model, daily_rate')
-    .eq('branch_id', bikeBranchId)
-    .eq('status', 'available')
-    .neq('id', currentBikeId)
-    .order('license_plate')
+  const [{ data: availableBikesRaw }, pricingMap] = await Promise.all([
+    supabase
+      .from('bikes')
+      .select('id, license_plate, brand, model, branch_id, daily_rate, monthly_rate')
+      .eq('branch_id', bikeBranchId)
+      .eq('status', 'available')
+      .neq('id', currentBikeId)
+      .order('license_plate'),
+    getBranchModelPricingMap(supabase),
+  ])
+  const availableBikes = (availableBikesRaw ?? []).map(b => resolveBikeRateFromMap(b, pricingMap))
 
   // ── Pending bookings on old bike (queue) ────────────────────────────────────
   const nowIso = new Date().toISOString()

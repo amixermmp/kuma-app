@@ -49,7 +49,7 @@ export default function AddBikeForm({ ownerId, branches, brands, models }: { own
     if (!licensePlate.trim()) { setError('กรุณาระบุทะเบียนรถ'); return }
     if (!brand.trim()) { setError('กรุณาระบุยี่ห้อรถ'); return }
     if (!model.trim()) { setError('กรุณาระบุรุ่นรถ'); return }
-    if (!dailyRate || isNaN(Number(dailyRate))) { setError('กรุณาระบุราคาเช่า/วัน'); return }
+    if (dailyRate && isNaN(Number(dailyRate))) { setError('ราคาเช่า/วัน ไม่ถูกต้อง'); return }
 
     setLoading(true)
     setError('')
@@ -67,7 +67,7 @@ export default function AddBikeForm({ ownerId, branches, brands, models }: { own
           odometer: odometer ? parseInt(odometer) : 0,
           notes: notes.trim() || null,
           photo_url: photoUrl || null,
-          daily_rate: parseFloat(dailyRate),
+          daily_rate: dailyRate ? parseFloat(dailyRate) : null,
           monthly_rate: monthlyRate ? parseFloat(monthlyRate) : null,
           deposit_amount: 0,
           docs: {
@@ -182,13 +182,13 @@ export default function AddBikeForm({ ownerId, branches, brands, models }: { own
         <div className="card-title" style={{ padding: '12px 0 8px' }}>ราคา</div>
         <div className="card">
           <div className="field-row">
-            <label className="field-label">ราคา/วัน *</label>
-            <input className="field-input" type="number" placeholder="250 บาท"
+            <label className="field-label">ราคา/วัน</label>
+            <input className="field-input" type="number" placeholder="เว้นว่าง = ใช้ราคามาตรฐานของสาขา+รุ่นนี้"
               value={dailyRate} onChange={e => setDailyRate(e.target.value)} />
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">ราคา/เดือน</label>
-            <input className="field-input" type="number" placeholder="3,000 บาท"
+            <input className="field-input" type="number" placeholder="เว้นว่าง = ใช้ราคามาตรฐานของสาขา+รุ่นนี้"
               value={monthlyRate} onChange={e => setMonthlyRate(e.target.value)} />
           </div>
         </div>

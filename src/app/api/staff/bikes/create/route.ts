@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
   if (!BRANCH_ID) return NextResponse.json({ error: 'Missing branch' }, { status: 400 })
 
-  if (!license_plate || !brand || !model || !daily_rate) {
+  if (!license_plate || !brand || !model) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       odometer: odometer ?? 0,
       notes: notes ?? null,
       photo_url: photo_url ?? null,
-      daily_rate,
+      daily_rate: daily_rate ?? null,
       monthly_rate: monthly_rate ?? null,
       deposit_amount: deposit_amount ?? 0,
       status: 'available',
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     actorId: user.id,
     actorName: user.email ?? 'Owner',
     action: 'bike_created',
-    description: `เพิ่มรถใหม่ ${license_plate} (${brand} ${model}) — ฿${daily_rate}/วัน`,
+    description: `เพิ่มรถใหม่ ${license_plate} (${brand} ${model})${daily_rate ? ` — ฿${daily_rate}/วัน` : ' — ใช้ราคามาตรฐาน'}`,
     metadata: { bikeId, license_plate, brand, model },
   })
 

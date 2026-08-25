@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPromoPayDays } from '@/lib/bikeCatalog'
+import { getPromoPayDays, resolveSingleBikeRate } from '@/lib/bikeCatalog'
 import BookingForm from './BookingForm'
 
 export const dynamic = 'force-dynamic'
@@ -34,11 +34,12 @@ export default async function BookingPage({
 
   if (!bike) redirect('/staff/search')
 
+  const resolvedBike = await resolveSingleBikeRate(supabase, bike)
   const promoPayDays = await getPromoPayDays(supabase, bike.brand, bike.model, bike.branch_id)
 
   return (
     <BookingForm
-      bike={bike}
+      bike={resolvedBike}
       staffId={staffId}
       promotions={promotions ?? []}
       preFrom={searchParams.from ?? null}

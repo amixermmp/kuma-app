@@ -5,6 +5,7 @@ import { getStaffBranchIds } from '@/lib/staffBranch'
 import WalkinSelectBike from './WalkinSelectBike'
 import { bangkokToUTC } from '@/lib/time'
 import { getBusyBikeIds, UNRENTABLE_STATUSES, BUFFER_MS } from '@/lib/availability'
+import { getBranchModelPricingMap, resolveBikeRateFromMap } from '@/lib/bikeCatalog'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,14 +37,17 @@ export default async function WalkinModelPage({
   // กันรถซ่อม/ล็อค/เลิกใช้ ออกตั้งแต่ต้น
   let bikesQuery = supabase
     .from('bikes')
-    .select('id, license_plate, brand, model, color, year, daily_rate, odometer, status')
+    .select('id, license_plate, brand, model, branch_id, color, year, daily_rate, monthly_rate, odometer, status')
     .eq('brand', brand)
     .eq('model', model)
     .not('status', 'in', `("${UNRENTABLE_STATUSES.join('","')}")`)
 
   if (allowedBranchIds) bikesQuery = bikesQuery.in('branch_id', allowedBranchIds)
 
-  const { data: candidateBikes } = await bikesQuery
+  const [{ data: candidateBikes }, pricingMap] = await Promise.all([
+    bikesQuery,
+    getBranchModelPricingMap(supabase),
+  ])
 
   // รถไม่ว่างจากสัญญาเช่า (ตัวกลาง — รวมเคสเกินกำหนดยังไม่คืน) + จองเจาะคัน
   const [rentalBusy, { data: bookingConflicts }] = await Promise.all([
@@ -61,7 +65,7 @@ export default async function WalkinModelPage({
   // แยก "มีสัญญาเปิดอยู่ตอนนี้จริง" (rentalBusy — รถอยู่ในมือคนอื่นตอนนี้ Fast lane ช่วยไม่ได้ ส่งไม่ได้จริงๆ)
   // ออกจาก "แค่ติดคิวจองในอนาคต" (rentalBusy ไม่ติด แต่ bookingBusy ติด — รถว่างตอนนี้ Fast lane ใช้ได้)
   const bikes = (candidateBikes ?? []).map(b => ({
-    ...b,
+    ...resolveBikeRateFromMap(b, pricingMap),
     available: !rentalBusy.has(b.id) && !bookingBusyIds.has(b.id),
     hardBusy: rentalBusy.has(b.id),
   }))

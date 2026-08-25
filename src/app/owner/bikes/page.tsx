@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getBranchModelPricingMap, resolveBikeRateFromMap } from '@/lib/bikeCatalog'
 import Link from 'next/link'
 import BikeListClient from './BikeListClient'
 
@@ -45,9 +46,9 @@ export default async function OwnerBikesPage() {
 
   const admin = createAdminClient()
 
-  const [bikesRes, docsRes, branchesRes, routinesRes] = await Promise.all([
+  const [bikesRes, docsRes, branchesRes, routinesRes, pricingMap] = await Promise.all([
     admin.from('bikes')
-      .select('id, license_plate, brand, model, year, color, photo_url, status, daily_rate, odometer, notes, branch_id, branches(name)')
+      .select('id, license_plate, brand, model, year, color, photo_url, status, daily_rate, monthly_rate, odometer, notes, branch_id, branches(name)')
       .order('license_plate'),
     admin.from('bike_documents')
       .select('bike_id, doc_type, expiry_date')
@@ -55,6 +56,7 @@ export default async function OwnerBikesPage() {
     admin.from('branches').select('id, name').order('name'),
     admin.from('bike_routines')
       .select('bike_id, task_name, next_due_date, next_due_km, last_done_date'),
+    getBranchModelPricingMap(admin),
   ])
 
   // Map expiry dates per bike
@@ -74,7 +76,8 @@ export default async function OwnerBikesPage() {
 
   const todayStr = new Date().toISOString().split('T')[0]
 
-  const bikes: OwnerBike[] = (bikesRes.data ?? []).map(b => {
+  const bikes: OwnerBike[] = (bikesRes.data ?? []).map(bRaw => {
+    const b = resolveBikeRateFromMap(bRaw, pricingMap)
     const branch = Array.isArray(b.branches) ? b.branches[0] : b.branches as { name: string } | null
     const expiry = docExpiryMap[b.id] ?? {}
     const taxDays = daysUntil(expiry.tax)

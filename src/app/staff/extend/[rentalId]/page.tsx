@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPromoPayDays } from '@/lib/bikeCatalog'
+import { getPromoPayDays, resolveSingleBikeRate } from '@/lib/bikeCatalog'
 import ExtendForm from './ExtendForm'
 
 export const dynamic = 'force-dynamic'
@@ -37,7 +37,9 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rentalBike = (rental as any).bikes
   const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model, rentalBike.branch_id) : 5
+  // ราคาปัจจุบันของรถ ใช้ตั้งราคาวันที่ต่อเพิ่มใหม่ — ต้อง resolve เผื่อรถไม่ได้ override ราคาไว้
+  const resolvedRental = rentalBike ? { ...rental, bikes: await resolveSingleBikeRate(supabase, rentalBike) } : rental
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <ExtendForm rental={rental as any} staffId={staffId} upcomingBookings={upcomingBookings ?? []} promoPayDays={promoPayDays} />
+  return <ExtendForm rental={resolvedRental as any} staffId={staffId} upcomingBookings={upcomingBookings ?? []} promoPayDays={promoPayDays} />
 }

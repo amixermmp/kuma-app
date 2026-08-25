@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { resolveSingleBikeRate } from '@/lib/bikeCatalog'
 import ConvertToMonthlyForm from './ConvertToMonthlyForm'
 
 export const dynamic = 'force-dynamic'
@@ -17,7 +18,7 @@ export default async function ConvertToMonthlyPage({ params }: { params: Promise
     .from('rentals')
     .select(`
       id, start_datetime, expected_end_datetime, total_days, total_amount, deposit_amount, status,
-      bikes(id, license_plate, brand, model, monthly_rate, deposit_amount, photo_url),
+      bikes(id, license_plate, brand, model, branch_id, daily_rate, monthly_rate, deposit_amount, photo_url),
       customers(name, phone, id_card_number)
     `)
     .eq('id', rentalId)
@@ -27,5 +28,9 @@ export default async function ConvertToMonthlyPage({ params }: { params: Promise
   if (!rental) redirect('/staff/home')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <ConvertToMonthlyForm rental={rental as any} staffId={staffId} />
+  const rentalBike = (rental as any).bikes
+  const resolvedRental = rentalBike ? { ...rental, bikes: await resolveSingleBikeRate(supabase, rentalBike) } : rental
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return <ConvertToMonthlyForm rental={resolvedRental as any} staffId={staffId} />
 }

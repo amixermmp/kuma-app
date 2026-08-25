@@ -49,3 +49,52 @@ export async function getBranchModelPricing(admin: any, branchId: string, brand:
     promoPayDays: branchRow?.promo_pay_days ?? 5,
   }
 }
+
+export type ResolvableBike = {
+  daily_rate: number | null
+  monthly_rate: number | null
+  brand: string
+  model: string
+  branch_id: string | null
+}
+
+// รถไม่ได้ override ราคา (ค่าว่าง) = ใช้ราคามาตรฐานสาขา+รุ่นแทน — ไม่มีมาตรฐานตั้งไว้เลยก็ fallback ฿0/null
+export function resolveBikeRate<T extends ResolvableBike>(bike: T, standard: { dailyRate: number | null; monthlyRate: number | null }): T {
+  return {
+    ...bike,
+    daily_rate: bike.daily_rate ?? standard.dailyRate ?? 0,
+    monthly_rate: bike.monthly_rate ?? standard.monthlyRate ?? null,
+  }
+}
+
+// สำหรับหน้าที่ดึงรถคันเดียว — resolve ราคาให้ก่อนส่งต่อไปยัง client component
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function resolveSingleBikeRate<T extends ResolvableBike>(admin: any, bike: T): Promise<T> {
+  if (bike.daily_rate != null && bike.monthly_rate != null) return bike
+  const standard = await getBranchModelPricing(admin, bike.branch_id ?? '', bike.brand, bike.model)
+  return resolveBikeRate(bike, standard)
+}
+
+export type BikePricingMap = Map<string, { dailyRate: number | null; monthlyRate: number | null; promoPayDays: number }>
+
+// โหลด branch_model_pricing ทั้งหมดมาเป็น map เดียว — ใช้กับหน้า list (ค้นหา/fleet ฯลฯ) กันยิง query ทีละคัน
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getBranchModelPricingMap(admin: any): Promise<BikePricingMap> {
+  const { data } = await admin
+    .from('branch_model_pricing')
+    .select('branch_id, brand, model, daily_rate, monthly_rate, promo_pay_days')
+  const map: BikePricingMap = new Map()
+  for (const row of data ?? []) {
+    map.set(`${row.branch_id}__${row.brand}__${row.model}`, {
+      dailyRate: row.daily_rate ?? null,
+      monthlyRate: row.monthly_rate ?? null,
+      promoPayDays: row.promo_pay_days ?? 5,
+    })
+  }
+  return map
+}
+
+export function resolveBikeRateFromMap<T extends ResolvableBike>(bike: T, map: BikePricingMap): T {
+  const standard = map.get(`${bike.branch_id ?? ''}__${bike.brand}__${bike.model}`)
+  return resolveBikeRate(bike, { dailyRate: standard?.dailyRate ?? null, monthlyRate: standard?.monthlyRate ?? null })
+}

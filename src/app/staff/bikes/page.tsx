@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getBranchModelPricingMap, resolveBikeRateFromMap } from '@/lib/bikeCatalog'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,10 +34,10 @@ export default async function StaffBikesPage() {
   const now = new Date().toISOString()
 
   // ดึงรถทั้งหมดของสาขา + เช็ค bookings ที่ active อยู่
-  const [{ data: bikes }, { data: activeBookings }] = await Promise.all([
+  const [{ data: bikesRaw }, { data: activeBookings }, pricingMap] = await Promise.all([
     supabase
       .from('bikes')
-      .select('id, license_plate, brand, model, color, year, odometer, fuel_level, status, daily_rate')
+      .select('id, license_plate, brand, model, branch_id, color, year, odometer, fuel_level, status, daily_rate, monthly_rate')
       .eq('branch_id', branchId)
       .order('license_plate', { ascending: true }),
 
@@ -46,15 +47,19 @@ export default async function StaffBikesPage() {
       .eq('branch_id', branchId)
       .eq('status', 'confirmed')
       .gt('end_datetime', now),
+
+    getBranchModelPricingMap(supabase),
   ])
+
+  const bikes = (bikesRaw ?? []).map(b => resolveBikeRateFromMap(b, pricingMap))
 
   const bookedBikeIds = new Set((activeBookings ?? []).map(b => b.bike_id))
 
-  const available = (bikes ?? []).filter(b => b.status === 'available' && !bookedBikeIds.has(b.id))
-  const booked    = (bikes ?? []).filter(b => b.status === 'available' && bookedBikeIds.has(b.id))
-  const rented    = (bikes ?? []).filter(b => b.status === 'rented' || b.status === 'locked')
-  const repair    = (bikes ?? []).filter(b => b.status === 'repair')
-  const other     = (bikes ?? []).filter(b => !['available','rented','locked','repair'].includes(b.status))
+  const available = bikes.filter(b => b.status === 'available' && !bookedBikeIds.has(b.id))
+  const booked    = bikes.filter(b => b.status === 'available' && bookedBikeIds.has(b.id))
+  const rented    = bikes.filter(b => b.status === 'rented' || b.status === 'locked')
+  const repair    = bikes.filter(b => b.status === 'repair')
+  const other     = bikes.filter(b => !['available','rented','locked','repair'].includes(b.status))
 
   const allSorted = [...rented, ...booked, ...repair, ...available, ...other]
 

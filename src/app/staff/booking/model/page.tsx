@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPromoPayDays } from '@/lib/bikeCatalog'
+import { getPromoPayDays, getBranchModelPricing } from '@/lib/bikeCatalog'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import BookingModelForm from './BookingModelForm'
 
@@ -19,26 +19,20 @@ export default async function BookingModelPage({
   const { brand, model, rate, from, to } = searchParams
   if (!brand || !model || !rate || !from || !to) redirect('/staff/search')
 
-  // เรทรายเดือนของรุ่นนี้ — ใช้คิด cap รายเดือนให้ตรงกับหน้าส่งรถ
+  // เรทรายเดือนมาตรฐานของรุ่นนี้ที่สาขานี้ — ใช้คิด cap รายเดือนให้ตรงกับหน้าส่งรถ
   const admin = createAdminClient()
-  const { data: bikeRow } = await admin
-    .from('bikes')
-    .select('monthly_rate')
-    .eq('brand', brand)
-    .eq('model', model)
-    .not('monthly_rate', 'is', null)
-    .limit(1)
-    .maybeSingle()
-
   const staffBranchId = await getStaffOwnBranchId(staffId)
-  const promoPayDays = await getPromoPayDays(admin, brand, model, staffBranchId)
+  const [standard, promoPayDays] = await Promise.all([
+    getBranchModelPricing(admin, staffBranchId ?? '', brand, model),
+    getPromoPayDays(admin, brand, model, staffBranchId),
+  ])
 
   return (
     <BookingModelForm
       brand={brand}
       model={model}
       dailyRate={parseInt(rate)}
-      monthlyRate={bikeRow?.monthly_rate ?? parseInt(rate) * 30}
+      monthlyRate={standard.monthlyRate ?? parseInt(rate) * 30}
       from={from}
       to={to}
       staffId={staffId}

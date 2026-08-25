@@ -13,7 +13,7 @@ type Bike = {
   year: number | null
   color: string | null
   photo_url: string | null
-  daily_rate: number
+  daily_rate: number | null
   monthly_rate: number | null
   deposit_amount: number
   odometer: number
@@ -125,7 +125,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
   })()
   const [year, setYear] = useState(String(bike.year ?? ''))
   const [color, setColor] = useState(bike.color ?? '')
-  const [dailyRate, setDailyRate] = useState(String(bike.daily_rate))
+  const [dailyRate, setDailyRate] = useState(String(bike.daily_rate ?? ''))
   const [monthlyRate, setMonthlyRate] = useState(String(bike.monthly_rate ?? ''))
   const [deposit, setDeposit] = useState(String(bike.deposit_amount))
   const [odometer, setOdometer] = useState(String(bike.odometer))
@@ -172,10 +172,17 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
   const [branchMsg, setBranchMsg] = useState('')
 
   const targetPricing = pricingByBranch[branchId]
-  const effectiveDailyRate = targetPricing?.dailyRate ?? bike.daily_rate
+  const effectiveDailyRate = targetPricing?.dailyRate ?? bike.daily_rate ?? 0
   const effectiveMonthlyRate = targetPricing?.monthlyRate ?? bike.monthly_rate
   const dailyIsConfigured = targetPricing?.dailyRate != null
   const monthlyIsConfigured = targetPricing?.monthlyRate != null
+
+  // ราคาที่ใช้จริงตอนนี้ — ถ้ารถไม่ได้ override ไว้ (ค่าว่าง) ให้อิงราคามาตรฐานของสาขาปัจจุบัน
+  const currentStandard = pricingByBranch[bike.branch_id]
+  const currentEffectiveDailyRate = bike.daily_rate ?? currentStandard?.dailyRate ?? 0
+  const currentEffectiveMonthlyRate = bike.monthly_rate ?? currentStandard?.monthlyRate ?? null
+  const isDailyOverride = bike.daily_rate != null
+  const isMonthlyOverride = bike.monthly_rate != null
 
   // Routine editor
   const [routineList, setRoutineList] = useState<Routine[]>(routines)
@@ -277,8 +284,8 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
         model: model.trim(),
         year: year ? parseInt(year) : null,
         color: color.trim() || null,
-        daily_rate: parseFloat(dailyRate) || 0,
-        monthly_rate: monthlyRate ? parseFloat(monthlyRate) : null,
+        daily_rate: dailyRate.trim() === '' ? null : (parseFloat(dailyRate) || 0),
+        monthly_rate: monthlyRate.trim() === '' ? null : (parseFloat(monthlyRate) || 0),
         deposit_amount: parseFloat(deposit) || 0,
         odometer: parseInt(odometer) || 0,
         notes: notes.trim() || null,
@@ -299,10 +306,11 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
   const saveBranch = async () => {
     if (branchId === bike.branch_id) return
     setBranchSaving(true)
+    // ล้างราคาที่ override ไว้เสมอตอนย้ายสาขา — ให้ไปอิงราคามาตรฐานของสาขาใหม่แทน
     const res = await fetch(`/api/owner/bikes/${bike.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ branch_id: branchId, daily_rate: effectiveDailyRate, monthly_rate: effectiveMonthlyRate }),
+      body: JSON.stringify({ branch_id: branchId, daily_rate: null, monthly_rate: null }),
     })
     setBranchSaving(false)
     setBranchMsg(res.ok ? '✅ ย้ายสาขาแล้ว' : '❌ เกิดข้อผิดพลาด')
@@ -370,7 +378,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
               🏢 {bike.branch_name}
             </span>
             <span style={{ background: 'rgba(255,255,255,.15)', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 600 }}>
-              ฿{bike.daily_rate.toLocaleString()}/วัน
+              ฿{currentEffectiveDailyRate.toLocaleString()}/วัน{!isDailyOverride && ' (มาตรฐาน)'}
             </span>
           </div>
         </div>
@@ -419,8 +427,6 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
               {[
                 { label: 'ปีรถ', val: year, set: setYear, type: 'number' },
                 { label: 'สี', val: color, set: setColor },
-                { label: 'ราคาเช่า/วัน (บาท) *', val: dailyRate, set: setDailyRate, type: 'number' },
-                { label: 'ราคาเช่า/เดือน (บาท)', val: monthlyRate, set: setMonthlyRate, type: 'number' },
                 { label: 'ค่ามัดจำ (บาท)', val: deposit, set: setDeposit, type: 'number' },
                 { label: 'เลขไมล์ปัจจุบัน (กม.)', val: odometer, set: setOdometer, type: 'number' },
               ].map(({ label, val, set, type }) => (
@@ -429,6 +435,24 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                   <input className="field-input" type={type ?? 'text'} value={val} onChange={e => set(e.target.value)} />
                 </div>
               ))}
+              <div className="field-row">
+                <label className="field-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>ราคาเช่า/วัน (บาท)</span>
+                  {(dailyRate.trim() !== '' || monthlyRate.trim() !== '') && (
+                    <button type="button" onClick={() => { setDailyRate(''); setMonthlyRate('') }} style={{
+                      background: 'none', border: 'none', color: '#2563eb', fontSize: '11px',
+                      fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0,
+                    }}>↺ ใช้ราคามาตรฐาน</button>
+                  )}
+                </label>
+                <input className="field-input" type="number" value={dailyRate} onChange={e => setDailyRate(e.target.value)}
+                  placeholder={currentStandard?.dailyRate != null ? `มาตรฐาน ฿${currentStandard.dailyRate.toLocaleString()}` : 'ยังไม่มีราคามาตรฐาน'} />
+              </div>
+              <div className="field-row">
+                <label className="field-label">ราคาเช่า/เดือน (บาท)</label>
+                <input className="field-input" type="number" value={monthlyRate} onChange={e => setMonthlyRate(e.target.value)}
+                  placeholder={currentStandard?.monthlyRate != null ? `มาตรฐาน ฿${currentStandard.monthlyRate.toLocaleString()}` : 'ยังไม่มีราคามาตรฐาน'} />
+              </div>
               <div className="field-row" style={{ marginBottom: 0 }}>
                 <label className="field-label">หมายเหตุ</label>
                 <textarea className="field-input" rows={2} value={notes} onChange={e => setNotes(e.target.value)} style={{ resize: 'none' }} />
@@ -442,8 +466,10 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                 bike.year ? ['ปีรถ', String(bike.year)] : null,
                 bike.color ? ['สี', bike.color] : null,
                 ['เลขไมล์', `${Number(bike.odometer).toLocaleString()} กม.`],
-                ['ราคาเช่า/วัน', `฿${Number(bike.daily_rate).toLocaleString()}`],
-                bike.monthly_rate ? ['ราคาเช่า/เดือน', `฿${Number(bike.monthly_rate).toLocaleString()}`] : null,
+                ['ราคาเช่า/วัน', `฿${currentEffectiveDailyRate.toLocaleString()}${isDailyOverride ? '' : ' (มาตรฐาน)'}`],
+                currentEffectiveMonthlyRate != null
+                  ? ['ราคาเช่า/เดือน', `฿${currentEffectiveMonthlyRate.toLocaleString()}${isMonthlyOverride ? '' : ' (มาตรฐาน)'}`]
+                  : null,
                 ['ค่ามัดจำ', `฿${Number(bike.deposit_amount).toLocaleString()}`],
                 bike.notes ? ['หมายเหตุ', bike.notes] : null,
               ].filter((r): r is [string, string] => r !== null).map(([k, v]) => (

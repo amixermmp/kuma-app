@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { findModelBookingConflict } from '@/lib/bookingConflicts'
-import { getPromoPayDays } from '@/lib/bikeCatalog'
+import { getPromoPayDays, resolveSingleBikeRate } from '@/lib/bikeCatalog'
 import SendCarForm from './SendCarForm'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +34,8 @@ export default async function SendCarPage({
   ])
 
   if (!bike) redirect('/staff/home')
+
+  const resolvedBike = await resolveSingleBikeRate(supabase, bike)
 
   const { data: branchQr } = await supabase
     .from('branch_settings')
@@ -104,7 +106,7 @@ export default async function SendCarPage({
 
   return (
     <SendCarForm
-      bike={bike}
+      bike={resolvedBike}
       staffId={staffId}
       promotions={promotions ?? []}
       prefillBooking={booking}

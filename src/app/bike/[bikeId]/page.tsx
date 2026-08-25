@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound, redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
+import { resolveSingleBikeRate } from '@/lib/bikeCatalog'
 import BikePublicClient from './BikePublicClient'
 
 export const dynamic = 'force-dynamic'
@@ -46,6 +47,8 @@ export default async function BikePublicPage({
 
   if (!bike) notFound()
 
+  const resolvedBike = await resolveSingleBikeRate(supabase, bike)
+
   const { data: settings } = await supabase
     .from('branch_settings')
     .select('terms_photo_url, manual_photo_url, contract_photo_url, contact_line, contact_phone')
@@ -66,8 +69,8 @@ export default async function BikePublicPage({
   }
 
   // Derive effective status from rentals table (source of truth), not bikes.status which may lag
-  const effectiveStatus = (activeRental || activeMonthly) ? 'rented' : bike.status
-  const bikeWithStatus = { ...bike, status: effectiveStatus }
+  const effectiveStatus = (activeRental || activeMonthly) ? 'rented' : resolvedBike.status
+  const bikeWithStatus = { ...resolvedBike, status: effectiveStatus }
 
   const docMap = Object.fromEntries((docs ?? []).map(d => [d.doc_type, d]))
 
