@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { syncMonthlyRentalRate } from '@/lib/monthlyRate'
 
 // จัดการคลังยี่ห้อ/รุ่นรถ (owner เท่านั้น)
 async function requireOwner() {
@@ -46,6 +47,22 @@ export async function POST(request: NextRequest) {
       promo_pay_days: promoValue,
     }, { onConflict: 'branch_id,brand,model' })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+    // ราคามาตรฐานเปลี่ยน — sync ไปสัญญารายเดือนที่เช่าอยู่ของรถทุกคันในรุ่นนี้ที่สาขานี้ ที่ยังไม่ได้ override
+    // ราคาไว้เอง (ตามมาตรฐานอยู่) ทันที ไม่ต้องให้พนักงานยืนยัน — คันที่ override ราคาเองไว้แล้วไม่กระทบ
+    if (monthlyValue != null) {
+      const { data: standardBikes } = await admin
+        .from('bikes')
+        .select('id')
+        .eq('branch_id', branchId)
+        .eq('brand', brand.trim())
+        .eq('model', name.trim())
+        .is('monthly_rate', null)
+      for (const b of standardBikes ?? []) {
+        await syncMonthlyRentalRate(admin, b.id, monthlyValue)
+      }
+    }
+
     return NextResponse.json({ success: true })
   }
 

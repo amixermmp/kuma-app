@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
+import { getBranchModelPricing } from '@/lib/bikeCatalog'
+import { syncMonthlyRentalRate } from '@/lib/monthlyRate'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ bikeId: string }> }) {
   const supabase = await createClient()
@@ -29,6 +31,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bike
 
   if ('odometer' in update) {
     await recalcNeverDoneRoutines(admin, bikeId, Number(update.odometer) || 0)
+  }
+
+  // ราคาเปลี่ยน (override เองหรือกลับไปตามมาตรฐาน) — sync ไปสัญญารายเดือนที่เช่าอยู่ตอนนี้ทันที
+  // ราคาเป็นเรื่องที่โอนเนอร์ตัดสินใจ ไม่ต้องให้พนักงานยืนยันอีกชั้น (มีล็อกกันย้อนหลังงวดที่ครบกำหนดจ่ายไปแล้ว)
+  if ('monthly_rate' in update || 'daily_rate' in update) {
+    const { data: freshBike } = await admin.from('bikes').select('branch_id, brand, model, monthly_rate').eq('id', bikeId).single()
+    if (freshBike) {
+      const standard = await getBranchModelPricing(admin, freshBike.branch_id, freshBike.brand, freshBike.model)
+      const resolvedMonthly = freshBike.monthly_rate ?? standard.monthlyRate
+      if (resolvedMonthly != null) await syncMonthlyRentalRate(admin, bikeId, resolvedMonthly)
+    }
   }
 
   const { data: bike } = await admin.from('bikes').select('license_plate').eq('id', bikeId).single()
