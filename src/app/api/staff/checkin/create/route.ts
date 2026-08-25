@@ -44,7 +44,9 @@ export async function POST(request: NextRequest) {
   }
 
   const res = NextResponse.json({ success: true, alreadyCheckedIn: !!already, checkedInAt: already?.checked_in_at ?? null })
-  res.cookies.set('kuma_checkin_date', todayStr, {
+  // ผูกคุกกี้เข้ากับ staffId ด้วย — กันเครื่อง/แท็บเล็ตที่แชร์กันหลายคน คนถัดไปที่ล็อคอินต่อ
+  // ไม่ได้แปลว่า "เช็คอินแล้ว" ไปด้วย (คุกกี้เดิมเช็คแค่วันที่ ไม่ผูกคน เลยหลุดเช็คอินได้)
+  res.cookies.set('kuma_checkin_date', `${staffId}:${todayStr}`, {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',

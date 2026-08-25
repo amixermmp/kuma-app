@@ -31,8 +31,10 @@ export async function middleware(request: NextRequest) {
       const bkkNow = new Date(Date.now() + H7)
       const todayStr = bkkNow.toISOString().split('T')[0]
       const pastGateTime = bkkNow.getUTCHours() >= 8
-      const checkinDate = request.cookies.get('kuma_checkin_date')?.value
-      if (pastGateTime && checkinDate !== todayStr) {
+      // ผูกกับ staffId ด้วย (ไม่ใช่แค่วันที่) — กันเครื่อง/แท็บเล็ตที่แชร์กันหลายคน
+      // คุกกี้ของคนก่อนหน้าที่เช็คอินไปแล้วทำให้คนถัดไปที่ล็อคอินต่อดูเหมือนเช็คอินแล้วไปด้วย
+      const checkinCookie = request.cookies.get('kuma_checkin_date')?.value
+      if (pastGateTime && checkinCookie !== `${staffId}:${todayStr}`) {
         const url = new URL('/staff/checkin', request.url)
         url.searchParams.set('redirect', pathname)
         return NextResponse.redirect(url)
