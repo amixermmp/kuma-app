@@ -10,10 +10,10 @@ export async function POST(request: NextRequest) {
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { rentalType, rentalId, newBikeId, swapType, reason, reassignBookingIds } =
+  const { rentalType, rentalId, newBikeId, reason, reassignBookingIds } =
     await request.json()
 
-  if (!rentalType || !rentalId || !newBikeId || !swapType) {
+  if (!rentalType || !rentalId || !newBikeId) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
   if (rentalType !== 'daily' && rentalType !== 'monthly') {
@@ -104,7 +104,6 @@ export async function POST(request: NextRequest) {
       from_plate: oldPlate,
       to_bike_id: newBikeId,
       to_plate: newPlate,
-      type: swapType,
       reason: reason ?? null,
       staff_id: staffId,
       // เก็บราคาก่อน/หลังสลับไว้ — ให้รอบบิลที่กำหนดชำระก่อนวันสลับยังอ้างอิงราคาเดิมได้ถูกต้อง
@@ -126,7 +125,6 @@ export async function POST(request: NextRequest) {
       from_plate: oldPlate,
       to_bike_id: newBikeId,
       to_plate: newPlate,
-      type: swapType,
       reason: reason ?? null,
       staff_id: staffId,
     }
@@ -140,8 +138,9 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 4. Update bike statuses ───────────────────────────────────────────────────
-  // คันเก่า permanent → available เว้นแต่มีสัญญาอื่นเปิดค้างอยู่แล้ว (edge case: มีสัญญาอื่นผูกคันนี้ควบคู่)
-  const oldBikeNewStatus = swapType === 'temp' ? 'repair' : (await hasOpenContract(supabase, oldBikeId)) ? null : 'available'
+  // คันเก่า → available เสมอ เว้นแต่มีสัญญาอื่นเปิดค้างอยู่แล้ว (edge case: มีสัญญาอื่นผูกคันนี้ควบคู่)
+  // สลับรถไม่ใช่การแจ้งซ่อม — ถ้าคันเก่ามีปัญหาจริง พนักงานต้องกดแจ้งซ่อมแยกต่างหากที่หน้างาน
+  const oldBikeNewStatus = (await hasOpenContract(supabase, oldBikeId)) ? null : 'available'
   await Promise.all([
     ...(oldBikeNewStatus ? [supabase.from('bikes').update({ status: oldBikeNewStatus }).eq('id', oldBikeId)] : []),
     supabase.from('bikes').update({ status: 'rented' }).eq('id', newBikeId),
@@ -159,14 +158,13 @@ export async function POST(request: NextRequest) {
   // ── 6. Log ───────────────────────────────────────────────────────────────────
   const { data: staffRow } = await supabase.from('staff').select('name').eq('id', staffId).single()
   const typeLabel = rentalType === 'monthly' ? 'รายเดือน' : 'รายวัน'
-  const swapLabel = swapType === 'temp' ? 'ชั่วคราว' : 'ถาวร'
   await writeLog({
     actorType: 'staff',
     actorId: staffId,
     actorName: staffRow?.name ?? staffId,
     action: 'rental_swap',
-    description: `สลับรถ${typeLabel} — ลูกค้า ${customerName} — ${oldPlate} → ${newPlate} (${swapLabel})${bookingIds.length > 0 ? ` • สลับคิว ${bookingIds.length} รายการ` : ''}`,
-    metadata: { rentalType, rentalId, oldBikeId, newBikeId, swapType, reason, reassignBookingIds: bookingIds },
+    description: `สลับรถ${typeLabel} — ลูกค้า ${customerName} — ${oldPlate} → ${newPlate}${bookingIds.length > 0 ? ` • สลับคิว ${bookingIds.length} รายการ` : ''}`,
+    metadata: { rentalType, rentalId, oldBikeId, newBikeId, reason, reassignBookingIds: bookingIds },
   })
 
   // เช็คคิวจองที่ยังผูกกับรถคันเก่า (ที่ไม่ได้ถูกเลือกให้โยกย้าย) และคันใหม่ — ถ้ามีปัญหาให้ frontend เด้งเตือน

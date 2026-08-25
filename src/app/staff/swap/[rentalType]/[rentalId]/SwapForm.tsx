@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import BookingConflictModal from '@/components/staff/BookingConflictModal'
@@ -11,7 +11,7 @@ type Rental = {
   bikes: { id: string; license_plate: string; brand: string; model: string }
   customers: { name: string; phone: string | null }
   label: string
-  swap_log?: { date: string; from_plate: string; to_plate: string; type: string; reason: string | null }[]
+  swap_log?: { date: string; from_plate: string; to_plate: string; type?: string; reason: string | null }[]
 }
 
 type AvailableBike = {
@@ -50,7 +50,6 @@ function fmtDate(iso: string) {
 
 export default function SwapForm({ rentalType, rental, availableBikes, pendingBookings }: Props) {
   const router = useRouter()
-  const [swapType, setSwapType] = useState<'temp' | 'permanent'>('temp')
   const [selectedBikeId, setSelectedBikeId] = useState('')
   const [reason, setReason] = useState('')
   // queue: set of booking IDs to reassign
@@ -59,15 +58,6 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
   const [error, setError] = useState('')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [conflicts, setConflicts] = useState<any[]>([])
-
-  // When swapType changes: permanent → check all queue items; temp → uncheck all
-  useEffect(() => {
-    if (swapType === 'permanent') {
-      setReassignIds(new Set(pendingBookings.map(b => b.id)))
-    } else {
-      setReassignIds(new Set())
-    }
-  }, [swapType, pendingBookings])
 
   const toggleReassign = (id: string) => {
     setReassignIds(prev => {
@@ -95,17 +85,14 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
           rentalType,
           rentalId: rental.id,
           newBikeId: selectedBikeId,
-          swapType,
           reason: reason.trim() || null,
           reassignBookingIds: Array.from(reassignIds),
         }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error ?? 'เกิดข้อผิดพลาด'); return }
-      const nextHref = swapType === 'temp' ? `/staff/broken/${rental.bike_id}` : '/staff/jobs'
       if (data.conflicts?.length > 0) { setConflicts(data.conflicts); return }
-      // temp swap → เด้งไปแจ้งซ่อมรถคันเก่าทันที
-      router.push(nextHref)
+      router.push('/staff/jobs')
       router.refresh()
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
@@ -151,40 +138,6 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
           </div>
         </div>
 
-        {/* ประเภทการสลับ */}
-        <div className="card">
-          <div className="card-title">ประเภทการสลับ</div>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-            <button onClick={() => setSwapType('temp')} style={{
-              flex: 1, padding: '12px 8px', borderRadius: '10px',
-              border: `2px solid ${swapType === 'temp' ? '#dc2626' : '#e5e7eb'}`,
-              background: swapType === 'temp' ? '#fef2f2' : '#fff',
-              color: swapType === 'temp' ? '#dc2626' : '#6b7280',
-              fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              🔧 ซ่อม (ชั่วคราว)
-            </button>
-            <button onClick={() => setSwapType('permanent')} style={{
-              flex: 1, padding: '12px 8px', borderRadius: '10px',
-              border: `2px solid ${swapType === 'permanent' ? '#16a34a' : '#e5e7eb'}`,
-              background: swapType === 'permanent' ? '#f0fdf4' : '#fff',
-              color: swapType === 'permanent' ? '#16a34a' : '#6b7280',
-              fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              🔄 เปลี่ยนถาวร
-            </button>
-          </div>
-          <div style={{
-            background: swapType === 'temp' ? '#fef2f2' : '#f0fdf4',
-            borderRadius: '8px', padding: '10px 12px',
-            fontSize: '12px', color: swapType === 'temp' ? '#dc2626' : '#16a34a',
-          }}>
-            {swapType === 'temp'
-              ? 'รถคันเก่าจะเปลี่ยนเป็น ซ่อม — สามารถสลับกลับได้เมื่อซ่อมเสร็จ'
-              : 'รถคันเก่าจะเปลี่ยนเป็น ว่าง — ลูกค้าใช้คันใหม่ต่อไป'}
-          </div>
-        </div>
-
         {/* เลือกรถคันใหม่ */}
         <div className="card">
           <div className="card-title">รถที่ว่าง (เลือกให้ลูกค้า)</div>
@@ -225,8 +178,8 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
               <div style={{ flex: 1, background: '#f9fafb', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
                 <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '4px' }}>คืน</div>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{bike.license_plate}</div>
-                <div style={{ fontSize: '11px', color: swapType === 'temp' ? '#dc2626' : '#16a34a', marginTop: '2px' }}>
-                  → {swapType === 'temp' ? 'ซ่อม' : 'ว่าง'}
+                <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '2px' }}>
+                  → ว่าง
                 </div>
               </div>
               <div style={{ fontSize: '20px', color: '#9ca3af' }}>⇄</div>
@@ -246,9 +199,7 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
               📋 คิวการจองรออยู่ ({pendingBookings.length} รายการ)
             </div>
             <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
-              {swapType === 'permanent'
-                ? 'สลับถาวร — ระบบเลือกสลับคิวให้อัตโนมัติ สามารถยกเลิกเลือกได้'
-                : 'สลับชั่วคราว — เลือกว่าจะโยกคิวไปรถคันใหม่หรือไม่'}
+              เลือกว่าจะโยกคิวไปรถคันใหม่หรือไม่
             </div>
             {pendingBookings.map(bk => {
               const checked = reassignIds.has(bk.id)
@@ -328,11 +279,12 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
               }}>
                 <div style={{
                   width: '8px', height: '8px', borderRadius: '50%', marginTop: '5px', flexShrink: 0,
-                  background: log.type === 'temp' ? '#dc2626' : '#16a34a',
+                  background: '#7c3aed',
                 }} />
                 <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5 }}>
                   <span style={{ color: '#111827', fontWeight: 600 }}>{log.date}</span>
-                  {' — '}{log.type === 'temp' ? 'ซ่อมชั่วคราว' : 'เปลี่ยนถาวร'}
+                  {/* entries จากก่อนรื้อ ประเภทการสลับ ยังมี type เก่าติดมา โชว์ไว้เผื่ออ้างอิงประวัติ */}
+                  {log.type && (<>{' — '}{log.type === 'temp' ? 'ซ่อมชั่วคราว' : 'เปลี่ยนถาวร'}</>)}
                   <br />{log.from_plate} → {log.to_plate}
                   {log.reason ? ` • ${log.reason}` : ''}
                 </div>
@@ -370,7 +322,7 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
       <BookingConflictModal
         conflicts={conflicts}
         onAcknowledge={() => {
-          router.push(swapType === 'temp' ? `/staff/broken/${rental.bike_id}` : '/staff/jobs')
+          router.push('/staff/jobs')
           router.refresh()
         }}
       />
