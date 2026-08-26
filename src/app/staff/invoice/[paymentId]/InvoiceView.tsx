@@ -140,7 +140,7 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
               {shop.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={shop.logo_url} alt={shopName} style={{
-                  width: '52px', height: '52px', objectFit: 'contain',
+                  width: '84px', height: '84px', objectFit: 'contain',
                   background: '#fff', borderRadius: '8px', padding: '4px',
                 }} />
               ) : (
