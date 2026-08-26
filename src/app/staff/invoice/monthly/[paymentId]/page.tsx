@@ -27,7 +27,7 @@ export default async function MonthlyInvoicePage({ params }: { params: Promise<{
   const { data: payment } = await supabase
     .from('monthly_payments')
     .select(`
-      id, monthly_rental_id, due_date, paid_date, amount, payment_method,
+      id, monthly_rental_id, due_date, paid_date, amount, payment_method, staff_id,
       monthly_rentals(
         start_date, payment_day, deposit_amount, branch_id,
         billing_name, billing_address, billing_id,
@@ -52,6 +52,10 @@ export default async function MonthlyInvoicePage({ params }: { params: Promise<{
     .is('voided_at', null)
     .order('due_date', { ascending: true })
   const isFirstPayment = (allPayments ?? [])[0]?.id === payment.id
+
+  const { data: staffRow } = payment.staff_id
+    ? await supabase.from('staff').select('name').eq('id', payment.staff_id).maybeSingle()
+    : { data: null }
 
   const { data: shop } = await supabase
     .from('shop_settings')
@@ -90,6 +94,7 @@ export default async function MonthlyInvoicePage({ params }: { params: Promise<{
     depositAmount: isFirstPayment ? Number(rental.deposit_amount ?? 0) : 0,
     paymentMethod: payment.payment_method ?? null,
     paidAt: payment.paid_date,
+    staffName: staffRow?.name ?? null,
   }
 
   // ถ้าเคยบันทึกชื่อ/ที่อยู่ที่แก้ไว้สำหรับสัญญานี้ (เช่น ขอออกใบเสร็จเป็นชื่อบริษัท) ใช้ค่านั้นแทนชื่อลูกค้าปกติ

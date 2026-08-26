@@ -28,7 +28,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ paymen
   const { data: payment } = await supabase
     .from('rental_payments')
     .select(`
-      id, rental_id, kind, amount, paid_at,
+      id, rental_id, kind, amount, paid_at, staff_id,
       rentals(
         start_datetime, expected_end_datetime, total_days, daily_rate,
         deposit_amount, discount, payment_method, branch_id,
@@ -45,6 +45,10 @@ export default async function InvoicePage({ params }: { params: Promise<{ paymen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rental = (payment as any).rentals
   if (!rental) redirect('/staff/home')
+
+  const { data: staffRow } = payment.staff_id
+    ? await supabase.from('staff').select('name').eq('id', payment.staff_id).maybeSingle()
+    : { data: null }
 
   const { data: shop } = await supabase
     .from('shop_settings')
@@ -83,6 +87,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ paymen
         depositAmount: Number(rental.deposit_amount ?? 0),
         paymentMethod: rental.payment_method ?? null,
         paidAt: payment.paid_at,
+        staffName: staffRow?.name ?? null,
       }
     : {
         id: payment.id,
@@ -96,6 +101,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ paymen
         depositAmount: 0,
         paymentMethod: null,
         paidAt: payment.paid_at,
+        staffName: staffRow?.name ?? null,
       }
 
   // ถ้าเคยบันทึกชื่อ/ที่อยู่ที่แก้ไว้สำหรับสัญญานี้ (เช่น ขอออกใบเสร็จเป็นชื่อบริษัท) ใช้ค่านั้นแทนชื่อลูกค้าปกติ

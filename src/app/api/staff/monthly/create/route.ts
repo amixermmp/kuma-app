@@ -199,6 +199,7 @@ export async function POST(request: NextRequest) {
       amount: monthlyRate,
       payment_method: paymentMethod,
       status: 'paid',
+      staff_id: staffId,
     }).select('id').single()
     firstPaymentId = firstPayment?.id ?? null
   }
