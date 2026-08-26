@@ -161,7 +161,7 @@ export default function InvoiceView({ rental, shop, type }: Props) {
                     <span style={{ color: '#6b7280', fontSize: '11px' }}>
                       {bike?.brand} {bike?.model} • {bike?.license_plate}<br />
                       {isDaily
-                        ? `${fmtDateTime(rental.start_datetime)} – ${fmtDateTime(rental.end_datetime)}`
+                        ? `${fmtDateTime(rental.start_datetime)} – ${fmtDateTime(rental.expected_end_datetime)}`
                         : `เริ่ม ${fmtDate(rental.start_date)} • ชำระทุกวันที่ ${rental.payment_day} ของเดือน`
                       }
                     </span>

@@ -17,7 +17,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ rental
     supabase
       .from('rentals')
       .select(`
-        id, start_datetime, end_datetime, total_days, daily_rate,
+        id, start_datetime, expected_end_datetime, total_days, daily_rate,
         total_amount, deposit_amount, discount, payment_method, created_at,
         bikes(license_plate, brand, model),
         customers(name, phone, workplace)
