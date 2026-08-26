@@ -8,6 +8,7 @@ type Shop = {
   address?: string | null
   phone?: string | null
   tax_id?: string | null
+  logo_url?: string | null
 }
 
 type Payment = {
@@ -30,7 +31,13 @@ type Customer = {
   workplace?: string | null
 }
 
-type Props = { payment: Payment; customer: Customer; shop: Shop }
+type Props = {
+  payment: Payment
+  customer: Customer
+  shop: Shop
+  contractType: 'rental' | 'monthly'
+  contractId: string
+}
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
@@ -46,7 +53,7 @@ const PAYMENT_LABEL: Record<string, string> = {
   cash: 'เงินสด',
 }
 
-export default function InvoiceView({ payment, customer, shop }: Props) {
+export default function InvoiceView({ payment, customer, shop, contractType, contractId }: Props) {
   const grandTotal = payment.amount + payment.depositAmount
   const vatRate = 0.07
   const baseAmount = grandTotal / (1 + vatRate)
@@ -57,10 +64,27 @@ export default function InvoiceView({ payment, customer, shop }: Props) {
   const [custName, setCustName] = useState<string>(customer?.name ?? '')
   const [custAddr, setCustAddr] = useState<string>(customer?.workplace ?? '')
   const [custId, setCustId] = useState<string>(customer?.phone ?? '')
+  const [savingBilling, setSavingBilling] = useState(false)
+  const [billingMsg, setBillingMsg] = useState('')
 
   const shopName = shop.shop_name || 'Kuma Rental'
 
   const handlePrint = () => window.print()
+
+  const saveBilling = async () => {
+    setSavingBilling(true)
+    const res = await fetch('/api/staff/billing-override', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contractType, contractId,
+        billingName: custName, billingAddress: custAddr, billingId: custId,
+      }),
+    })
+    setSavingBilling(false)
+    setBillingMsg(res.ok ? '✅ บันทึกแล้ว ใช้กับใบเสร็จรอบถัดไปของสัญญานี้ได้เลย' : '❌ เกิดข้อผิดพลาด')
+    setTimeout(() => setBillingMsg(''), 4000)
+  }
 
   return (
     <>
@@ -104,6 +128,10 @@ export default function InvoiceView({ payment, customer, shop }: Props) {
 
             {/* Shop header */}
             <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '16px', borderBottom: '2px solid #e5e7eb' }}>
+              {shop.logo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={shop.logo_url} alt={shopName} style={{ width: '56px', height: '56px', objectFit: 'contain', margin: '0 auto 8px' }} />
+              )}
               <div style={{ fontSize: '20px', fontWeight: 800, color: '#111827' }}>{shopName}</div>
               {shop.address && (
                 <div style={{ color: '#6b7280', fontSize: '12px' }}>{shop.address}</div>
@@ -228,9 +256,25 @@ export default function InvoiceView({ payment, customer, shop }: Props) {
               <label className="field-label">ที่อยู่ / โรงแรม</label>
               <input className="field-input" value={custAddr} onChange={e => setCustAddr(e.target.value)} placeholder="โรงแรม / ที่อยู่" />
             </div>
-            <div className="field-row" style={{ marginBottom: 0 }}>
+            <div className="field-row" style={{ marginBottom: '12px' }}>
               <label className="field-label">เลขบัตร / พาสปอร์ต / เบอร์โทร</label>
               <input className="field-input" value={custId} onChange={e => setCustId(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                onClick={saveBilling}
+                disabled={savingBilling}
+                style={{
+                  background: '#f1f5f9', color: '#374151', border: '1px solid #e5e7eb',
+                  borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: 600,
+                  cursor: savingBilling ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {savingBilling ? '⏳ กำลังบันทึก...' : '💾 บันทึกไว้ใช้ทุกใบเสร็จของสัญญานี้'}
+              </button>
+              {billingMsg && (
+                <span style={{ fontSize: '12px', color: billingMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{billingMsg}</span>
+              )}
             </div>
           </div>
 

@@ -32,6 +32,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ paymen
       rentals(
         start_datetime, expected_end_datetime, total_days, daily_rate,
         deposit_amount, discount, payment_method, branch_id,
+        billing_name, billing_address, billing_id,
         bikes(license_plate, brand, model),
         customers(name, phone, workplace)
       )
@@ -47,14 +48,14 @@ export default async function InvoicePage({ params }: { params: Promise<{ paymen
 
   const { data: shop } = await supabase
     .from('shop_settings')
-    .select('shop_name, address, phone, tax_id')
+    .select('shop_name, address, phone, tax_id, logo_url')
     .limit(1)
     .maybeSingle()
 
-  // สาขาตั้งชื่อร้าน/ที่อยู่/เบอร์ ในใบเสร็จเองได้ — ไม่ตั้งค่าใช้ของร้านกลางแทน
+  // สาขาตั้งชื่อร้าน/ที่อยู่/เบอร์/โลโก้ ในใบเสร็จเองได้ — ไม่ตั้งค่าใช้ของร้านกลางแทน
   const { data: branchReceipt } = await supabase
     .from('branch_settings')
-    .select('receipt_shop_name, receipt_address, receipt_phone')
+    .select('receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url')
     .eq('branch_id', rental.branch_id)
     .maybeSingle()
   const resolvedShop = {
@@ -62,6 +63,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ paymen
     shop_name: branchReceipt?.receipt_shop_name || shop?.shop_name,
     address: branchReceipt?.receipt_address || shop?.address,
     phone: branchReceipt?.receipt_phone || shop?.phone,
+    logo_url: branchReceipt?.receipt_logo_url || shop?.logo_url,
   }
 
   const bike = rental.bikes
@@ -96,5 +98,20 @@ export default async function InvoicePage({ params }: { params: Promise<{ paymen
         paidAt: payment.paid_at,
       }
 
-  return <InvoiceView payment={invoicePayment} customer={rental.customers ?? {}} shop={resolvedShop} />
+  // ถ้าเคยบันทึกชื่อ/ที่อยู่ที่แก้ไว้สำหรับสัญญานี้ (เช่น ขอออกใบเสร็จเป็นชื่อบริษัท) ใช้ค่านั้นแทนชื่อลูกค้าปกติ
+  const customer = {
+    name: rental.billing_name || rental.customers?.name,
+    phone: rental.billing_id || rental.customers?.phone,
+    workplace: rental.billing_address || rental.customers?.workplace,
+  }
+
+  return (
+    <InvoiceView
+      payment={invoicePayment}
+      customer={customer}
+      shop={resolvedShop}
+      contractType="rental"
+      contractId={payment.rental_id}
+    />
+  )
 }

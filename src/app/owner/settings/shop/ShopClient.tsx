@@ -210,10 +210,12 @@ function BranchReceiptRow({ branch }: { branch: Branch }) {
   const [shopName, setShopName] = useState(branch.receiptShopName ?? '')
   const [address, setAddress] = useState(branch.receiptAddress ?? '')
   const [phone, setPhone] = useState(branch.receiptPhone ?? '')
+  const [logoUrl, setLogoUrl] = useState(branch.receiptLogoUrl ?? '')
+  const [logoUploading, setLogoUploading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
 
-  const save = async () => {
+  const save = async (overrideLogoUrl?: string) => {
     setLoading(true)
     const res = await fetch('/api/owner/settings/branch-receipt', {
       method: 'POST',
@@ -223,11 +225,31 @@ function BranchReceiptRow({ branch }: { branch: Branch }) {
         receipt_shop_name: shopName,
         receipt_address: address,
         receipt_phone: phone,
+        receipt_logo_url: overrideLogoUrl ?? logoUrl,
       }),
     })
     setLoading(false)
     setMsg(res.ok ? '✅ บันทึกแล้ว' : '❌ เกิดข้อผิดพลาด')
     setTimeout(() => setMsg(''), 3000)
+  }
+
+  const uploadLogo = async (file: File) => {
+    setLogoUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', 'branch-receipt-logo')
+      const res = await fetch('/api/owner/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setLogoUrl(data.url)
+      await save(data.url)
+    } catch (e) {
+      setMsg('❌ ' + (e instanceof Error ? e.message : 'อัพโหลดไม่สำเร็จ'))
+      setTimeout(() => setMsg(''), 3000)
+    } finally {
+      setLogoUploading(false)
+    }
   }
 
   return (
@@ -236,6 +258,23 @@ function BranchReceiptRow({ branch }: { branch: Branch }) {
         <span style={{ fontWeight: 800, fontSize: '14px', color: '#111827', flex: 1 }}>📍 {branch.name}</span>
         {msg && <span style={{ fontSize: '12px', color: msg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{msg}</span>}
       </div>
+      <Field label="โลโก้ในใบเสร็จ" hint="ว่าง = ใช้โลโก้ร้านกลาง">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="logo" style={{ width: '56px', height: '56px', objectFit: 'contain', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#f9fafb' }} />
+          ) : (
+            <div style={{ width: '56px', height: '56px', borderRadius: '10px', border: '2px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', background: '#f9fafb' }}>🖼️</div>
+          )}
+          <label style={{ cursor: 'pointer' }}>
+            <input type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f) }} />
+            <span style={{ background: '#f1f5f9', color: '#374151', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: 600 }}>
+              {logoUploading ? '⏳ กำลังอัพโหลด...' : '📤 เปลี่ยนโลโก้'}
+            </span>
+          </label>
+        </div>
+      </Field>
       <Field label="ชื่อร้านในใบเสร็จ" hint="ว่าง = ใช้ชื่อร้านกลาง">
         <input className="field-input" value={shopName} onChange={e => setShopName(e.target.value)} placeholder="Kuma Rental บางแสน" />
       </Field>
@@ -245,7 +284,7 @@ function BranchReceiptRow({ branch }: { branch: Branch }) {
       <Field label="เบอร์โทรในใบเสร็จ" hint="ว่าง = ใช้เบอร์กลาง">
         <input className="field-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="038-000-000" />
       </Field>
-      <button onClick={save} disabled={loading} className="btn" style={{ width: '100%' }}>
+      <button onClick={() => save()} disabled={loading} className="btn" style={{ width: '100%' }}>
         {loading ? '⏳' : '💾 บันทึก'}
       </button>
     </div>

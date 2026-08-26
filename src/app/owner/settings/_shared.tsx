@@ -13,6 +13,7 @@ export type Branch = {
   receiptShopName?: string | null
   receiptAddress?: string | null
   receiptPhone?: string | null
+  receiptLogoUrl?: string | null
 }
 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
