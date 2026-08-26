@@ -17,7 +17,7 @@ export default async function MonthlyInvoicePage({ params }: { params: Promise<{
     supabase
       .from('monthly_rentals')
       .select(`
-        id, start_date, monthly_rate, deposit_amount, payment_day, created_at,
+        id, start_date, monthly_rate, deposit_amount, payment_day, created_at, branch_id,
         bikes(license_plate, brand, model),
         customers(name, phone, workplace)
       `)
@@ -32,5 +32,18 @@ export default async function MonthlyInvoicePage({ params }: { params: Promise<{
 
   if (!rental) redirect('/staff/home')
 
-  return <InvoiceView rental={rental as any} shop={shop ?? {}} type="monthly" />
+  // สาขาตั้งชื่อร้าน/ที่อยู่/เบอร์ ในใบเสร็จเองได้ — ไม่ตั้งค่าใช้ของร้านกลางแทน
+  const { data: branchReceipt } = await supabase
+    .from('branch_settings')
+    .select('receipt_shop_name, receipt_address, receipt_phone')
+    .eq('branch_id', rental.branch_id)
+    .maybeSingle()
+  const resolvedShop = {
+    ...shop,
+    shop_name: branchReceipt?.receipt_shop_name || shop?.shop_name,
+    address: branchReceipt?.receipt_address || shop?.address,
+    phone: branchReceipt?.receipt_phone || shop?.phone,
+  }
+
+  return <InvoiceView rental={rental as any} shop={resolvedShop} type="monthly" />
 }

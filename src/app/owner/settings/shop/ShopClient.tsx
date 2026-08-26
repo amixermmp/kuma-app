@@ -206,6 +206,52 @@ function BranchLineRow({ branch }: { branch: Branch }) {
   )
 }
 
+function BranchReceiptRow({ branch }: { branch: Branch }) {
+  const [shopName, setShopName] = useState(branch.receiptShopName ?? '')
+  const [address, setAddress] = useState(branch.receiptAddress ?? '')
+  const [phone, setPhone] = useState(branch.receiptPhone ?? '')
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const save = async () => {
+    setLoading(true)
+    const res = await fetch('/api/owner/settings/branch-receipt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        branch_id: branch.id,
+        receipt_shop_name: shopName,
+        receipt_address: address,
+        receipt_phone: phone,
+      }),
+    })
+    setLoading(false)
+    setMsg(res.ok ? '✅ บันทึกแล้ว' : '❌ เกิดข้อผิดพลาด')
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  return (
+    <div style={{ border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '14px', margin: '0 16px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+        <span style={{ fontWeight: 800, fontSize: '14px', color: '#111827', flex: 1 }}>📍 {branch.name}</span>
+        {msg && <span style={{ fontSize: '12px', color: msg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{msg}</span>}
+      </div>
+      <Field label="ชื่อร้านในใบเสร็จ" hint="ว่าง = ใช้ชื่อร้านกลาง">
+        <input className="field-input" value={shopName} onChange={e => setShopName(e.target.value)} placeholder="Kuma Rental บางแสน" />
+      </Field>
+      <Field label="ที่อยู่ในใบเสร็จ" hint="ว่าง = ใช้ที่อยู่กลาง">
+        <textarea className="field-input" rows={2} value={address} onChange={e => setAddress(e.target.value)} style={{ resize: 'none' }} />
+      </Field>
+      <Field label="เบอร์โทรในใบเสร็จ" hint="ว่าง = ใช้เบอร์กลาง">
+        <input className="field-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="038-000-000" />
+      </Field>
+      <button onClick={save} disabled={loading} className="btn" style={{ width: '100%' }}>
+        {loading ? '⏳' : '💾 บันทึก'}
+      </button>
+    </div>
+  )
+}
+
 function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: (branch: Branch) => void }) {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -364,6 +410,17 @@ export default function ShopClient({ shop, branches: initialBranches }: { shop: 
           <div style={{ padding: '12px 0' }}>
             {branches.map(b => (
               <BranchLineRow key={b.id} branch={b} />
+            ))}
+          </div>
+        </Section>
+
+        <Section title="ใบเสร็จรับเงิน">
+          <div style={{ padding: '12px 16px 0', fontSize: '12px', color: '#6b7280' }}>
+            ชื่อร้าน/ที่อยู่/เบอร์โทร ที่จะขึ้นในใบเสร็จของแต่ละสาขา — สาขาไหนไม่ตั้งค่าจะใช้ข้อมูล &quot;ข้อมูลบริษัท / ร้าน&quot; ด้านบนแทน
+          </div>
+          <div style={{ padding: '12px 0' }}>
+            {branches.map(b => (
+              <BranchReceiptRow key={b.id} branch={b} />
             ))}
           </div>
         </Section>

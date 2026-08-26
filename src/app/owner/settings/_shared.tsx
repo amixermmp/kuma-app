@@ -10,6 +10,9 @@ export type Branch = {
   paymentQrMonthlyUrl?: string | null
   lineQrUrl?: string | null
   lineId?: string | null
+  receiptShopName?: string | null
+  receiptAddress?: string | null
+  receiptPhone?: string | null
 }
 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {

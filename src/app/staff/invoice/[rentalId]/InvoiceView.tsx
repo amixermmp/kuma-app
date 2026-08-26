@@ -28,7 +28,7 @@ function fmtDateTime(iso: string) {
 
 function invoiceNumber(id: string, createdAt: string) {
   const year = new Date(createdAt).getFullYear() + 543
-  return `INV-${year}-${id.slice(0, 6).toUpperCase()}`
+  return `RCT-${year}-${id.slice(0, 6).toUpperCase()}`
 }
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -87,7 +87,7 @@ export default function InvoiceView({ rental, shop, type }: Props) {
         <div className="app-header no-print">
           <Link href="/staff/home" className="app-header-back">←</Link>
           <div style={{ flex: 1 }}>
-            <h1>ใบกำกับภาษี</h1>
+            <h1>ใบเสร็จรับเงิน</h1>
             <div className="sub">{invNo}</div>
           </div>
           <button
@@ -127,7 +127,7 @@ export default function InvoiceView({ rental, shop, type }: Props) {
             </div>
 
             <div style={{ textAlign: 'center', fontSize: '16px', fontWeight: 800, marginBottom: '16px' }}>
-              ใบกำกับภาษี / Tax Invoice
+              ใบเสร็จรับเงิน / Receipt
             </div>
 
             {/* Customer + Invoice meta */}
@@ -253,7 +253,7 @@ export default function InvoiceView({ rental, shop, type }: Props) {
               cursor: 'pointer', marginBottom: '80px',
             }}
           >
-            ⬇️ Download ใบกำกับภาษี (PDF)
+            ⬇️ Download ใบเสร็จรับเงิน (PDF)
           </button>
 
         </div>

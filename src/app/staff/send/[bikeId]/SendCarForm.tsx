@@ -47,7 +47,7 @@ function SuccessScreen({ rentalId, type, bikeId, fastLaneConflictId }: { rentalI
           borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
           textDecoration: 'none', marginBottom: '12px',
         }}>
-          🧾 ออกใบกำกับภาษี / ใบเสร็จ
+          🧾 ออกใบเสร็จรับเงิน
         </Link>
         <Link href="/staff/home" style={{
           display: 'block', width: '100%', background: '#f3f4f6', color: '#374151',

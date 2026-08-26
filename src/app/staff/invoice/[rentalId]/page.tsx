@@ -18,7 +18,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ rental
       .from('rentals')
       .select(`
         id, start_datetime, expected_end_datetime, total_days, daily_rate,
-        total_amount, deposit_amount, discount, payment_method, created_at,
+        total_amount, deposit_amount, discount, payment_method, created_at, branch_id,
         bikes(license_plate, brand, model),
         customers(name, phone, workplace)
       `)
@@ -33,5 +33,18 @@ export default async function InvoicePage({ params }: { params: Promise<{ rental
 
   if (!rental) redirect('/staff/home')
 
-  return <InvoiceView rental={rental as any} shop={shop ?? {}} type="daily" />
+  // สาขาตั้งชื่อร้าน/ที่อยู่/เบอร์ ในใบเสร็จเองได้ — ไม่ตั้งค่าใช้ของร้านกลางแทน
+  const { data: branchReceipt } = await supabase
+    .from('branch_settings')
+    .select('receipt_shop_name, receipt_address, receipt_phone')
+    .eq('branch_id', rental.branch_id)
+    .maybeSingle()
+  const resolvedShop = {
+    ...shop,
+    shop_name: branchReceipt?.receipt_shop_name || shop?.shop_name,
+    address: branchReceipt?.receipt_address || shop?.address,
+    phone: branchReceipt?.receipt_phone || shop?.phone,
+  }
+
+  return <InvoiceView rental={rental as any} shop={resolvedShop} type="daily" />
 }
