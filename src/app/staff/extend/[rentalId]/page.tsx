@@ -34,6 +34,14 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
     .gt('end_datetime', new Date().toISOString())
     .order('start_datetime', { ascending: true })
 
+  // ประวัติการชำระของสัญญานี้ — ให้ย้อนดู/เปิดใบเสร็จรายการที่เก็บไปแล้วได้ตลอดที่ยังไม่คืนรถ
+  const { data: payments } = await supabase
+    .from('rental_payments')
+    .select('id, kind, amount, paid_at')
+    .eq('rental_id', params.rentalId)
+    .is('voided_at', null)
+    .order('paid_at', { ascending: false })
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rentalBike = (rental as any).bikes
   const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model, rentalBike.branch_id) : 5
@@ -41,5 +49,5 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
   const resolvedRental = rentalBike ? { ...rental, bikes: await resolveSingleBikeRate(supabase, rentalBike) } : rental
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <ExtendForm rental={resolvedRental as any} staffId={staffId} upcomingBookings={upcomingBookings ?? []} promoPayDays={promoPayDays} />
+  return <ExtendForm rental={resolvedRental as any} staffId={staffId} upcomingBookings={upcomingBookings ?? []} promoPayDays={promoPayDays} payments={payments ?? []} />
 }

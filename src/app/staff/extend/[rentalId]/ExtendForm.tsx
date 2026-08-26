@@ -29,12 +29,22 @@ type UpcomingBooking = {
   end_datetime: string
 }
 
+type PastPayment = {
+  id: string
+  kind: string
+  amount: number
+  paid_at: string
+}
+
 type Props = {
   rental: Rental
   staffId: string
   upcomingBookings: UpcomingBooking[]
   promoPayDays?: number
+  payments: PastPayment[]
 }
+
+const PAYMENT_KIND_LABEL: Record<string, string> = { rental: 'ส่งรถ', extend: 'ต่อเวลา' }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('th-TH', {
@@ -84,7 +94,7 @@ function ExtendSuccessScreen({ customerName, bikeLabel, newEndIso, paymentId }: 
   )
 }
 
-export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5 }: Props) {
+export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5, payments }: Props) {
   const router = useRouter()
   const bike = rental.bikes
   const customer = rental.customers
@@ -377,6 +387,22 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5 
             </span>
           </div>
         </div>
+
+        {/* ประวัติการชำระ — ย้อนดู/เปิดใบเสร็จรายการที่เก็บไปแล้วได้ตลอด */}
+        {payments.length > 0 && (
+          <div className="card">
+            <div className="card-title">ประวัติการชำระ</div>
+            {payments.map(p => (
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 600 }}>{PAYMENT_KIND_LABEL[p.kind] ?? p.kind} • ฿{Number(p.amount).toLocaleString()}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>{fmtDate(p.paid_at)}</div>
+                </div>
+                <Link href={`/staff/invoice/${p.id}`} style={{ fontSize: '12px', color: '#2563eb' }}>🧾 ใบเสร็จ</Link>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* เช็คก่อนว่าต่อได้ไหม — แยกอิสระจากเงินโดยสิ้นเชิง ไว้ตอบลูกค้าก่อนตัดสินใจ ไม่บันทึกอะไรเลย */}
         <div className="card">
