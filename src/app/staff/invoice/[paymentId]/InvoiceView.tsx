@@ -128,9 +128,9 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
           {/* ── Invoice card ── */}
           <div className="card print-card" style={{ padding: 0, overflow: 'hidden', fontSize: '13px' }}>
 
-            {/* Blue header bar */}
+            {/* Header bar */}
             <div style={{
-              background: '#1e3a8a', color: '#fff', padding: '20px',
+              background: '#111827', color: '#fff', padding: '20px',
               display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
             }}>
               <div>
@@ -157,7 +157,7 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
             <div style={{ padding: '20px' }}>
 
               {/* Customer + Invoice meta */}
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e3a8a', marginBottom: '10px' }}>ข้อมูลลูกค้า</div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#111827', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.5px' }}>ข้อมูลลูกค้า</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', fontSize: '12px', lineHeight: 1.9 }}>
                 <div>
                   <div><span style={{ color: '#6b7280' }}>ชื่อลูกค้า: </span>{custName}</div>
@@ -170,12 +170,12 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
                 </div>
               </div>
 
-              <div style={{ borderTop: '2px solid #1e3a8a', marginBottom: '12px' }} />
+              <div style={{ borderTop: '2px solid #111827', marginBottom: '12px' }} />
 
               {/* Items table */}
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '16px' }}>
                 <thead>
-                  <tr style={{ background: '#eff2fb', borderBottom: '1px solid #dbe0f0' }}>
+                  <tr style={{ background: '#f3f4f6', borderBottom: '1px solid #d1d5db' }}>
                     <th style={{ padding: '8px 6px', textAlign: 'center', width: '32px' }}>ลำดับ</th>
                     <th style={{ padding: '8px 6px', textAlign: 'left' }}>รายการ</th>
                     {hasQty && <th style={{ padding: '8px 6px', textAlign: 'center' }}>จำนวน</th>}
@@ -230,7 +230,7 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
                   )}
                   <div style={{
                     display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: 800,
-                    borderTop: '2px solid #1e3a8a', paddingTop: '8px', marginTop: '4px', color: '#111827',
+                    borderTop: '2px solid #111827', paddingTop: '8px', marginTop: '4px', color: '#111827',
                   }}>
                     <span>รวมเป็นเงินทั้งสิ้น</span>
                     <span>{grandTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
