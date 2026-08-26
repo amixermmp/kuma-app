@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPromoPayDays } from '@/lib/bikeCatalog'
+import { getPromoPayDays, resolveSingleBikeRate } from '@/lib/bikeCatalog'
 import ReturnCarForm from './ReturnCarForm'
 
 export const dynamic = 'force-dynamic'
@@ -30,7 +30,9 @@ export default async function ReturnCarPage({ params }: { params: { rentalId: st
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rentalBike = (rental as any).bikes
   const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model, rentalBike.branch_id) : 5
+  // ราคาปัจจุบันของรถ ใช้คิด "ราคาปกติ" เทียบตอนคืนรถก่อนกำหนด — ต้อง resolve เผื่อรถไม่ได้ override ราคาไว้
+  const resolvedRental = rentalBike ? { ...rental, bikes: await resolveSingleBikeRate(supabase, rentalBike) } : rental
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <ReturnCarForm rental={rental as any} staffId={staffId} promoPayDays={promoPayDays} />
+  return <ReturnCarForm rental={resolvedRental as any} staffId={staffId} promoPayDays={promoPayDays} />
 }

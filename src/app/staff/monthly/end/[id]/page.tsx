@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPromoPayDays } from '@/lib/bikeCatalog'
+import { getPromoPayDays, resolveSingleBikeRate } from '@/lib/bikeCatalog'
 import MonthlyEndClient from './MonthlyEndClient'
 
 export const dynamic = 'force-dynamic'
@@ -38,6 +38,8 @@ export default async function MonthlyEndPage({ params }: { params: Promise<{ id:
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rentalBike = (rental as any).bikes
   const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model, rentalBike.branch_id) : 5
+  // ราคาปัจจุบันของรถ ใช้คิด "ราคาปกติ" เทียบตอนคืนรถก่อนกำหนด — ต้อง resolve เผื่อรถไม่ได้ override ราคาไว้
+  const resolvedRental = rentalBike ? { ...rental, bikes: await resolveSingleBikeRate(supabase, rentalBike) } : rental
 
   const totalCollected = (payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
 
@@ -58,7 +60,7 @@ export default async function MonthlyEndPage({ params }: { params: Promise<{ id:
   return (
     <MonthlyEndClient
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      rental={rental as any}
+      rental={resolvedRental as any}
       totalCollected={totalCollected}
       monthsRented={monthsRented}
       periodStart={periodStart}

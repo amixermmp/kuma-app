@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
-import { getPromoPayDays } from '@/lib/bikeCatalog'
+import { getPromoPayDays, getBranchModelPricing } from '@/lib/bikeCatalog'
 import EditBookingForm from './EditBookingForm'
 
 export const dynamic = 'force-dynamic'
@@ -41,18 +41,11 @@ export default async function EditBookingPage({ params }: { params: { bookingId:
   }
 
   const bike = one(booking.bikes)
-  let monthlyRate = bike?.monthly_rate ?? booking.daily_rate * 30
-  if (!bike && booking.requested_brand && booking.requested_model) {
-    const { data: modelBike } = await supabase.from('bikes')
-      .select('monthly_rate')
-      .eq('branch_id', booking.branch_id).eq('brand', booking.requested_brand).eq('model', booking.requested_model)
-      .not('monthly_rate', 'is', null)
-      .limit(1).maybeSingle()
-    monthlyRate = modelBike?.monthly_rate ?? booking.daily_rate * 30
-  }
-
   const promoBrand = bike?.brand ?? booking.requested_brand
   const promoModel = bike?.model ?? booking.requested_model
+  // เรทรายเดือนมาตรฐานของรุ่นนี้ที่สาขานี้ — เช่นเดียวกับหน้าจองรุ่น (booking/model) ไม่ต้องมี bike จริงก็หาได้
+  const standard = promoBrand && promoModel ? await getBranchModelPricing(supabase, booking.branch_id, promoBrand, promoModel) : null
+  const monthlyRate = bike?.monthly_rate ?? standard?.monthlyRate ?? booking.daily_rate * 30
   const promoPayDays = promoBrand && promoModel ? await getPromoPayDays(supabase, promoBrand, promoModel, booking.branch_id) : 5
 
   return (
