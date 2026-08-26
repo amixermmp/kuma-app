@@ -31,6 +31,7 @@ type Customer = {
   name?: string | null
   phone?: string | null
   workplace?: string | null
+  idCard?: string | null
 }
 
 type Props = {
@@ -65,7 +66,8 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
 
   const [custName, setCustName] = useState<string>(customer?.name ?? '')
   const [custAddr, setCustAddr] = useState<string>(customer?.workplace ?? '')
-  const [custId, setCustId] = useState<string>(customer?.phone ?? '')
+  const [custPhone, setCustPhone] = useState<string>(customer?.phone ?? '')
+  const [custIdCard, setCustIdCard] = useState<string>(customer?.idCard ?? '')
   const [savingBilling, setSavingBilling] = useState(false)
   const [billingMsg, setBillingMsg] = useState('')
 
@@ -80,7 +82,7 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contractType, contractId,
-        billingName: custName, billingAddress: custAddr, billingId: custId,
+        billingName: custName, billingAddress: custAddr, billingPhone: custPhone, billingId: custIdCard,
       }),
     })
     setSavingBilling(false)
@@ -161,8 +163,9 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', fontSize: '12px', lineHeight: 1.9 }}>
                 <div>
                   <div><span style={{ color: '#6b7280' }}>ชื่อลูกค้า: </span>{custName}</div>
-                  {custId && <div><span style={{ color: '#6b7280' }}>เบอร์โทรศัพท์: </span>{custId}</div>}
+                  {custPhone && <div><span style={{ color: '#6b7280' }}>เบอร์โทรศัพท์: </span>{custPhone}</div>}
                   {custAddr && <div><span style={{ color: '#6b7280' }}>ที่อยู่: </span>{custAddr}</div>}
+                  {custIdCard && <div><span style={{ color: '#6b7280' }}>เลขประจำตัวผู้เสียภาษี / บัตรประชาชน: </span>{custIdCard}</div>}
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div><span style={{ color: '#6b7280' }}>เลขที่ใบเสร็จรับเงิน: </span><strong>{payment.invoiceNo}</strong></div>
@@ -278,9 +281,13 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
               <label className="field-label">ที่อยู่ / โรงแรม</label>
               <input className="field-input" value={custAddr} onChange={e => setCustAddr(e.target.value)} placeholder="โรงแรม / ที่อยู่" />
             </div>
+            <div className="field-row">
+              <label className="field-label">เบอร์โทร</label>
+              <input className="field-input" value={custPhone} onChange={e => setCustPhone(e.target.value)} />
+            </div>
             <div className="field-row" style={{ marginBottom: '12px' }}>
-              <label className="field-label">เลขบัตร / พาสปอร์ต / เบอร์โทร</label>
-              <input className="field-input" value={custId} onChange={e => setCustId(e.target.value)} />
+              <label className="field-label">เลขประจำตัวผู้เสียภาษี / บัตรประชาชน / พาสปอร์ต</label>
+              <input className="field-input" value={custIdCard} onChange={e => setCustIdCard(e.target.value)} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <button

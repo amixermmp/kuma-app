@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { contractType, contractId, billingName, billingAddress, billingId } = await request.json()
+  const { contractType, contractId, billingName, billingAddress, billingPhone, billingId } = await request.json()
   if (!contractType || !contractId) return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   if (contractType !== 'rental' && contractType !== 'monthly') {
     return NextResponse.json({ error: 'ประเภทสัญญาไม่ถูกต้อง' }, { status: 400 })
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     .update({
       billing_name: billingName?.trim() || null,
       billing_address: billingAddress?.trim() || null,
+      billing_phone: billingPhone?.trim() || null,
       billing_id: billingId?.trim() || null,
     })
     .eq('id', contractId)

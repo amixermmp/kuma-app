@@ -32,9 +32,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ paymen
       rentals(
         start_datetime, expected_end_datetime, total_days, daily_rate,
         deposit_amount, discount, payment_method, branch_id,
-        billing_name, billing_address, billing_id,
+        billing_name, billing_address, billing_phone, billing_id,
         bikes(license_plate, brand, model),
-        customers(name, phone, workplace)
+        customers(name, phone, workplace, id_card_number)
       )
     `)
     .eq('id', paymentId)
@@ -107,8 +107,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ paymen
   // ถ้าเคยบันทึกชื่อ/ที่อยู่ที่แก้ไว้สำหรับสัญญานี้ (เช่น ขอออกใบเสร็จเป็นชื่อบริษัท) ใช้ค่านั้นแทนชื่อลูกค้าปกติ
   const customer = {
     name: rental.billing_name || rental.customers?.name,
-    phone: rental.billing_id || rental.customers?.phone,
+    phone: rental.billing_phone || rental.customers?.phone,
     workplace: rental.billing_address || rental.customers?.workplace,
+    idCard: rental.billing_id || rental.customers?.id_card_number,
   }
 
   return (
