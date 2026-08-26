@@ -79,6 +79,11 @@ export default function StatementClient({ rows, branches, period, from, to, bran
           <h1>🧾 Statement</h1>
           <div className="sub">บัญชีรายรับรายจ่าย — {periodLabel}</div>
         </div>
+        <Link href="/owner/statement/slips" style={{
+          background: 'rgba(255,255,255,.15)', borderRadius: '8px',
+          color: '#fff', fontSize: '13px', fontWeight: 700,
+          padding: '6px 10px', textDecoration: 'none', marginRight: '6px',
+        }}>📷 ตรวจสลิป</Link>
         <PeriodSelector current={period} currentFrom={from} currentTo={to} basePath="/owner/statement" />
       </div>
 

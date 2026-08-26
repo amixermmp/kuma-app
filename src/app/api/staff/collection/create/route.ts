@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { monthlyRentalId, dueDate, amountPaid, paymentMethod, paymentNote, collectedAt } = body
+  const { monthlyRentalId, dueDate, amountPaid, paymentMethod, paymentNote, collectedAt, photoUrl, slipCustomerName } = body
 
   if (!monthlyRentalId || !dueDate || amountPaid == null) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
     payment_note: paymentNote ?? null,
     staff_id: staffId,
     status,
+    photo_url: photoUrl ?? null,
+    slip_customer_name: slipCustomerName ?? null,
   })
 
   if (error) return NextResponse.json({ error: 'บันทึกไม่สำเร็จ: ' + error.message }, { status: 500 })

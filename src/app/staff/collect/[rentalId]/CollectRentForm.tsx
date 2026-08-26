@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import PhotoUpload from '@/components/PhotoUpload'
+import { idAndSlipNameMatch } from '@/lib/customer'
 
 type Bike = { id: string; license_plate: string; brand: string; model: string }
 type Customer = { id: string; name: string; phone: string; workplace: string | null }
@@ -25,6 +27,7 @@ type Payment = {
   payment_method: string | null
   payment_note: string | null
   status: string
+  photo_url?: string | null
 }
 
 type Period = {
@@ -71,9 +74,34 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
 
+  // หลักฐานการชำระ/สลิป — เก็บไว้ตรวจย้อนหลังได้ทุกงวด (เดิมมีแค่งวดแรกตอนสร้างสัญญา)
+  const [photoUrl, setPhotoUrl]           = useState('')
+  const [slipOcrLoading, setSlipOcrLoading] = useState(false)
+  const [slipOcrName, setSlipOcrName]     = useState('')
+  const slipNameMismatch = slipOcrName !== '' && !idAndSlipNameMatch(customer.name, slipOcrName)
+
   const paid = parseFloat(amount) || 0
   const newTotal = currentPeriod.totalPaid + paid
   const willComplete = newTotal >= currentPeriod.periodRate
+
+  const handleSlipUpload = useCallback(async (url: string) => {
+    setPhotoUrl(url)
+    setSlipOcrName('')
+    setSlipOcrLoading(true)
+    try {
+      const res = await fetch('/api/staff/ocr-slip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: url }),
+      })
+      const data = await res.json()
+      if (data.name) setSlipOcrName(data.name)
+    } catch {
+      // อ่านสลิปไม่สำเร็จ — ไม่บล็อก แค่เทียบชื่อไม่ได้เฉยๆ
+    } finally {
+      setSlipOcrLoading(false)
+    }
+  }, [])
 
   const handleSubmit = async () => {
     if (paid <= 0) { setError('กรุณาใส่ยอดที่รับ'); return }
@@ -90,11 +118,13 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
           paymentMethod: payMethod,
           paymentNote: note.trim() || null,
           collectedAt: new Date(`${payDate}T12:00:00+07:00`).toISOString(),
+          photoUrl: photoUrl || null,
+          slipCustomerName: slipOcrName || null,
         }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
-      setAmount(''); setNote('')
+      setAmount(''); setNote(''); setPhotoUrl(''); setSlipOcrName('')
       router.refresh()
     } catch {
       setError('เกิดข้อผิดพลาด ลองอีกครั้ง')
@@ -249,12 +279,32 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
               </select>
             </div>
 
-            <div className="field-row" style={{ marginBottom: 0 }}>
+            <div className="field-row">
               <label className="field-label">หมายเหตุ</label>
               <input className="field-input" type="text"
                 placeholder="เช่น โอนมาแล้ว ref 123456"
                 value={note} onChange={e => setNote(e.target.value)}
               />
+            </div>
+
+            <div className="field-row" style={{ marginBottom: 0 }}>
+              <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                💳 หลักฐานการชำระ (ไม่บังคับ)
+                {slipOcrLoading && <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 400 }}>⏳ กำลังอ่านสลิป...</span>}
+              </label>
+              <PhotoUpload icon="📱" hint="ถ่ายรูปหรืออัพโหลดสลิป" folder={`collect/${rental.id}`}
+                onUpload={handleSlipUpload} onRemove={() => { setPhotoUrl(''); setSlipOcrName('') }} />
+              {slipNameMismatch && (
+                <div style={{
+                  marginTop: 8, padding: '10px 12px', borderRadius: 8,
+                  background: '#fef2f2', border: '1px solid #fecaca',
+                  fontSize: 12, color: '#dc2626', lineHeight: 1.6,
+                }}>
+                  ⚠️ ชื่อในสลิปไม่ตรงกับชื่อผู้เช่า<br />
+                  🪪 ผู้เช่า: <strong>{customer.name}</strong><br />
+                  💳 ผู้โอน: <strong>{slipOcrName}</strong>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -290,7 +340,12 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
                     <div style={{ marginLeft: '28px', marginTop: '4px' }}>
                       {p.payments.map((pay, i) => (
                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#6b7280', padding: '1px 0' }}>
-                          <span>{fmtDate(pay.paid_date)} • {pay.payment_method ?? '—'}{pay.payment_note ? ` • ${pay.payment_note}` : ''}</span>
+                          <span>
+                            {fmtDate(pay.paid_date)} • {pay.payment_method ?? '—'}{pay.payment_note ? ` • ${pay.payment_note}` : ''}
+                            {pay.photo_url && (
+                              <> • <a href={pay.photo_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>📷 สลิป</a></>
+                            )}
+                          </span>
                           <span style={{ fontWeight: 600 }}>+฿{Number(pay.amount).toLocaleString()}</span>
                         </div>
                       ))}
