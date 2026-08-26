@@ -31,7 +31,7 @@ export default async function SlipsPage({
   const [branchesRes, rentalPaysRes, monthlyPaysRes] = await Promise.all([
     admin.from('branches').select('id, name').order('name'),
     admin.from('rental_payments')
-      .select('id, kind, amount, paid_at, branch_id, voided_at, rentals(customers(name), bikes(license_plate), send_photos)')
+      .select('id, kind, amount, paid_at, branch_id, voided_at, photo_url, slip_customer_name, rentals(customers(name), bikes(license_plate), send_photos)')
       .gte('paid_at', dayStart.toISOString())
       .lte('paid_at', dayEnd.toISOString()),
     admin.from('monthly_payments')
@@ -52,13 +52,16 @@ export default async function SlipsPage({
     const rental = one((p as any).rentals)
     const cust = one(rental?.customers)?.name ?? ''
     const plate = one(rental?.bikes)?.license_plate ?? ''
-    const photoUrl = rental?.send_photos?.payment ?? null
+    // งวดแรก (kind='rental') รูปอยู่ใน send_photos ตอนสร้างสัญญา — งวดต่อเวลา (kind='extend') มีรูปของตัวเอง
+    const photoUrl = p.photo_url ?? rental?.send_photos?.payment ?? null
+    const slipName = p.slip_customer_name ?? null
     rows.push({
       source: 'rental', id: p.id, time: p.paid_at,
       branchId: p.branch_id ?? '', branch: branchName.get(p.branch_id) ?? '—',
       typeLabel: KIND_LABEL[p.kind] ?? p.kind,
       customer: cust, plate, amount: Number(p.amount ?? 0),
-      photoUrl, slipName: null, nameMismatch: false,
+      photoUrl, slipName,
+      nameMismatch: !!slipName && !idAndSlipNameMatch(cust, slipName),
     })
   }
   for (const p of monthlyPaysRes.data ?? []) {

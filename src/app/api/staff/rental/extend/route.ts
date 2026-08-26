@@ -10,10 +10,13 @@ export async function POST(request: NextRequest) {
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { rentalId, payment, newEndDatetime, newTotalDays, newCredit, overrideBookingConflict } = body
+  const { rentalId, payment, newEndDatetime, newTotalDays, newCredit, overrideBookingConflict, photoUrl, slipCustomerName } = body
 
   if (!rentalId || !newEndDatetime || !newTotalDays || payment == null || newCredit == null) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
+  }
+  if (payment > 0 && !photoUrl) {
+    return NextResponse.json({ error: 'กรุณาแนบรูปหลักฐานการชำระ' }, { status: 400 })
   }
 
   const supabase = createAdminClient()
@@ -89,6 +92,8 @@ export async function POST(request: NextRequest) {
       staff_id: staffId,
       kind: 'extend',
       amount: payment,
+      photo_url: photoUrl ?? null,
+      slip_customer_name: slipCustomerName ?? null,
     })
   }
 

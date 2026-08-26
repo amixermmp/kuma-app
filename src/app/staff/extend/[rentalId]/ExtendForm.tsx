@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { calcRentQuote } from '@/lib/pricing'
+import { idAndSlipNameMatch } from '@/lib/customer'
+import PhotoUpload from '@/components/PhotoUpload'
 
 type Rental = {
   id: string
@@ -82,6 +84,31 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [successEndIso, setSuccessEndIso] = useState<string | null>(null)
+
+  // หลักฐานการชำระ/สลิป — บังคับแนบทุกครั้งที่ต่อเวลา
+  const [photoUrl, setPhotoUrl]           = useState('')
+  const [slipOcrLoading, setSlipOcrLoading] = useState(false)
+  const [slipOcrName, setSlipOcrName]     = useState('')
+  const slipNameMismatch = slipOcrName !== '' && !idAndSlipNameMatch(customer.name, slipOcrName)
+
+  const handleSlipUpload = useCallback(async (url: string) => {
+    setPhotoUrl(url)
+    setSlipOcrName('')
+    setSlipOcrLoading(true)
+    try {
+      const res = await fetch('/api/staff/ocr-slip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: url }),
+      })
+      const data = await res.json()
+      if (data.name) setSlipOcrName(data.name)
+    } catch {
+      // อ่านสลิปไม่สำเร็จ — ไม่บล็อก แค่เทียบชื่อไม่ได้เฉยๆ
+    } finally {
+      setSlipOcrLoading(false)
+    }
+  }, [])
   // โปร "เช่า 7 จ่าย 5" ใช้ได้เฉพาะตอนลูกค้าตั้งใจจ่ายเป็นก้อนทีเดียว (กดปุ่มรายสัปดาห์) เท่านั้น —
   // ถ้าทยอยจ่ายทีละวัน (พิมพ์เองหรือกด +1 วัน) คิดราคาเต็มทุกวัน ไม่มีส่วนลดสะสม
   const [useWeeklyPromo, setUseWeeklyPromo] = useState(false)
@@ -207,6 +234,7 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5 
   const handleSubmit = async () => {
     if (submittingRef.current) return
     if (paymentNum <= 0) { setError('กรุณาใส่จำนวนเงิน'); return }
+    if (!photoUrl) { setError('กรุณาแนบรูปหลักฐานการชำระ'); return }
     if (conflictBooking) {
       const ok = confirm(
         `⚡ ต่อเวลานี้จะชนคิวจอง ${conflictBooking.booking_ref} ของคุณ${conflictBooking.customer_name} ` +
@@ -226,6 +254,8 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5 
         newTotalDays: rental.total_days + daysCovered,
         newCredit,
         overrideBookingConflict: override,
+        photoUrl,
+        slipCustomerName: slipOcrName || null,
       })
 
       let res = await fetch('/api/staff/rental/extend', {
@@ -454,6 +484,26 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5 
               เครดิตเก่า ฿{existingCredit.toLocaleString()} + รับใหม่ ฿{paymentNum.toLocaleString()} = รวม ฿{totalAvailable.toLocaleString()}
             </div>
           )}
+
+          <div className="field-row" style={{ marginTop: '14px', marginBottom: 0 }}>
+            <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              💳 หลักฐานการชำระ *
+              {slipOcrLoading && <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 400 }}>⏳ กำลังอ่านสลิป...</span>}
+            </label>
+            <PhotoUpload icon="📱" hint="ถ่ายรูปหรืออัพโหลดสลิป" folder={`extend/${rental.id}`}
+              onUpload={handleSlipUpload} onRemove={() => { setPhotoUrl(''); setSlipOcrName('') }} />
+            {slipNameMismatch && (
+              <div style={{
+                marginTop: 8, padding: '10px 12px', borderRadius: 8,
+                background: '#fef2f2', border: '1px solid #fecaca',
+                fontSize: 12, color: '#dc2626', lineHeight: 1.6,
+              }}>
+                ⚠️ ชื่อในสลิปไม่ตรงกับชื่อผู้เช่า<br />
+                🪪 ผู้เช่า: <strong>{customer.name}</strong><br />
+                💳 ผู้โอน: <strong>{slipOcrName}</strong>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Summary */}
@@ -522,10 +572,10 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5 
         <button
           className="btn"
           onClick={handleSubmit}
-          disabled={loading || paymentNum <= 0}
+          disabled={loading || paymentNum <= 0 || !photoUrl}
           style={{
             width: '100%', background: '#d97706', color: '#fff',
-            opacity: (loading || paymentNum <= 0) ? 0.5 : 1,
+            opacity: (loading || paymentNum <= 0 || !photoUrl) ? 0.5 : 1,
           }}
         >
           {loading ? '⏳ กำลังบันทึก...' : daysCovered === 0 && paymentNum > 0 ? '💾 บันทึกเครดิต' : '💾 ยืนยันต่อเวลา'}
