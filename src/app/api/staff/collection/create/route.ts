@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   const status = newTotal >= applicableRate ? 'paid' : 'partial'
 
   // Insert new payment record
-  const { error } = await supabase.from('monthly_payments').insert({
+  const { data: newPayment, error } = await supabase.from('monthly_payments').insert({
     monthly_rental_id: monthlyRentalId,
     due_date: dueDate,
     paid_date: collectedAt ? new Date(collectedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     status,
     photo_url: photoUrl ?? null,
     slip_customer_name: slipCustomerName ?? null,
-  })
+  }).select('id').single()
 
   if (error) return NextResponse.json({ error: 'บันทึกไม่สำเร็จ: ' + error.message }, { status: 500 })
 
@@ -74,5 +74,5 @@ export async function POST(request: NextRequest) {
     `เก็บค่าเช่ารายเดือน ${plate} — ${custName} — ฿${Number(amountPaid).toLocaleString()} (${status === 'paid' ? 'ครบงวด' : 'บางส่วน'})`,
     { monthlyRentalId, dueDate, amountPaid, status })
 
-  return NextResponse.json({ success: true, status })
+  return NextResponse.json({ success: true, status, paymentId: newPayment?.id ?? null })
 }

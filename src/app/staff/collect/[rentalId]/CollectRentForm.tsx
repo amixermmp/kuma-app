@@ -345,6 +345,8 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
                             {pay.photo_url && (
                               <> • <a href={pay.photo_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>📷 สลิป</a></>
                             )}
+                            {' • '}
+                            <Link href={`/staff/invoice/monthly/${pay.id}`} style={{ color: '#2563eb' }}>🧾 ใบเสร็จ</Link>
                           </span>
                           <span style={{ fontWeight: 600 }}>+฿{Number(pay.amount).toLocaleString()}</span>
                         </div>

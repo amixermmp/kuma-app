@@ -182,6 +182,7 @@ export async function POST(request: NextRequest) {
   await recalcNeverDoneRoutines(supabase, bikeId, parseInt(odometer) || 0)
 
   // Record first payment with correct due date
+  let firstPaymentId: string | null = null
   if (paymentMethod) {
     const start = new Date(startDate)
     const offset = paymentDay < start.getDate() ? 1 : 0
@@ -191,14 +192,15 @@ export async function POST(request: NextRequest) {
     firstDue.setDate(Math.min(paymentDay, daysInMonth))
     const firstDueDateStr = firstDue.toISOString().split('T')[0]
 
-    await supabase.from('monthly_payments').insert({
+    const { data: firstPayment } = await supabase.from('monthly_payments').insert({
       monthly_rental_id: rental.id,
       due_date: firstDueDateStr,
       paid_date: startDate,
       amount: monthlyRate,
       payment_method: paymentMethod,
       status: 'paid',
-    })
+    }).select('id').single()
+    firstPaymentId = firstPayment?.id ?? null
   }
 
   const { data: staffRow } = await supabase.from('staff').select('name').eq('id', staffId).single()
@@ -222,6 +224,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     success: true,
     rentalId: rental.id,
+    paymentId: firstPaymentId,
     fastLaneConflictId: conflict && overrideBookingConflict ? conflict.id : null,
   })
 }

@@ -85,8 +85,9 @@ export async function POST(request: NextRequest) {
   }
 
   // ลงสมุดรายรับ — เงินต่อเวลานับ ณ วันที่เก็บจริง (ไม่ใช่วันเริ่มสัญญา)
+  let extendPaymentId: string | null = null
   if (payment > 0) {
-    await supabase.from('rental_payments').insert({
+    const { data: extendPayment } = await supabase.from('rental_payments').insert({
       rental_id: rentalId,
       branch_id: current.branch_id,
       staff_id: staffId,
@@ -94,7 +95,8 @@ export async function POST(request: NextRequest) {
       amount: payment,
       photo_url: photoUrl ?? null,
       slip_customer_name: slipCustomerName ?? null,
-    })
+    }).select('id').single()
+    extendPaymentId = extendPayment?.id ?? null
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,5 +107,5 @@ export async function POST(request: NextRequest) {
     (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : ''),
     { rentalId, payment, newEndDatetime, overrodeBooking: conflict?.id ?? null })
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, paymentId: extendPaymentId })
 }

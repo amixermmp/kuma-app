@@ -161,14 +161,14 @@ export async function POST(request: NextRequest) {
   await queueMarketingPhoto(supabase, BRANCH_ID, rental.id, 'daily', photos?.with_bike)
 
   // ลงสมุดรายรับ — ค่าเช่าเก็บตอนส่งรถ (best-effort ไม่ block การส่งรถ)
-  await supabase.from('rental_payments').insert({
+  const { data: payment } = await supabase.from('rental_payments').insert({
     rental_id: rental.id,
     branch_id: BRANCH_ID,
     staff_id: staffId,
     kind: 'rental',
     amount: totalAmount ?? 0,
     paid_at: new Date(startDatetime).toISOString(),
-  })
+  }).select('id').single()
 
   // ปิดคิวจองที่กำลังเติมเต็มด้วยสัญญานี้ (ถ้ามาจากการจอง) — คิวจองอื่นที่ชนช่วงเวลานี้ (ถ้ามี — ต้องผ่าน
   // Fast lane override มาแล้วเท่านั้นถึงมาถึงจุดนี้ได้) จะไม่ถูกยกเลิก ปล่อยให้ยัง confirmed อยู่
@@ -214,5 +214,5 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  return NextResponse.json({ success: true, rentalId: rental.id })
+  return NextResponse.json({ success: true, rentalId: rental.id, paymentId: payment?.id ?? null })
 }

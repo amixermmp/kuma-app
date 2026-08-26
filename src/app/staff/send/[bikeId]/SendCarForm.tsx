@@ -10,10 +10,10 @@ import { calcShortPrice, calcLongPrice, calendarDays, calcExcessHours, calcOvert
 import { isThaiIdNumber, idAndSlipNameMatch } from '@/lib/customer'
 
 // ── Success screen ───────────────────────────────────────────────────────────
-function SuccessScreen({ rentalId, type, bikeId, fastLaneConflictId }: { rentalId: string; type: 'daily' | 'monthly'; bikeId: string; fastLaneConflictId?: string | null }) {
+function SuccessScreen({ rentalId, paymentId, type, bikeId, fastLaneConflictId }: { rentalId: string; paymentId: string | null; type: 'daily' | 'monthly'; bikeId: string; fastLaneConflictId?: string | null }) {
   const invoiceHref = type === 'daily'
-    ? `/staff/invoice/${rentalId}`
-    : `/staff/invoice/monthly/${rentalId}`
+    ? `/staff/invoice/${paymentId}`
+    : `/staff/invoice/monthly/${paymentId}`
   return (
     <div className="app-wrap">
       <div className="app-header" style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
@@ -42,13 +42,15 @@ function SuccessScreen({ rentalId, type, bikeId, fastLaneConflictId }: { rentalI
         }}>
           📄 ดูสัญญา / ส่งให้ลูกค้า
         </Link>
-        <Link href={invoiceHref} style={{
-          display: 'block', width: '100%', background: '#1e293b', color: '#fff',
-          borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
-          textDecoration: 'none', marginBottom: '12px',
-        }}>
-          🧾 ออกใบเสร็จรับเงิน
-        </Link>
+        {paymentId && (
+          <Link href={invoiceHref} style={{
+            display: 'block', width: '100%', background: '#1e293b', color: '#fff',
+            borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
+            textDecoration: 'none', marginBottom: '12px',
+          }}>
+            🧾 ออกใบเสร็จรับเงิน
+          </Link>
+        )}
         <Link href="/staff/home" style={{
           display: 'block', width: '100%', background: '#f3f4f6', color: '#374151',
           borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
@@ -293,6 +295,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const [loading,         setLoading]         = useState(false)
   const [error,           setError]           = useState('')
   const [createdRentalId, setCreatedRentalId] = useState<string | null>(null)
+  const [createdPaymentId, setCreatedPaymentId] = useState<string | null>(null)
   const [createdType,     setCreatedType]     = useState<'daily' | 'monthly'>('daily')
   const [fastLaneConflictId, setFastLaneConflictId] = useState<string | null>(null)
   const [ocrLoading,      setOcrLoading]      = useState(false)
@@ -596,6 +599,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         setCreatedType('monthly')
         setFastLaneConflictId(data.fastLaneConflictId ?? null)
         setCreatedRentalId(data.rentalId ?? data.id ?? null)
+        setCreatedPaymentId(data.paymentId ?? null)
 
       } else {
         const startDatetime = `${startDate}T${startTime}:00+07:00`
@@ -648,6 +652,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         clearDraft(DRAFT_KEY)
         setCreatedType('daily')
         setCreatedRentalId(data.rentalId ?? data.id ?? null)
+        setCreatedPaymentId(data.paymentId ?? null)
         setFastLaneConflictId(fastLaneConflictId)
         // Close the source booking if came from assign flow
         if (prefillBooking?.id) {
@@ -667,7 +672,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
   // ── Success ───────────────────────────────────────────────────────────────
   if (createdRentalId) {
-    return <SuccessScreen rentalId={createdRentalId} type={createdType} bikeId={bike.id} fastLaneConflictId={fastLaneConflictId} />
+    return <SuccessScreen rentalId={createdRentalId} paymentId={createdPaymentId} type={createdType} bikeId={bike.id} fastLaneConflictId={fastLaneConflictId} />
   }
 
   const headerBg = isMonthlyContract
