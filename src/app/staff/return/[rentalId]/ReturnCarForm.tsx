@@ -110,6 +110,7 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5 }: Pro
   }, [])
 
   const handleSubmit = async () => {
+    if (!odometer) { setError('กรุณากรอกเลขไมล์ตอนรับคืน'); return }
     setLoading(true)
     setError('')
     try {
@@ -241,7 +242,7 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5 }: Pro
         <div className="card">
           <div className="card-title">ข้อมูลตอนรับคืน</div>
           <div className="field-row">
-            <label className="field-label">เลขไมล์ตอนรับคืน</label>
+            <label className="field-label">เลขไมล์ตอนรับคืน *</label>
             <input className="field-input" type="number"
               placeholder={String(bike.odometer ?? '')}
               value={odometer}

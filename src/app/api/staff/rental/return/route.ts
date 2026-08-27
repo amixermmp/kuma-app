@@ -49,6 +49,9 @@ export async function POST(request: NextRequest) {
   if (!rentalId || !bikeId) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
+  if (!returnOdometer) {
+    return NextResponse.json({ error: 'กรุณากรอกเลขไมล์ตอนรับคืน' }, { status: 400 })
+  }
 
   const supabase = createAdminClient()
 
