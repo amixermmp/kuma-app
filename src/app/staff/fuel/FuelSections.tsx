@@ -10,8 +10,6 @@ export default function FuelSections({ bikes }: { bikes: FuelBike[] }) {
   )
   const [refueling, setRefueling] = useState<Record<string, boolean>>({})
 
-  if (bikes.length === 0) return null
-
   const isFull = (id: string) => (levels[id] ?? 8) >= 8
   const needsFuel = bikes.filter(b => !isFull(b.id))
 
@@ -25,8 +23,18 @@ export default function FuelSections({ bikes }: { bikes: FuelBike[] }) {
     }
   }
 
+  if (bikes.length === 0) {
+    return (
+      <div className="section-pad" style={{ paddingTop: '12px' }}>
+        <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9ca3af' }}>
+          ไม่มีรถว่างอยู่ในร้านตอนนี้
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div style={{ padding: '12px 12px 0' }}>
+    <div className="section-pad" style={{ paddingTop: '12px' }}>
       {needsFuel.length > 0 && (
         <div className="card" style={{ marginBottom: '10px', borderTop: '3px solid #dc2626' }}>
           <div className="card-title">รถต้องเติมน้ำมัน ({needsFuel.length} คัน)</div>
@@ -55,7 +63,7 @@ export default function FuelSections({ bikes }: { bikes: FuelBike[] }) {
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: '10px' }}>
+      <div className="card">
         <div className="card-title">ภาพรวมน้ำมันรถว่าง</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           {bikes.map(b => (

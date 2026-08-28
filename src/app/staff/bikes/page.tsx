@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getBranchModelPricingMap, resolveBikeRateFromMap } from '@/lib/bikeCatalog'
-import FuelSections from './FuelSections'
 
 export const dynamic = 'force-dynamic'
 
@@ -98,8 +97,6 @@ export default async function StaffBikesPage() {
           </div>
         ))}
       </div>
-
-      <FuelSections bikes={available.map(b => ({ id: b.id, license_plate: b.license_plate, brand: b.brand, model: b.model, fuel_level: b.fuel_level }))} />
 
       <div style={{ padding: '12px 12px 80px' }}>
         {allSorted.map(bike => {
