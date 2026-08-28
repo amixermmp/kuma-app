@@ -34,17 +34,22 @@ function BranchCloseTimeRow({ branch }: { branch: Branch }) {
     if (!nameInput.trim()) { setNameError('กรุณาใส่ชื่อสาขา'); return }
     setNameLoading(true)
     setNameError('')
-    const res = await fetch('/api/owner/settings/branch', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: branch.id, name: nameInput.trim() }),
-    })
-    const data = await res.json()
-    setNameLoading(false)
-    if (!res.ok) { setNameError(data.error ?? 'เกิดข้อผิดพลาด'); return }
-    setBranchName(nameInput.trim())
-    setEditingName(false)
-    router.refresh()
+    try {
+      const res = await fetch('/api/owner/settings/branch', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: branch.id, name: nameInput.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setNameError(data.error ?? `เกิดข้อผิดพลาด (${res.status})`); return }
+      setBranchName(nameInput.trim())
+      setEditingName(false)
+      router.refresh()
+    } catch {
+      setNameError('เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง')
+    } finally {
+      setNameLoading(false)
+    }
   }
 
   return (
