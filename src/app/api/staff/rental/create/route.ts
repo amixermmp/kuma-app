@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   const {
     bikeId, customer, startDatetime, endDatetime,
     dailyRate, totalDays, totalAmount, depositAmount,
-    discount, paymentMethod, fuelLevel, odometer, photos, signature, lockBike,
+    discount, paymentMethod, fuelFull, odometer, photos, signature, lockBike,
     excludeBookingId, overrideBookingConflict,
     slipCustomerName, slipNameMismatchConfirmed,
     returnType, returnAddress,
@@ -144,7 +144,8 @@ export async function POST(request: NextRequest) {
       payment_method: paymentMethod,
       paid_amount: totalAmount,
       status: 'active',
-      notes: `น้ำมัน ${fuelLevel}/8 แถบ • ไมล์ ${odometer}`,
+      notes: `น้ำมัน ${fuelFull ? 'เต็ม' : 'ไม่เต็ม'} • ไมล์ ${odometer}`,
+      send_fuel_full: fuelFull ?? true,
       send_photos: photos ?? {},
       customer_signature: signature ?? null,
       return_type: returnType ?? null,

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { BikeModel } from '@/lib/bikeCatalog'
 import { BranchFilter } from '@/components/BranchFilter'
 
-type PricingEntry = { dailyRate: number | null; monthlyRate: number | null; promoPayDays: number | null }
+type PricingEntry = { dailyRate: number | null; monthlyRate: number | null; promoPayDays: number | null; fuelReferencePhotoUrl?: string | null }
 type Branch = { id: string; name: string }
 
 export default function PricingClient({ branches, selectedBranchId, brands, models, pricingByKey }: {
@@ -31,6 +31,39 @@ export default function PricingClient({ branches, selectedBranchId, brands, mode
     }))
   )
   const [msg, setMsg] = useState<Record<string, string>>({})
+
+  const [fuelPhotos, setFuelPhotos] = useState<Record<string, string>>(
+    Object.fromEntries(models.map(m => {
+      const key = `${m.brand}__${m.name}`
+      return [key, pricingByKey[key]?.fuelReferencePhotoUrl ?? '']
+    }))
+  )
+  const [fuelUploading, setFuelUploading] = useState<Record<string, boolean>>({})
+
+  const uploadFuelPhoto = async (brand: string, name: string, file: File) => {
+    const key = `${brand}__${name}`
+    setFuelUploading(p => ({ ...p, [key]: true }))
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', 'fuel-reference')
+      const res = await fetch('/api/owner/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setFuelPhotos(p => ({ ...p, [key]: data.url }))
+      await fetch('/api/owner/catalog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'branch_pricing', branchId: selectedBranchId, brand, name, fuelReferencePhotoUrl: data.url }),
+      })
+      setMsg(p => ({ ...p, [key]: '✅' }))
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'อัพโหลดไม่สำเร็จ')
+    } finally {
+      setFuelUploading(p => ({ ...p, [key]: false }))
+      setTimeout(() => setMsg(p => ({ ...p, [key]: '' })), 2000)
+    }
+  }
 
   const save = async (brand: string, name: string) => {
     const key = `${brand}__${name}`
@@ -101,9 +134,26 @@ export default function PricingClient({ branches, selectedBranchId, brands, mode
                       </div>
                     </div>
                     <button disabled={busy} onClick={() => save(brand, m.name)}
-                      style={{ width: '100%', color: '#111827', background: 'none', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '12px', fontWeight: 700, padding: '6px 8px', cursor: 'pointer' }}>
+                      style={{ width: '100%', color: '#111827', background: 'none', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '12px', fontWeight: 700, padding: '6px 8px', cursor: 'pointer', marginBottom: '8px' }}>
                       {msg[key] || 'บันทึก'}
                     </button>
+
+                    <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '4px' }}>รูปกำกับราคาน้ำมัน (โชว์ตอนคืนรถไม่เต็ม)</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {fuelPhotos[key] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={fuelPhotos[key]} alt="รูปกำกับราคาน้ำมัน" style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e5e7eb' }} />
+                      ) : (
+                        <div style={{ width: '56px', height: '56px', borderRadius: '6px', border: '1.5px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', background: '#fff' }}>🛢️</div>
+                      )}
+                      <label style={{ cursor: 'pointer' }}>
+                        <input type="file" accept="image/*" style={{ display: 'none' }}
+                          onChange={e => { const file = e.target.files?.[0]; if (file) uploadFuelPhoto(brand, m.name, file) }} />
+                        <span style={{ background: '#f1f5f9', color: '#374151', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '6px 10px', fontSize: '11px', fontWeight: 600 }}>
+                          {fuelUploading[key] ? 'กำลังอัพโหลด...' : fuelPhotos[key] ? 'เปลี่ยนรูป' : 'อัพโหลดรูป'}
+                        </span>
+                      </label>
+                    </div>
                   </div>
                 )
               })}

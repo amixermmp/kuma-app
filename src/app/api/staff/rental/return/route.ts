@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const {
     rentalId, bikeId,
-    returnOdometer, returnFuel,
+    returnOdometer, returnFuelFull, returnFuelRefueledByCustomer,
     damageFee, damageNotes,
     returnPhotoUrl, refundAmount,
     finalRentAmount, overtimeCharge, earlyReturnRefund,
@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
       status: 'returned',
       actual_end_datetime: new Date().toISOString(),
       return_odometer: returnOdometer ?? null,
-      return_fuel: returnFuel,
+      return_fuel_full: returnFuelFull ?? null,
+      return_fuel_refueled_by_customer: returnFuelRefueledByCustomer ?? null,
       damage_fee: damageFee ?? 0,
       damage_notes: damageNotes ?? null,
       return_photos: returnPhotoUrl ? [{ url: returnPhotoUrl, label: 'รูปรับคืน' }] : [],
@@ -114,11 +115,15 @@ export async function POST(request: NextRequest) {
   // Set bike back to available — เว้นแต่รถมีสัญญาอื่นเปิดค้างอยู่แล้ว (เช่น ปิดสัญญานี้ช้า
   // หลังจากสัญญาใหม่บนคันเดียวกันเปิดไปแล้ว) กันสถานะ available ทับสัญญาที่ยังเปิดอยู่จริง
   const stillOpen = await hasOpenContract(supabase, bikeId)
+  // เต็ม+ลูกค้าเติมมายืนยันแล้ว = เชื่อว่าเต็มจริง — นอกนั้น (ไม่เต็ม หรือเต็มแต่ไม่ยืนยัน) = ยังต้องไปเติม
+  // ถ้าตอนส่งไม่ได้บังคับเช็ค (returnFuelFull เป็น null) ไม่ต้องแตะสถานะน้ำมันของรถเลย
+  const nextFuelLevel = returnFuelFull == null ? undefined : (returnFuelFull === true && returnFuelRefueledByCustomer === true ? 8 : 0)
   await supabase
     .from('bikes')
     .update({
       ...(stillOpen ? {} : { status: 'available' }),
       ...(returnOdometer ? { odometer: returnOdometer } : {}),
+      ...(nextFuelLevel !== undefined ? { fuel_level: nextFuelLevel } : {}),
     })
     .eq('id', bikeId)
 

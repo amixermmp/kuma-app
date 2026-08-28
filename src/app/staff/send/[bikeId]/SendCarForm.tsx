@@ -144,7 +144,7 @@ type DraftData = {
   customerName: string; customerPhone: string; customerHotel: string
   startDate: string; endDate: string; startTime: string; endTime: string
   studentPromo: boolean; contractType: 'onetime' | 'monthly'; mMonthlyRate: string
-  odometer: string; fuelLevel: number; paymentMethod: 'cash' | 'transfer'
+  odometer: string; fuelFull: boolean; paymentMethod: 'cash' | 'transfer'
   depositAmount: string; lockBike: boolean | null; signature: string | null
   photos: PhotoState
 }
@@ -246,7 +246,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
   // ── Bike condition ────────────────────────────────────────────────────────
   const [odometer,  setOdometer]  = useState(draft?.odometer ?? String(bike.odometer ?? ''))
-  const [fuelLevel, setFuelLevel] = useState(draft?.fuelLevel ?? 8)
+  const [fuelFull, setFuelFull] = useState(draft?.fuelFull ?? true)
 
   // ── Payment ───────────────────────────────────────────────────────────────
   const [paymentMethod,  setPaymentMethod]  = useState<'cash' | 'transfer'>(draft?.paymentMethod ?? 'cash')
@@ -269,12 +269,12 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   // Keep a ref to latest form data for immediate saves (avoids stale closure)
   const latestDraft = useRef<DraftData>({
     customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
-    studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
+    studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
     depositAmount, lockBike, signature, photos,
   })
   latestDraft.current = {
     customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
-    studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
+    studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
     depositAmount, lockBike, signature, photos,
   }
 
@@ -282,7 +282,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     if (prefillBooking) return
     saveDraft(DRAFT_KEY, latestDraft.current)
   }, [DRAFT_KEY, customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
-      studentPromo, contractType, mMonthlyRate, odometer, fuelLevel, paymentMethod,
+      studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
       depositAmount, lockBike, signature, photos, prefillBooking])
 
   // Save signature immediately (don't wait for effect — avoids race on tab switch)
@@ -576,7 +576,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             monthlyRate:   parseFloat(mMonthlyRate),
             depositAmount: parseFloat(depositAmount) || 0,
             odometer:      odometer || '0',
-            fuelLevel,
+            fuelFull,
             paymentMethod,
             photos,
             signature: signature ?? null,
@@ -624,7 +624,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             depositAmount: parseFloat(depositAmount) || 0,
             discount,
             paymentMethod,
-            fuelLevel,
+            fuelFull,
             odometer:      odometer || '0',
             photos,
             signature: signature ?? null,
@@ -1330,14 +1330,22 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               value={odometer} onChange={e => setOdometer(e.target.value)} />
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">ระดับน้ำมันตอนส่ง ({fuelLevel}/8)</label>
-            <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} onClick={() => setFuelLevel(i + 1)} style={{
-                  flex: 1, height: '30px', borderRadius: '4px', cursor: 'pointer',
-                  background: i < fuelLevel ? '#16a34a' : '#e5e7eb', transition: 'background .1s',
-                }} />
-              ))}
+            <label className="field-label">ระดับน้ำมันตอนส่ง</label>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <button type="button" onClick={() => setFuelFull(true)} style={{
+                flex: 1, padding: '12px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
+                background: fuelFull ? '#16a34a' : '#fff', color: fuelFull ? '#fff' : '#374151',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                เต็ม
+              </button>
+              <button type="button" onClick={() => setFuelFull(false)} style={{
+                flex: 1, padding: '12px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
+                background: !fuelFull ? '#d97706' : '#fff', color: !fuelFull ? '#fff' : '#374151',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                ไม่เต็ม
+              </button>
             </div>
           </div>
         </div>

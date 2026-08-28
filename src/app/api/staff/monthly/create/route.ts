@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     monthlyRate,
     depositAmount,
     odometer,
-    fuelLevel,
+    fuelFull,
     paymentMethod,
     photos,
     signature,
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
   await supabase.from('bikes').update({
     status: 'rented',
     odometer: parseInt(odometer) || 0,
-    fuel_level: fuelLevel,
+    fuel_level: fuelFull ? 8 : 0,
     updated_at: new Date().toISOString(),
   }).eq('id', bikeId)
 

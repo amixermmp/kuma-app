@@ -13,7 +13,7 @@ async function requireOwner() {
 // เพิ่มยี่ห้อ หรือ รุ่น หรือแก้ค่าโปรของรุ่น
 export async function POST(request: NextRequest) {
   if (!(await requireOwner())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { type, brand, name, promoPayDays, branchId, dailyRate, monthlyRate } = await request.json()
+  const { type, brand, name, promoPayDays, branchId, dailyRate, monthlyRate, fuelReferencePhotoUrl } = await request.json()
   const admin = createAdminClient()
 
   if (type === 'brand') {
@@ -36,15 +36,17 @@ export async function POST(request: NextRequest) {
     if (promoValue !== null && (!Number.isInteger(promoValue) || promoValue < 1 || promoValue > 7)) {
       return NextResponse.json({ error: 'จำนวนวันโปรต้องเป็น 1-7' }, { status: 400 })
     }
-    const dailyValue = dailyRate === null || dailyRate === undefined || dailyRate === '' ? null : Number(dailyRate)
-    const monthlyValue = monthlyRate === null || monthlyRate === undefined || monthlyRate === '' ? null : Number(monthlyRate)
+    const dailyValue = dailyRate === null || dailyRate === '' ? null : Number(dailyRate)
+    const monthlyValue = monthlyRate === null || monthlyRate === '' ? null : Number(monthlyRate)
     const { error } = await admin.from('branch_model_pricing').upsert({
       branch_id: branchId,
       brand: brand.trim(),
       model: name.trim(),
-      daily_rate: dailyValue,
-      monthly_rate: monthlyValue,
-      promo_pay_days: promoValue,
+      // undefined = ไม่ได้ส่งฟิลด์นี้มาเลย (เช่น อัพโหลดแค่รูปน้ำมัน) ไม่แตะค่าเดิม — ต่างจาก null ที่ตั้งใจล้างค่า
+      ...(dailyRate !== undefined ? { daily_rate: dailyValue } : {}),
+      ...(monthlyRate !== undefined ? { monthly_rate: monthlyValue } : {}),
+      ...(promoPayDays !== undefined ? { promo_pay_days: promoValue } : {}),
+      ...(fuelReferencePhotoUrl !== undefined ? { fuel_reference_photo_url: fuelReferencePhotoUrl || null } : {}),
     }, { onConflict: 'branch_id,brand,model' })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 

@@ -30,7 +30,7 @@ export async function getPromoPayDays(admin: any, brand: string, model: string, 
   return branchRow?.promo_pay_days ?? 5
 }
 
-export type BranchModelPricing = { dailyRate: number | null; monthlyRate: number | null; promoPayDays: number }
+export type BranchModelPricing = { dailyRate: number | null; monthlyRate: number | null; promoPayDays: number; fuelReferencePhotoUrl: string | null }
 
 // ราคา+โปร ที่ตั้งไว้เฉพาะสาขานั้นสำหรับรุ่นนี้ (ใช้ auto-fill ตอนย้ายรถไปสาขาใหม่)
 // dailyRate/monthlyRate เป็น null ถ้ายังไม่ได้ตั้ง — ผู้เรียกต้อง fallback เอง (เช่น ใช้ราคาเดิมของรถ)
@@ -38,7 +38,7 @@ export type BranchModelPricing = { dailyRate: number | null; monthlyRate: number
 export async function getBranchModelPricing(admin: any, branchId: string, brand: string, model: string): Promise<BranchModelPricing> {
   const { data: branchRow } = await admin
     .from('branch_model_pricing')
-    .select('daily_rate, monthly_rate, promo_pay_days')
+    .select('daily_rate, monthly_rate, promo_pay_days, fuel_reference_photo_url')
     .eq('branch_id', branchId)
     .eq('brand', brand)
     .eq('model', model)
@@ -47,6 +47,7 @@ export async function getBranchModelPricing(admin: any, branchId: string, brand:
     dailyRate: branchRow?.daily_rate ?? null,
     monthlyRate: branchRow?.monthly_rate ?? null,
     promoPayDays: branchRow?.promo_pay_days ?? 5,
+    fuelReferencePhotoUrl: branchRow?.fuel_reference_photo_url ?? null,
   }
 }
 

@@ -28,11 +28,14 @@ export default async function BranchPricingPage({
   const selectedBranchId = branch || branchList[0]?.id || ''
 
   const { data: pricingRows } = selectedBranchId
-    ? await admin.from('branch_model_pricing').select('brand, model, daily_rate, monthly_rate, promo_pay_days').eq('branch_id', selectedBranchId)
+    ? await admin.from('branch_model_pricing').select('brand, model, daily_rate, monthly_rate, promo_pay_days, fuel_reference_photo_url').eq('branch_id', selectedBranchId)
     : { data: [] }
 
   const pricingByKey = Object.fromEntries(
-    (pricingRows ?? []).map(p => [`${p.brand}__${p.model}`, { dailyRate: p.daily_rate, monthlyRate: p.monthly_rate, promoPayDays: p.promo_pay_days }])
+    (pricingRows ?? []).map(p => [`${p.brand}__${p.model}`, {
+      dailyRate: p.daily_rate, monthlyRate: p.monthly_rate, promoPayDays: p.promo_pay_days,
+      fuelReferencePhotoUrl: p.fuel_reference_photo_url,
+    }])
   )
 
   return (

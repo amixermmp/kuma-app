@@ -22,6 +22,7 @@ type Rental = {
   discount: number
   return_type: string | null
   return_address: string | null
+  send_fuel_full: boolean | null
   bikes: { id: string; license_plate: string; brand: string; model: string; odometer: number; daily_rate: number; monthly_rate: number | null }
   customers: { id: string; name: string; phone: string }
 }
@@ -30,6 +31,7 @@ type Props = {
   rental: Rental
   staffId: string
   promoPayDays?: number
+  fuelReferencePhotoUrl: string | null
 }
 
 function fmtDate(iso: string) {
@@ -48,7 +50,7 @@ const CHECKLIST = [
   'แผ่นป้ายทะเบียน ปกติ',
 ]
 
-export default function ReturnCarForm({ rental, staffId, promoPayDays = 5 }: Props) {
+export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelReferencePhotoUrl }: Props) {
   const router = useRouter()
   const bike = rental.bikes
   const customer = rental.customers
@@ -92,7 +94,10 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5 }: Pro
 
   const [checklist, setChecklist] = useState<boolean[]>(CHECKLIST.map(() => true))
   const [odometer, setOdometer] = useState('')
-  const [fuelLevel, setFuelLevel] = useState(8)
+  // ต้องเช็คน้ำมันเฉพาะกรณีตอนส่งรถให้เต็มไปเท่านั้น — ถ้าส่งไม่เต็มอยู่แล้ว ไม่มีข้อผูกพันต้องคืนเต็ม
+  const requiresFuelCheck = rental.send_fuel_full === true
+  const [returnFuelFull, setReturnFuelFull] = useState<boolean | null>(null)
+  const [refueledByCustomer, setRefueledByCustomer] = useState<boolean | null>(null)
   const [photoUrl, setPhotoUrl] = useState('')
   const [damageFee, setDamageFee] = useState('0')
   const [damageNotes, setDamageNotes] = useState('')
@@ -105,12 +110,17 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5 }: Pro
   const finalOvertimeCharge = overrideOvertime !== '' ? Math.max(0, parseFloat(overrideOvertime) || 0) : overtimeCharge
   const netRefund = rental.deposit_amount - finalOvertimeCharge - damage + earlyReturnRefund
 
+  // โชว์รูปกำกับราคาน้ำมัน เมื่อคืนไม่เต็ม หรือดูเต็มแต่ลูกค้ายังไม่ได้เติมมาเอง
+  const showFuelReference = requiresFuelCheck && (returnFuelFull === false || (returnFuelFull === true && refueledByCustomer === false))
+  const fuelCheckIncomplete = requiresFuelCheck && (returnFuelFull === null || (returnFuelFull === true && refueledByCustomer === null))
+
   const toggleCheck = useCallback((i: number) => {
     setChecklist(prev => prev.map((v, idx) => idx === i ? !v : v))
   }, [])
 
   const handleSubmit = async () => {
     if (!odometer) { setError('กรุณากรอกเลขไมล์ตอนรับคืน'); return }
+    if (fuelCheckIncomplete) { setError('กรุณาเลือกระดับน้ำมันตอนรับคืน'); return }
     setLoading(true)
     setError('')
     try {
@@ -122,7 +132,8 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5 }: Pro
           bikeId: bike.id,
           staffId,
           returnOdometer: odometer ? parseInt(odometer) : null,
-          returnFuel: fuelLevel,
+          returnFuelFull: requiresFuelCheck ? returnFuelFull : null,
+          returnFuelRefueledByCustomer: requiresFuelCheck ? refueledByCustomer : null,
           damageFee: damage,
           damageNotes: damageNotes.trim() || null,
           returnPhotoUrl: photoUrl || null,
@@ -249,18 +260,68 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5 }: Pro
               onChange={e => setOdometer(e.target.value)}
             />
           </div>
-          <div className="field-row">
-            <label className="field-label">ระดับน้ำมันตอนรับคืน ({fuelLevel}/8)</label>
-            <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} onClick={() => setFuelLevel(i + 1)} style={{
-                  flex: 1, height: '30px', borderRadius: '4px', cursor: 'pointer',
-                  background: i < fuelLevel ? '#16a34a' : '#e5e7eb',
-                  transition: 'background .1s',
-                }} />
-              ))}
+          {requiresFuelCheck && (
+            <div className="field-row">
+              <label className="field-label">ระดับน้ำมันตอนรับคืน *</label>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button type="button" onClick={() => { setReturnFuelFull(true); setRefueledByCustomer(null) }} style={{
+                  flex: 1, padding: '12px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
+                  background: returnFuelFull === true ? '#16a34a' : '#fff', color: returnFuelFull === true ? '#fff' : '#374151',
+                  fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  เต็ม
+                </button>
+                <button type="button" onClick={() => { setReturnFuelFull(false); setRefueledByCustomer(null) }} style={{
+                  flex: 1, padding: '12px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
+                  background: returnFuelFull === false ? '#d97706' : '#fff', color: returnFuelFull === false ? '#fff' : '#374151',
+                  fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  ไม่เต็ม
+                </button>
+              </div>
+
+              {returnFuelFull === true && (
+                <div style={{ marginTop: '12px' }}>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>ลูกค้าเติมน้ำมันมาหรือยัง?</div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="button" onClick={() => setRefueledByCustomer(true)} style={{
+                      flex: 1, padding: '10px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
+                      background: refueledByCustomer === true ? '#16a34a' : '#fff', color: refueledByCustomer === true ? '#fff' : '#374151',
+                      fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
+                    }}>
+                      เติมแล้ว
+                    </button>
+                    <button type="button" onClick={() => setRefueledByCustomer(false)} style={{
+                      flex: 1, padding: '10px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
+                      background: refueledByCustomer === false ? '#dc2626' : '#fff', color: refueledByCustomer === false ? '#fff' : '#374151',
+                      fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
+                    }}>
+                      ยังไม่ได้เติม
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {showFuelReference && (
+                <div style={{
+                  marginTop: '12px', background: '#fffbeb', border: '1.5px solid #fcd34d',
+                  borderRadius: '10px', padding: '12px 14px',
+                }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#92400e', marginBottom: '8px' }}>
+                    น้ำมันยังไม่เต็ม — เทียบหน้าปัดรถกับรูปนี้ แล้วกรอกค่าปรับในช่อง &quot;ค่าเสียหายเพิ่มเติม&quot; ด้านล่าง
+                  </div>
+                  {fuelReferencePhotoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={fuelReferencePhotoUrl} alt="อัตราค่าน้ำมัน" style={{ width: '100%', borderRadius: '8px' }} />
+                  ) : (
+                    <div style={{ fontSize: '12px', color: '#92400e' }}>
+                      ยังไม่ได้ตั้งค่ารูปกำกับราคาน้ำมันของรุ่นนี้ไว้ (ตั้งค่าได้ที่หน้าตั้งราคารถ)
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
+          )}
           <div className="field-row">
             <label className="field-label">รูปภาพตอนรับคืน</label>
             <PhotoUpload
