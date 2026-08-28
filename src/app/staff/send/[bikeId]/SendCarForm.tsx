@@ -1092,7 +1092,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           <div className="card">
             <div className="card-title">โปรโมชั่น</div>
             <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
-              &ldquo;ถ้าลูกค้าจะใช้โปรโมชั่นนักศึกษา รบกวนขอดูหลักฐานยืนยันสิทธิ์ด้วยนะคะ&rdquo;
+              &ldquo;ถ้าลูกค้าจะใช้โปรโมชั่นราคานักศึกษา (เฉพาะนักศึกษา ม.บูรพา / ม.เกษตรศาสตร์ ศรีราชา เท่านั้น) รบกวนขอดูหลักฐานยืนยันสิทธิ์ด้วยนะคะ&rdquo;
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => setStudentPromo(false)} style={{
