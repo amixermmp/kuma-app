@@ -22,6 +22,7 @@ type Props = {
   startDatetime: string
   endDatetime: string
   totalDays: number
+  dailyRate: number | null
   displayBrand: string
   displayModel: string
   bike: Bike | null
@@ -49,9 +50,11 @@ function fmtTime(iso: string) {
 }
 
 export default function BookingConfirmCard(props: Props) {
-  const { bookingRef, createdAt, startDatetime, endDatetime, totalDays, displayBrand, displayModel,
+  const { bookingRef, createdAt, startDatetime, endDatetime, totalDays, dailyRate, displayBrand, displayModel,
     bike, customerName, customerPhone, customerHotel, deliveryType, deliveryAddress, notes,
     shop, contactPhone, contactLine } = props
+
+  const estimatedTotal = dailyRate ? dailyRate * totalDays : null
 
   const cardRef = useRef<HTMLDivElement>(null)
   const [imgSrc, setImgSrc] = useState<string | null>(null)
@@ -183,6 +186,18 @@ export default function BookingConfirmCard(props: Props) {
                 </tr>
               </tbody>
             </table>
+
+            {estimatedTotal != null && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                  <span>ราคาเช่าโดยประมาณ</span>
+                  <span>฿{estimatedTotal.toLocaleString('th-TH')}</span>
+                </div>
+                <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+                  ฿{dailyRate!.toLocaleString('th-TH')} × {totalDays} วัน — ค่าเช่าเท่านั้น ไม่รวมค่าบริการส่วนอื่น ราคาสุดท้ายยืนยันอีกครั้งตอนรับรถ
+                </div>
+              </div>
+            )}
 
             {/* Customer */}
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#111827', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>ข้อมูลผู้จอง</div>
