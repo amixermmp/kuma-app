@@ -16,3 +16,19 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ success: true, id: data.id })
 }
+
+export async function PATCH(request: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id, name } = await request.json()
+  if (!id) return NextResponse.json({ error: 'ไม่พบสาขา' }, { status: 400 })
+  if (!name?.trim()) return NextResponse.json({ error: 'กรุณาใส่ชื่อสาขา' }, { status: 400 })
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('branches').update({ name: name.trim() }).eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
+}

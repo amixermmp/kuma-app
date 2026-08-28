@@ -1,14 +1,22 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Section, Field, SaveBtn, SettingsHeader, type Branch } from '../_shared'
 
 type Shop = Record<string, any>
 
 function BranchCloseTimeRow({ branch }: { branch: Branch }) {
+  const router = useRouter()
   const [time, setTime] = useState(branch.closeTimeEarliest ?? '')
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
+
+  const [branchName, setBranchName] = useState(branch.name)
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState(branch.name)
+  const [nameLoading, setNameLoading] = useState(false)
+  const [nameError, setNameError] = useState('')
 
   const save = async () => {
     setLoading(true)
@@ -22,16 +30,53 @@ function BranchCloseTimeRow({ branch }: { branch: Branch }) {
     setTimeout(() => setMsg(''), 2000)
   }
 
+  const saveName = async () => {
+    if (!nameInput.trim()) { setNameError('กรุณาใส่ชื่อสาขา'); return }
+    setNameLoading(true)
+    setNameError('')
+    const res = await fetch('/api/owner/settings/branch', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: branch.id, name: nameInput.trim() }),
+    })
+    const data = await res.json()
+    setNameLoading(false)
+    if (!res.ok) { setNameError(data.error ?? 'เกิดข้อผิดพลาด'); return }
+    setBranchName(nameInput.trim())
+    setEditingName(false)
+    router.refresh()
+  }
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: '14px', fontWeight: 600 }}>{branch.name}</div>
-        <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '1px' }}>เวลาปิดร้านเร็วสุด</div>
+    <div style={{ padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
+      {editingName ? (
+        <div style={{ marginBottom: '10px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input className="field-input" value={nameInput} onChange={e => setNameInput(e.target.value)} style={{ flex: 1 }} />
+            <button onClick={saveName} disabled={nameLoading} className="btn" style={{ padding: '8px 12px', fontSize: '12px', width: 'auto' }}>
+              {nameLoading ? '⏳' : '✅'}
+            </button>
+            <button onClick={() => { setEditingName(false); setNameInput(branchName); setNameError('') }} className="btn" style={{ padding: '8px 12px', fontSize: '12px', width: 'auto', background: '#f3f4f6', color: '#374151' }}>
+              ✕
+            </button>
+          </div>
+          {nameError && <div style={{ color: '#dc2626', fontSize: '12px', marginTop: '4px' }}>{nameError}</div>}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, flex: 1 }}>{branchName}</div>
+          <button onClick={() => { setEditingName(true); setNameInput(branchName) }} style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: '4px 8px' }}>
+            แก้ไข
+          </button>
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ flex: 1, fontSize: '11px', color: '#9ca3af' }}>เวลาปิดร้านเร็วสุด</div>
+        <input type="time" className="field-input" style={{ width: '110px' }} value={time} onChange={e => setTime(e.target.value)} />
+        <button onClick={save} disabled={loading} className="btn" style={{ padding: '8px 12px', fontSize: '12px', width: 'auto' }}>
+          {loading ? '⏳' : msg || '💾'}
+        </button>
       </div>
-      <input type="time" className="field-input" style={{ width: '110px' }} value={time} onChange={e => setTime(e.target.value)} />
-      <button onClick={save} disabled={loading} className="btn" style={{ padding: '8px 12px', fontSize: '12px', width: 'auto' }}>
-        {loading ? '⏳' : msg || '💾'}
-      </button>
     </div>
   )
 }
