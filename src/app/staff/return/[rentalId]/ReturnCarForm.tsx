@@ -32,6 +32,7 @@ type Props = {
   staffId: string
   promoPayDays?: number
   fuelReferencePhotoUrl: string | null
+  qrDailyUrl: string | null
 }
 
 function fmtDate(iso: string) {
@@ -50,7 +51,7 @@ const CHECKLIST = [
   'แผ่นป้ายทะเบียน ปกติ',
 ]
 
-export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelReferencePhotoUrl }: Props) {
+export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelReferencePhotoUrl, qrDailyUrl }: Props) {
   const router = useRouter()
   const bike = rental.bikes
   const customer = rental.customers
@@ -463,6 +464,14 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
             ฿{Math.abs(netRefund).toLocaleString()}
           </div>
         </div>
+
+        {/* QR รับเงิน — โชว์เฉพาะตอนมัดจำไม่พอ ต้องเก็บเงินเพิ่ม */}
+        {netRefund < 0 && qrDailyUrl && (
+          <div style={{ textAlign: 'center', padding: '14px', background: '#f9fafb', borderRadius: '10px', marginBottom: '12px' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrDailyUrl} alt="QR รับเงิน" style={{ maxWidth: '260px', width: '100%', height: 'auto', borderRadius: '8px' }} />
+          </div>
+        )}
 
         {error && (
           <div style={{
