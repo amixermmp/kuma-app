@@ -190,11 +190,11 @@ export default function BookingConfirmCard(props: Props) {
             {estimatedTotal != null && (
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700, color: '#111827' }}>
-                  <span>ราคาเช่าโดยประมาณ</span>
+                  <span>ราคาเช่า</span>
                   <span>฿{estimatedTotal.toLocaleString('th-TH')}</span>
                 </div>
                 <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-                  ฿{dailyRate!.toLocaleString('th-TH')} × {totalDays} วัน — ค่าเช่าเท่านั้น ไม่รวมค่าบริการส่วนอื่น ราคาสุดท้ายยืนยันอีกครั้งตอนรับรถ
+                  ฿{dailyRate!.toLocaleString('th-TH')} × {totalDays} วัน — ค่าเช่าเท่านั้น ไม่รวมค่าบริการส่วนอื่น
                 </div>
               </div>
             )}
