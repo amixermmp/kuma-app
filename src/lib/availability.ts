@@ -41,15 +41,24 @@ export async function getBusyBikeIds(supabase: SupabaseClient<any, any, any>, wi
 export const UNRENTABLE_STATUSES = ['repair', 'maintenance', 'locked', 'retired', 'inactive']
 
 /**
- * รถคันนี้มี "สัญญาค้าง" อยู่ไหม (รายวัน active/extended หรือรายเดือน active)
+ * รถคันนี้มี "สัญญาอื่น" ค้างอยู่ไหม (รายวัน active/extended หรือรายเดือน active)
  * ใช้เป็น guard ก่อนสร้างสัญญาใหม่/สลับรถ — กันสัญญาซ้อนคันเดียวกัน
+ * ใช้ตอนปิดสัญญาด้วย (return / monthly-end route) เพื่อเช็คก่อนคืนสถานะรถเป็น available — ต้อง
+ * ส่ง excludeRentalId/excludeMonthlyRentalId เป็นสัญญาที่กำลังปิดเสมอ กันเคสยิงคำขอปิดสัญญาซ้อนกัน (multi-tab/double-submit)
+ * แล้ว query นี้ไปเจอสัญญาตัวเองที่ยังไม่ commit สถานะปิดของอีกคำขอ กลายเป็นเข้าใจผิดว่ายังมีสัญญาเปิดอยู่
  * (ไม่สนสถานะรถ เพราะสถานะอาจค้าง/ไม่ตรงจริง — ดูจากสัญญาเป็นหลัก)
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function hasOpenContract(supabase: SupabaseClient<any, any, any>, bikeId: string): Promise<boolean> {
+export async function hasOpenContract(supabase: SupabaseClient<any, any, any>, bikeId: string, excludeRentalId?: string, excludeMonthlyRentalId?: string): Promise<boolean> {
+  let rentalQuery = supabase.from('rentals').select('id').eq('bike_id', bikeId).in('status', ['active', 'extended'])
+  if (excludeRentalId) rentalQuery = rentalQuery.neq('id', excludeRentalId)
+
+  let monthlyQuery = supabase.from('monthly_rentals').select('id').eq('bike_id', bikeId).eq('status', 'active')
+  if (excludeMonthlyRentalId) monthlyQuery = monthlyQuery.neq('id', excludeMonthlyRentalId)
+
   const [{ data: openRental }, { data: openMonthly }] = await Promise.all([
-    supabase.from('rentals').select('id').eq('bike_id', bikeId).in('status', ['active', 'extended']).limit(1).maybeSingle(),
-    supabase.from('monthly_rentals').select('id').eq('bike_id', bikeId).eq('status', 'active').limit(1).maybeSingle(),
+    rentalQuery.limit(1).maybeSingle(),
+    monthlyQuery.limit(1).maybeSingle(),
   ])
   return Boolean(openRental || openMonthly)
 }

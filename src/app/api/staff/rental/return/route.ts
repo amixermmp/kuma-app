@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
 
   // Set bike back to available — เว้นแต่รถมีสัญญาอื่นเปิดค้างอยู่แล้ว (เช่น ปิดสัญญานี้ช้า
   // หลังจากสัญญาใหม่บนคันเดียวกันเปิดไปแล้ว) กันสถานะ available ทับสัญญาที่ยังเปิดอยู่จริง
-  const stillOpen = await hasOpenContract(supabase, bikeId)
+  const stillOpen = await hasOpenContract(supabase, bikeId, rentalId)
   // เต็ม+ลูกค้าเติมมายืนยันแล้ว = เชื่อว่าเต็มจริง — นอกนั้น (ไม่เต็ม หรือเต็มแต่ไม่ยืนยัน) = ยังต้องไปเติม
   // ถ้าตอนส่งไม่ได้บังคับเช็ค (returnFuelFull เป็น null) ไม่ต้องแตะสถานะน้ำมันของรถเลย
   const nextFuelLevel = returnFuelFull == null ? undefined : (returnFuelFull === true && returnFuelRefueledByCustomer === true ? 8 : 0)

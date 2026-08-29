@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   // Only free the bike if no other open contract exists for it (รายเดือนอื่น หรือรายวันที่ยังไม่คืน —
   // กันเคสปิดสัญญานี้ช้าหลังจากมีสัญญาใหม่บนคันเดียวกันเปิดไปแล้ว)
-  const stillOpen = await hasOpenContract(supabase, rental.bike_id)
+  const stillOpen = await hasOpenContract(supabase, rental.bike_id, undefined, monthlyRentalId)
 
   let updateBikeErr = null
   if (!stillOpen) {

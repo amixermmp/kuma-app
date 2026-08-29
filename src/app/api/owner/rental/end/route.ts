@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     }).eq('id', rentalId)
 
     // เว้นแต่รถมีสัญญาอื่นเปิดค้างอยู่แล้ว (ปิดสัญญานี้ช้าหลังสัญญาใหม่บนคันเดียวกันเปิดไปแล้ว)
-    if (!(await hasOpenContract(admin, rental.bike_id))) {
+    if (!(await hasOpenContract(admin, rental.bike_id, rentalId))) {
       await admin.from('bikes').update({ status: 'available' }).eq('id', rental.bike_id)
     }
 
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
     }).eq('id', rentalId)
 
     // เว้นแต่รถมีสัญญาอื่นเปิดค้างอยู่แล้ว (ปิดสัญญานี้ช้าหลังสัญญาใหม่บนคันเดียวกันเปิดไปแล้ว)
-    if (!(await hasOpenContract(admin, rental.bike_id))) {
+    if (!(await hasOpenContract(admin, rental.bike_id, undefined, rentalId))) {
       await admin.from('bikes').update({ status: 'available' }).eq('id', rental.bike_id)
     }
 
