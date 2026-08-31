@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   const {
     rentalId, bikeId,
     returnOdometer, returnFuelFull, returnFuelRefueledByCustomer,
-    damageFee, damageNotes,
+    fuelFee, damageFee, damageNotes,
     returnPhotoUrl, refundAmount,
     finalRentAmount, overtimeCharge, earlyReturnRefund,
   } = body
@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
       return_odometer: returnOdometer ?? null,
       return_fuel_full: returnFuelFull ?? null,
       return_fuel_refueled_by_customer: returnFuelRefueledByCustomer ?? null,
+      fuel_fee: fuelFee ?? 0,
       damage_fee: damageFee ?? 0,
       damage_notes: damageNotes ?? null,
       return_photos: returnPhotoUrl ? [{ url: returnPhotoUrl, label: 'รูปรับคืน' }] : [],
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
     })
     .eq('id', bikeId)
   // เคยเงียบไม่เช็ค error ตรงนี้ — ถ้า update ล้มเหลว (constraint/network) รถจะค้างสถานะผิดแบบไม่มีร่องรอย
-  // ให้ตามสาเหตุยาก ตอนนี้ log ไว้เผื่อเกิดซ้ำจะได้เห็นสาเหตุจริงใน Vercel logs
+  // ให้ตามสาเหตุยาก log ไว้เผื่อเกิดซ้ำจะได้เห็นสาเหตุจริงใน Vercel logs
   if (bikeUpdateErr) {
     console.error('[rental/return] bike update failed:', bikeId, JSON.stringify(bikeUpdateErr))
   }
@@ -163,8 +164,8 @@ export async function POST(request: NextRequest) {
     actorId: staffId,
     actorName: staffName,
     action: 'bike_returned',
-    description: `รับรถคืน ${plate} — ลูกค้า ${customerName}${damageFee > 0 ? ` • ค่าเสียหาย ฿${damageFee}` : ''}`,
-    metadata: { rentalId, bikeId, damageFee, refundAmount },
+    description: `รับรถคืน ${plate} — ลูกค้า ${customerName}${damageFee > 0 ? ` • ค่าเสียหาย ฿${damageFee}` : ''}${fuelFee > 0 ? ` • ค่าน้ำมัน ฿${fuelFee}` : ''}`,
+    metadata: { rentalId, bikeId, damageFee, fuelFee, refundAmount },
   })
 
   // Log system photo deletion

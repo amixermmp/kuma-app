@@ -93,23 +93,25 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
   // คืนเฉพาะกรณีจ่ายไปแล้วมากกว่าที่ควรจ่ายจริง — ไม่มีทางเรียกเก็บเพิ่มจากการคืนก่อน
   const earlyReturnRefund = isEarly ? Math.max(0, rental.total_amount - recalculatedCharge) : 0
 
-  const [checklist, setChecklist] = useState<boolean[]>(CHECKLIST.map(() => true))
-  const [odometer, setOdometer] = useState('')
-  // ต้องเช็คน้ำมันเฉพาะกรณีตอนส่งรถให้เต็มไปเท่านั้น — ถ้าส่งไม่เต็มอยู่แล้ว ไม่มีข้อผูกพันต้องคืนเต็ม
+  // ต้องเช็คน้ำมันเฉพาะกรณีตอนส่งรถให้เต็มไปเท่านั้น — ถ้าส่งไม่เต็มอยู่แล้ว ไม่มีข้อผูกพันต้องคืนเต็ม ไม่ต้องถามเลย
   const requiresFuelCheck = rental.send_fuel_full === true
   const [returnFuelFull, setReturnFuelFull] = useState<boolean | null>(null)
   const [refueledByCustomer, setRefueledByCustomer] = useState<boolean | null>(null)
-  const [photoUrl, setPhotoUrl] = useState('')
+  const [fuelFee, setFuelFee] = useState('0')
   const [damageFee, setDamageFee] = useState('0')
   const [damageNotes, setDamageNotes] = useState('')
+  const [checklist, setChecklist] = useState<boolean[]>(CHECKLIST.map(() => true))
+  const [odometer, setOdometer] = useState('')
+  const [photoUrl, setPhotoUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [overrideOvertime, setOverrideOvertime] = useState('')
   const [routineDue, setRoutineDue] = useState<{ taskName: string; dueReason: string }[] | null>(null)
 
+  const fuel = parseFloat(fuelFee) || 0
   const damage = parseFloat(damageFee) || 0
   const finalOvertimeCharge = overrideOvertime !== '' ? Math.max(0, parseFloat(overrideOvertime) || 0) : overtimeCharge
-  const netRefund = rental.deposit_amount - finalOvertimeCharge - damage + earlyReturnRefund
+  const netRefund = rental.deposit_amount - finalOvertimeCharge - damage - fuel + earlyReturnRefund
 
   // โชว์รูปกำกับราคาน้ำมัน เมื่อคืนไม่เต็ม หรือดูเต็มแต่ลูกค้ายังไม่ได้เติมมาเอง
   const showFuelReference = requiresFuelCheck && (returnFuelFull === false || (returnFuelFull === true && refueledByCustomer === false))
@@ -135,6 +137,7 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
           returnOdometer: odometer ? parseInt(odometer) : null,
           returnFuelFull: requiresFuelCheck ? returnFuelFull : null,
           returnFuelRefueledByCustomer: requiresFuelCheck ? refueledByCustomer : null,
+          fuelFee: fuel,
           damageFee: damage,
           damageNotes: damageNotes.trim() || null,
           returnPhotoUrl: photoUrl || null,
@@ -237,79 +240,59 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
           </div>
         </div>
 
-        {/* Checklist */}
-        <div className="card">
-          <div className="card-title">ตรวจสภาพรถตอนรับคืน</div>
-          {CHECKLIST.map((item, i) => (
-            <div key={i} className="checklist-item" onClick={() => toggleCheck(i)}>
-              <div className={`check-box ${checklist[i] ? 'checked' : ''}`}>
-                {checklist[i] ? '✓' : ''}
-              </div>
-              <span style={{ color: checklist[i] ? '#111827' : '#9ca3af' }}>{item}</span>
+        {/* ===== ส่วนลูกค้า (ต่อหน้าลูกค้า รีบ ต้องเก็บเงินให้จบก่อน) ===== */}
+
+        {/* น้ำมัน — เช็คก่อนเลย เป็นเรื่องเงินที่ต้องคุยกับลูกค้าตรงหน้า */}
+        {requiresFuelCheck && (
+          <div className="card">
+            <div className="card-title">ระดับน้ำมันตอนรับคืน</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="button" onClick={() => { setReturnFuelFull(true); setRefueledByCustomer(null); setFuelFee('0') }} style={{
+                flex: 1, padding: '12px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
+                background: returnFuelFull === true ? '#16a34a' : '#fff', color: returnFuelFull === true ? '#fff' : '#374151',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                เต็ม
+              </button>
+              <button type="button" onClick={() => { setReturnFuelFull(false); setRefueledByCustomer(null) }} style={{
+                flex: 1, padding: '12px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
+                background: returnFuelFull === false ? '#d97706' : '#fff', color: returnFuelFull === false ? '#fff' : '#374151',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                ไม่เต็ม
+              </button>
             </div>
-          ))}
-        </div>
 
-        {/* Return info */}
-        <div className="card">
-          <div className="card-title">ข้อมูลตอนรับคืน</div>
-          <div className="field-row">
-            <label className="field-label">เลขไมล์ตอนรับคืน *</label>
-            <input className="field-input" type="number"
-              placeholder={String(bike.odometer ?? '')}
-              value={odometer}
-              onChange={e => setOdometer(e.target.value)}
-            />
-          </div>
-          {requiresFuelCheck && (
-            <div className="field-row">
-              <label className="field-label">ระดับน้ำมันตอนรับคืน *</label>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <button type="button" onClick={() => { setReturnFuelFull(true); setRefueledByCustomer(null) }} style={{
-                  flex: 1, padding: '12px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
-                  background: returnFuelFull === true ? '#16a34a' : '#fff', color: returnFuelFull === true ? '#fff' : '#374151',
-                  fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-                }}>
-                  เต็ม
-                </button>
-                <button type="button" onClick={() => { setReturnFuelFull(false); setRefueledByCustomer(null) }} style={{
-                  flex: 1, padding: '12px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
-                  background: returnFuelFull === false ? '#d97706' : '#fff', color: returnFuelFull === false ? '#fff' : '#374151',
-                  fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-                }}>
-                  ไม่เต็ม
-                </button>
-              </div>
-
-              {returnFuelFull === true && (
-                <div style={{ marginTop: '12px' }}>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>ลูกค้าเติมน้ำมันมาหรือยัง?</div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button type="button" onClick={() => setRefueledByCustomer(true)} style={{
-                      flex: 1, padding: '10px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
-                      background: refueledByCustomer === true ? '#16a34a' : '#fff', color: refueledByCustomer === true ? '#fff' : '#374151',
-                      fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
-                    }}>
-                      เติมแล้ว
-                    </button>
-                    <button type="button" onClick={() => setRefueledByCustomer(false)} style={{
-                      flex: 1, padding: '10px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
-                      background: refueledByCustomer === false ? '#dc2626' : '#fff', color: refueledByCustomer === false ? '#fff' : '#374151',
-                      fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
-                    }}>
-                      ยังไม่ได้เติม
-                    </button>
-                  </div>
+            {returnFuelFull === true && (
+              <div style={{ marginTop: '12px' }}>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>ลูกค้าเติมน้ำมันมาหรือยัง?</div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button" onClick={() => { setRefueledByCustomer(true); setFuelFee('0') }} style={{
+                    flex: 1, padding: '10px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
+                    background: refueledByCustomer === true ? '#16a34a' : '#fff', color: refueledByCustomer === true ? '#fff' : '#374151',
+                    fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                    เติมแล้ว
+                  </button>
+                  <button type="button" onClick={() => setRefueledByCustomer(false)} style={{
+                    flex: 1, padding: '10px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
+                    background: refueledByCustomer === false ? '#dc2626' : '#fff', color: refueledByCustomer === false ? '#fff' : '#374151',
+                    fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                    ยังไม่ได้เติม
+                  </button>
                 </div>
-              )}
+              </div>
+            )}
 
-              {showFuelReference && (
+            {showFuelReference && (
+              <div style={{ marginTop: '12px' }}>
                 <div style={{
-                  marginTop: '12px', background: '#fffbeb', border: '1.5px solid #fcd34d',
-                  borderRadius: '10px', padding: '12px 14px',
+                  background: '#fffbeb', border: '1.5px solid #fcd34d',
+                  borderRadius: '10px', padding: '12px 14px', marginBottom: '10px',
                 }}>
                   <div style={{ fontSize: '13px', fontWeight: 700, color: '#92400e', marginBottom: '8px' }}>
-                    น้ำมันยังไม่เต็ม — เทียบหน้าปัดรถกับรูปนี้ แล้วกรอกค่าปรับในช่อง &quot;ค่าเสียหายเพิ่มเติม&quot; ด้านล่าง
+                    น้ำมันยังไม่เต็ม — โชว์รูปนี้ให้ลูกค้าดูด้วยกัน เทียบหน้าปัดแล้วกรอกราคาตามรูปด้านล่าง
                   </div>
                   {fuelReferencePhotoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -320,19 +303,21 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          )}
-          <div className="field-row">
-            <label className="field-label">รูปภาพตอนรับคืน</label>
-            <PhotoUpload
-              icon="📷"
-              hint="อัพโหลดรูปรถตอนคืน"
-              folder={`return/${bike.id}`}
-              onUpload={(url) => setPhotoUrl(url)}
-              onRemove={() => setPhotoUrl('')}
-            />
+                <div className="field-row" style={{ marginBottom: 0 }}>
+                  <label className="field-label">ค่าน้ำมัน (บาท)</label>
+                  <input className="field-input" type="number" placeholder="0"
+                    value={fuelFee}
+                    onChange={e => setFuelFee(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
           </div>
+        )}
+
+        {/* ตรวจสภาพรถแบบเร็ว — ถ้าเห็นรอยเสียหายชัดเจนที่ต้องเก็บเงิน ใส่ตอนนี้เลย */}
+        <div className="card">
+          <div className="card-title">ค่าเสียหาย (ถ้ามี)</div>
           <div className="field-row">
             <label className="field-label">ค่าเสียหายเพิ่มเติม (บาท)</label>
             <input className="field-input" type="number" placeholder="0"
@@ -455,9 +440,10 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
               {netRefund >= 0
                 ? `มัดจำ ฿${rental.deposit_amount.toLocaleString()}`
                   + (finalOvertimeCharge > 0 ? ` − ล่วงเวลา ฿${finalOvertimeCharge.toLocaleString()}` : '')
+                  + (fuel > 0 ? ` − น้ำมัน ฿${fuel.toLocaleString()}` : '')
                   + (damage > 0 ? ` − เสียหาย ฿${damage.toLocaleString()}` : '')
                   + (earlyReturnRefund > 0 ? ` + คืนค่าเช่า ฿${earlyReturnRefund.toLocaleString()}` : '')
-                : `ล่วงเวลา (หลังหักเครดิต) ฿${finalOvertimeCharge.toLocaleString()} เกินมัดจำ ฿${rental.deposit_amount.toLocaleString()}`}
+                : `ล่วงเวลา+น้ำมัน+เสียหาย (หลังหักเครดิต) ฿${(finalOvertimeCharge + fuel + damage).toLocaleString()} เกินมัดจำ ฿${rental.deposit_amount.toLocaleString()}`}
             </div>
           </div>
           <div style={{ fontSize: '28px', fontWeight: 900, color: netRefund >= 0 ? '#15803d' : '#ea580c' }}>
@@ -472,6 +458,51 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
             <img src={qrDailyUrl} alt="QR รับเงิน" style={{ maxWidth: '260px', width: '100%', height: 'auto', borderRadius: '8px' }} />
           </div>
         )}
+
+        <div style={{
+          borderTop: '2px dashed #d1d5db', margin: '20px 0 16px', paddingTop: '16px',
+          fontSize: '12px', color: '#9ca3af', fontWeight: 600, textAlign: 'center',
+        }}>
+          — เก็บเงินเรียบร้อยแล้ว ต่อไปตรวจสภาพรถ (ไม่รีบก็ได้) —
+        </div>
+
+        {/* ===== ส่วนพนักงาน (ตรวจหลังลูกค้าไปก็ได้ ยังอยู่หน้าเดียวกัน กดยืนยันครั้งเดียวจบ) ===== */}
+
+        {/* Checklist */}
+        <div className="card">
+          <div className="card-title">ตรวจสภาพรถตอนรับคืน</div>
+          {CHECKLIST.map((item, i) => (
+            <div key={i} className="checklist-item" onClick={() => toggleCheck(i)}>
+              <div className={`check-box ${checklist[i] ? 'checked' : ''}`}>
+                {checklist[i] ? '✓' : ''}
+              </div>
+              <span style={{ color: checklist[i] ? '#111827' : '#9ca3af' }}>{item}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Return info */}
+        <div className="card">
+          <div className="card-title">ข้อมูลตอนรับคืน</div>
+          <div className="field-row">
+            <label className="field-label">เลขไมล์ตอนรับคืน *</label>
+            <input className="field-input" type="number"
+              placeholder={String(bike.odometer ?? '')}
+              value={odometer}
+              onChange={e => setOdometer(e.target.value)}
+            />
+          </div>
+          <div className="field-row" style={{ marginBottom: 0 }}>
+            <label className="field-label">รูปภาพตอนรับคืน</label>
+            <PhotoUpload
+              icon="📷"
+              hint="อัพโหลดรูปรถตอนคืน"
+              folder={`return/${bike.id}`}
+              onUpload={(url) => setPhotoUrl(url)}
+              onRemove={() => setPhotoUrl('')}
+            />
+          </div>
+        </div>
 
         {error && (
           <div style={{
