@@ -94,7 +94,9 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
   const earlyReturnRefund = isEarly ? Math.max(0, rental.total_amount - recalculatedCharge) : 0
 
   // ต้องเช็คน้ำมันเฉพาะกรณีตอนส่งรถให้เต็มไปเท่านั้น — ถ้าส่งไม่เต็มอยู่แล้ว ไม่มีข้อผูกพันต้องคืนเต็ม ไม่ต้องถามเลย
-  const requiresFuelCheck = rental.send_fuel_full === true
+  // สัญญาเก่าก่อนมีฟีเจอร์นี้ (send_fuel_full เป็นค่าว่าง) ถือว่าส่งเต็มเสมอ เพราะร้านส่งรถเต็มถังทุกคันมาตลอดอยู่แล้ว
+  const sentNotFull = rental.send_fuel_full === false
+  const requiresFuelCheck = !sentNotFull
   const [returnFuelFull, setReturnFuelFull] = useState<boolean | null>(null)
   const [refueledByCustomer, setRefueledByCustomer] = useState<boolean | null>(null)
   const [fuelFee, setFuelFee] = useState('0')
@@ -312,6 +314,16 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ตอนส่งกดไว้ว่าไม่เต็ม (แถมให้) — ไม่ต้องถามน้ำมันตอนคืนเลย แต่บอกพนักงานไว้กันงงคิดว่าหาย/บั๊ก */}
+        {sentNotFull && (
+          <div style={{
+            background: '#f1f5f9', border: '1.5px solid #e5e7eb',
+            borderRadius: '10px', padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#374151',
+          }}>
+            ⛽ ตอนรับรถลูกค้าคันนี้ได้น้ำมันไม่เต็มถัง (ทางร้านแถมให้) — ไม่ต้องเก็บค่าน้ำมันตอนคืน
           </div>
         )}
 
