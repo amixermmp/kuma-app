@@ -320,10 +320,15 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
         {/* ตอนส่งกดไว้ว่าไม่เต็ม (แถมให้) — ไม่ต้องถามน้ำมันตอนคืนเลย แต่บอกพนักงานไว้กันงงคิดว่าหาย/บั๊ก */}
         {sentNotFull && (
           <div style={{
-            background: '#f1f5f9', border: '1.5px solid #e5e7eb',
-            borderRadius: '10px', padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#374151',
+            background: '#eff6ff', border: '2px solid #93c5fd',
+            borderRadius: '12px', padding: '14px 16px', marginBottom: '12px',
           }}>
-            ⛽ ตอนรับรถลูกค้าคันนี้ได้น้ำมันไม่เต็มถัง (ทางร้านแถมให้) — ไม่ต้องเก็บค่าน้ำมันตอนคืน
+            <div style={{ fontSize: '14px', fontWeight: 800, color: '#1d4ed8', marginBottom: '2px' }}>
+              ⛽ น้ำมันไม่ต้องเก็บ
+            </div>
+            <div style={{ fontSize: '13px', color: '#1e40af' }}>
+              ตอนรับรถลูกค้าคันนี้ได้น้ำมันไม่เต็มถัง (ทางร้านแถมให้) — ไม่ต้องเก็บค่าน้ำมันตอนคืน
+            </div>
           </div>
         )}
 
