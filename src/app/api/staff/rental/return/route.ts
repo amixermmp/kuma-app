@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
   // เต็ม+ลูกค้าเติมมายืนยันแล้ว = เชื่อว่าเต็มจริง — นอกนั้น (ไม่เต็ม หรือเต็มแต่ไม่ยืนยัน) = ยังต้องไปเติม
   // ถ้าตอนส่งไม่ได้บังคับเช็ค (returnFuelFull เป็น null) ไม่ต้องแตะสถานะน้ำมันของรถเลย
   const nextFuelLevel = returnFuelFull == null ? undefined : (returnFuelFull === true && returnFuelRefueledByCustomer === true ? 8 : 0)
-  await supabase
+  const { error: bikeUpdateErr } = await supabase
     .from('bikes')
     .update({
       ...(stillOpen ? {} : { status: 'available' }),
@@ -126,6 +126,11 @@ export async function POST(request: NextRequest) {
       ...(nextFuelLevel !== undefined ? { fuel_level: nextFuelLevel } : {}),
     })
     .eq('id', bikeId)
+  // เคยเงียบไม่เช็ค error ตรงนี้ — ถ้า update ล้มเหลว (constraint/network) รถจะค้างสถานะผิดแบบไม่มีร่องรอย
+  // ให้ตามสาเหตุยาก ตอนนี้ log ไว้เผื่อเกิดซ้ำจะได้เห็นสาเหตุจริงใน Vercel logs
+  if (bikeUpdateErr) {
+    console.error('[rental/return] bike update failed:', bikeId, JSON.stringify(bikeUpdateErr))
+  }
 
   if (returnOdometer) {
     await recalcNeverDoneRoutines(supabase, bikeId, Number(returnOdometer))

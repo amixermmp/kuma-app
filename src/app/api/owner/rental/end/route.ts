@@ -71,7 +71,8 @@ export async function POST(request: NextRequest) {
 
     // เว้นแต่รถมีสัญญาอื่นเปิดค้างอยู่แล้ว (ปิดสัญญานี้ช้าหลังสัญญาใหม่บนคันเดียวกันเปิดไปแล้ว)
     if (!(await hasOpenContract(admin, rental.bike_id, rentalId))) {
-      await admin.from('bikes').update({ status: 'available' }).eq('id', rental.bike_id)
+      const { error: bikeUpdateErr } = await admin.from('bikes').update({ status: 'available' }).eq('id', rental.bike_id)
+      if (bikeUpdateErr) console.error('[owner/rental/end] bike update failed:', rental.bike_id, JSON.stringify(bikeUpdateErr))
     }
 
     // Log: owner action
@@ -122,7 +123,8 @@ export async function POST(request: NextRequest) {
 
     // เว้นแต่รถมีสัญญาอื่นเปิดค้างอยู่แล้ว (ปิดสัญญานี้ช้าหลังสัญญาใหม่บนคันเดียวกันเปิดไปแล้ว)
     if (!(await hasOpenContract(admin, rental.bike_id, undefined, rentalId))) {
-      await admin.from('bikes').update({ status: 'available' }).eq('id', rental.bike_id)
+      const { error: bikeUpdateErr } = await admin.from('bikes').update({ status: 'available' }).eq('id', rental.bike_id)
+      if (bikeUpdateErr) console.error('[owner/rental/end] bike update failed:', rental.bike_id, JSON.stringify(bikeUpdateErr))
     }
 
     await writeLog({

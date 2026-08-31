@@ -96,15 +96,23 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
   const monthlyCustomerName = (activeMonthly?.customers as any)?.name ?? null
   const isMonthlyRented = monthlyRentalId !== null
 
+  // Self-heal: status ค้างเป็น "rented" ทั้งที่ไม่มีสัญญาใดๆ ค้างอยู่จริง (เช่น เจอบั๊กตอนปิดสัญญาแล้วสถานะรถไม่กลับมาว่าง)
+  // แก้ให้ตรงกับความจริงทันทีที่เปิดหน้านี้ กันพนักงานติดค้าง กดส่ง/คืนไม่ได้ทั้งคู่ ต้องรอแอดมินแก้ฐานข้อมูลให้
+  let effectiveStatus = bike.status
+  if (bike.status === 'rented' && rentalId === null && monthlyRentalId === null) {
+    await supabase.from('bikes').update({ status: 'available' }).eq('id', bike.id)
+    effectiveStatus = 'available'
+  }
+
   // Monthly rental overrides the raw bike.status display
-  const statusColor = isMonthlyRented ? '#7c3aed' : (STATUS_COLOR[bike.status] ?? '#6b7280')
-  const statusLabel = isMonthlyRented ? '🔵 รายเดือน' : (STATUS_LABEL[bike.status] ?? bike.status)
+  const statusColor = isMonthlyRented ? '#7c3aed' : (STATUS_COLOR[effectiveStatus] ?? '#6b7280')
+  const statusLabel = isMonthlyRented ? '🔵 รายเดือน' : (STATUS_LABEL[effectiveStatus] ?? effectiveStatus)
   // เช็คจากสัญญาจริง (rentalId) ไม่ใช่แค่ status field — กัน status ค้างผิดแล้วปุ่มส่งรถยังกดได้
-  const isAvailable = bike.status === 'available' && !isMonthlyRented && rentalId === null
+  const isAvailable = effectiveStatus === 'available' && !isMonthlyRented && rentalId === null
   // ปุ่มคืน/ต่อเวลา ต้องมีสัญญา active จริงเท่านั้น (กันปุ่มติดแต่กดแล้วไม่ไปไหน)
-  const isRented = (bike.status === 'rented' || bike.status === 'locked') && !monthlyRentalId && rentalId !== null
+  const isRented = (effectiveStatus === 'rented' || effectiveStatus === 'locked') && !monthlyRentalId && rentalId !== null
   // ล็อคค้าง: สถานะ locked แต่ไม่มีสัญญาใดๆ — ให้ปลดล็อคได้
-  const isStuckLocked = bike.status === 'locked' && !rentalId && !monthlyRentalId
+  const isStuckLocked = effectiveStatus === 'locked' && !rentalId && !monthlyRentalId
 
   // สลับรถ — ใช้ได้ทั้งเช่ารายวัน (สัญญา active) และรายเดือน
   const swapHref = isRented && rentalId
