@@ -335,13 +335,13 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
           </div>
         </div>
 
-        {/* Overtime charge */}
+        {/* Overtime charge — แค่แจ้งข้อมูล ไม่ต้องเด่นมาก เด่นแค่ยอดรวมสุดท้ายพอ */}
         {lateHours > 0 && (
           <div style={{
-            background: '#fef2f2', border: '2px solid #fecaca',
+            background: '#fffbeb', border: '1.5px solid #fde68a',
             borderRadius: '14px', padding: '14px 18px', marginBottom: '10px',
           }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#dc2626', marginBottom: '6px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#92400e', marginBottom: '6px' }}>
               ⏱ คืนรถช้า — ค่าล่วงเวลา
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: credit > 0 ? '6px' : '0' }}>
@@ -350,7 +350,7 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
                   ? `เกิน ${lateHours} ชม. → คิด ${Math.ceil(lateHours / 24)} วัน × ฿${rental.daily_rate.toLocaleString()}`
                   : `เกิน ${lateHours} ชม. × ฿${OVERTIME_HOURLY_RATE}/ชม.`}
               </span>
-              <span style={{ fontSize: '16px', fontWeight: 700, color: '#dc2626', textDecoration: credit > 0 ? 'line-through' : 'none', opacity: credit > 0 ? 0.6 : 1 }}>
+              <span style={{ fontSize: '14px', fontWeight: 600, color: '#92400e', textDecoration: credit > 0 ? 'line-through' : 'none', opacity: credit > 0 ? 0.6 : 1 }}>
                 ฿{grossOvertimeCharge.toLocaleString()}
               </span>
             </div>
@@ -360,9 +360,9 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
                   <span style={{ fontSize: '13px', color: '#16a34a' }}>💳 หักเครดิตที่จ่ายไว้แล้ว</span>
                   <span style={{ fontSize: '13px', fontWeight: 700, color: '#16a34a' }}>−฿{Math.min(credit, grossOvertimeCharge).toLocaleString()}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #fecaca', paddingTop: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #fde68a', paddingTop: '6px' }}>
                   <span style={{ fontSize: '13px', color: '#374151', fontWeight: 600 }}>คงเหลือ</span>
-                  <span style={{ fontSize: '20px', fontWeight: 900, color: finalOvertimeCharge > 0 ? '#dc2626' : '#16a34a' }}>
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: finalOvertimeCharge > 0 ? '#92400e' : '#16a34a' }}>
                     {finalOvertimeCharge > 0 ? `+฿${finalOvertimeCharge.toLocaleString()}` : '฿0 (ชำระครบ)'}
                   </span>
                 </div>
@@ -371,13 +371,13 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
             {credit === 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span />
-                <span style={{ fontSize: '20px', fontWeight: 900, color: finalOvertimeCharge > 0 ? '#dc2626' : '#16a34a' }}>
+                <span style={{ fontSize: '15px', fontWeight: 700, color: finalOvertimeCharge > 0 ? '#92400e' : '#16a34a' }}>
                   {finalOvertimeCharge > 0 ? `+฿${finalOvertimeCharge.toLocaleString()}` : '฿0'}
                 </span>
               </div>
             )}
             {/* Manual override */}
-            <div style={{ marginTop: '10px', borderTop: '1px solid #fecaca', paddingTop: '10px' }}>
+            <div style={{ marginTop: '10px', borderTop: '1px solid #fde68a', paddingTop: '10px' }}>
               <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
                 แก้ไขค่าล่วงเวลาด้วยตนเอง (ลืมกดรับคืน ฯลฯ)
               </div>
@@ -388,13 +388,13 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
                 onChange={e => setOverrideOvertime(e.target.value)}
                 style={{
                   width: '100%', padding: '8px 12px', borderRadius: '8px',
-                  border: overrideOvertime !== '' ? '2px solid #dc2626' : '1.5px solid #fca5a5',
+                  border: overrideOvertime !== '' ? '2px solid #92400e' : '1.5px solid #fde68a',
                   fontSize: '16px', fontWeight: 700, background: '#fff',
                   boxSizing: 'border-box', fontFamily: 'inherit',
                 }}
               />
               {overrideOvertime !== '' && (
-                <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px', fontWeight: 600 }}>
+                <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px', fontWeight: 600 }}>
                   ✏️ ใช้ค่าที่กรอก: ฿{finalOvertimeCharge.toLocaleString()}
                 </div>
               )}
@@ -425,15 +425,15 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
           </div>
         )}
 
-        {/* Deposit refund / extra charge */}
+        {/* Deposit refund / extra charge — กล่องนี้เด่นที่สุดในหน้า เพราะเป็นยอดที่ต้องเก็บ/คืนจริง */}
         <div style={{
-          background: netRefund >= 0 ? '#f0fdf4' : '#fff7ed',
-          border: `2px solid ${netRefund >= 0 ? '#bbf7d0' : '#fed7aa'}`,
+          background: netRefund >= 0 ? '#f0fdf4' : '#fef2f2',
+          border: `2px solid ${netRefund >= 0 ? '#bbf7d0' : '#fecaca'}`,
           borderRadius: '14px', padding: '18px 20px', marginBottom: '12px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div>
-            <div style={{ fontSize: '13px', color: netRefund >= 0 ? '#16a34a' : '#ea580c', fontWeight: 600 }}>
+            <div style={{ fontSize: '13px', color: netRefund >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
               {netRefund >= 0 ? '💰 คืนเงินมัดจำให้ลูกค้า' : '⚠️ มัดจำไม่พอ — เก็บเงินเพิ่ม'}
             </div>
             <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
@@ -446,7 +446,7 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
                 : `ล่วงเวลา+น้ำมัน+เสียหาย (หลังหักเครดิต) ฿${(finalOvertimeCharge + fuel + damage).toLocaleString()} เกินมัดจำ ฿${rental.deposit_amount.toLocaleString()}`}
             </div>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: 900, color: netRefund >= 0 ? '#15803d' : '#ea580c' }}>
+          <div style={{ fontSize: '28px', fontWeight: 900, color: netRefund >= 0 ? '#15803d' : '#dc2626' }}>
             ฿{Math.abs(netRefund).toLocaleString()}
           </div>
         </div>
