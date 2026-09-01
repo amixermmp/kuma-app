@@ -285,14 +285,24 @@ export default function RentalsClient({
 }) {
   const router = useRouter()
   const [tab, setTab] = useState<'daily' | 'monthly'>('daily')
+  const [query, setQuery] = useState('')
   const [viewPhotos, setViewPhotos] = useState<Photo[] | null>(null)
   const [confirmEnd, setConfirmEnd] = useState<{ id: string; type: 'daily' | 'monthly'; label: string } | null>(null)
   const [endingId, setEndingId] = useState<string | null>(null)
   const [ended, setEnded] = useState<Set<string>>(new Set())
   const [editTarget, setEditTarget] = useState<{ type: 'daily'; r: DailyRental } | { type: 'monthly'; r: MonthlyRental } | null>(null)
 
-  const dailyList = dailyRentals.filter(r => !ended.has(r.id))
-  const monthlyList = monthlyRentals.filter(r => !ended.has(r.id))
+  const matches = (r: DailyRental | MonthlyRental) => {
+    if (!query.trim()) return true
+    const q = query.trim().toLowerCase()
+    const bike = r.bikes ?? {}
+    const customer = r.customers ?? {}
+    return [bike.license_plate, customer.name, customer.phone]
+      .some(v => typeof v === 'string' && v.toLowerCase().includes(q))
+  }
+
+  const dailyList = dailyRentals.filter(r => !ended.has(r.id) && matches(r))
+  const monthlyList = monthlyRentals.filter(r => !ended.has(r.id) && matches(r))
 
   async function handleEnd() {
     if (!confirmEnd) return
@@ -364,12 +374,27 @@ export default function RentalsClient({
         ))}
       </div>
 
+      {/* Search */}
+      <div style={{ padding: '12px 12px 0' }}>
+        <input
+          type="text"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="🔍 ค้นหาทะเบียน / ชื่อ / เบอร์โทร..."
+          style={{
+            width: '100%', boxSizing: 'border-box', padding: '12px 14px',
+            borderRadius: '12px', border: '1.5px solid #e5e7eb', fontSize: '14px',
+            outline: 'none', background: '#fff', fontFamily: 'inherit',
+          }}
+        />
+      </div>
+
       {/* List */}
       <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '80px' }}>
 
         {tab === 'daily' && (
           dailyList.length === 0
-            ? <EmptyState label="ไม่มีการเช่ารายวันที่ active อยู่" />
+            ? <EmptyState label={query.trim() ? `ไม่พบ "${query}"` : 'ไม่มีการเช่ารายวันที่ active อยู่'} />
             : dailyList.map(r => {
               const bike = r.bikes ?? {}
               const customer = r.customers ?? {}
@@ -485,7 +510,7 @@ export default function RentalsClient({
 
         {tab === 'monthly' && (
           monthlyList.length === 0
-            ? <EmptyState label="ไม่มีการเช่ารายเดือนที่ active อยู่" />
+            ? <EmptyState label={query.trim() ? `ไม่พบ "${query}"` : 'ไม่มีการเช่ารายเดือนที่ active อยู่'} />
             : monthlyList.map(r => {
               const bike = r.bikes ?? {}
               const customer = r.customers ?? {}
