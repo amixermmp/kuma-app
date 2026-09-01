@@ -156,6 +156,7 @@ export async function POST(request: NextRequest) {
       monthly_rate: monthlyRate,
       deposit_amount: depositAmount || 0,
       status: 'active',
+      send_odometer: parseInt(odometer) || 0,
       send_photos: sendPhotos,
       customer_signature: signature ?? null,
       ...(conflict && overrideBookingConflict ? { fast_lane: true } : {}),

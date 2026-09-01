@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       status: 'ended',
       end_date: now.split('T')[0],
       return_photos: returnPhotos ?? [],
+      return_odometer: returnOdometer ?? null,
       notes: returnNote ?? null,
     })
     .eq('id', monthlyRentalId)

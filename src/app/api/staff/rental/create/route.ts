@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
       paid_amount: totalAmount,
       status: 'active',
       notes: `น้ำมัน ${fuelFull ? 'เต็ม' : 'ไม่เต็ม'} • ไมล์ ${odometer}`,
+      send_odometer: parseInt(odometer) || 0,
       send_fuel_full: fuelFull ?? true,
       send_photos: photos ?? {},
       customer_signature: signature ?? null,

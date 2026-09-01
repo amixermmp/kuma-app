@@ -353,6 +353,13 @@ export default function RentalsClient({
             รายวัน {dailyList.length} | รายเดือน {monthlyList.length}
           </div>
         </div>
+        <Link href="/owner/rentals/history" style={{
+          color: '#fff', fontSize: '13px', fontWeight: 600, textDecoration: 'none',
+          background: 'rgba(255,255,255,.1)', padding: '8px 12px', borderRadius: '10px',
+          whiteSpace: 'nowrap',
+        }}>
+          📜 ประวัติ
+        </Link>
       </div>
 
       {/* Tabs */}
