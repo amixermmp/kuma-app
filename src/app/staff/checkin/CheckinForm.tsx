@@ -8,6 +8,23 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' })
 }
 
+// fetch เดิมไม่มี timeout — ถ้าเน็ตสะดุดกลางทาง (มือถือ/LINE in-app browser) จะค้างรอตลอดไป
+// ไม่มี error ให้กด retry เลย ต้องปิดแอปออกใหม่สถานเดียว
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('การเชื่อมต่อช้าเกินไป กรุณาลองใหม่')
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export default function CheckinForm({ staffName, branchName, redirectTo, alreadyCheckedInAt }: {
   staffName: string
   branchName: string
@@ -17,11 +34,30 @@ export default function CheckinForm({ staffName, branchName, redirectTo, already
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const submittingRef = useRef(false)
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [file, setFile] = useState<Blob | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [continuing, setContinuing] = useState(false)
   const [error, setError] = useState('')
   const [checkedInAt, setCheckedInAt] = useState<string | null>(alreadyCheckedInAt)
+
+  // เคลียร์ fallback timer ตอน unmount — กันยิง reload ซ้ำถ้า navigate สำเร็จไปแล้วจริงๆ
+  useEffect(() => {
+    return () => {
+      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current)
+    }
+  }, [])
+
+  // router.push เดิมไม่มีทางออกถ้า client-side navigate ค้าง (เน็ตสะดุด/LINE in-app browser
+  // บางรุ่นเพี้ยน) — ถ้าไม่ขยับภายใน 3 วิ ให้ fallback เป็น full reload แทน (การันตีว่าหลุดแน่)
+  const navigateWithFallback = (to: string) => {
+    fallbackTimerRef.current = setTimeout(() => {
+      window.location.href = to
+    }, 3000)
+    router.push(to)
+    router.refresh()
+  }
 
   // เช็คอินไปแล้ววันนี้ (เช่น เข้าหน้านี้ซ้ำ) — แค่รีเฟรชคุกกี้ ไม่ต้องถ่ายรูปใหม่
   useEffect(() => {
@@ -56,25 +92,26 @@ export default function CheckinForm({ staffName, branchName, redirectTo, already
       const fd = new FormData()
       fd.append('file', new File([file], 'checkin.jpg', { type: 'image/jpeg' }))
       fd.append('folder', 'checkins')
-      const uploadRes = await fetch('/api/staff/upload', { method: 'POST', body: fd })
+      const uploadRes = await fetchWithTimeout('/api/staff/upload', { method: 'POST', body: fd }, 20000)
       const uploadData = await uploadRes.json()
       if (!uploadRes.ok) throw new Error(uploadData.error ?? 'อัพโหลดรูปไม่สำเร็จ')
 
-      const res = await fetch('/api/staff/checkin/create', {
+      const res = await fetchWithTimeout('/api/staff/checkin/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photoUrl: uploadData.url, photoPath: uploadData.path }),
-      })
+      }, 15000)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'บันทึกไม่สำเร็จ')
 
       if (data.alreadyCheckedIn) {
         setCheckedInAt(data.checkedInAt)
+        setSubmitting(false)
+        submittingRef.current = false
         return
       }
 
-      router.push(redirectTo)
-      router.refresh()
+      navigateWithFallback(redirectTo)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่')
       setSubmitting(false)
@@ -96,11 +133,14 @@ export default function CheckinForm({ staffName, branchName, redirectTo, already
             <div style={{ fontSize: '48px', marginBottom: '14px' }}>✅</div>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: '16px', marginBottom: '4px' }}>เช็คอินไปแล้ววันนี้</div>
             <div style={{ color: 'rgba(255,255,255,.6)', fontSize: '13px', marginBottom: '24px' }}>เมื่อเวลา {fmtTime(checkedInAt)}</div>
-            <button onClick={() => { router.push(redirectTo); router.refresh() }} style={{
-              width: '100%', padding: '15px', borderRadius: '14px', border: 'none',
-              background: '#e11d48', color: '#fff', fontSize: '15px', fontWeight: 800,
-              fontFamily: 'inherit', cursor: 'pointer',
-            }}>ไปต่อ →</button>
+            <button
+              onClick={() => { setContinuing(true); navigateWithFallback(redirectTo) }}
+              disabled={continuing}
+              style={{
+                width: '100%', padding: '15px', borderRadius: '14px', border: 'none',
+                background: '#e11d48', color: '#fff', fontSize: '15px', fontWeight: 800,
+                fontFamily: 'inherit', cursor: continuing ? 'default' : 'pointer', opacity: continuing ? 0.6 : 1,
+              }}>{continuing ? 'กำลังโหลด...' : 'ไปต่อ →'}</button>
           </div>
         ) : !preview ? (
           <label style={{
