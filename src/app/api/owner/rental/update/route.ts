@@ -93,13 +93,15 @@ export async function POST(request: Request) {
       if (upd.total_amount != null) paySync.amount = Math.max(0, Number(upd.total_amount) - extendSum)
       if (upd.start_datetime != null) paySync.paid_at = upd.start_datetime
       if (initial) {
-        await admin.from('rental_payments').update(paySync).eq('id', initial.id)
+        const { error: syncErr } = await admin.from('rental_payments').update(paySync).eq('id', initial.id)
+        if (syncErr) console.error('[owner/rental/update] payment sync failed:', id, JSON.stringify(syncErr))
       } else if (upd.total_amount != null) {
-        await admin.from('rental_payments').insert({
+        const { error: insErr } = await admin.from('rental_payments').insert({
           rental_id: id, kind: 'rental',
           amount: Math.max(0, Number(upd.total_amount) - extendSum),
           paid_at: (upd.start_datetime as string) ?? rental.start_datetime,
         })
+        if (insErr) console.error('[owner/rental/update] payment insert failed:', id, JSON.stringify(insErr))
       }
     }
 

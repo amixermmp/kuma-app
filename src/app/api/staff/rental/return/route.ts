@@ -92,25 +92,27 @@ export async function POST(request: NextRequest) {
 
   // ลงสมุดรายรับ — ค่าล่วงเวลาเก็บตอนคืนรถ (หักจากมัดจำที่คืนลูกค้า)
   if (Number(overtimeCharge) > 0) {
-    await supabase.from('rental_payments').insert({
+    const { error: overtimeErr } = await supabase.from('rental_payments').insert({
       rental_id: rentalId,
       branch_id: existing?.branch_id ?? null,
       staff_id: staffId,
       kind: 'overtime',
       amount: Number(overtimeCharge),
     })
+    if (overtimeErr) console.error('[rental/return] overtime payment insert failed:', rentalId, JSON.stringify(overtimeErr))
   }
 
   // คืนเงินค่าเช่าส่วนที่ไม่ได้ใช้ (คืนรถก่อนกำหนด) — ลงเป็นรายรับติดลบ ตามวันที่คืนจริง
   // เพื่อให้ยอดรายได้ (sum ของ rental_payments) หักลบถูกต้องตามเงินสดที่จ่ายคืนจริง
   if (Number(earlyReturnRefund) > 0) {
-    await supabase.from('rental_payments').insert({
+    const { error: refundErr } = await supabase.from('rental_payments').insert({
       rental_id: rentalId,
       branch_id: existing?.branch_id ?? null,
       staff_id: staffId,
       kind: 'early_return_refund',
       amount: -Number(earlyReturnRefund),
     })
+    if (refundErr) console.error('[rental/return] early-return refund insert failed:', rentalId, JSON.stringify(refundErr))
   }
 
   // Set bike back to available — เว้นแต่รถมีสัญญาอื่นเปิดค้างอยู่แล้ว (เช่น ปิดสัญญานี้ช้า

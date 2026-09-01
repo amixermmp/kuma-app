@@ -144,10 +144,14 @@ export async function POST(request: NextRequest) {
   // คันเก่า → available เสมอ เว้นแต่มีสัญญาอื่นเปิดค้างอยู่แล้ว (edge case: มีสัญญาอื่นผูกคันนี้ควบคู่)
   // สลับรถไม่ใช่การแจ้งซ่อม — ถ้าคันเก่ามีปัญหาจริง พนักงานต้องกดแจ้งซ่อมแยกต่างหากที่หน้างาน
   const oldBikeNewStatus = (await hasOpenContract(supabase, oldBikeId)) ? null : 'available'
-  await Promise.all([
+  const bikeUpdateResults = await Promise.all([
     ...(oldBikeNewStatus ? [supabase.from('bikes').update({ status: oldBikeNewStatus }).eq('id', oldBikeId)] : []),
     supabase.from('bikes').update({ status: 'rented' }).eq('id', newBikeId),
   ])
+  // เคยเงียบไม่เช็ค error ตรงนี้ — ถ้า update ล้มเหลวรถจะค้างสถานะผิดแบบไม่มีร่องรอย
+  for (const r of bikeUpdateResults) {
+    if (r.error) console.error('[rental/swap] bike update failed:', JSON.stringify(r.error))
+  }
 
   // ── 5. Reassign bookings (queue) ─────────────────────────────────────────────
   const bookingIds: string[] = Array.isArray(reassignBookingIds) ? reassignBookingIds : []

@@ -171,12 +171,14 @@ export async function POST(request: NextRequest) {
   await queueMarketingPhoto(supabase, BRANCH_ID, rental.id, 'monthly', photos?.with_bike)
 
   // Update bike status + odometer + fuel
-  await supabase.from('bikes').update({
+  const { error: bikeUpdateErr } = await supabase.from('bikes').update({
     status: 'rented',
     odometer: parseInt(odometer) || 0,
     fuel_level: fuelFull ? 8 : 0,
     updated_at: new Date().toISOString(),
   }).eq('id', bikeId)
+  // เคยเงียบไม่เช็ค error ตรงนี้ — ถ้า update ล้มเหลวรถจะค้างสถานะผิดแบบไม่มีร่องรอย
+  if (bikeUpdateErr) console.error('[monthly/create] bike update failed:', bikeId, JSON.stringify(bikeUpdateErr))
 
   // กันรูทีนที่ไม่เคยทำแจ้งเตือนผิด เมื่อเลขไมล์จริงเพิ่งถูกบันทึกครั้งแรก
   await recalcNeverDoneRoutines(supabase, bikeId, parseInt(odometer) || 0)
@@ -192,7 +194,7 @@ export async function POST(request: NextRequest) {
     firstDue.setDate(Math.min(paymentDay, daysInMonth))
     const firstDueDateStr = firstDue.toISOString().split('T')[0]
 
-    const { data: firstPayment } = await supabase.from('monthly_payments').insert({
+    const { data: firstPayment, error: firstPaymentErr } = await supabase.from('monthly_payments').insert({
       monthly_rental_id: rental.id,
       due_date: firstDueDateStr,
       paid_date: startDate,
@@ -201,6 +203,7 @@ export async function POST(request: NextRequest) {
       status: 'paid',
       staff_id: staffId,
     }).select('id').single()
+    if (firstPaymentErr) console.error('[monthly/create] first payment insert failed:', JSON.stringify(firstPaymentErr))
     firstPaymentId = firstPayment?.id ?? null
   }
 

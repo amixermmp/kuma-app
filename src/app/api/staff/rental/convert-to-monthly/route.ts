@@ -106,7 +106,8 @@ export async function POST(request: NextRequest) {
   }
 
   // ปิดสัญญารายวันเดิม — ไม่แตะยอดที่เก็บไปแล้ว (rental_payments เดิมยังเป็นรายได้ตามวันที่เก็บจริง)
-  await supabase.from('rentals').update({ status: 'converted' }).eq('id', rentalId)
+  const { error: closeErr } = await supabase.from('rentals').update({ status: 'converted' }).eq('id', rentalId)
+  if (closeErr) console.error('[convert-to-monthly] close old rental failed:', rentalId, JSON.stringify(closeErr))
 
   // บันทึกงวดแรกของรายเดือน (ลูกค้าโอนมาแล้วตอนขอแปลง)
   const start = new Date(todayStr)
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
   firstDue.setDate(Math.min(paymentDay, daysInMonth))
   const firstDueDateStr = firstDue.toISOString().split('T')[0]
 
-  await supabase.from('monthly_payments').insert({
+  const { error: firstPaymentErr } = await supabase.from('monthly_payments').insert({
     monthly_rental_id: monthlyRental.id,
     due_date: firstDueDateStr,
     paid_date: todayStr,
@@ -125,6 +126,7 @@ export async function POST(request: NextRequest) {
     payment_method: paymentMethod,
     status: 'paid',
   })
+  if (firstPaymentErr) console.error('[convert-to-monthly] first payment insert failed:', JSON.stringify(firstPaymentErr))
 
   const { data: staffRow } = await supabase.from('staff').select('name').eq('id', staffId).single()
   const staffName = staffRow?.name ?? staffId

@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
 
   // Update bike odometer if provided
   if (doneKm && bikeId) {
-    await supabase.from('bikes').update({ odometer: doneKm }).eq('id', bikeId)
+    const { error: odoErr } = await supabase.from('bikes').update({ odometer: doneKm }).eq('id', bikeId)
+    if (odoErr) console.error('[routine/complete] odometer update failed:', bikeId, JSON.stringify(odoErr))
     // รูทีนอื่นของรถคันนี้ที่ไม่เคยทำ อาจโดนเลขไมล์ใหม่ทำให้แจ้งเตือนผิด
     await recalcNeverDoneRoutines(supabase, bikeId, Number(doneKm))
   }

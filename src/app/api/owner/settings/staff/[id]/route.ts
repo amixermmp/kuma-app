@@ -45,12 +45,15 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const admin = createAdminClient()
 
   // ตัดการอ้างอิงในทุกตารางที่โยงกับพนักงานคนนี้ (ข้อมูลรายการยังอยู่ครบ)
-  await Promise.all([
+  const unlinkResults = await Promise.all([
     admin.from('rentals').update({ staff_id: null }).eq('staff_id', id),
     admin.from('monthly_rentals').update({ staff_id: null }).eq('staff_id', id),
     admin.from('repairs').update({ reported_by: null }).eq('reported_by', id),
     admin.from('expenses').update({ recorded_by: null }).eq('recorded_by', id),
   ])
+  for (const r of unlinkResults) {
+    if (r.error) console.error('[owner/settings/staff] unlink reference failed:', id, JSON.stringify(r.error))
+  }
 
   const { data: staffRow } = await admin.from('staff').select('name').eq('id', id).single()
   const { error } = await admin.from('staff').delete().eq('id', id)

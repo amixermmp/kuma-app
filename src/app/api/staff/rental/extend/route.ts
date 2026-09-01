@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
   // ลงสมุดรายรับ — เงินต่อเวลานับ ณ วันที่เก็บจริง (ไม่ใช่วันเริ่มสัญญา)
   let extendPaymentId: string | null = null
   if (payment > 0) {
-    const { data: extendPayment } = await supabase.from('rental_payments').insert({
+    const { data: extendPayment, error: extendPaymentErr } = await supabase.from('rental_payments').insert({
       rental_id: rentalId,
       branch_id: current.branch_id,
       staff_id: staffId,
@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
       photo_url: photoUrl ?? null,
       slip_customer_name: slipCustomerName ?? null,
     }).select('id').single()
+    if (extendPaymentErr) console.error('[rental/extend] payment insert failed:', rentalId, JSON.stringify(extendPaymentErr))
     extendPaymentId = extendPayment?.id ?? null
   }
 

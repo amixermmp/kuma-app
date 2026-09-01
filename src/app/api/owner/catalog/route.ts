@@ -81,15 +81,23 @@ export async function DELETE(request: NextRequest) {
     // กันลบยี่ห้อที่ยังมีรถใช้อยู่
     const { data: inUse } = await admin.from('bikes').select('id').eq('brand', brand).limit(1).maybeSingle()
     if (inUse) return NextResponse.json({ error: 'ยังมีรถใช้ยี่ห้อนี้อยู่ ลบไม่ได้' }, { status: 400 })
-    await admin.from('bike_models').delete().eq('brand', brand)
-    await admin.from('bike_brands').delete().eq('name', brand)
+    const { error: modelsErr } = await admin.from('bike_models').delete().eq('brand', brand)
+    const { error: brandErr } = await admin.from('bike_brands').delete().eq('name', brand)
+    if (modelsErr || brandErr) {
+      console.error('[owner/catalog] brand delete failed:', brand, JSON.stringify(modelsErr ?? brandErr))
+      return NextResponse.json({ error: 'ลบยี่ห้อไม่สำเร็จ' }, { status: 500 })
+    }
     return NextResponse.json({ success: true })
   }
 
   if (type === 'model') {
     const { data: inUse } = await admin.from('bikes').select('id').eq('brand', brand).eq('model', name).limit(1).maybeSingle()
     if (inUse) return NextResponse.json({ error: 'ยังมีรถใช้รุ่นนี้อยู่ ลบไม่ได้' }, { status: 400 })
-    await admin.from('bike_models').delete().eq('brand', brand).eq('name', name)
+    const { error: modelErr } = await admin.from('bike_models').delete().eq('brand', brand).eq('name', name)
+    if (modelErr) {
+      console.error('[owner/catalog] model delete failed:', brand, name, JSON.stringify(modelErr))
+      return NextResponse.json({ error: 'ลบรุ่นไม่สำเร็จ' }, { status: 500 })
+    }
     return NextResponse.json({ success: true })
   }
 

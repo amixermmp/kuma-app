@@ -86,13 +86,14 @@ export async function POST(request: NextRequest) {
   }
 
   // ลงสมุดรายรับ — ค่าเช่าเก็บตอนส่งรถ
-  await admin.from('rental_payments').insert({
+  const { error: paymentErr } = await admin.from('rental_payments').insert({
     rental_id: rental.id,
     branch_id: BRANCH_ID,
     kind: 'rental',
     amount: totalAmount ?? 0,
     paid_at: new Date(startDatetime).toISOString(),
   })
+  if (paymentErr) console.error('[owner/rental/create] payment insert failed:', rental.id, JSON.stringify(paymentErr))
 
   // Update bike status
   const { error: bikeErr } = await admin

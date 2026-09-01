@@ -32,7 +32,8 @@ export async function POST(request: NextRequest) {
 
   // เว้นแต่รถมีสัญญาเปิดค้างอยู่แล้ว (edge case ป้องกันสถานะ available ทับสัญญาที่เปิดอยู่จริง)
   if (lockForSwap || !(await hasOpenContract(supabase, bikeId))) {
-    await supabase.from('bikes').update({ status: lockForSwap ? 'locked' : 'available' }).eq('id', bikeId)
+    const { error: statusErr } = await supabase.from('bikes').update({ status: lockForSwap ? 'locked' : 'available' }).eq('id', bikeId)
+    if (statusErr) console.error('[repair/complete] bike status update failed:', bikeId, JSON.stringify(statusErr))
   }
 
   const { data: bike } = await supabase.from('bikes').select('license_plate').eq('id', bikeId).single()

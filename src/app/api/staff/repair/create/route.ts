@@ -54,7 +54,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'บันทึกไม่สำเร็จ' }, { status: 500 })
   }
 
-  await supabase.from('bikes').update({ status: 'repair' }).eq('id', bikeId)
+  const { error: statusErr } = await supabase.from('bikes').update({ status: 'repair' }).eq('id', bikeId)
+  if (statusErr) console.error('[repair/create] bike status update failed:', bikeId, JSON.stringify(statusErr))
 
   const { data: bike } = await supabase.from('bikes').select('license_plate').eq('id', bikeId).single()
   await logStaffAction(staffId, 'repair_created',
