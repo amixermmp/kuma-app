@@ -245,7 +245,8 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const [mMonthlyRate,  setMMonthlyRate]  = useState(draft?.mMonthlyRate ?? String(bike.monthly_rate ?? ''))
 
   // ── Bike condition ────────────────────────────────────────────────────────
-  const [odometer,  setOdometer]  = useState(draft?.odometer ?? String(bike.odometer ?? ''))
+  // เลขไมล์ตอนส่งรถ — ไม่ให้พนักงานกรอกเองแล้ว ใช้เลขไมล์ล่าสุดของรถที่ระบบรู้อยู่แล้วตรงๆ (จากตอนคืนครั้งก่อน)
+  const [odometer] = useState(draft?.odometer ?? String(bike.odometer ?? ''))
   const [fuelFull, setFuelFull] = useState(draft?.fuelFull ?? true)
 
   // ── Payment ───────────────────────────────────────────────────────────────
@@ -1364,11 +1365,6 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             <label className="field-label">🔍 รูปตำหนิรถก่อนเช่า *</label>
             <PhotoUpload icon="📷" hint="ถ่ายรูปรอบคันก่อนส่ง" folder={folder}
               onUpload={setPhoto('damage')} onRemove={clearPhoto('damage')} />
-          </div>
-          <div className="field-row">
-            <label className="field-label">เลขไมล์ตอนส่งรถ</label>
-            <input className="field-input" type="number" placeholder="14230"
-              value={odometer} onChange={e => setOdometer(e.target.value)} />
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">ระดับน้ำมันตอนส่ง</label>
