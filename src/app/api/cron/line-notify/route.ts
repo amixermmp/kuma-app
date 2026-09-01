@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       .select('branch_id, line_token, promptpay_id, line_notify_customer, contact_phone'),
     supabase
       .from('shop_settings')
-      .select('line_token, line_target_id, line_notify_docs, line_notify_routine, doc_alert_days')
+      .select('line_token, line_target_id, line_notify_docs, line_notify_routine, line_notify_broken, doc_alert_days')
       .limit(1)
       .maybeSingle(),
     supabase.from('branches').select('id, name'),
@@ -383,7 +383,7 @@ export async function GET(request: NextRequest) {
 
   // ═══ 6.5) คิวมีปัญหาใหม่ → กลุ่ม owner (เช็คทุกรอบ ไม่รอ 9 โมง — ต้องรู้ตัวทันทีโดยเฉพาะเคส Fast lane) ═══
   // ส่งซ้ำได้วันละครั้งต่อคิว (claim key มี bkkToday) ถ้ายังไม่ถูกจัดการ จะได้ไม่หลุดสายตาไปหลายวัน
-  if (shop?.line_token && shop.line_target_id) {
+  if (shop?.line_token && shop.line_target_id && shop.line_notify_broken) {
     const broken = await findBrokenBookings(supabase)
     if (broken.length > 0) {
       const branchIds = sortBranchIds(broken.map(bb => bb.branch_id))
