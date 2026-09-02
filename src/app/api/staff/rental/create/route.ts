@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const {
     bikeId, customer, startDatetime, endDatetime,
-    dailyRate, totalDays, totalAmount, depositAmount,
+    dailyRate, totalDays, totalAmount, depositAmount, depositMethod,
     discount, paymentMethod, fuelFull, odometer, photos, signature, lockBike,
     excludeBookingId, overrideBookingConflict,
     slipCustomerName, slipNameMismatchConfirmed,
@@ -37,10 +37,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'บัตรประชาชนไทย — จ่ายเงินสดไม่ได้ ต้องโอนเงินเท่านั้น' }, { status: 400 })
   }
 
-  const REQUIRED_PHOTOS = ['id_card', 'selfie', 'with_bike', 'damage', 'payment', 'accommodation_proof']
+  // หลักฐานที่พักไม่บังคับอีกต่อไป — ถ้าลูกค้าไม่มีจะเก็บมัดจำ 500 แทน แต่ถ้าแนบมาต้องมีรูปจริง
+  const REQUIRED_PHOTOS = ['id_card', 'selfie', 'with_bike', 'damage', 'payment']
   const missingPhotos = REQUIRED_PHOTOS.filter(k => !photos?.[k])
   if (missingPhotos.length > 0) {
-    return NextResponse.json({ error: 'กรุณาอัปโหลดรูปภาพให้ครบ (บัตร, รูปถ่าย, รถ, ตำหนิ, ชำระเงิน, ที่พัก)' }, { status: 400 })
+    return NextResponse.json({ error: 'กรุณาอัปโหลดรูปภาพให้ครบ (บัตร, รูปถ่าย, รถ, ตำหนิ, ชำระเงิน)' }, { status: 400 })
   }
   // มีส่วนลด (ราคานักศึกษา) ต้องแนบรูปบัตรนิสิต/นักศึกษาด้วยเสมอ — เช็คซ้ำฝั่งเซิร์ฟเวอร์ ไม่พึ่งแค่หน้าเว็บ
   if ((discount ?? 0) > 0 && !photos?.student_id_card) {
@@ -140,6 +141,7 @@ export async function POST(request: NextRequest) {
       total_days: totalDays,
       total_amount: totalAmount,
       deposit_amount: depositAmount || 0,
+      deposit_method: depositMethod === 'id_card' ? 'id_card' : 'cash',
       discount: discount || 0,
       payment_method: paymentMethod,
       paid_amount: totalAmount,

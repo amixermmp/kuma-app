@@ -18,7 +18,7 @@ export default async function MonthlyEndPage({ params }: { params: Promise<{ id:
     supabase
       .from('monthly_rentals')
       .select(`
-        id, start_date, payment_day, monthly_rate, deposit_amount, status,
+        id, start_date, payment_day, monthly_rate, deposit_amount, deposit_method, status,
         bikes(id, license_plate, brand, model, branch_id, odometer, daily_rate, monthly_rate),
         customers(id, name, phone)
       `)

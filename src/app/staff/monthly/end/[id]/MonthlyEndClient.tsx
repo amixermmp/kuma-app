@@ -14,6 +14,7 @@ type MonthlyRental = {
   payment_day: number
   monthly_rate: number
   deposit_amount: number
+  deposit_method?: string | null
   bikes: Bike
   customers: Customer
 }
@@ -114,6 +115,17 @@ export default function MonthlyEndClient({ rental, totalCollected, monthsRented,
       </div>
 
       <div className="section-pad">
+
+        {/* เตือนคืนบัตรประชาชน — ลูกค้าวางบัตรไว้แทนมัดจำตอนส่งรถ ต้องคืนบัตรจริงตอนนี้ */}
+        {rental.deposit_method === 'id_card' && (
+          <div style={{
+            background: '#eff6ff', border: '2px solid #93c5fd', borderRadius: '12px',
+            padding: '14px 16px', marginBottom: '12px',
+          }}>
+            <div style={{ fontSize: '15px', fontWeight: 800, color: '#1d4ed8' }}>🪪 อย่าลืมคืนบัตรประชาชนให้ลูกค้า!</div>
+            <div style={{ fontSize: '13px', color: '#1e40af', marginTop: '2px' }}>ลูกค้าวางบัตรไว้แทนมัดจำตอนส่งรถ ไม่มีเงินมัดจำต้องคืน</div>
+          </div>
+        )}
 
         {/* Contract summary */}
         <div className="card" style={{ borderTop: '3px solid #dc2626' }}>

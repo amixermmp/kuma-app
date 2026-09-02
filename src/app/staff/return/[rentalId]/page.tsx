@@ -16,7 +16,7 @@ export default async function ReturnCarPage({ params }: { params: { rentalId: st
     .from('rentals')
     .select(`
       id, start_datetime, expected_end_datetime,
-      total_amount, deposit_amount, daily_rate, total_days, outstanding_credit, status, notes, discount,
+      total_amount, deposit_amount, deposit_method, daily_rate, total_days, outstanding_credit, status, notes, discount,
       return_type, return_address, send_fuel_full,
       bikes(id, license_plate, brand, model, branch_id, odometer, daily_rate, monthly_rate),
       customers(id, name, phone)

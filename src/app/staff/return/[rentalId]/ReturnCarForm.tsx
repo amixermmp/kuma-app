@@ -14,6 +14,7 @@ type Rental = {
   expected_end_datetime: string
   total_amount: number
   deposit_amount: number
+  deposit_method?: string | null
   daily_rate: number
   total_days: number
   outstanding_credit: number
@@ -178,6 +179,17 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
       <TabBar />
 
       <div className="section-pad">
+
+        {/* เตือนคืนบัตรประชาชน — ลูกค้าวางบัตรไว้แทนมัดจำตอนส่งรถ ต้องคืนบัตรจริงตอนนี้ */}
+        {rental.deposit_method === 'id_card' && (
+          <div style={{
+            background: '#eff6ff', border: '2px solid #93c5fd', borderRadius: '12px',
+            padding: '14px 16px', marginBottom: '12px',
+          }}>
+            <div style={{ fontSize: '15px', fontWeight: 800, color: '#1d4ed8' }}>🪪 อย่าลืมคืนบัตรประชาชนให้ลูกค้า!</div>
+            <div style={{ fontSize: '13px', color: '#1e40af', marginTop: '2px' }}>ลูกค้าวางบัตรไว้แทนมัดจำตอนส่งรถ ไม่มีเงินมัดจำต้องคืน</div>
+          </div>
+        )}
 
         {/* จุดคืนรถ — เด่นไว้ก่อนเลย เผื่อกะอื่นรับคืนต้องรู้ว่าไปรับที่ไหน */}
         {rental.return_type === 'offsite' && (

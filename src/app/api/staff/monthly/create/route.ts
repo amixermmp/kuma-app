@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     paymentDay,
     monthlyRate,
     depositAmount,
+    depositMethod,
     odometer,
     fuelFull,
     paymentMethod,
@@ -45,10 +46,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'ไม่พบสาขาของ Staff' }, { status: 400 })
   }
 
-  const REQUIRED_PHOTOS = ['id_card', 'selfie', 'with_bike', 'damage', 'payment', 'accommodation_proof']
+  // หลักฐานที่พักไม่บังคับอีกต่อไป — ถ้าลูกค้าไม่มีจะเก็บมัดจำแทน แต่ถ้าแนบมาต้องมีรูปจริง
+  const REQUIRED_PHOTOS = ['id_card', 'selfie', 'with_bike', 'damage', 'payment']
   const missingPhotos = REQUIRED_PHOTOS.filter(k => !photos?.[k])
   if (missingPhotos.length > 0) {
-    return NextResponse.json({ error: 'กรุณาอัปโหลดรูปภาพให้ครบ (บัตร, รูปถ่าย, รถ, ตำหนิ, ชำระเงิน, ที่พัก)' }, { status: 400 })
+    return NextResponse.json({ error: 'กรุณาอัปโหลดรูปภาพให้ครบ (บัตร, รูปถ่าย, รถ, ตำหนิ, ชำระเงิน)' }, { status: 400 })
   }
 
   const supabase = createAdminClient()
@@ -155,6 +157,7 @@ export async function POST(request: NextRequest) {
       payment_day: paymentDay,
       monthly_rate: monthlyRate,
       deposit_amount: depositAmount || 0,
+      deposit_method: depositMethod === 'id_card' ? 'id_card' : 'cash',
       status: 'active',
       send_odometer: parseInt(odometer) || 0,
       send_photos: sendPhotos,

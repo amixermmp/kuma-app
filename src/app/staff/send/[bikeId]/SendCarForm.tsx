@@ -23,6 +23,30 @@ function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
   )
 }
 
+// ── Forced yes/no choice (บังคับกดเลือกก่อนเสมอ กันช่องว่างเฉยๆ ที่ทำให้พนักงานงงว่าต้องทำอะไร) ──
+function YesNoToggle({ value, onYes, onNo, yesLabel, noLabel }: {
+  value: boolean | null; onYes: () => void; onNo: () => void; yesLabel: string; noLabel: string
+}) {
+  return (
+    <div style={{ display: 'flex', gap: '8px' }}>
+      <button type="button" onClick={onYes} style={{
+        flex: 1, padding: '10px', borderRadius: '10px',
+        border: `2px solid ${value === true ? '#dc2626' : '#e5e7eb'}`,
+        background: value === true ? '#fef2f2' : '#fff',
+        color: value === true ? '#dc2626' : '#6b7280',
+        fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+      }}>{yesLabel}</button>
+      <button type="button" onClick={onNo} style={{
+        flex: 1, padding: '10px', borderRadius: '10px',
+        border: `2px solid ${value === false ? '#374151' : '#e5e7eb'}`,
+        background: value === false ? '#f1f5f9' : '#fff',
+        color: value === false ? '#111827' : '#6b7280',
+        fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+      }}>{noLabel}</button>
+    </div>
+  )
+}
+
 // ── Talking-point script box ─────────────────────────────────────────────────
 function ScriptBox({ children }: { children: React.ReactNode }) {
   return (
@@ -178,6 +202,7 @@ type DraftData = {
   odometer: string; fuelFull: boolean; paymentMethod: 'cash' | 'transfer'
   depositAmount: string; lockBike: boolean | null; signature: string | null
   photos: PhotoState
+  isStudent: boolean | null; hasAccommodationProof: boolean | null; depositMethod: 'cash' | 'id_card'
 }
 function getDraft(key: string): DraftData | null {
   if (typeof window === 'undefined') return null
@@ -271,6 +296,11 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   // ── Promo ─────────────────────────────────────────────────────────────────
   const [studentPromo, setStudentPromo] = useState(draft?.studentPromo ?? false)
 
+  // ── Deposit decision (บังคับกดเลือกก่อนเสมอ กันพนักงานงงว่าต้องแนบรูปมั่วแทน) ──
+  const [isStudent, setIsStudent] = useState<boolean | null>(draft?.isStudent ?? null)
+  const [hasAccommodationProof, setHasAccommodationProof] = useState<boolean | null>(draft?.hasAccommodationProof ?? null)
+  const [depositMethod, setDepositMethod] = useState<'cash' | 'id_card'>(draft?.depositMethod ?? 'cash')
+
   // ── Long-rental contract type ─────────────────────────────────────────────
   const [contractType,  setContractType]  = useState<'onetime' | 'monthly'>(draft?.contractType ?? 'monthly')
   const [mMonthlyRate,  setMMonthlyRate]  = useState(draft?.mMonthlyRate ?? String(bike.monthly_rate ?? ''))
@@ -302,12 +332,12 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const latestDraft = useRef<DraftData>({
     customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
     studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
-    depositAmount, lockBike, signature, photos,
+    depositAmount, lockBike, signature, photos, isStudent, hasAccommodationProof, depositMethod,
   })
   latestDraft.current = {
     customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
     studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
-    depositAmount, lockBike, signature, photos,
+    depositAmount, lockBike, signature, photos, isStudent, hasAccommodationProof, depositMethod,
   }
 
   useEffect(() => {
@@ -315,7 +345,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     saveDraft(DRAFT_KEY, latestDraft.current)
   }, [DRAFT_KEY, customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
       studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
-      depositAmount, lockBike, signature, photos, prefillBooking])
+      depositAmount, lockBike, signature, photos, prefillBooking, isStudent, hasAccommodationProof, depositMethod])
 
   // Save signature immediately (don't wait for effect — avoids race on tab switch)
   const handleSaveSignature = useCallback((sig: string) => {
@@ -494,6 +524,27 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
       studentPromoConfig.eligible_models.some(m => m.brand === bike.brand && m.model === bike.model))
   const studentDiscountPerDay = studentPromoConfig?.discount_value ?? 0
 
+  // มัดจำตามเงื่อนไข — นักศึกษาฟรีทุกกรณี (ไม่จำกัดสถาบัน) / เช่า ≥7 วันหรือรายเดือน = 1,000 / เช่าสั้นไม่มีหลักฐานที่พัก = 500
+  const isLongTermDeposit = contractType === 'monthly' || totalDays >= 7
+  const calculatedDeposit = isStudent
+    ? 0
+    : isLongTermDeposit
+      ? 1000
+      : (hasAccommodationProof ? 0 : 500)
+  const depositReason = isStudent
+    ? 'นักศึกษา — ฟรีมัดจำ'
+    : isLongTermDeposit
+      ? 'เช่า 7 วันขึ้นไป/รายเดือน'
+      : hasAccommodationProof
+        ? 'มีหลักฐานที่พัก'
+        : 'ไม่มีหลักฐานที่พัก'
+
+  // อัพเดทช่องมัดจำอัตโนมัติตามเงื่อนไข — พนักงานยังแก้เองทับได้ถ้าจำเป็น (แค่กันไม่ต้องคิดเองจากศูนย์)
+  useEffect(() => {
+    setDepositAmount(depositMethod === 'id_card' ? '0' : String(calculatedDeposit))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStudent, hasAccommodationProof, isLongTermDeposit, depositMethod])
+
   const ndr = studentPromo && studentPromoEligible ? baseDailyRate - studentDiscountPerDay : baseDailyRate
   const mcr = parseFloat(mMonthlyRate) || bike.monthly_rate || bike.daily_rate * 30
 
@@ -558,7 +609,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     if (!customerName.trim())  { setError('กรุณาใส่ชื่อลูกค้า'); return }
     if (!customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
     if (!idCardNumber.trim())  { setError('กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต (อ่านจากบัตรอัตโนมัติไม่ได้ ต้องกรอกเอง)'); return }
-    if (!photos.accommodation_proof) { setError('กรุณาแนบหลักฐานที่พัก/โรงแรม'); return }
+    if (isStudent === null) { setError('กรุณาเลือกว่าลูกค้าเป็นนักศึกษาหรือไม่'); return }
+    if (isStudent && !photos.student_id_card) { setError('กรุณาแนบรูปบัตรนิสิต/นักศึกษาด้วย'); return }
+    if (hasAccommodationProof === null) { setError('กรุณาเลือกว่ามีหลักฐานที่พักหรือไม่'); return }
+    if (hasAccommodationProof && !photos.accommodation_proof) { setError('กรุณาแนบหลักฐานที่พัก/โรงแรม'); return }
     if (blacklistHit) { setError(`⛔ ${blacklistHit.name} ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้`); return }
     if (studentPromo && studentPromoEligible && !photos.student_id_card) {
       setError('ใช้สิทธิราคานักศึกษา — กรุณาแนบรูปบัตรนิสิต/นักศึกษาด้วย'); return
@@ -613,6 +667,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             paymentDay,
             monthlyRate:   parseFloat(mMonthlyRate),
             depositAmount: parseFloat(depositAmount) || 0,
+            depositMethod,
             odometer:      odometer || '0',
             fuelFull,
             paymentMethod,
@@ -660,6 +715,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             totalDays,
             totalAmount,
             depositAmount: parseFloat(depositAmount) || 0,
+            depositMethod,
             discount,
             paymentMethod,
             fuelFull,
@@ -833,6 +889,23 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               value={customerHotel} onChange={e => setCustomerHotel(e.target.value)} />
           </div>
           <div className="field-row">
+            <label className="field-label">🎓 เป็นนักศึกษาไหม *</label>
+            <YesNoToggle
+              value={isStudent}
+              onYes={() => setIsStudent(true)} onNo={() => setIsStudent(false)}
+              yesLabel="🎓 นักศึกษา" noLabel="บุคคลทั่วไป"
+            />
+            {isStudent === true && (
+              <div style={{ marginTop: '10px' }}>
+                <div style={{ fontSize: '12px', color: '#166534', marginBottom: '8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '8px 12px' }}>
+                  ✓ ฟรีมัดจำ — ขอถ่ายรูปบัตรนักศึกษาด้วยนะคะ
+                </div>
+                <PhotoUpload icon="🎓" hint="ถ่ายรูปหรืออัพโหลดบัตรนิสิต/นักศึกษา" folder={folder}
+                  onUpload={setPhoto('student_id_card')} onRemove={clearPhoto('student_id_card')} />
+              </div>
+            )}
+          </div>
+          <div className="field-row">
             <label className="field-label">📄 รูปบัตรประชาชน / พาสปอร์ต *</label>
             <PhotoUpload icon="🪪" hint="ถ่ายรูปหรืออัพโหลดบัตร" folder={folder}
               onUpload={handleIdCardUpload} onRemove={clearPhoto('id_card')} />
@@ -843,9 +916,23 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               onUpload={setPhoto('selfie')} onRemove={clearPhoto('selfie')} />
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">📎 หลักฐานที่พัก/โรงแรม *</label>
-            <PhotoUpload icon="🏨" hint="ถ่ายรูปหรืออัพโหลดใบจอง/หน้าจอโรงแรม" folder={folder}
-              onUpload={setPhoto('accommodation_proof')} onRemove={clearPhoto('accommodation_proof')} />
+            <label className="field-label">📎 มีหลักฐานที่พัก/โรงแรมไหม *</label>
+            <YesNoToggle
+              value={hasAccommodationProof}
+              onYes={() => setHasAccommodationProof(true)} onNo={() => setHasAccommodationProof(false)}
+              yesLabel="🏨 มีหลักฐาน" noLabel="🚫 ไม่มี"
+            />
+            {hasAccommodationProof === true && (
+              <div style={{ marginTop: '10px' }}>
+                <PhotoUpload icon="🏨" hint="ถ่ายรูปหรืออัพโหลดใบจอง/หน้าจอโรงแรม" folder={folder}
+                  onUpload={setPhoto('accommodation_proof')} onRemove={clearPhoto('accommodation_proof')} />
+              </div>
+            )}
+            {hasAccommodationProof === false && !isStudent && (
+              <div style={{ marginTop: '10px', fontSize: '12px', color: '#991b1b', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '8px 12px' }}>
+                จะเก็บมัดจำ 500 บาทแทนนะคะ (ไม่มีหลักฐานที่พัก)
+              </div>
+            )}
           </div>
         </div>
 
@@ -1114,10 +1201,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         )}
 
         {/* ③ โปรโมชั่น — โชว์เฉพาะตอนมีโปรราคานักศึกษาตั้งค่าไว้แล้ว และรถคันนี้ร่วมรายการ */}
-        {studentPromoConfig && studentPromoEligible && (
+        {isStudent && studentPromoConfig && studentPromoEligible && (
           <div className="card" style={{ borderTop: '3px solid #dc2626' }}>
             <StepTitle n={3}>โปรโมชั่นราคานักศึกษา</StepTitle>
-            <ScriptBox>ถ้าลูกค้าจะใช้โปรโมชั่นราคานักศึกษา (เฉพาะนักศึกษา ม.บูรพา / ม.เกษตรศาสตร์ ศรีราชา เท่านั้น) รบกวนขอดูหลักฐานยืนยันสิทธิ์ด้วยนะคะ</ScriptBox>
+            <ScriptBox>เช็คบัตรนักศึกษาที่แนบไว้แล้วให้หน่อยค่ะ ว่าเป็น ม.บูรพา หรือ ม.เกษตรศาสตร์ ศรีราชา ไหม ถ้าใช่เปิดราคานักศึกษาให้ได้เลยค่ะ</ScriptBox>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => setStudentPromo(false)} style={{
                 flex: 1, padding: '10px', borderRadius: '10px',
@@ -1135,20 +1222,17 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               }}>🎓 ราคานักศึกษา</button>
             </div>
             {studentPromo && (
-              <>
-                <div style={{ marginTop: '10px', marginBottom: '10px', background: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#111827' }}>
-                  ลด ฿{studentDiscountPerDay.toLocaleString()}/วัน จากราคารายวันปกติ — ไม่รวมค่าเช่ารายเดือน — ต้องแนบรูปบัตรนิสิต/นักศึกษาด้วย
-                </div>
-                <PhotoUpload icon="🎓" hint="ถ่ายรูปหรืออัพโหลดบัตรนิสิต/นักศึกษา" folder={folder}
-                  onUpload={setPhoto('student_id_card')} onRemove={clearPhoto('student_id_card')} />
-              </>
+              <div style={{ marginTop: '10px', background: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#111827' }}>
+                ลด ฿{studentDiscountPerDay.toLocaleString()}/วัน จากราคารายวันปกติ — ไม่รวมค่าเช่ารายเดือน
+                {photos.student_id_card && <span> — ใช้รูปบัตรนักศึกษาที่แนบไว้แล้วในขั้นตอน 1</span>}
+              </div>
             )}
           </div>
         )}
 
-        {/* คันนี้ไม่เข้าเงื่อนไขโปรนักศึกษาที่สาขาอื่นตั้งไว้ — บอกพนักงานไว้เผื่อลูกค้าถาม */}
-        {studentPromoConfig && !studentPromoEligible && (
-          <ScriptBox>รุ่นนี้ไม่ร่วมโปรนักศึกษา จะเป็นบุคคลทั่วไปนะคะ</ScriptBox>
+        {/* เป็นนักศึกษาแต่คันนี้ไม่เข้าเงื่อนไขโปรที่สาขาอื่นตั้งไว้ — บอกพนักงานไว้เผื่อลูกค้าถาม */}
+        {isStudent && studentPromoConfig && !studentPromoEligible && (
+          <ScriptBox>รุ่นนี้ไม่ร่วมโปรราคานักศึกษา จะเป็นราคาปกตินะคะ (แต่ยังฟรีมัดจำอยู่)</ScriptBox>
         )}
 
         {/* Price hero */}
@@ -1245,6 +1329,34 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             ยอดที่ต้องชำระวันนี้ทั้งหมด {grandTotalToday.toLocaleString()} บาท รวมมัดจำ {(parseFloat(depositAmount) || 0).toLocaleString()} บาทนะคะ
             ทางร้านรับเงินโอนเท่านั้นนะคะ รบกวนชื่อผู้โอนตรงกับบัตรประชาชน
           </ScriptBox>
+
+          <div className="field-row">
+            <label className="field-label">วิธีมัดจำ</label>
+            <YesNoToggle
+              value={depositMethod === 'id_card' ? true : depositMethod === 'cash' ? false : null}
+              onYes={() => setDepositMethod('id_card')} onNo={() => setDepositMethod('cash')}
+              yesLabel="🪪 วางบัตรประชาชน" noLabel="💵 เงินสด/โอน"
+            />
+          </div>
+
+          <div style={{
+            background: depositMethod === 'id_card' ? '#eff6ff' : '#fef2f2',
+            border: `1.5px solid ${depositMethod === 'id_card' ? '#93c5fd' : '#fca5a5'}`,
+            borderRadius: '10px', padding: '12px 14px', marginBottom: '14px',
+          }}>
+            {depositMethod === 'id_card' ? (
+              <>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#1d4ed8' }}>🪪 วางบัตรประชาชนไว้แทนมัดจำ</div>
+                <div style={{ fontSize: '12px', color: '#1e40af', marginTop: '2px' }}>ไม่ต้องเก็บเงินมัดจำ — อย่าลืมเตรียมคืนบัตรตอนลูกค้ามาคืนรถ</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: '#dc2626' }}>฿{(parseFloat(depositAmount) || 0).toLocaleString()}</div>
+                <div style={{ fontSize: '12px', color: '#991b1b', marginTop: '2px' }}>มัดจำที่ต้องเก็บ — {depositReason} (แก้เลขเองได้ถ้าจำเป็น)</div>
+              </>
+            )}
+          </div>
+
           <div className="field-row">
             <label className="field-label">วิธีชำระ</label>
             <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
@@ -1285,8 +1397,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div className="field-row" style={{ marginBottom: 0 }}>
-              <label className="field-label">เงินมัดจำ (฿)</label>
+              <label className="field-label">แก้ไขมัดจำ (฿) — ถ้าจำเป็น</label>
               <input className="field-input" type="number" placeholder="1000"
+                disabled={depositMethod === 'id_card'}
+                style={depositMethod === 'id_card' ? { background: '#f3f4f6', color: '#9ca3af' } : undefined}
                 value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
             </div>
             <div className="field-row" style={{ marginBottom: 0 }}>

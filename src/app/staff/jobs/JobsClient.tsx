@@ -542,6 +542,7 @@ export default function JobsClient({
                     meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
                     meta2={`⏱ เกินมา ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)} ${fmtTime(job.expected_end_datetime)}`}
                     meta3={job.return_type === 'offsite' ? `🛵 คืนที่: ${job.return_address || 'นอกสถานที่'}` : undefined}
+                    meta4={job.deposit_method === 'id_card' ? '🪪 วางบัตรไว้ — เตรียมบัตรไปคืนด้วย!' : undefined}
                     href={`/staff/return/${job.id}`} btnColor="#dc2626"
                     cardHref={`/staff/bikes/${bike.id}/menu`}
                     contractHref={`/staff/contract/${job.id}`}
@@ -564,6 +565,7 @@ export default function JobsClient({
                     meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
                     meta2={`⏱ อีก ${hrs} ชม. • กำหนด ${fmtDate(job.expected_end_datetime)}`}
                     meta3={job.return_type === 'offsite' ? `🛵 คืนที่: ${job.return_address || 'นอกสถานที่'}` : undefined}
+                    meta4={job.deposit_method === 'id_card' ? '🪪 วางบัตรไว้ — เตรียมบัตรไปคืนด้วย!' : undefined}
                     href={`/staff/return/${job.id}`} btnColor={urgent ? '#d97706' : '#4b5563'}
                     cardHref={`/staff/bikes/${bike.id}/menu`}
                     contractHref={`/staff/contract/${job.id}`}
@@ -584,6 +586,7 @@ export default function JobsClient({
                     meta1={`👤 ${job.customers.name}${job.customers.phone ? ` • ${job.customers.phone}` : ''}`}
                     meta2={`📅 กำหนด ${fmtDate(job.expected_end_datetime)} ${fmtTime(job.expected_end_datetime)}`}
                     meta3={job.return_type === 'offsite' ? `🛵 คืนที่: ${job.return_address || 'นอกสถานที่'}` : undefined}
+                    meta4={job.deposit_method === 'id_card' ? '🪪 วางบัตรไว้ — เตรียมบัตรไปคืนด้วย!' : undefined}
                     href={`/staff/return/${job.id}`} btnColor="#4b5563"
                     cardHref={`/staff/bikes/${bike.id}/menu`}
                     contractHref={`/staff/contract/${job.id}`}
