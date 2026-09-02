@@ -12,11 +12,11 @@ import { isThaiIdNumber, idAndSlipNameMatch } from '@/lib/customer'
 // ── Step title with visible step number ─────────────────────────────────────
 function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
   return (
-    <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       <span style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
-        background: '#111827', color: '#fff', fontSize: '12px', fontWeight: 800,
+        width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+        background: '#dc2626', color: '#fff', fontSize: '15px', fontWeight: 800,
       }}>{n}</span>
       {children}
     </div>
@@ -775,7 +775,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         )}
 
         {/* ① ข้อมูลลูกค้า */}
-        <div className="card">
+        <div className="card" style={{ borderTop: '3px solid #dc2626' }}>
           <StepTitle n={1}>ข้อมูลลูกค้า</StepTitle>
           <ScriptBox>รบกวนขอบัตรประชาชน กับโชว์หลักฐานการจองโรงแรมหน่อยค่ะ</ScriptBox>
           <div className="field-row">
@@ -850,7 +850,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         </div>
 
         {/* ② ช่วงเวลาเช่า + ประเภทสัญญา + ล็อครถ */}
-        <div className="card">
+        <div className="card" style={{ borderTop: '3px solid #dc2626' }}>
           <StepTitle n={2}>ช่วงเวลาเช่า</StepTitle>
           {totalDays > 0 && (
             <ScriptBox>
@@ -1115,7 +1115,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
         {/* ③ โปรโมชั่น — โชว์เฉพาะตอนมีโปรราคานักศึกษาตั้งค่าไว้แล้ว และรถคันนี้ร่วมรายการ */}
         {studentPromoConfig && studentPromoEligible && (
-          <div className="card">
+          <div className="card" style={{ borderTop: '3px solid #dc2626' }}>
             <StepTitle n={3}>โปรโมชั่นราคานักศึกษา</StepTitle>
             <ScriptBox>ถ้าลูกค้าจะใช้โปรโมชั่นราคานักศึกษา (เฉพาะนักศึกษา ม.บูรพา / ม.เกษตรศาสตร์ ศรีราชา เท่านั้น) รบกวนขอดูหลักฐานยืนยันสิทธิ์ด้วยนะคะ</ScriptBox>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -1239,7 +1239,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         )}
 
         {/* ④ การชำระเงิน */}
-        <div className="card">
+        <div className="card" style={{ borderTop: '3px solid #dc2626' }}>
           <StepTitle n={4}>การชำระเงิน</StepTitle>
           <ScriptBox>
             ยอดที่ต้องชำระวันนี้ทั้งหมด {grandTotalToday.toLocaleString()} บาท รวมมัดจำ {(parseFloat(depositAmount) || 0).toLocaleString()} บาทนะคะ
@@ -1321,7 +1321,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         </div>
 
         {/* ⑤ ลายเซ็นลูกค้า */}
-        <div className="card">
+        <div className="card" style={{ borderTop: '3px solid #dc2626' }}>
           <StepTitle n={5}>ลายเซ็นลูกค้า</StepTitle>
           <ScriptBox>รบกวนลูกค้าเซ็นชื่อยืนยันในสัญญาด้วยค่ะ</ScriptBox>
           {signature ? (
@@ -1371,7 +1371,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         )}
 
         {/* ⑦ ที่ตัวรถ */}
-        <div className="card">
+        <div className="card" style={{ borderTop: '3px solid #dc2626' }}>
           <StepTitle n={7}>ที่ตัวรถ</StepTitle>
           <ScriptBox>
             เดินดูรอบคันด้วยกันก่อนนะคะ มีตำหนิตรงไหนขอถ่ายรูปเก็บไว้เป็นหลักฐานเลยค่ะ
