@@ -52,6 +52,10 @@ export async function POST(request: NextRequest) {
   if (missingPhotos.length > 0) {
     return NextResponse.json({ error: 'กรุณาอัปโหลดรูปภาพให้ครบ (บัตร, รูปถ่าย, รถ, ตำหนิ, ชำระเงิน)' }, { status: 400 })
   }
+  // สัญญารายเดือนถือเป็นเช่าระยะยาวเสมอ — วางบัตรแทนมัดจำไม่ได้
+  if (depositMethod === 'id_card') {
+    return NextResponse.json({ error: 'สัญญารายเดือน วางบัตรแทนมัดจำไม่ได้ ต้องเก็บเป็นเงินสด/โอน' }, { status: 400 })
+  }
 
   const supabase = createAdminClient()
 

@@ -24,17 +24,19 @@ function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
 }
 
 // ── Forced yes/no choice (บังคับกดเลือกก่อนเสมอ กันช่องว่างเฉยๆ ที่ทำให้พนักงานงงว่าต้องทำอะไร) ──
-function YesNoToggle({ value, onYes, onNo, yesLabel, noLabel }: {
+function YesNoToggle({ value, onYes, onNo, yesLabel, noLabel, disabledYes }: {
   value: boolean | null; onYes: () => void; onNo: () => void; yesLabel: string; noLabel: string
+  disabledYes?: boolean
 }) {
   return (
     <div style={{ display: 'flex', gap: '8px' }}>
-      <button type="button" onClick={onYes} style={{
+      <button type="button" onClick={onYes} disabled={disabledYes} style={{
         flex: 1, padding: '10px', borderRadius: '10px',
         border: `2px solid ${value === true ? '#dc2626' : '#e5e7eb'}`,
-        background: value === true ? '#fef2f2' : '#fff',
-        color: value === true ? '#dc2626' : '#6b7280',
-        fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+        background: value === true ? '#fef2f2' : disabledYes ? '#f9fafb' : '#fff',
+        color: disabledYes ? '#d1d5db' : value === true ? '#dc2626' : '#6b7280',
+        fontWeight: 700, fontSize: '14px', cursor: disabledYes ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+        opacity: disabledYes ? 0.6 : 1,
       }}>{yesLabel}</button>
       <button type="button" onClick={onNo} style={{
         flex: 1, padding: '10px', borderRadius: '10px',
@@ -538,6 +540,11 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
       : hasAccommodationProof
         ? 'มีหลักฐานที่พัก'
         : 'ไม่มีหลักฐานที่พัก'
+
+  // วางบัตรแทนมัดจำใช้ได้แค่เช่าสั้น (<7 วัน) — ถ้าเผลอเลือกไว้ก่อนหน้าแล้วช่วงเช่ายืดเป็นระยะยาว ดีดกลับเป็นเงินสดอัตโนมัติ
+  useEffect(() => {
+    if (isLongTermDeposit && depositMethod === 'id_card') setDepositMethod('cash')
+  }, [isLongTermDeposit, depositMethod])
 
   // อัพเดทช่องมัดจำอัตโนมัติตามเงื่อนไข — พนักงานยังแก้เองทับได้ถ้าจำเป็น (แค่กันไม่ต้องคิดเองจากศูนย์)
   useEffect(() => {
@@ -1336,7 +1343,13 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               value={depositMethod === 'id_card' ? true : depositMethod === 'cash' ? false : null}
               onYes={() => setDepositMethod('id_card')} onNo={() => setDepositMethod('cash')}
               yesLabel="🪪 วางบัตรประชาชน" noLabel="💵 เงินสด/โอน"
+              disabledYes={isLongTermDeposit}
             />
+            {isLongTermDeposit && (
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+                เช่า 7 วันขึ้นไป/รายเดือน วางบัตรแทนมัดจำไม่ได้ ต้องเก็บเป็นเงินสด/โอนเท่านั้น
+              </div>
+            )}
           </div>
 
           <div style={{

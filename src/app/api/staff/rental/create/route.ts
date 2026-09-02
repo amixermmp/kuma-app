@@ -47,6 +47,10 @@ export async function POST(request: NextRequest) {
   if ((discount ?? 0) > 0 && !photos?.student_id_card) {
     return NextResponse.json({ error: 'ใช้สิทธิราคานักศึกษา — กรุณาแนบรูปบัตรนิสิต/นักศึกษาด้วย' }, { status: 400 })
   }
+  // วางบัตรแทนมัดจำใช้ได้แค่เช่าสั้น (<7 วัน) — เช็คซ้ำฝั่งเซิร์ฟเวอร์ ไม่พึ่งแค่ปุ่ม disabled หน้าเว็บ
+  if (depositMethod === 'id_card' && Number(totalDays) >= 7) {
+    return NextResponse.json({ error: 'เช่า 7 วันขึ้นไป วางบัตรแทนมัดจำไม่ได้ ต้องเก็บเป็นเงินสด/โอน' }, { status: 400 })
+  }
 
   const supabase = createAdminClient()
 
