@@ -527,7 +527,9 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const studentDiscountPerDay = studentPromoConfig?.discount_value ?? 0
 
   // มัดจำตามเงื่อนไข — นักศึกษาฟรีทุกกรณี (ไม่จำกัดสถาบัน) / เช่า ≥7 วันหรือรายเดือน = 1,000 / เช่าสั้นไม่มีหลักฐานที่พัก = 500
-  const isLongTermDeposit = contractType === 'monthly' || totalDays >= 7
+  // ใช้ isMonthlyContract (ไม่ใช่ contractType เปล่าๆ) — contractType ค่าเริ่มต้นเป็น 'monthly' เสมอแม้เช่าแค่วันเดียว
+  // ที่ยังไม่ได้กดสลับเป็นรายวัน ถ้าเช็คแค่ contractType จะพลาดเข้าเกณฑ์ 1,000 ทั้งที่เช่าสั้น
+  const isLongTermDeposit = isMonthlyContract || totalDays >= 7
   const calculatedDeposit = isStudent
     ? 0
     : isLongTermDeposit
