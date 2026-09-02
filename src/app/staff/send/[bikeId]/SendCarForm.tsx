@@ -23,6 +23,23 @@ function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
   )
 }
 
+// ── Talking-point script box ─────────────────────────────────────────────────
+function ScriptBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: '10px',
+      padding: '10px 12px', marginBottom: '12px',
+    }}>
+      <div style={{ fontSize: '11px', color: '#991b1b', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.3px' }}>
+        💬 พูดว่า
+      </div>
+      <div style={{ fontSize: '14px', color: '#7f1d1d', lineHeight: 1.5 }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // ── Success screen ───────────────────────────────────────────────────────────
 function SuccessScreen({ rentalId, paymentId, type, bikeId, fastLaneConflictId }: { rentalId: string; paymentId: string | null; type: 'daily' | 'monthly'; bikeId: string; fastLaneConflictId?: string | null }) {
   const invoiceHref = type === 'daily'
@@ -760,9 +777,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         {/* ① ข้อมูลลูกค้า */}
         <div className="card">
           <StepTitle n={1}>ข้อมูลลูกค้า</StepTitle>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
-            &ldquo;รบกวนขอบัตรประชาชน กับโชว์หลักฐานการจองโรงแรมหน่อยค่ะ&rdquo;
-          </div>
+          <ScriptBox>รบกวนขอบัตรประชาชน กับโชว์หลักฐานการจองโรงแรมหน่อยค่ะ</ScriptBox>
           <div className="field-row">
             <label className="field-label">เบอร์โทรศัพท์ *</label>
             <input className="field-input" type="tel" placeholder="081-234-5678"
@@ -838,10 +853,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         <div className="card">
           <StepTitle n={2}>ช่วงเวลาเช่า</StepTitle>
           {totalDays > 0 && (
-            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
-              &ldquo;ทวนเวลานะคะ วันนี้ลูกค้ารับรถไป {totalDays} วัน ครบกำหนดคืนวันที่ {endDateThaiFmt} เวลา {endTime} นะคะ
-              ถ้าเกินเวลาคิดค่าล่วงเวลาชั่วโมงละ 50 บาทค่ะ หากต้องการต่อเวลารบกวนแจ้งผ่านไลน์อีกครั้งนะคะ&rdquo;
-            </div>
+            <ScriptBox>
+              ทวนเวลานะคะ วันนี้ลูกค้ารับรถไป {totalDays} วัน ครบกำหนดคืนวันที่ {endDateThaiFmt} เวลา {endTime} นะคะ
+              ถ้าเกินเวลาคิดค่าล่วงเวลาชั่วโมงละ 50 บาทค่ะ หากต้องการต่อเวลารบกวนแจ้งผ่านไลน์อีกครั้งนะคะ
+            </ScriptBox>
           )}
 
           {/* รับรถ */}
@@ -953,9 +968,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         {!isMonthlyContract && (
           <div className="card">
             <div className="card-title">จุดคืนรถ</div>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
-              &ldquo;วันคืนรถ ลูกค้าสะดวกมาคืนที่ร้าน หรือไปรับนอกสถานที่ค่ะ นอกสถานที่จะมีค่าบริการนะคะ&rdquo;
-            </div>
+            <ScriptBox>วันคืนรถ ลูกค้าสะดวกมาคืนที่ร้าน หรือไปรับนอกสถานที่ค่ะ นอกสถานที่จะมีค่าบริการนะคะ</ScriptBox>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => setReturnType(returnType === 'shop' ? null : 'shop')} style={{
                 flex: 1, padding: '10px', borderRadius: '10px',
@@ -1019,9 +1032,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         {isMonthlyContract && (
           <div className="card">
             <div className="card-title">รายละเอียดสัญญารายเดือน</div>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
-              &ldquo;ทวนนะคะ ราคาเดือนละ {(parseFloat(mMonthlyRate) || 0).toLocaleString()} บาท เก็บเงินทุกวันที่ {paymentDay} ของเดือนนะคะ&rdquo;
-            </div>
+            <ScriptBox>ทวนนะคะ ราคาเดือนละ {(parseFloat(mMonthlyRate) || 0).toLocaleString()} บาท เก็บเงินทุกวันที่ {paymentDay} ของเดือนนะคะ</ScriptBox>
             <div className="field-row">
               <label className="field-label">ราคาต่อเดือน (บาท) *</label>
               <input className="field-input" type="number" placeholder="2590"
@@ -1106,9 +1117,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         {studentPromoConfig && studentPromoEligible && (
           <div className="card">
             <StepTitle n={3}>โปรโมชั่นราคานักศึกษา</StepTitle>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
-              &ldquo;ถ้าลูกค้าจะใช้โปรโมชั่นราคานักศึกษา (เฉพาะนักศึกษา ม.บูรพา / ม.เกษตรศาสตร์ ศรีราชา เท่านั้น) รบกวนขอดูหลักฐานยืนยันสิทธิ์ด้วยนะคะ&rdquo;
-            </div>
+            <ScriptBox>ถ้าลูกค้าจะใช้โปรโมชั่นราคานักศึกษา (เฉพาะนักศึกษา ม.บูรพา / ม.เกษตรศาสตร์ ศรีราชา เท่านั้น) รบกวนขอดูหลักฐานยืนยันสิทธิ์ด้วยนะคะ</ScriptBox>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => setStudentPromo(false)} style={{
                 flex: 1, padding: '10px', borderRadius: '10px',
@@ -1139,9 +1148,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
         {/* คันนี้ไม่เข้าเงื่อนไขโปรนักศึกษาที่สาขาอื่นตั้งไว้ — บอกพนักงานไว้เผื่อลูกค้าถาม */}
         {studentPromoConfig && !studentPromoEligible && (
-          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
-            &ldquo;รุ่นนี้ไม่ร่วมโปรนักศึกษา จะเป็นบุคคลทั่วไปนะคะ&rdquo;
-          </div>
+          <ScriptBox>รุ่นนี้ไม่ร่วมโปรนักศึกษา จะเป็นบุคคลทั่วไปนะคะ</ScriptBox>
         )}
 
         {/* Price hero */}
@@ -1234,10 +1241,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         {/* ④ การชำระเงิน */}
         <div className="card">
           <StepTitle n={4}>การชำระเงิน</StepTitle>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
-            &ldquo;ยอดที่ต้องชำระวันนี้ทั้งหมด {grandTotalToday.toLocaleString()} บาท รวมมัดจำ {(parseFloat(depositAmount) || 0).toLocaleString()} บาทนะคะ
-            ทางร้านรับเงินโอนเท่านั้นนะคะ รบกวนชื่อผู้โอนตรงกับบัตรประชาชน&rdquo;
-          </div>
+          <ScriptBox>
+            ยอดที่ต้องชำระวันนี้ทั้งหมด {grandTotalToday.toLocaleString()} บาท รวมมัดจำ {(parseFloat(depositAmount) || 0).toLocaleString()} บาทนะคะ
+            ทางร้านรับเงินโอนเท่านั้นนะคะ รบกวนชื่อผู้โอนตรงกับบัตรประชาชน
+          </ScriptBox>
           <div className="field-row">
             <label className="field-label">วิธีชำระ</label>
             <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
@@ -1316,9 +1323,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         {/* ⑤ ลายเซ็นลูกค้า */}
         <div className="card">
           <StepTitle n={5}>ลายเซ็นลูกค้า</StepTitle>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
-            &ldquo;รบกวนลูกค้าเซ็นชื่อยืนยันในสัญญาด้วยค่ะ&rdquo;
-          </div>
+          <ScriptBox>รบกวนลูกค้าเซ็นชื่อยืนยันในสัญญาด้วยค่ะ</ScriptBox>
           {signature ? (
             <div style={{ position: 'relative' }}>
               <img src={signature} alt="ลายเซ็น" style={{ width: '100%', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff' }} />
@@ -1368,10 +1373,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         {/* ⑦ ที่ตัวรถ */}
         <div className="card">
           <StepTitle n={7}>ที่ตัวรถ</StepTitle>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
-            &ldquo;เดินดูรอบคันด้วยกันก่อนนะคะ มีตำหนิตรงไหนขอถ่ายรูปเก็บไว้เป็นหลักฐานเลยค่ะ
-            ตอนคืนรถขอน้ำมันเต็มถังเหมือนตอนรับไปนะคะ — ลูกค้าเคยใช้งานรุ่นนี้มาก่อนไหมคะ ให้แนะนำอะไรไหมคะ&rdquo;
-          </div>
+          <ScriptBox>
+            เดินดูรอบคันด้วยกันก่อนนะคะ มีตำหนิตรงไหนขอถ่ายรูปเก็บไว้เป็นหลักฐานเลยค่ะ
+            ตอนคืนรถขอน้ำมันเต็มถังเหมือนตอนรับไปนะคะ — ลูกค้าเคยใช้งานรุ่นนี้มาก่อนไหมคะ ให้แนะนำอะไรไหมคะ
+          </ScriptBox>
           <div className="field-row">
             <label className="field-label">🛵 รูปคู่รถ *</label>
             <PhotoUpload icon="🛵" hint="ลูกค้ายืนคู่รถก่อนรับ" folder={folder}
