@@ -893,11 +893,6 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             )}
           </div>
           <div className="field-row">
-            <label className="field-label">โรงแรม / ที่พัก</label>
-            <input className="field-input" type="text" placeholder="Nap Park Hotel"
-              value={customerHotel} onChange={e => setCustomerHotel(e.target.value)} />
-          </div>
-          <div className="field-row">
             <label className="field-label">🎓 เป็นนักศึกษาไหม *</label>
             <YesNoToggle
               value={isStudent}
@@ -924,7 +919,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             <PhotoUpload icon="🤳" hint="ลูกค้าถือบัตรให้เห็นหน้า" folder={folder}
               onUpload={setPhoto('selfie')} onRemove={clearPhoto('selfie')} />
           </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
+          <div className="field-row">
             <label className="field-label">📎 มีหลักฐานที่พัก/โรงแรมไหม *</label>
             <YesNoToggle
               value={hasAccommodationProof}
@@ -942,6 +937,11 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
                 จะเก็บมัดจำ 500 บาทแทนนะคะ (ไม่มีหลักฐานที่พัก)
               </div>
             )}
+          </div>
+          <div className="field-row" style={{ marginBottom: 0 }}>
+            <label className="field-label">โรงแรม / ที่พัก</label>
+            <input className="field-input" type="text" placeholder="Nap Park Hotel"
+              value={customerHotel} onChange={e => setCustomerHotel(e.target.value)} />
           </div>
         </div>
 
