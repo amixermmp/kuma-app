@@ -9,6 +9,20 @@ import { addTab } from '@/lib/tabStore'
 import { calcShortPrice, calcLongPrice, calendarDays, calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
 import { isThaiIdNumber, idAndSlipNameMatch } from '@/lib/customer'
 
+// ── Step title with visible step number ─────────────────────────────────────
+function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
+        background: '#111827', color: '#fff', fontSize: '12px', fontWeight: 800,
+      }}>{n}</span>
+      {children}
+    </div>
+  )
+}
+
 // ── Success screen ───────────────────────────────────────────────────────────
 function SuccessScreen({ rentalId, paymentId, type, bikeId, fastLaneConflictId }: { rentalId: string; paymentId: string | null; type: 'daily' | 'monthly'; bikeId: string; fastLaneConflictId?: string | null }) {
   const invoiceHref = type === 'daily'
@@ -745,7 +759,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
         {/* ① ข้อมูลลูกค้า */}
         <div className="card">
-          <div className="card-title">ข้อมูลลูกค้า</div>
+          <StepTitle n={1}>ข้อมูลลูกค้า</StepTitle>
           <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
             &ldquo;รบกวนขอบัตรประชาชน กับโชว์หลักฐานการจองโรงแรมหน่อยค่ะ&rdquo;
           </div>
@@ -822,7 +836,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
         {/* ② ช่วงเวลาเช่า + ประเภทสัญญา + ล็อครถ */}
         <div className="card">
-          <div className="card-title">ช่วงเวลาเช่า</div>
+          <StepTitle n={2}>ช่วงเวลาเช่า</StepTitle>
           {totalDays > 0 && (
             <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
               &ldquo;ทวนเวลานะคะ วันนี้ลูกค้ารับรถไป {totalDays} วัน ครบกำหนดคืนวันที่ {endDateThaiFmt} เวลา {endTime} นะคะ
@@ -1091,7 +1105,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         {/* ③ โปรโมชั่น — โชว์เฉพาะตอนมีโปรราคานักศึกษาตั้งค่าไว้แล้ว และรถคันนี้ร่วมรายการ */}
         {studentPromoConfig && studentPromoEligible && (
           <div className="card">
-            <div className="card-title">โปรโมชั่นราคานักศึกษา</div>
+            <StepTitle n={3}>โปรโมชั่นราคานักศึกษา</StepTitle>
             <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
               &ldquo;ถ้าลูกค้าจะใช้โปรโมชั่นราคานักศึกษา (เฉพาะนักศึกษา ม.บูรพา / ม.เกษตรศาสตร์ ศรีราชา เท่านั้น) รบกวนขอดูหลักฐานยืนยันสิทธิ์ด้วยนะคะ&rdquo;
             </div>
@@ -1219,7 +1233,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
         {/* ④ การชำระเงิน */}
         <div className="card">
-          <div className="card-title">การชำระเงิน</div>
+          <StepTitle n={4}>การชำระเงิน</StepTitle>
           <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
             &ldquo;ยอดที่ต้องชำระวันนี้ทั้งหมด {grandTotalToday.toLocaleString()} บาท รวมมัดจำ {(parseFloat(depositAmount) || 0).toLocaleString()} บาทนะคะ
             ทางร้านรับเงินโอนเท่านั้นนะคะ รบกวนชื่อผู้โอนตรงกับบัตรประชาชน&rdquo;
@@ -1301,7 +1315,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
         {/* ⑤ ลายเซ็นลูกค้า */}
         <div className="card">
-          <div className="card-title">ลายเซ็นลูกค้า</div>
+          <StepTitle n={5}>ลายเซ็นลูกค้า</StepTitle>
           <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
             &ldquo;รบกวนลูกค้าเซ็นชื่อยืนยันในสัญญาด้วยค่ะ&rdquo;
           </div>
@@ -1330,6 +1344,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         {/* ⑥ ไลน์ร้าน — ตั้งค่าได้ที่หน้าตั้งค่าร้าน แยกต่อสาขา ไม่ตั้งไว้ก็ไม่โชว์ */}
         {(lineQrUrl || lineId) && (
           <div className="card" style={{ borderTop: '3px solid #06c755' }}>
+            <StepTitle n={6}>ไลน์ร้าน</StepTitle>
             <div style={{
               background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px',
               padding: '10px 14px', marginBottom: '14px', fontSize: '13px', color: '#166534', fontWeight: 600,
@@ -1352,9 +1367,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
         {/* ⑦ ที่ตัวรถ */}
         <div className="card">
-          <div className="card-title">ที่ตัวรถ</div>
+          <StepTitle n={7}>ที่ตัวรถ</StepTitle>
           <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid #e5e7eb', paddingLeft: '8px' }}>
-            &ldquo;ลูกค้าเคยใช้งานรุ่นนี้มาก่อนไหมค่ะ ให้แนะนำอะไรไหมค่ะ&rdquo;
+            &ldquo;เดินดูรอบคันด้วยกันก่อนนะคะ มีตำหนิตรงไหนขอถ่ายรูปเก็บไว้เป็นหลักฐานเลยค่ะ
+            ตอนคืนรถขอน้ำมันเต็มถังเหมือนตอนรับไปนะคะ — ลูกค้าเคยใช้งานรุ่นนี้มาก่อนไหมคะ ให้แนะนำอะไรไหมคะ&rdquo;
           </div>
           <div className="field-row">
             <label className="field-label">🛵 รูปคู่รถ *</label>
