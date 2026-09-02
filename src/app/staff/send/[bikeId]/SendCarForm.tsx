@@ -541,10 +541,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         ? 'มีหลักฐานที่พัก'
         : 'ไม่มีหลักฐานที่พัก'
 
-  // วางบัตรแทนมัดจำใช้ได้แค่เช่าสั้น (<7 วัน) — ถ้าเผลอเลือกไว้ก่อนหน้าแล้วช่วงเช่ายืดเป็นระยะยาว ดีดกลับเป็นเงินสดอัตโนมัติ
+  // วางบัตรแทนมัดจำใช้ได้แค่เช่าสั้น (<7 วัน) ไม่ใช่นักศึกษา — ถ้าเผลอเลือกไว้ก่อนหน้าแล้วเงื่อนไขเปลี่ยน ดีดกลับเป็นเงินสดอัตโนมัติ
   useEffect(() => {
-    if (isLongTermDeposit && depositMethod === 'id_card') setDepositMethod('cash')
-  }, [isLongTermDeposit, depositMethod])
+    if ((isLongTermDeposit || isStudent) && depositMethod === 'id_card') setDepositMethod('cash')
+  }, [isLongTermDeposit, isStudent, depositMethod])
 
   // อัพเดทช่องมัดจำอัตโนมัติตามเงื่อนไข — พนักงานยังแก้เองทับได้ถ้าจำเป็น (แค่กันไม่ต้องคิดเองจากศูนย์)
   useEffect(() => {
@@ -1339,25 +1339,41 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
           <div className="field-row">
             <label className="field-label">วิธีมัดจำ</label>
-            <YesNoToggle
-              value={depositMethod === 'id_card' ? true : depositMethod === 'cash' ? false : null}
-              onYes={() => setDepositMethod('id_card')} onNo={() => setDepositMethod('cash')}
-              yesLabel="🪪 วางบัตรประชาชน" noLabel="💵 เงินสด/โอน"
-              disabledYes={isLongTermDeposit}
-            />
-            {isLongTermDeposit && (
-              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
-                เช่า 7 วันขึ้นไป/รายเดือน วางบัตรแทนมัดจำไม่ได้ ต้องเก็บเป็นเงินสด/โอนเท่านั้น
+            {isStudent ? (
+              <div style={{
+                background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px',
+                padding: '12px 14px', fontSize: '13px', color: '#166534', fontWeight: 700,
+              }}>
+                🔒 ล็อคไว้ — นักศึกษา ฟรีมัดจำ ไม่ต้องเลือกวิธีมัดจำ
               </div>
+            ) : (
+              <>
+                <YesNoToggle
+                  value={depositMethod === 'id_card' ? true : depositMethod === 'cash' ? false : null}
+                  onYes={() => setDepositMethod('id_card')} onNo={() => setDepositMethod('cash')}
+                  yesLabel="🪪 วางบัตรประชาชน" noLabel="💵 เงินสด/โอน"
+                  disabledYes={isLongTermDeposit}
+                />
+                {isLongTermDeposit && (
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+                    เช่า 7 วันขึ้นไป/รายเดือน วางบัตรแทนมัดจำไม่ได้ ต้องเก็บเป็นเงินสด/โอนเท่านั้น
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           <div style={{
-            background: depositMethod === 'id_card' ? '#eff6ff' : '#fef2f2',
-            border: `1.5px solid ${depositMethod === 'id_card' ? '#93c5fd' : '#fca5a5'}`,
+            background: isStudent ? '#f0fdf4' : depositMethod === 'id_card' ? '#eff6ff' : '#fef2f2',
+            border: `1.5px solid ${isStudent ? '#bbf7d0' : depositMethod === 'id_card' ? '#93c5fd' : '#fca5a5'}`,
             borderRadius: '10px', padding: '12px 14px', marginBottom: '14px',
           }}>
-            {depositMethod === 'id_card' ? (
+            {isStudent ? (
+              <>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: '#16a34a' }}>🎓 ฟรีมัดจำ</div>
+                <div style={{ fontSize: '12px', color: '#166534', marginTop: '2px' }}>{depositReason}</div>
+              </>
+            ) : depositMethod === 'id_card' ? (
               <>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: '#1d4ed8' }}>🪪 วางบัตรประชาชนไว้แทนมัดจำ</div>
                 <div style={{ fontSize: '12px', color: '#1e40af', marginTop: '2px' }}>ไม่ต้องเก็บเงินมัดจำ — อย่าลืมเตรียมคืนบัตรตอนลูกค้ามาคืนรถ</div>
