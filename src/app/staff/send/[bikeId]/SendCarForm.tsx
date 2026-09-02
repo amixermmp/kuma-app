@@ -1410,6 +1410,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           {/* QR รับเงิน — ตั้งค่าได้ที่หน้าตั้งค่าร้าน แยกรายวัน/รายเดือน ไม่ตั้งไว้ก็ไม่โชว์อะไร */}
           {(isMonthlyContract ? qrMonthlyUrl : qrDailyUrl) && (
             <div style={{ textAlign: 'center', padding: '14px', background: '#f9fafb', borderRadius: '10px', marginBottom: '12px' }}>
+              <div style={{ fontSize: '13px', color: '#6b7280', fontWeight: 600, marginBottom: '2px' }}>ยอดที่ต้องโอน</div>
+              <div style={{ fontSize: '28px', fontWeight: 900, color: '#111827', marginBottom: '10px' }}>
+                ฿{grandTotalToday.toLocaleString()}
+              </div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={(isMonthlyContract ? qrMonthlyUrl : qrDailyUrl) ?? ''}
