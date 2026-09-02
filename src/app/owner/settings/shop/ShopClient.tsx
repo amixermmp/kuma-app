@@ -341,6 +341,40 @@ function BranchReceiptRow({ branch }: { branch: Branch }) {
   )
 }
 
+function BranchStudentPromoRow({ branch }: { branch: Branch }) {
+  const [university, setUniversity] = useState(branch.studentPromoUniversity ?? '')
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const save = async () => {
+    setLoading(true)
+    const res = await fetch('/api/owner/settings/branch-student-promo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ branch_id: branch.id, student_promo_university: university }),
+    })
+    setLoading(false)
+    setMsg(res.ok ? '✅ บันทึกแล้ว' : '❌ เกิดข้อผิดพลาด')
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  return (
+    <div style={{ padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, flex: 1 }}>📍 {branch.name}</div>
+        {msg && <span style={{ fontSize: '12px', color: msg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{msg}</span>}
+      </div>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <input className="field-input" value={university} onChange={e => setUniversity(e.target.value)}
+          placeholder="เช่น ม.บูรพา (ว่าง = ไม่ถามเพิ่ม)" style={{ flex: 1 }} />
+        <button onClick={save} disabled={loading} className="btn" style={{ padding: '10px 14px', fontSize: '12px', width: 'auto' }}>
+          {loading ? '⏳' : '💾'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function BranchModal({ onClose, onSaved }: { onClose: () => void; onSaved: (branch: Branch) => void }) {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -501,6 +535,15 @@ export default function ShopClient({ shop, branches: initialBranches }: { shop: 
               <BranchLineRow key={b.id} branch={b} />
             ))}
           </div>
+        </Section>
+
+        <Section title="โปรนักศึกษา — มหาลัยที่ให้สิทธิ์">
+          <div style={{ padding: '12px 16px 0', fontSize: '12px', color: '#6b7280' }}>
+            ตั้งชื่อมหาลัยที่สาขานี้ให้สิทธิ์โปรนักศึกษา — ตอนส่งรถถ้ารุ่นนั้นมีโปรนักศึกษาอยู่แล้ว จะถามพนักงานว่าเป็นมหาลัยนี้ไหม แล้วผูกโปรให้อัตโนมัติ ไม่ต้องกดซ้ำ (ว่าง = ไม่ถามเพิ่ม เหมือนเดิม)
+          </div>
+          {branches.map(b => (
+            <BranchStudentPromoRow key={b.id} branch={b} />
+          ))}
         </Section>
 
         <Section title="ใบเสร็จรับเงิน">

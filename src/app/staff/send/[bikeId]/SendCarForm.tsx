@@ -184,6 +184,7 @@ type Props = {
   qrMonthlyUrl?: string | null
   lineQrUrl?: string | null
   lineId?: string | null
+  studentPromoUniversity?: string | null
 }
 
 type PhotoState = {
@@ -205,6 +206,7 @@ type DraftData = {
   depositAmount: string; lockBike: boolean | null; signature: string | null
   photos: PhotoState
   isStudent: boolean | null; hasAccommodationProof: boolean | null; depositMethod: 'cash' | 'id_card'
+  studentUniversityAffiliation: 'affiliated' | 'other' | null
 }
 function getDraft(key: string): DraftData | null {
   if (typeof window === 'undefined') return null
@@ -248,7 +250,7 @@ function bkkTimePart(iso: string): string {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings, promoPayDays = 5, qrDailyUrl, qrMonthlyUrl, lineQrUrl, lineId }: Props) {
+export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings, promoPayDays = 5, qrDailyUrl, qrMonthlyUrl, lineQrUrl, lineId, studentPromoUniversity }: Props) {
   const DRAFT_KEY = `send_draft_${bike.id}`
 
   useEffect(() => {
@@ -297,6 +299,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   })
   // ── Promo ─────────────────────────────────────────────────────────────────
   const [studentPromo, setStudentPromo] = useState(draft?.studentPromo ?? false)
+  const [studentUniversityAffiliation, setStudentUniversityAffiliation] = useState<'affiliated' | 'other' | null>(draft?.studentUniversityAffiliation ?? null)
 
   // ── Deposit decision (บังคับกดเลือกก่อนเสมอ กันพนักงานงงว่าต้องแนบรูปมั่วแทน) ──
   const [isStudent, setIsStudent] = useState<boolean | null>(draft?.isStudent ?? null)
@@ -335,11 +338,13 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
     studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
     depositAmount, lockBike, signature, photos, isStudent, hasAccommodationProof, depositMethod,
+    studentUniversityAffiliation,
   })
   latestDraft.current = {
     customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
     studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
     depositAmount, lockBike, signature, photos, isStudent, hasAccommodationProof, depositMethod,
+    studentUniversityAffiliation,
   }
 
   useEffect(() => {
@@ -347,7 +352,8 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     saveDraft(DRAFT_KEY, latestDraft.current)
   }, [DRAFT_KEY, customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
       studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
-      depositAmount, lockBike, signature, photos, prefillBooking, isStudent, hasAccommodationProof, depositMethod])
+      depositAmount, lockBike, signature, photos, prefillBooking, isStudent, hasAccommodationProof, depositMethod,
+      studentUniversityAffiliation])
 
   // Save signature immediately (don't wait for effect — avoids race on tab switch)
   const handleSaveSignature = useCallback((sig: string) => {
@@ -526,6 +532,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
       studentPromoConfig.eligible_models.some(m => m.brand === bike.brand && m.model === bike.model))
   const studentDiscountPerDay = studentPromoConfig?.discount_value ?? 0
 
+  // ถามเพิ่มว่าเป็นนักศึกษามหาลัยที่สาขากำหนดไหม เฉพาะตอนสาขาตั้งชื่อมหาลัยไว้ + รุ่นนี้มีโปรนักศึกษาจริง —
+  // กันไม่ต้องย้อนไปกดเลือกโปรซ้ำที่ step 3 (เดิมต้องเปิดรูปบัตรมาเช็คเองว่าใช่มหาลัยที่กำหนดไหม)
+  const showUniversityQuestion = isStudent === true && studentPromoEligible && !!studentPromoUniversity
+
   // มัดจำตามเงื่อนไข — นักศึกษาฟรีทุกกรณี (ไม่จำกัดสถาบัน) / เช่า ≥7 วันหรือรายเดือน = 1,000 / เช่าสั้นไม่มีหลักฐานที่พัก = 500
   // ใช้ isMonthlyContract (ไม่ใช่ contractType เปล่าๆ) — contractType ค่าเริ่มต้นเป็น 'monthly' เสมอแม้เช่าแค่วันเดียว
   // ที่ยังไม่ได้กดสลับเป็นรายวัน ถ้าเช็คแค่ contractType จะพลาดเข้าเกณฑ์ 1,000 ทั้งที่เช่าสั้น
@@ -547,6 +557,17 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   useEffect(() => {
     if ((isLongTermDeposit || isStudent) && depositMethod === 'id_card') setDepositMethod('cash')
   }, [isLongTermDeposit, isStudent, depositMethod])
+
+  // เลิกเป็นนักศึกษาแล้ว หรือย้ายไปคันที่ไม่ถามคำถามมหาลัยแล้ว — เคลียร์คำตอบทิ้ง กันค้างข้ามเคส
+  useEffect(() => {
+    if (!showUniversityQuestion && studentUniversityAffiliation !== null) setStudentUniversityAffiliation(null)
+  }, [showUniversityQuestion, studentUniversityAffiliation])
+
+  // ตอบคำถามมหาลัยแล้ว ผูกโปรอัตโนมัติตามคำตอบ — มหาลัยที่กำหนด = เปิดโปรทันที, อื่นๆ = ราคาปกติ ไม่ต้องไป step 3 อีก
+  useEffect(() => {
+    if (studentUniversityAffiliation === 'affiliated' && !studentPromo) setStudentPromo(true)
+    if (studentUniversityAffiliation === 'other' && studentPromo) setStudentPromo(false)
+  }, [studentUniversityAffiliation, studentPromo])
 
   // อัพเดทช่องมัดจำอัตโนมัติตามเงื่อนไข — พนักงานยังแก้เองทับได้ถ้าจำเป็น (แค่กันไม่ต้องคิดเองจากศูนย์)
   useEffect(() => {
@@ -620,6 +641,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     if (!idCardNumber.trim())  { setError('กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต (อ่านจากบัตรอัตโนมัติไม่ได้ ต้องกรอกเอง)'); return }
     if (isStudent === null) { setError('กรุณาเลือกว่าลูกค้าเป็นนักศึกษาหรือไม่'); return }
     if (isStudent && !photos.student_id_card) { setError('กรุณาแนบรูปบัตรนิสิต/นักศึกษาด้วย'); return }
+    if (showUniversityQuestion && studentUniversityAffiliation === null) { setError(`กรุณาเลือกว่าเป็นนักศึกษา ${studentPromoUniversity} หรือมหาลัยอื่นๆ`); return }
     if (hasAccommodationProof === null) { setError('กรุณาเลือกว่ามีหลักฐานที่พักหรือไม่'); return }
     if (hasAccommodationProof && !photos.accommodation_proof) { setError('กรุณาแนบหลักฐานที่พัก/โรงแรม'); return }
     if (blacklistHit) { setError(`⛔ ${blacklistHit.name} ติดบัญชีแบล็คลิสต์ของร้าน ไม่สามารถเช่าได้`); return }
@@ -906,6 +928,26 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
                 </div>
                 <PhotoUpload icon="🎓" hint="ถ่ายรูปหรืออัพโหลดบัตรนิสิต/นักศึกษา" folder={folder}
                   onUpload={setPhoto('student_id_card')} onRemove={clearPhoto('student_id_card')} />
+              </div>
+            )}
+            {showUniversityQuestion && (
+              <div style={{ marginTop: '10px' }}>
+                <label className="field-label">เป็นนักศึกษา {studentPromoUniversity} ไหม *</label>
+                <YesNoToggle
+                  value={studentUniversityAffiliation === null ? null : studentUniversityAffiliation === 'affiliated'}
+                  onYes={() => setStudentUniversityAffiliation('affiliated')} onNo={() => setStudentUniversityAffiliation('other')}
+                  yesLabel={`🎓 ${studentPromoUniversity}`} noLabel="มหาลัยอื่นๆ"
+                />
+                {studentUniversityAffiliation === 'affiliated' && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '8px 12px' }}>
+                    ✓ เปิดราคานักศึกษาให้อัตโนมัติ — ลด ฿{studentDiscountPerDay.toLocaleString()}/วัน
+                  </div>
+                )}
+                {studentUniversityAffiliation === 'other' && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px' }}>
+                    ไม่ร่วมโปรราคานักศึกษา จะเป็นราคาปกติ (แต่ยังฟรีมัดจำอยู่)
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1209,11 +1251,11 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           </div>
         )}
 
-        {/* ③ โปรโมชั่น — โชว์เฉพาะตอนมีโปรราคานักศึกษาตั้งค่าไว้แล้ว และรถคันนี้ร่วมรายการ */}
-        {isStudent && studentPromoConfig && studentPromoEligible && (
+        {/* ③ โปรโมชั่น — โชว์เฉพาะตอนมีโปรราคานักศึกษาตั้งค่าไว้แล้ว รถคันนี้ร่วมรายการ และสาขาไม่ได้ตั้งชื่อมหาลัยไว้ (ถ้าตั้งไว้ ตอบคำถามในขั้นตอน 1 ไปแล้ว ผูกโปรอัตโนมัติ ไม่ต้องถามซ้ำ) */}
+        {isStudent && studentPromoConfig && studentPromoEligible && !showUniversityQuestion && (
           <div className="card" style={{ borderTop: '3px solid #dc2626' }}>
             <StepTitle n={3}>โปรโมชั่นราคานักศึกษา</StepTitle>
-            <ScriptBox>เช็คบัตรนักศึกษาที่แนบไว้แล้วให้หน่อยค่ะ ว่าเป็น ม.บูรพา หรือ ม.เกษตรศาสตร์ ศรีราชา ไหม ถ้าใช่เปิดราคานักศึกษาให้ได้เลยค่ะ</ScriptBox>
+            <ScriptBox>เช็คบัตรนักศึกษาที่แนบไว้แล้วให้หน่อยค่ะ ว่าเข้าเงื่อนไขโปรไหม ถ้าใช่เปิดราคานักศึกษาให้ได้เลยค่ะ</ScriptBox>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => setStudentPromo(false)} style={{
                 flex: 1, padding: '10px', borderRadius: '10px',
