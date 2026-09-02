@@ -1253,16 +1253,18 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             borderRadius: '16px', padding: '18px 16px', marginBottom: '12px', color: '#fff',
           }}>
             <div style={{ fontSize: '12px', opacity: .8, marginBottom: '4px' }}>
-              {isMonthlyContract ? 'สัญญารายเดือน' : `${totalDays} วัน`}
+              ยอดที่ต้องชำระวันนี้ {isMonthlyContract ? '(รายเดือน)' : `(${totalDays} วัน)`}
             </div>
-            <div style={{ fontSize: '36px', fontWeight: 900, letterSpacing: '-1px', marginBottom: '8px' }}>
-              {isMonthlyContract
-                ? `฿${Number(mMonthlyRate || 0).toLocaleString()}/เดือน`
-                : `฿${totalAmount.toLocaleString()}`}
+            <div style={{ fontSize: '36px', fontWeight: 900, letterSpacing: '-1px', marginBottom: '6px' }}>
+              ฿{grandTotalToday.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '13px', opacity: .9, marginBottom: '8px' }}>
+              ค่าเช่า ฿{(isMonthlyContract ? Number(mMonthlyRate || 0) : totalAmount).toLocaleString()}
+              {' + '}มัดจำ ฿{(parseFloat(depositAmount) || 0).toLocaleString()}
             </div>
             <div style={{ fontSize: '12px', opacity: .75 }}>
               {isMonthlyContract
-                ? `จ่ายทุกวันที่ ${paymentDay} ของเดือน`
+                ? `จากนั้นจ่ายทุกวันที่ ${paymentDay} ของเดือน`
                 : isLongRental
                   ? `${longResult?.months.length ?? 0} เดือน + ${longResult?.remainDays ?? 0} วัน • คิดตามสูตร`
                   : `฿${ndr.toLocaleString()}/วัน × ${shortResult?.calcDays ?? totalDays} วัน`
@@ -1367,25 +1369,16 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
           <div style={{
             background: isStudent ? '#f0fdf4' : depositMethod === 'id_card' ? '#eff6ff' : '#fef2f2',
-            border: `1.5px solid ${isStudent ? '#bbf7d0' : depositMethod === 'id_card' ? '#93c5fd' : '#fca5a5'}`,
-            borderRadius: '10px', padding: '12px 14px', marginBottom: '14px',
+            border: `1px solid ${isStudent ? '#bbf7d0' : depositMethod === 'id_card' ? '#93c5fd' : '#fca5a5'}`,
+            borderRadius: '10px', padding: '9px 12px', marginBottom: '14px',
+            fontSize: '13px', fontWeight: 700,
+            color: isStudent ? '#166534' : depositMethod === 'id_card' ? '#1d4ed8' : '#991b1b',
           }}>
-            {isStudent ? (
-              <>
-                <div style={{ fontSize: '24px', fontWeight: 800, color: '#16a34a' }}>🎓 ฟรีมัดจำ</div>
-                <div style={{ fontSize: '12px', color: '#166534', marginTop: '2px' }}>{depositReason}</div>
-              </>
-            ) : depositMethod === 'id_card' ? (
-              <>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#1d4ed8' }}>🪪 วางบัตรประชาชนไว้แทนมัดจำ</div>
-                <div style={{ fontSize: '12px', color: '#1e40af', marginTop: '2px' }}>ไม่ต้องเก็บเงินมัดจำ — อย่าลืมเตรียมคืนบัตรตอนลูกค้ามาคืนรถ</div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: '24px', fontWeight: 800, color: '#dc2626' }}>฿{(parseFloat(depositAmount) || 0).toLocaleString()}</div>
-                <div style={{ fontSize: '12px', color: '#991b1b', marginTop: '2px' }}>มัดจำที่ต้องเก็บ — {depositReason} (แก้เลขเองได้ถ้าจำเป็น)</div>
-              </>
-            )}
+            {isStudent
+              ? `🎓 มัดจำ ฿0 — ${depositReason}`
+              : depositMethod === 'id_card'
+                ? '🪪 วางบัตรประชาชนแทนมัดจำ — ไม่เก็บเงิน อย่าลืมเตรียมคืนบัตรตอนลูกค้ามาคืนรถ'
+                : `มัดจำ ฿${(parseFloat(depositAmount) || 0).toLocaleString()} — ${depositReason} (แก้เลขเองได้ถ้าจำเป็น)`}
           </div>
 
           <div className="field-row">
