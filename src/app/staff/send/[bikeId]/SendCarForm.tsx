@@ -896,10 +896,9 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           </div>
         )}
 
-        {/* สัญญานี้เกิดที่ไหน — ต้นทาง รู้แน่นอนตั้งแต่ตอนนี้ เก็บเงินได้เลยไม่ต้องรอ */}
-        <div className="card">
-          <div className="card-title">สัญญานี้เกิดที่ไหน</div>
-          <ScriptBox>วันนี้สะดวกทำสัญญาที่ร้าน หรือให้ไปส่งนอกสถานที่คะ นอกสถานที่จะมีค่าบริการนะคะ</ScriptBox>
+        {/* สัญญานี้เกิดที่ไหน — ใช้ภายในให้พนักงานกดเลือกเอง ไม่ใช่คำถามที่ต้องถามลูกค้า */}
+        <div className="card" style={{ borderTop: '3px solid #dc2626' }}>
+          <div className="card-title">สัญญานี้เกิดที่ไหน *</div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button type="button" onClick={() => setSendType(sendType === 'shop' ? null : 'shop')} style={{
               flex: 1, padding: '10px', borderRadius: '10px',
