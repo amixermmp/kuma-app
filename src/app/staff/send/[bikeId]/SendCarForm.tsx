@@ -1495,6 +1495,12 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
                 alt="QR รับเงิน"
                 style={{ maxWidth: '260px', width: '100%', height: 'auto', borderRadius: '8px' }}
               />
+              <div style={{
+                marginTop: '12px', background: '#dc2626', color: '#fff', borderRadius: '10px',
+                padding: '10px 12px', fontSize: '15px', fontWeight: 800, lineHeight: 1.4,
+              }}>
+                ⚠️ ชื่อผู้โอนต้องตรงกับบัตรประชาชนเท่านั้น
+              </div>
             </div>
           )}
 
