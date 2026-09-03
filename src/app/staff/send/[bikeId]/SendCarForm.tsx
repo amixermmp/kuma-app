@@ -207,6 +207,7 @@ type DraftData = {
   photos: PhotoState
   isStudent: boolean | null; hasAccommodationProof: boolean | null; depositMethod: 'cash' | 'id_card'
   studentUniversityAffiliation: 'affiliated' | 'other' | null
+  isForeignNoPhone: boolean; altContact: string
 }
 function getDraft(key: string): DraftData | null {
   if (typeof window === 'undefined') return null
@@ -264,6 +265,8 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const [customerName,  setCustomerName]  = useState(draft?.customerName  ?? prefillBooking?.customer_name  ?? '')
   const [customerPhone, setCustomerPhone] = useState(draft?.customerPhone ?? prefillBooking?.customer_phone ?? '')
   const [customerHotel, setCustomerHotel] = useState(draft?.customerHotel ?? prefillBooking?.customer_hotel ?? '')
+  const [isForeignNoPhone, setIsForeignNoPhone] = useState(draft?.isForeignNoPhone ?? false)
+  const [altContact, setAltContact] = useState(draft?.altContact ?? '')
 
   // ── จุดคืนรถ (optional, รายวันเท่านั้น) ให้พนักงานกะอื่นรู้ว่าต้องไปรับคืนที่ไหน ──
   const [returnType,    setReturnType]    = useState<'shop' | 'offsite' | null>(null)
@@ -338,13 +341,13 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
     studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
     depositAmount, lockBike, signature, photos, isStudent, hasAccommodationProof, depositMethod,
-    studentUniversityAffiliation,
+    studentUniversityAffiliation, isForeignNoPhone, altContact,
   })
   latestDraft.current = {
     customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
     studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
     depositAmount, lockBike, signature, photos, isStudent, hasAccommodationProof, depositMethod,
-    studentUniversityAffiliation,
+    studentUniversityAffiliation, isForeignNoPhone, altContact,
   }
 
   useEffect(() => {
@@ -353,7 +356,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   }, [DRAFT_KEY, customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
       studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
       depositAmount, lockBike, signature, photos, prefillBooking, isStudent, hasAccommodationProof, depositMethod,
-      studentUniversityAffiliation])
+      studentUniversityAffiliation, isForeignNoPhone, altContact])
 
   // Save signature immediately (don't wait for effect — avoids race on tab switch)
   const handleSaveSignature = useCallback((sig: string) => {
@@ -563,6 +566,11 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     if (!showUniversityQuestion && studentUniversityAffiliation !== null) setStudentUniversityAffiliation(null)
   }, [showUniversityQuestion, studentUniversityAffiliation])
 
+  // เลิกติ๊กต่างชาติไม่มีเบอร์ไทยแล้ว — เคลียร์ช่องทางติดต่อสำรองทิ้ง กันค้างส่งไปทั้งที่ไม่ได้ใช้
+  useEffect(() => {
+    if (!isForeignNoPhone && altContact) setAltContact('')
+  }, [isForeignNoPhone, altContact])
+
   // ตอบคำถามมหาลัยแล้ว ผูกโปรอัตโนมัติตามคำตอบ — มหาลัยที่กำหนด = เปิดโปรทันที, อื่นๆ = ราคาปกติ ไม่ต้องไป step 3 อีก
   useEffect(() => {
     if (studentUniversityAffiliation === 'affiliated' && !studentPromo) setStudentPromo(true)
@@ -637,7 +645,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!customerName.trim())  { setError('กรุณาใส่ชื่อลูกค้า'); return }
-    if (!customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
+    if (!isForeignNoPhone && !customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
     if (!idCardNumber.trim())  { setError('กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต (อ่านจากบัตรอัตโนมัติไม่ได้ ต้องกรอกเอง)'); return }
     if (isStudent === null) { setError('กรุณาเลือกว่าลูกค้าเป็นนักศึกษาหรือไม่'); return }
     if (isStudent && !photos.student_id_card) { setError('กรุณาแนบรูปบัตรนิสิต/นักศึกษาด้วย'); return }
@@ -693,12 +701,14 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               phone: customerPhone.trim(),
               address: customerHotel.trim(),
               idCardNumber: idCardNumber.trim(),
+              altContact: altContact.trim() || null,
             },
             startDate,
             paymentDay,
             monthlyRate:   parseFloat(mMonthlyRate),
             depositAmount: parseFloat(depositAmount) || 0,
             depositMethod,
+            isForeignNoPhone,
             odometer:      odometer || '0',
             fuelFull,
             paymentMethod,
@@ -739,6 +749,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               phone: customerPhone.trim(),
               hotel: customerHotel.trim(),
               idCardNumber: idCardNumber.trim(),
+              altContact: altContact.trim() || null,
             },
             startDatetime,
             endDatetime,
@@ -747,6 +758,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             totalAmount,
             depositAmount: parseFloat(depositAmount) || 0,
             depositMethod,
+            isForeignNoPhone,
             discount,
             paymentMethod,
             fuelFull,
@@ -866,12 +878,33 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           <StepTitle n={1}>ข้อมูลลูกค้า</StepTitle>
           <ScriptBox>รบกวนขอบัตรประชาชน กับโชว์หลักฐานการจองโรงแรมหน่อยค่ะ</ScriptBox>
           <div className="field-row">
-            <label className="field-label">เบอร์โทรศัพท์ *</label>
+            <label className="field-label">เบอร์โทรศัพท์{isForeignNoPhone ? ' (ไม่บังคับ)' : ' *'}</label>
             <input className="field-input" type="tel" placeholder="081-234-5678"
               value={customerPhone}
+              disabled={isForeignNoPhone}
+              style={isForeignNoPhone ? { opacity: 0.5 } : undefined}
               onChange={e => setCustomerPhone(e.target.value)}
-              onBlur={e => lookupCustomer(e.target.value)}
+              onBlur={e => { if (!isForeignNoPhone) lookupCustomer(e.target.value) }}
             />
+            <div onClick={() => setIsForeignNoPhone(v => !v)} style={{
+              display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, padding: '10px 12px',
+              background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, cursor: 'pointer',
+            }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                border: `1.5px solid ${isForeignNoPhone ? '#dc2626' : '#d1d5db'}`,
+                background: isForeignNoPhone ? '#dc2626' : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13,
+              }}>{isForeignNoPhone && '✓'}</div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>🌍 ต่างชาติ ไม่มีเบอร์ไทย</span>
+            </div>
+            {isForeignNoPhone && (
+              <div style={{ marginTop: 10 }}>
+                <label className="field-label">ช่องทางติดต่ออื่น (LINE ID / WhatsApp) — ถ้ามี</label>
+                <input className="field-input" type="text" placeholder="เช่น @kumabike หรือ +81 90-1234-5678"
+                  value={altContact} onChange={e => setAltContact(e.target.value)} />
+              </div>
+            )}
           </div>
           <div className="field-row">
             <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

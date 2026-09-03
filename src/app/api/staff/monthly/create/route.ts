@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
     monthlyRate,
     depositAmount,
     depositMethod,
+    isForeignNoPhone,
     odometer,
     fuelFull,
     paymentMethod,
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     slipCustomerName, slipNameMismatchConfirmed,
   } = body
 
-  if (!bikeId || !staffId || !customer?.name || !customer?.phone || !startDate || !monthlyRate) {
+  if (!bikeId || !staffId || !customer?.name || (!isForeignNoPhone && !customer?.phone) || !startDate || !monthlyRate) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
   if (!customer?.idCardNumber) {
@@ -126,6 +127,7 @@ export async function POST(request: NextRequest) {
       name: customer.name,
       workplace: customer.address || null,
       id_card_number: customer.idCardNumber,
+      alt_contact: customer.altContact || null,
     }).eq('id', customerId)
   } else {
     const { data: newCustomer, error: cErr } = await supabase
@@ -133,9 +135,10 @@ export async function POST(request: NextRequest) {
       .insert({
         branch_id: BRANCH_ID,
         name: customer.name,
-        phone: customer.phone,
+        phone: customer.phone || null,
         id_card_number: customer.idCardNumber,
         workplace: customer.address || null,
+        alt_contact: customer.altContact || null,
       })
       .select('id')
       .single()

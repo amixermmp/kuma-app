@@ -19,14 +19,14 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const {
     bikeId, customer, startDatetime, endDatetime,
-    dailyRate, totalDays, totalAmount, depositAmount, depositMethod,
+    dailyRate, totalDays, totalAmount, depositAmount, depositMethod, isForeignNoPhone,
     discount, paymentMethod, fuelFull, odometer, photos, signature, lockBike,
     excludeBookingId, overrideBookingConflict,
     slipCustomerName, slipNameMismatchConfirmed,
     returnType, returnAddress,
   } = body
 
-  if (!bikeId || !customer?.name || !customer?.phone || !startDatetime || !endDatetime) {
+  if (!bikeId || !customer?.name || (!isForeignNoPhone && !customer?.phone) || !startDatetime || !endDatetime) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
   if (!customer?.idCardNumber) {
@@ -119,12 +119,12 @@ export async function POST(request: NextRequest) {
     customerId = existing.id
     await supabase
       .from('customers')
-      .update({ name: customer.name, workplace: customer.hotel || null, id_card_number: customer.idCardNumber })
+      .update({ name: customer.name, workplace: customer.hotel || null, id_card_number: customer.idCardNumber, alt_contact: customer.altContact || null })
       .eq('id', customerId)
   } else {
     const { data: newCust, error: custErr } = await supabase
       .from('customers')
-      .insert({ branch_id: BRANCH_ID, name: customer.name, phone: customer.phone, workplace: customer.hotel || null, id_card_number: customer.idCardNumber })
+      .insert({ branch_id: BRANCH_ID, name: customer.name, phone: customer.phone || null, workplace: customer.hotel || null, id_card_number: customer.idCardNumber, alt_contact: customer.altContact || null })
       .select('id')
       .single()
     if (custErr || !newCust) return NextResponse.json({ error: 'สร้างข้อมูลลูกค้าไม่สำเร็จ' }, { status: 500 })
