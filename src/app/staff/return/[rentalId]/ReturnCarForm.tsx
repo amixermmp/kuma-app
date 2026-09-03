@@ -512,8 +512,9 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
                   + (finalOvertimeCharge > 0 ? ` − ล่วงเวลา ฿${finalOvertimeCharge.toLocaleString()}` : '')
                   + (fuel > 0 ? ` − น้ำมัน ฿${fuel.toLocaleString()}` : '')
                   + (damage > 0 ? ` − เสียหาย ฿${damage.toLocaleString()}` : '')
+                  + (newReturnFeeAmount > 0 ? ` − ค่ารับคืนนอกสถานที่ ฿${newReturnFeeAmount.toLocaleString()}` : '')
                   + (earlyReturnRefund > 0 ? ` + คืนค่าเช่า ฿${earlyReturnRefund.toLocaleString()}` : '')
-                : `ล่วงเวลา+น้ำมัน+เสียหาย (หลังหักเครดิต) ฿${(finalOvertimeCharge + fuel + damage).toLocaleString()} เกินมัดจำ ฿${rental.deposit_amount.toLocaleString()}`}
+                : `ล่วงเวลา+น้ำมัน+เสียหาย${newReturnFeeAmount > 0 ? '+ค่ารับคืนนอกสถานที่' : ''} (หลังหักเครดิต) ฿${(finalOvertimeCharge + fuel + damage + newReturnFeeAmount).toLocaleString()} เกินมัดจำ ฿${rental.deposit_amount.toLocaleString()}`}
             </div>
           </div>
           <div style={{ fontSize: '28px', fontWeight: 900, color: netRefund >= 0 ? '#15803d' : '#dc2626' }}>
