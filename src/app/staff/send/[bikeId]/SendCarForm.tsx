@@ -937,12 +937,11 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               {idCardNumber && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 400 }}>✓ อ่านจากบัตรแล้ว — แก้ไขได้ถ้าอ่านผิด</span>}
             </label>
             <input className="field-input" type="text" placeholder="เช่น 1234567890123"
-              style={!idCardNumber ? { borderColor: '#dc2626', background: '#fef2f2' } : undefined}
               value={idCardNumber}
               onChange={e => { setIdCardNumber(e.target.value); if (blacklistHit) setBlacklistHit(null) }}
               onBlur={e => checkBlacklist(customerName, customerPhone, e.target.value)} />
             {!idCardNumber && (
-              <div style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
                 จำเป็นต้องกรอก — อ่านจากบัตรอัตโนมัติไม่ได้ กรุณากรอกเอง ตรวจแบล็คลิสต์ 2 ชั้น (ชื่อ + เลขบัตร) กันเคสเปลี่ยนชื่อ
               </div>
             )}
