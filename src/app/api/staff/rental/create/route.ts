@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
     discount, paymentMethod, fuelFull, odometer, photos, signature, lockBike,
     excludeBookingId, overrideBookingConflict,
     slipCustomerName, slipNameMismatchConfirmed,
-    returnType, returnAddress,
+    returnType, returnAddress, returnFee,
+    sendType, sendAddress, sendFee,
   } = body
 
   if (!bikeId || !customer?.name || (!isForeignNoPhone && !customer?.phone) || !startDatetime || !endDatetime) {
@@ -157,6 +158,10 @@ export async function POST(request: NextRequest) {
       customer_signature: signature ?? null,
       return_type: returnType ?? null,
       return_address: returnType === 'offsite' ? (returnAddress || null) : null,
+      return_fee: returnType === 'offsite' ? (returnFee || 0) : 0,
+      send_type: sendType ?? null,
+      send_address: sendType === 'offsite' ? (sendAddress || null) : null,
+      send_fee: sendType === 'offsite' ? (sendFee || 0) : 0,
     })
     .select('id')
     .single()
@@ -168,13 +173,15 @@ export async function POST(request: NextRequest) {
   // คัดลอกรูปคู่รถเข้าคิวโปรโมท (best-effort ไม่ block การส่งรถ)
   await queueMarketingPhoto(supabase, BRANCH_ID, rental.id, 'daily', photos?.with_bike)
 
-  // ลงสมุดรายรับ — ค่าเช่าเก็บตอนส่งรถ (best-effort ไม่ block การส่งรถ)
+  // ลงสมุดรายรับ — ค่าเช่า + ค่าบริการนอกสถานที่ (ต้นทาง/ปลายทางที่ยืนยันแล้ว) เก็บตอนส่งรถทั้งหมด (best-effort ไม่ block การส่งรถ)
+  const confirmedSendFee = sendType === 'offsite' ? (Number(sendFee) || 0) : 0
+  const confirmedReturnFee = returnType === 'offsite' ? (Number(returnFee) || 0) : 0
   const { data: payment, error: paymentErr } = await supabase.from('rental_payments').insert({
     rental_id: rental.id,
     branch_id: BRANCH_ID,
     staff_id: staffId,
     kind: 'rental',
-    amount: totalAmount ?? 0,
+    amount: (totalAmount ?? 0) + confirmedSendFee + confirmedReturnFee,
     paid_at: new Date(startDatetime).toISOString(),
   }).select('id').single()
   if (paymentErr) console.error('[rental/create] rental payment insert failed:', rental.id, JSON.stringify(paymentErr))

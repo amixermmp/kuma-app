@@ -23,6 +23,7 @@ type Rental = {
   discount: number
   return_type: string | null
   return_address: string | null
+  return_fee: number
   send_fuel_full: boolean | null
   bikes: { id: string; license_plate: string; brand: string; model: string; odometer: number; daily_rate: number; monthly_rate: number | null }
   customers: { id: string; name: string; phone: string }
@@ -111,10 +112,17 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
   const [overrideOvertime, setOverrideOvertime] = useState('')
   const [routineDue, setRoutineDue] = useState<{ taskName: string; dueReason: string }[] | null>(null)
 
+  // จุดคืนรถยังไม่ฟันธงตอนส่งรถ (เลือกคืนที่ร้าน หรือไม่ได้เลือกอะไรเลย) — ถามจริงตอนนี้แทน แล้วเก็บเงินเลยถ้าเลือกนอกสถานที่
+  const returnAlreadyConfirmed = rental.return_type === 'offsite'
+  const [newReturnType, setNewReturnType] = useState<'shop' | 'offsite' | null>(null)
+  const [newReturnAddress, setNewReturnAddress] = useState('')
+  const [newReturnFee, setNewReturnFee] = useState('70')
+
   const fuel = parseFloat(fuelFee) || 0
   const damage = parseFloat(damageFee) || 0
   const finalOvertimeCharge = overrideOvertime !== '' ? Math.max(0, parseFloat(overrideOvertime) || 0) : overtimeCharge
-  const netRefund = rental.deposit_amount - finalOvertimeCharge - damage - fuel + earlyReturnRefund
+  const newReturnFeeAmount = !returnAlreadyConfirmed && newReturnType === 'offsite' ? (parseFloat(newReturnFee) || 0) : 0
+  const netRefund = rental.deposit_amount - finalOvertimeCharge - damage - fuel - newReturnFeeAmount + earlyReturnRefund
 
   // โชว์รูปกำกับราคาน้ำมัน เมื่อคืนไม่เต็ม หรือดูเต็มแต่ลูกค้ายังไม่ได้เติมมาเอง
   const showFuelReference = requiresFuelCheck && (returnFuelFull === false || (returnFuelFull === true && refueledByCustomer === false))
@@ -127,6 +135,7 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
   const handleSubmit = async () => {
     if (!odometer) { setError('กรุณากรอกเลขไมล์ตอนรับคืน'); return }
     if (fuelCheckIncomplete) { setError('กรุณาเลือกระดับน้ำมันตอนรับคืน'); return }
+    if (!returnAlreadyConfirmed && newReturnType === null) { setError('กรุณาเลือกว่าวันนี้คืนที่ไหน'); return }
     setLoading(true)
     setError('')
     try {
@@ -149,6 +158,11 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
           finalRentAmount: recalculatedCharge,
           overtimeCharge: finalOvertimeCharge,
           earlyReturnRefund,
+          ...(returnAlreadyConfirmed ? {} : {
+            newReturnType,
+            newReturnAddress: newReturnType === 'offsite' ? newReturnAddress.trim() : null,
+            newReturnFee: newReturnFeeAmount,
+          }),
         }),
       })
       const data = await res.json()
@@ -191,24 +205,51 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
           </div>
         )}
 
-        {/* จุดคืนรถ — เด่นไว้ก่อนเลย เผื่อกะอื่นรับคืนต้องรู้ว่าไปรับที่ไหน */}
-        {rental.return_type === 'offsite' && (
+        {/* จุดคืนรถ — ยืนยันแล้วตอนส่งรถ (จ่ายจบ) แค่โชว์สถานะ ไม่ถามซ้ำ */}
+        {returnAlreadyConfirmed && (
           <div style={{
             background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: '10px',
             padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#0369a1',
           }}>
-            <strong>🛵 นัดรับคืนนอกสถานที่</strong>
+            <strong>🛵 รับคืนนอกสถานที่ — ชำระค่าบริการแล้ว ฿{rental.return_fee.toLocaleString()}</strong>
             {rental.return_address && (
               <div style={{ fontSize: '13px', marginTop: '4px', color: '#0c4a6e' }}>{rental.return_address}</div>
             )}
           </div>
         )}
-        {rental.return_type === 'shop' && (
-          <div style={{
-            background: '#f1f5f9', border: '1.5px solid #e5e7eb', borderRadius: '10px',
-            padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#111827',
-          }}>
-            <strong>🏠 นัดคืนที่ร้าน</strong>
+
+        {/* ยังไม่ฟันธงตอนส่งรถ (เลือกคืนที่ร้าน หรือไม่ได้เลือกเลย) — ถามคำถามจริงตอนนี้ เก็บเงินตอนนี้เลยถ้าเลือกนอกสถานที่ */}
+        {!returnAlreadyConfirmed && (
+          <div className="card">
+            <div className="card-title">วันนี้คืนที่ไหน</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="button" onClick={() => setNewReturnType(newReturnType === 'shop' ? null : 'shop')} style={{
+                flex: 1, padding: '10px', borderRadius: '10px',
+                border: `2px solid ${newReturnType === 'shop' ? '#111827' : '#e5e7eb'}`,
+                background: newReturnType === 'shop' ? '#f1f5f9' : '#fff',
+                color: newReturnType === 'shop' ? '#111827' : '#6b7280',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>🏠 คืนที่ร้าน</button>
+              <button type="button" onClick={() => setNewReturnType(newReturnType === 'offsite' ? null : 'offsite')} style={{
+                flex: 1, padding: '10px', borderRadius: '10px',
+                border: `2px solid ${newReturnType === 'offsite' ? '#0ea5e9' : '#e5e7eb'}`,
+                background: newReturnType === 'offsite' ? '#f0f9ff' : '#fff',
+                color: newReturnType === 'offsite' ? '#0369a1' : '#6b7280',
+                fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>🛵 รับนอกสถานที่</button>
+            </div>
+            {newReturnType === 'offsite' && (
+              <div style={{ marginTop: '10px' }}>
+                <textarea className="field-input" rows={2}
+                  placeholder="เช่น โรงแรม ABC ห้อง 203 หรือปักหมุด/ลิงก์แผนที่"
+                  value={newReturnAddress} onChange={e => setNewReturnAddress(e.target.value)}
+                  style={{ resize: 'none', marginBottom: '8px' }}
+                />
+                <label className="field-label">ค่าบริการ (฿) — มาตรฐานไม่เกิน 5 กม.</label>
+                <input className="field-input" type="number" value={newReturnFee} onChange={e => setNewReturnFee(e.target.value)} />
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>หักจากเงินมัดจำที่คืนลูกค้าเลย</div>
+              </div>
+            )}
           </div>
         )}
 

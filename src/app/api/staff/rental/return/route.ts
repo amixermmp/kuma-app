@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     fuelFee, damageFee, damageNotes,
     returnPhotoUrl, refundAmount,
     finalRentAmount, overtimeCharge, earlyReturnRefund,
+    newReturnType, newReturnAddress, newReturnFee,
   } = body
 
   if (!rentalId || !bikeId) {
@@ -81,6 +82,12 @@ export async function POST(request: NextRequest) {
       refund_amount: refundAmount,
       total_amount: finalRentAmount,
       send_photos: [],
+      // จุดคืนรถยังไม่ฟันธงตอนส่งรถ — ตัดสินใจจริงตอนนี้แทน (ถ้ายืนยันนอกสถานที่ไปแล้วตอนส่งรถ ไม่ต้องแตะ ไม่ส่ง newReturnType มา)
+      ...(newReturnType !== undefined ? {
+        return_type: newReturnType ?? null,
+        return_address: newReturnType === 'offsite' ? (newReturnAddress || null) : null,
+        return_fee: newReturnType === 'offsite' ? (newReturnFee || 0) : 0,
+      } : {}),
     })
     .eq('id', rentalId)
     .in('status', ['active', 'extended'])
@@ -113,6 +120,18 @@ export async function POST(request: NextRequest) {
       amount: -Number(earlyReturnRefund),
     })
     if (refundErr) console.error('[rental/return] early-return refund insert failed:', rentalId, JSON.stringify(refundErr))
+  }
+
+  // ค่าบริการรับคืนนอกสถานที่ — เพิ่งฟันธงตอนนี้ (ยังไม่เคยเก็บตอนส่งรถ) เก็บเป็นรายรับจริงตอนนี้เลย
+  if (newReturnType === 'offsite' && Number(newReturnFee) > 0) {
+    const { error: returnFeeErr } = await supabase.from('rental_payments').insert({
+      rental_id: rentalId,
+      branch_id: existing?.branch_id ?? null,
+      staff_id: staffId,
+      kind: 'return_fee',
+      amount: Number(newReturnFee),
+    })
+    if (returnFeeErr) console.error('[rental/return] return fee payment insert failed:', rentalId, JSON.stringify(returnFeeErr))
   }
 
   // Set bike back to available — เว้นแต่รถมีสัญญาอื่นเปิดค้างอยู่แล้ว (เช่น ปิดสัญญานี้ช้า

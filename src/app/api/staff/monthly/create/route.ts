@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     depositAmount,
     depositMethod,
     isForeignNoPhone,
+    sendType, sendAddress, sendFee,
     odometer,
     fuelFull,
     paymentMethod,
@@ -169,6 +170,9 @@ export async function POST(request: NextRequest) {
       send_odometer: parseInt(odometer) || 0,
       send_photos: sendPhotos,
       customer_signature: signature ?? null,
+      send_type: sendType ?? null,
+      send_address: sendType === 'offsite' ? (sendAddress || null) : null,
+      send_fee: sendType === 'offsite' ? (sendFee || 0) : 0,
       ...(conflict && overrideBookingConflict ? { fast_lane: true } : {}),
     })
     .select('id')
@@ -205,11 +209,12 @@ export async function POST(request: NextRequest) {
     firstDue.setDate(Math.min(paymentDay, daysInMonth))
     const firstDueDateStr = firstDue.toISOString().split('T')[0]
 
+    const confirmedSendFee = sendType === 'offsite' ? (Number(sendFee) || 0) : 0
     const { data: firstPayment, error: firstPaymentErr } = await supabase.from('monthly_payments').insert({
       monthly_rental_id: rental.id,
       due_date: firstDueDateStr,
       paid_date: startDate,
-      amount: monthlyRate,
+      amount: monthlyRate + confirmedSendFee,
       payment_method: paymentMethod,
       status: 'paid',
       staff_id: staffId,

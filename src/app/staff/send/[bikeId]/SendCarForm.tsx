@@ -208,6 +208,7 @@ type DraftData = {
   isStudent: boolean | null; hasAccommodationProof: boolean | null; depositMethod: 'cash' | 'id_card'
   studentUniversityAffiliation: 'affiliated' | 'other' | null
   isForeignNoPhone: boolean; altContact: string
+  returnFee: string; sendType: 'shop' | 'offsite' | null; sendAddress: string; sendFee: string
 }
 function getDraft(key: string): DraftData | null {
   if (typeof window === 'undefined') return null
@@ -271,6 +272,12 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   // ── จุดคืนรถ (optional, รายวันเท่านั้น) ให้พนักงานกะอื่นรู้ว่าต้องไปรับคืนที่ไหน ──
   const [returnType,    setReturnType]    = useState<'shop' | 'offsite' | null>(null)
   const [returnAddress, setReturnAddress] = useState('')
+  const [returnFee,     setReturnFee]     = useState(draft?.returnFee ?? '70')
+
+  // ── ต้นทาง (จุดที่ทำสัญญา/ส่งรถ) — รู้แน่นอนตั้งแต่ตอนนี้ เก็บเงินได้เลยไม่ต้องรอ ──
+  const [sendType,    setSendType]    = useState<'shop' | 'offsite' | null>(draft?.sendType ?? null)
+  const [sendAddress, setSendAddress] = useState(draft?.sendAddress ?? '')
+  const [sendFee,     setSendFee]     = useState(draft?.sendFee ?? '70')
 
   // ── Dates ─────────────────────────────────────────────────────────────────
   // วันเวลารับรถ = "ตอนนี้" เสมอ (ไม่ใช้เวลาที่จองไว้เดิม) — ตามนโยบายเริ่มนับสัญญาจากเวลามารับจริง
@@ -342,12 +349,14 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
     depositAmount, lockBike, signature, photos, isStudent, hasAccommodationProof, depositMethod,
     studentUniversityAffiliation, isForeignNoPhone, altContact,
+    returnFee, sendType, sendAddress, sendFee,
   })
   latestDraft.current = {
     customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
     studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
     depositAmount, lockBike, signature, photos, isStudent, hasAccommodationProof, depositMethod,
     studentUniversityAffiliation, isForeignNoPhone, altContact,
+    returnFee, sendType, sendAddress, sendFee,
   }
 
   useEffect(() => {
@@ -356,7 +365,8 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   }, [DRAFT_KEY, customerName, customerPhone, customerHotel, startDate, endDate, startTime, endTime,
       studentPromo, contractType, mMonthlyRate, odometer, fuelFull, paymentMethod,
       depositAmount, lockBike, signature, photos, prefillBooking, isStudent, hasAccommodationProof, depositMethod,
-      studentUniversityAffiliation, isForeignNoPhone, altContact])
+      studentUniversityAffiliation, isForeignNoPhone, altContact,
+      returnFee, sendType, sendAddress, sendFee])
 
   // Save signature immediately (don't wait for effect — avoids race on tab switch)
   const handleSaveSignature = useCallback((sig: string) => {
@@ -601,7 +611,12 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
   const excessHours = !isMonthlyContract && totalDays > 0 ? calcExcessHours(startDt, endDt, totalDays) : 0
   const overtimeEstimate = calcOvertimeCharge(excessHours, baseDailyRate)
   const totalAmount = isMonthlyContract ? mcr : daysTotal + overtimeEstimate
-  const grandTotalToday = totalAmount + (parseFloat(depositAmount) || 0)
+
+  // ค่าบริการนอกสถานที่ — ต้นทางรู้แน่นอนตอนนี้เก็บได้เลย, ปลายทางเก็บเฉพาะกรณีลูกค้ายืนยันแล้วเท่านั้น
+  // (เลือก "คืนที่ร้าน" หรือยังไม่เลือกอะไร ถือว่ายังไม่ฟันธง ไปถามจริงอีกทีตอนไปรับคืน ไม่เก็บเงินตรงนี้)
+  const sendFeeAmount = sendType === 'offsite' ? (parseFloat(sendFee) || 0) : 0
+  const returnFeeAmount = returnType === 'offsite' ? (parseFloat(returnFee) || 0) : 0
+  const grandTotalToday = totalAmount + (parseFloat(depositAmount) || 0) + sendFeeAmount + returnFeeAmount
 
   // สคริปต์พูดกับลูกค้า — ทวนวันคืน/เวลาคืนให้พนักงานอ่านตรงๆ ได้เลย
   const endDateThaiFmt = endDate
@@ -644,6 +659,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
+    if (sendType === null) { setError('กรุณาเลือกว่าสัญญานี้เกิดที่ไหน'); return }
     if (!customerName.trim())  { setError('กรุณาใส่ชื่อลูกค้า'); return }
     if (!isForeignNoPhone && !customerPhone.trim()) { setError('กรุณาใส่เบอร์โทร'); return }
     if (!idCardNumber.trim())  { setError('กรุณากรอกเลขบัตรประชาชน/พาสปอร์ต (อ่านจากบัตรอัตโนมัติไม่ได้ ต้องกรอกเอง)'); return }
@@ -709,6 +725,9 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             depositAmount: parseFloat(depositAmount) || 0,
             depositMethod,
             isForeignNoPhone,
+            sendType,
+            sendAddress: sendType === 'offsite' ? sendAddress.trim() : null,
+            sendFee: sendFeeAmount,
             odometer:      odometer || '0',
             fuelFull,
             paymentMethod,
@@ -771,6 +790,10 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             slipNameMismatchConfirmed: slipNameMismatch && slipMismatchOverridden,
             returnType,
             returnAddress: returnType === 'offsite' ? returnAddress.trim() : null,
+            returnFee: returnFeeAmount,
+            sendType,
+            sendAddress: sendType === 'offsite' ? sendAddress.trim() : null,
+            sendFee: sendFeeAmount,
             overrideBookingConflict,
           }),
         })
@@ -872,6 +895,39 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             </div>
           </div>
         )}
+
+        {/* สัญญานี้เกิดที่ไหน — ต้นทาง รู้แน่นอนตั้งแต่ตอนนี้ เก็บเงินได้เลยไม่ต้องรอ */}
+        <div className="card">
+          <div className="card-title">สัญญานี้เกิดที่ไหน</div>
+          <ScriptBox>วันนี้สะดวกทำสัญญาที่ร้าน หรือให้ไปส่งนอกสถานที่คะ นอกสถานที่จะมีค่าบริการนะคะ</ScriptBox>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button type="button" onClick={() => setSendType(sendType === 'shop' ? null : 'shop')} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${sendType === 'shop' ? '#111827' : '#e5e7eb'}`,
+              background: sendType === 'shop' ? '#f1f5f9' : '#fff',
+              color: sendType === 'shop' ? '#111827' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>🏠 หน้าร้าน</button>
+            <button type="button" onClick={() => setSendType(sendType === 'offsite' ? null : 'offsite')} style={{
+              flex: 1, padding: '10px', borderRadius: '10px',
+              border: `2px solid ${sendType === 'offsite' ? '#0ea5e9' : '#e5e7eb'}`,
+              background: sendType === 'offsite' ? '#f0f9ff' : '#fff',
+              color: sendType === 'offsite' ? '#0369a1' : '#6b7280',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>🛵 นอกสถานที่</button>
+          </div>
+          {sendType === 'offsite' && (
+            <div style={{ marginTop: '10px' }}>
+              <textarea className="field-input" rows={2}
+                placeholder="เช่น โรงแรม ABC ห้อง 203 หรือปักหมุด/ลิงก์แผนที่"
+                value={sendAddress} onChange={e => setSendAddress(e.target.value)}
+                style={{ resize: 'none', marginBottom: '8px' }}
+              />
+              <label className="field-label">ค่าบริการ (฿) — มาตรฐานไม่เกิน 5 กม.</label>
+              <input className="field-input" type="number" value={sendFee} onChange={e => setSendFee(e.target.value)} />
+            </div>
+          )}
+        </div>
 
         {/* ① ข้อมูลลูกค้า */}
         <div className="card" style={{ borderTop: '3px solid #dc2626' }}>
@@ -1156,11 +1212,23 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               }}>🛵 คืนที่อื่น</button>
             </div>
             {returnType === 'offsite' && (
-              <textarea className="field-input" rows={2}
-                placeholder="เช่น โรงแรม ABC ห้อง 203 หรือปักหมุด/ลิงก์แผนที่"
-                value={returnAddress} onChange={e => setReturnAddress(e.target.value)}
-                style={{ marginTop: '10px', resize: 'none' }}
-              />
+              <div style={{ marginTop: '10px' }}>
+                <textarea className="field-input" rows={2}
+                  placeholder="เช่น โรงแรม ABC ห้อง 203 หรือปักหมุด/ลิงก์แผนที่"
+                  value={returnAddress} onChange={e => setReturnAddress(e.target.value)}
+                  style={{ resize: 'none', marginBottom: '8px' }}
+                />
+                <label className="field-label">ค่าบริการ (฿) — มาตรฐานไม่เกิน 5 กม.</label>
+                <input className="field-input" type="number" value={returnFee} onChange={e => setReturnFee(e.target.value)} />
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                  เลือกตรงนี้เฉพาะกรณีลูกค้ามั่นใจแล้วอยากจ่ายจบเลย — ถ้ายังไม่มั่นใจ ไม่ต้องเลือกอะไร จะไปถามใหม่ตอนไปรับคืนแทน
+                </div>
+              </div>
+            )}
+            {returnType !== 'offsite' && (
+              <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '8px' }}>
+                ยังไม่มั่นใจก็ข้ามได้ — จะไปถามคำถามนี้ใหม่ตอนไปรับคืนแทน
+              </div>
             )}
           </div>
         )}
@@ -1335,6 +1403,8 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             <div style={{ fontSize: '13px', opacity: .9, marginBottom: '8px' }}>
               ค่าเช่า ฿{(isMonthlyContract ? Number(mMonthlyRate || 0) : totalAmount).toLocaleString()}
               {' + '}มัดจำ ฿{(parseFloat(depositAmount) || 0).toLocaleString()}
+              {sendFeeAmount > 0 && <>{' + '}ค่าส่ง ฿{sendFeeAmount.toLocaleString()}</>}
+              {returnFeeAmount > 0 && <>{' + '}ค่ารับคืน ฿{returnFeeAmount.toLocaleString()}</>}
             </div>
             <div style={{ fontSize: '12px', opacity: .75 }}>
               {isMonthlyContract
