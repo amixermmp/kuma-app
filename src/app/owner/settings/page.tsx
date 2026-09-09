@@ -11,6 +11,7 @@ const CATEGORIES = [
   { icon: '📄', label: 'เอกสารร้าน', sub: 'สัญญา/ข้อกำหนด/คู่มือ ขึ้นทุกคัน', href: '/owner/settings/docs', color: '#0369a1' },
   { icon: '🔔', label: 'แจ้งเตือน', sub: 'เกณฑ์แจ้งเตือน + LINE ทั้งร้าน/รายสาขา', href: '/owner/settings/notifications', color: '#00b900' },
   { icon: '🖼️', label: 'รูปโปรโมท', sub: 'กรอบ/สติ๊กเกอร์ปิดหน้า รายสาขา', href: '/owner/settings/marketing', color: '#a78bfa' },
+  { icon: '🛢️', label: 'สต๊อกน้ำมัน', sub: 'สต๊อกน้ำมันเครื่อง/เฟืองท้าย รายสาขา', href: '/owner/settings/oil-stock', color: '#b45309' },
 ] as const
 
 export default async function SettingsPage() {

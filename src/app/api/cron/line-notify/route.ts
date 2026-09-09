@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
   const docAlertDays = Number(shop?.doc_alert_days ?? 30)
   const docAlertUntil = new Date(now + docAlertDays * DAY_MS).toISOString().split('T')[0]
 
-  const [{ data: rentals }, { data: monthlies }, { data: routines }, { data: docs }] = await Promise.all([
+  const [{ data: rentals }, { data: monthlies }, { data: routines }, { data: docs }, { data: oilStock }] = await Promise.all([
     supabase
       .from('rentals')
       .select('id, branch_id, customer_id, expected_end_datetime, daily_rate, customers(name), bikes(license_plate, brand, model)')
@@ -109,12 +109,15 @@ export async function GET(request: NextRequest) {
       .eq('status', 'active'),
     supabase
       .from('bike_routines')
-      .select('id, bike_id, task_name, next_due_date, next_due_km, bikes(license_plate, odometer, branch_id)'),
+      .select('id, bike_id, task_name, next_due_date, next_due_km, interval_rented_days, rented_days_accumulated, bikes(license_plate, odometer, branch_id)'),
     supabase
       .from('bike_documents')
       .select('id, doc_type, expiry_date, bikes(license_plate, branch_id)')
       .not('expiry_date', 'is', null)
       .lte('expiry_date', docAlertUntil),
+    supabase
+      .from('branch_oil_stock')
+      .select('branch_id, oil_type, quantity, low_stock_threshold'),
   ])
 
   // ── LINE link ของลูกค้าทั้งชุด (ผูกแยกตามสาขา) ──
@@ -280,6 +283,7 @@ export async function GET(request: NextRequest) {
       const odometer = (r.bikes as any)?.odometer ?? 0
       return (r.next_due_date != null && r.next_due_date <= bkkToday)
         || (r.next_due_km != null && Number(r.next_due_km) <= odometer)
+        || (r.interval_rented_days != null && (r.rented_days_accumulated ?? 0) >= r.interval_rented_days)
     })
     // คีย์กันส่งซ้ำต่อรอบ: ใช้วันครบกำหนด หรือถ้าครบตามกม. ใช้เลขกม.เป้าหมายแปลงเป็น timestamp
     // (ทำรูทีนเสร็จ next_due ขยับ → รอบใหม่แจ้งใหม่ได้)
@@ -315,8 +319,9 @@ export async function GET(request: NextRequest) {
     // ═══ 6) สรุปงานค้างเข้าไลน์เจ้าของ — แยกข้อความเป็นรายสาขา ส่งซ้ำทุกวันจนกว่าจะเคลียร์ ═══
     // รายการหลุดจากลิสต์เองเมื่อ staff ทำรายการในแอพ (ทำรูทีนเสร็จ / ต่อภาษี-พรบ แล้วอัพเดทวันหมดอายุ)
     if (shop?.line_token && shop.line_target_id) {
-      type DigestItem = { branchId: string; section: 'doc' | 'routine'; line: string }
+      type DigestItem = { branchId: string; section: 'doc' | 'routine' | 'oil_stock'; line: string }
       const items: DigestItem[] = []
+      const OIL_LABEL: Record<string, string> = { engine: 'น้ำมันเครื่อง', gear: 'น้ำมันเฟืองท้าย' }
 
       // เอกสาร: ภาษี / พรบ ใกล้หมดหรือหมดแล้ว
       if (shop.line_notify_docs !== false) {
@@ -350,6 +355,16 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // สต๊อกน้ำมันใกล้หมด/หมด — เช็คทุกสาขาทุกชนิด ไม่มี toggle แยก (ไม่บ่อยพอจะกวนใจ)
+      for (const s of oilStock ?? []) {
+        if (s.quantity >= s.low_stock_threshold) continue
+        items.push({
+          branchId: s.branch_id,
+          section: 'oil_stock',
+          line: `• ${OIL_LABEL[s.oil_type] ?? s.oil_type} เหลือ ${s.quantity} ขวด (เกณฑ์แจ้งเตือน ${s.low_stock_threshold} ขวด)`,
+        })
+      }
+
       if (items.length > 0) {
         // dedupe รายวัน: ref_id คงที่ + due_at = วันที่ (ส่งได้วันละครั้ง)
         const DIGEST_REF = '00000000-0000-0000-0000-000000000000'
@@ -362,9 +377,11 @@ export async function GET(request: NextRequest) {
           const messages: LineMessage[] = branchIds.map(branchId => {
             const docLines = items.filter(i => i.branchId === branchId && i.section === 'doc').map(i => i.line)
             const routineLines = items.filter(i => i.branchId === branchId && i.section === 'routine').map(i => i.line)
+            const oilStockLines = items.filter(i => i.branchId === branchId && i.section === 'oil_stock').map(i => i.line)
             let text = `📋 งานค้างที่ยังไม่ได้ทำ (${dateText}) ${displayBranch(branchId)}`
             if (docLines.length > 0) text += `\n\n📄 เอกสารรถ\n${docLines.join('\n')}`
             if (routineLines.length > 0) text += `\n\n🔧 งานเซอร์วิส\n${routineLines.join('\n')}`
+            if (oilStockLines.length > 0) text += `\n\n🛢️ สต๊อกน้ำมันใกล้หมด\n${oilStockLines.join('\n')}`
             return textMessage(text)
           })
 

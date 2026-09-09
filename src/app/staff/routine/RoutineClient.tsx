@@ -12,12 +12,18 @@ function urgencyColor(u: RoutineItem['urgency']) {
   return '#16a34a'
 }
 
+const OIL_TASK_TYPE: Record<string, 'engine' | 'gear'> = {
+  'เปลี่ยนน้ำมันเครื่อง': 'engine',
+  'เปลี่ยนน้ำมันเฟืองท้าย': 'gear',
+}
+
 function RoutineCard({ r }: { r: RoutineItem }) {
   const router = useRouter()
   const [shop, setShop] = useState('')
   const [cost, setCost] = useState('')
   const [doneKm, setDoneKm] = useState(String(r.bikes?.odometer ?? ''))
   const [receiptUrl, setReceiptUrl] = useState('')
+  const [usedShopOil, setUsedShopOil] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
@@ -25,8 +31,10 @@ function RoutineCard({ r }: { r: RoutineItem }) {
   const color = urgencyColor(r.urgency)
   const isKmBased = r.interval_km != null
   const isActionable = true // ทำรายการได้ตลอด ไม่ต้องรอใกล้ครบกำหนด
+  const oilType = OIL_TASK_TYPE[r.task_name] ?? null
 
   const handleSave = async () => {
+    if (oilType && usedShopOil === null) { setError('กรุณาเลือกว่าใช้น้ำมันร้านหรือไม่'); return }
     setLoading(true)
     setError('')
     try {
@@ -42,6 +50,8 @@ function RoutineCard({ r }: { r: RoutineItem }) {
           receiptUrl: receiptUrl || null,
           intervalKm: r.interval_km,
           intervalDays: r.interval_days,
+          oilType,
+          usedShopOil: oilType ? usedShopOil : null,
         }),
       })
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
@@ -78,6 +88,12 @@ function RoutineCard({ r }: { r: RoutineItem }) {
             : `ทุก ${r.interval_days} วัน`}
         </span>
       </div>
+      {r.interval_rented_days != null && (
+        <div className="info-row">
+          <span className="info-key">หรือเช่าสะสม</span>
+          <span className="info-val">{r.rented_days_accumulated ?? 0} / {r.interval_rented_days} วัน</span>
+        </div>
+      )}
       <div className="info-row">
         <span className="info-key">สถานะ</span>
         <span className="info-val" style={{ color, fontWeight: 700 }}>{r.due_reason}</span>
@@ -100,6 +116,32 @@ function RoutineCard({ r }: { r: RoutineItem }) {
               <label className="field-label">เลขไมล์ที่ทำ</label>
               <input className="field-input" type="number" placeholder={String(r.bikes?.odometer ?? '')}
                 value={doneKm} onChange={e => setDoneKm(e.target.value)} />
+            </div>
+          )}
+          {oilType && (
+            <div className="field-row">
+              <label className="field-label">ใช้น้ำมันร้านไหม *</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => setUsedShopOil(true)} style={{
+                  flex: 1, padding: '10px', borderRadius: '10px',
+                  border: `2px solid ${usedShopOil === true ? '#b45309' : '#e5e7eb'}`,
+                  background: usedShopOil === true ? '#fffbeb' : '#fff',
+                  color: usedShopOil === true ? '#b45309' : '#6b7280',
+                  fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                }}>🛢️ ใช้น้ำมันร้าน</button>
+                <button type="button" onClick={() => setUsedShopOil(false)} style={{
+                  flex: 1, padding: '10px', borderRadius: '10px',
+                  border: `2px solid ${usedShopOil === false ? '#374151' : '#e5e7eb'}`,
+                  background: usedShopOil === false ? '#f1f5f9' : '#fff',
+                  color: usedShopOil === false ? '#111827' : '#6b7280',
+                  fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                }}>ไม่ใช่</button>
+              </div>
+              {usedShopOil === true && (
+                <div style={{ fontSize: '12px', color: '#b45309', marginTop: '6px' }}>
+                  จะหักสต๊อกสาขา 1 ขวดอัตโนมัติ — ค่าใช้จ่ายด้านล่างกรอกแค่ค่าแรง/ค่าเปลี่ยน ไม่ต้องรวมค่าน้ำมัน
+                </div>
+              )}
             </div>
           )}
           <div className="field-row">
