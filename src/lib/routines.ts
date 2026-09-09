@@ -4,7 +4,10 @@ export type RoutineUrgency = 'overdue' | 'warning' | 'ok'
 
 // ใช้ร่วมกันทั้งหน้ารูทีนและแบนเนอร์เตือนตอนรับคืนรถ — เกณฑ์เดียวกันเป๊ะ
 export function calcRoutineUrgency(
-  r: { next_due_km: number | null; next_due_date: string | null },
+  r: {
+    next_due_km: number | null; next_due_date: string | null
+    interval_rented_days?: number | null; rented_days_accumulated?: number | null
+  },
   odometer: number
 ): { urgency: RoutineUrgency; due_reason: string } {
   const today = Date.now()
@@ -16,14 +19,22 @@ export function calcRoutineUrgency(
     if (diff >= -500) return { urgency: 'warning', due_reason: `อีก ${Math.abs(diff)} กม. จะถึงกำหนด` }
   }
 
-  // date-based check
+  // วันเช่าสะสม — เฉพาะรูทีนที่ตั้งค่านี้ไว้แล้ว (ผ่านการบำรุงรอบใหม่มาอย่างน้อย 1 ครั้งหลังฟีเจอร์นี้ออก)
+  if (r.interval_rented_days != null) {
+    const rented = r.rented_days_accumulated ?? 0
+    const diff = rented - r.interval_rented_days
+    if (diff >= 0) return { urgency: 'overdue', due_reason: `ถึงกำหนดตามวันเช่าสะสม! (เช่าไปแล้ว ${rented} วัน / กำหนด ${r.interval_rented_days} วัน)` }
+    if (diff >= -7) return { urgency: 'warning', due_reason: `อีก ${Math.abs(diff)} วันเช่า จะถึงกำหนด` }
+  }
+
+  // date-based check (เพดานปฏิทิน — กันของเสื่อมจากเวลาแม้ไม่ได้ใช้งาน)
   if (r.next_due_date) {
     const days = Math.ceil((new Date(r.next_due_date).getTime() - today) / 86_400_000)
     if (days <= 0) return { urgency: 'overdue', due_reason: `ถึงกำหนดตามวันที่ (${new Date(r.next_due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })})` }
     if (days <= 14) return { urgency: 'warning', due_reason: `อีก ${days} วันจะถึงกำหนด` }
   }
 
-  if (r.next_due_km == null && !r.next_due_date) {
+  if (r.next_due_km == null && !r.next_due_date && r.interval_rented_days == null) {
     return { urgency: 'ok', due_reason: 'ยังไม่ตั้งค่ากำหนด' }
   }
   return { urgency: 'ok', due_reason: 'ปกติ' }

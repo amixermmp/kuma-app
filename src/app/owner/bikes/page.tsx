@@ -55,7 +55,7 @@ export default async function OwnerBikesPage() {
       .in('doc_type', ['tax', 'pob']),
     admin.from('branches').select('id, name').order('name'),
     admin.from('bike_routines')
-      .select('bike_id, task_name, next_due_date, next_due_km, last_done_date'),
+      .select('bike_id, task_name, next_due_date, next_due_km, last_done_date, interval_rented_days, rented_days_accumulated'),
     getBranchModelPricingMap(admin),
   ])
 
@@ -68,7 +68,7 @@ export default async function OwnerBikesPage() {
   }
 
   // Map routines per bike
-  const routinesByBike: Record<string, { next_due_date: string | null; next_due_km: number | null; task_name: string; last_done_date: string | null }[]> = {}
+  const routinesByBike: Record<string, { next_due_date: string | null; next_due_km: number | null; task_name: string; last_done_date: string | null; interval_rented_days: number | null; rented_days_accumulated: number | null }[]> = {}
   for (const r of routinesRes.data ?? []) {
     if (!routinesByBike[r.bike_id]) routinesByBike[r.bike_id] = []
     routinesByBike[r.bike_id].push(r)
@@ -90,7 +90,8 @@ export default async function OwnerBikesPage() {
     const has_doc_alert = (taxDays !== null && taxDays <= 30) || (pobDays !== null && pobDays <= 30)
     const has_routine_alert = bikeRoutines.some(r =>
       (r.next_due_date != null && r.next_due_date <= todayStr) ||
-      (r.next_due_km != null && (b.odometer ?? 0) >= r.next_due_km)
+      (r.next_due_km != null && (b.odometer ?? 0) >= r.next_due_km) ||
+      (r.interval_rented_days != null && (r.rented_days_accumulated ?? 0) >= r.interval_rented_days)
     )
 
     return {

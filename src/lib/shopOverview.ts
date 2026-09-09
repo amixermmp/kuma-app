@@ -141,11 +141,14 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
   if (routineCheckIds.length > 0) {
     const { data: routines } = await admin
       .from('bike_routines')
-      .select('bike_id, task_name, next_due_km, next_due_date')
+      .select('bike_id, task_name, next_due_km, next_due_date, interval_rented_days, rented_days_accumulated')
       .in('bike_id', routineCheckIds)
     for (const r of routines ?? []) {
       const odometer = odometerByBike.get(r.bike_id) ?? 0
-      const { urgency } = calcRoutineUrgency({ next_due_km: r.next_due_km, next_due_date: r.next_due_date }, odometer)
+      const { urgency } = calcRoutineUrgency({
+        next_due_km: r.next_due_km, next_due_date: r.next_due_date,
+        interval_rented_days: r.interval_rented_days, rented_days_accumulated: r.rented_days_accumulated,
+      }, odometer)
       if (urgency === 'overdue') {
         // บอกจำนวนวัน/กม.ที่เกินมา ให้เห็นความเร่งด่วนชัดกว่าแค่ชื่องาน
         let extra = ''

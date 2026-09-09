@@ -31,6 +31,8 @@ type Routine = {
   task_name: string
   interval_km: number | null
   interval_days: number | null
+  interval_rented_days: number | null
+  rented_days_accumulated: number | null
   last_done_date: string | null
   last_done_km: number | null
   next_due_km: number | null
@@ -187,7 +189,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
   // Routine editor
   const [routineList, setRoutineList] = useState<Routine[]>(routines)
   const [editingRoutine, setEditingRoutine] = useState<string | null>(null)
-  const [routineForm, setRoutineForm] = useState<{ last_done_date: string; interval_days: string; interval_km: string }>({ last_done_date: '', interval_days: '', interval_km: '' })
+  const [routineForm, setRoutineForm] = useState<{ last_done_date: string; interval_days: string; interval_km: string; interval_rented_days: string }>({ last_done_date: '', interval_days: '', interval_km: '', interval_rented_days: '' })
   const [routineSaving, setRoutineSaving] = useState(false)
   const [routineMsg, setRoutineMsg] = useState('')
 
@@ -197,6 +199,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
       last_done_date: r.last_done_date ?? '',
       interval_days: String(r.interval_days ?? ''),
       interval_km: String(r.interval_km ?? ''),
+      interval_rented_days: String(r.interval_rented_days ?? ''),
     })
     setRoutineMsg('')
   }
@@ -212,6 +215,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
         last_done_date: routineForm.last_done_date || null,
         interval_days: routineForm.interval_days ? parseInt(routineForm.interval_days) : null,
         interval_km: routineForm.interval_km ? parseInt(routineForm.interval_km) : null,
+        interval_rented_days: routineForm.interval_rented_days ? parseInt(routineForm.interval_rented_days) : null,
       }),
     })
     const data = await res.json()
@@ -225,6 +229,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
         last_done_date: routineForm.last_done_date || null,
         interval_days: routineForm.interval_days ? parseInt(routineForm.interval_days) : null,
         interval_km: routineForm.interval_km ? parseInt(routineForm.interval_km) : null,
+        interval_rented_days: routineForm.interval_rented_days ? parseInt(routineForm.interval_rented_days) : null,
         next_due_date: data.next_due_date ?? x.next_due_date,
       } : x))
       setTimeout(() => setRoutineMsg(''), 3000)
@@ -621,7 +626,9 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                   {/* ข้อมูล */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', fontSize: '12px', color: '#64748b', marginBottom: '6px' }}>
                     {r.interval_km && <span>ทุก {r.interval_km.toLocaleString()} กม.</span>}
-                    {r.interval_days && <span>ทุก {r.interval_days} วัน</span>}
+                    {r.interval_days && <span>เพดานปฏิทินทุก {r.interval_days} วัน</span>}
+                    {r.interval_rented_days && <span>หรือเช่าสะสมครบ {r.interval_rented_days} วัน</span>}
+                    {r.interval_rented_days != null && <span>เช่าสะสมแล้ว: {r.rented_days_accumulated ?? 0} วัน</span>}
                     {r.last_done_date && <span>ทำล่าสุด: {new Date(r.last_done_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                     {r.last_done_km && <span>ไมล์ล่าสุด: {r.last_done_km.toLocaleString()} กม.</span>}
                     {r.next_due_date && <span>ครบกำหนด: {new Date(r.next_due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
@@ -640,12 +647,19 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                             style={{ fontSize: '13px', padding: '8px' }} />
                         </div>
                         <div>
-                          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>ทุกกี่วัน</div>
+                          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>เพดานปฏิทินทุกกี่วัน</div>
                           <input className="field-input" type="number" placeholder="เช่น 90"
                             value={routineForm.interval_days}
                             onChange={e => setRoutineForm(f => ({ ...f, interval_days: e.target.value }))}
                             style={{ fontSize: '13px', padding: '8px' }} />
                         </div>
+                      </div>
+                      <div style={{ marginBottom: '10px' }}>
+                        <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>หรือเช่าสะสมครบกี่วัน (จะมีผลตอนบำรุงรอบถัดไป)</div>
+                        <input className="field-input" type="number" placeholder="เช่น 30"
+                          value={routineForm.interval_rented_days}
+                          onChange={e => setRoutineForm(f => ({ ...f, interval_rented_days: e.target.value }))}
+                          style={{ fontSize: '13px', padding: '8px' }} />
                       </div>
                       <div style={{ marginBottom: '10px' }}>
                         <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>วันที่ทำล่าสุด</div>

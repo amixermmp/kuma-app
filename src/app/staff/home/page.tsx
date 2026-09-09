@@ -72,7 +72,7 @@ export default async function StaffHomePage() {
       .eq('status', 'confirmed').gte('start_datetime', in2hAgo).lte('start_datetime', in24hIso)),
 
     applyBike(supabase.from('bike_routines')
-      .select('next_due_km, next_due_date, bikes(odometer)')),
+      .select('next_due_km, next_due_date, interval_rented_days, rented_days_accumulated, bikes(odometer)')),
   ])
 
   // นับ routine ที่เกินกำหนดหรือถึงวันนี้เท่านั้น (ไม่เอา 7 วันข้างหน้ามารวม กันจำนวนดูเยอะเกินจริง — เหมือน jobs page)
@@ -82,6 +82,7 @@ export default async function StaffHomePage() {
     const odometer = (r.bikes as any)?.odometer ?? 0
     if (r.next_due_km != null && odometer >= r.next_due_km) return true
     if (r.next_due_date && r.next_due_date <= today) return true
+    if (r.interval_rented_days != null && (r.rented_days_accumulated ?? 0) >= r.interval_rented_days) return true
     return false
   }).length
 

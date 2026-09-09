@@ -85,11 +85,11 @@ export default async function JobsPage() {
 
     (allowedBikeIds
       ? supabase.from('bike_routines')
-          .select('id, task_name, next_due_km, next_due_date, bikes(id, license_plate, brand, model, odometer, color, photo_url)')
+          .select('id, task_name, next_due_km, next_due_date, interval_rented_days, rented_days_accumulated, bikes(id, license_plate, brand, model, odometer, color, photo_url)')
           .in('bike_id', allowedBikeIds)
           .limit(200)
       : supabase.from('bike_routines')
-          .select('id, task_name, next_due_km, next_due_date, bikes(id, license_plate, brand, model, odometer, color, photo_url)')
+          .select('id, task_name, next_due_km, next_due_date, interval_rented_days, rented_days_accumulated, bikes(id, license_plate, brand, model, odometer, color, photo_url)')
           .limit(200)),
 
     applyBike(supabase.from('bike_documents')
@@ -131,6 +131,7 @@ export default async function JobsPage() {
     const odometer = r.bikes?.odometer ?? 0
     if (r.next_due_km != null && odometer >= r.next_due_km) return true
     if (r.next_due_date != null && r.next_due_date <= today) return true
+    if (r.interval_rented_days != null && (r.rented_days_accumulated ?? 0) >= r.interval_rented_days) return true
     return false
   }).sort(sortByDueDate)
   // ใกล้ถึงกำหนดใน 7 วันข้างหน้า (ยังไม่ถึงวันนี้) — โชว์แยกไว้ดูล่วงหน้าได้ ไม่นับรวมในตัวเลขงานค้าง

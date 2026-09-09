@@ -5,6 +5,26 @@ import { recalcNeverDoneRoutines } from '@/lib/routines'
 import { logStaffAction } from '@/lib/log'
 import { hasOpenContract } from '@/lib/availability'
 
+// เดินเครื่องต่อเนื่องตลอดสัญญา — นับวันตั้งแต่เริ่มจนจบสัญญาทั้งหมดเป็น "วันเช่า" ของรูทีน
+async function addRentedDaysToRoutines(
+  supabase: ReturnType<typeof createAdminClient>,
+  bikeId: string,
+  daysUsed: number
+) {
+  const { data: routines } = await supabase
+    .from('bike_routines')
+    .select('id, interval_rented_days, rented_days_accumulated')
+    .eq('bike_id', bikeId)
+  for (const r of routines ?? []) {
+    if (r.interval_rented_days == null) continue
+    const { error } = await supabase
+      .from('bike_routines')
+      .update({ rented_days_accumulated: (r.rented_days_accumulated ?? 0) + daysUsed })
+      .eq('id', r.id)
+    if (error) console.error('[monthly/end] rented_days_accumulated update failed:', r.id, JSON.stringify(error))
+  }
+}
+
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
@@ -18,7 +38,7 @@ export async function POST(request: NextRequest) {
   // Fetch rental to get bike_id
   const { data: rental, error: rentalErr } = await supabase
     .from('monthly_rentals')
-    .select('id, bike_id, status, bikes(license_plate), customers(name)')
+    .select('id, bike_id, status, start_date, bikes(license_plate), customers(name)')
     .eq('id', monthlyRentalId)
     .eq('status', 'active')
     .single()
@@ -71,6 +91,10 @@ export async function POST(request: NextRequest) {
       await recalcNeverDoneRoutines(supabase, rental.bike_id, Number(returnOdometer))
     }
   }
+
+  // สะสมวันเช่าเข้ารูทีน — นับตลอดสัญญารายเดือนตั้งแต่เริ่มจนจบ (เดินเครื่องต่อเนื่อง)
+  const daysUsed = Math.max(1, Math.ceil((Date.now() - new Date(rental.start_date).getTime()) / 86_400_000))
+  await addRentedDaysToRoutines(supabase, rental.bike_id, daysUsed)
 
   if (updateRentalErr) {
     console.error('End monthly rental error:', updateRentalErr.message)

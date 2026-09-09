@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
   // Get existing send_photos before clearing
   const { data: existing } = await supabase
     .from('rentals')
-    .select('branch_id, send_photos, customers(name, phone), bikes(license_plate, odometer)')
+    .select('branch_id, send_photos, total_days, customers(name, phone), bikes(license_plate, odometer)')
     .eq('id', rentalId)
     .single()
 
@@ -164,12 +164,23 @@ export async function POST(request: NextRequest) {
   const currentOdometer = returnOdometer ? Number(returnOdometer) : (existingBike?.odometer ?? 0)
   const { data: routines } = await supabase
     .from('bike_routines')
-    .select('task_name, next_due_km, next_due_date')
+    .select('id, task_name, next_due_km, next_due_date, interval_rented_days, rented_days_accumulated')
     .eq('bike_id', bikeId)
   const routineDue = (routines ?? [])
     .map(r => ({ ...r, ...calcRoutineUrgency(r, currentOdometer) }))
     .filter(r => r.urgency === 'overdue')
     .map(r => ({ taskName: r.task_name, dueReason: r.due_reason }))
+
+  // สะสมวันเช่าเข้ารูทีนทุกตัวของรถคันนี้ — ใช้เฉพาะรูทีนที่เปิดใช้ระบบวันเช่าแล้ว (interval_rented_days ตั้งค่าแล้ว)
+  const daysUsed = Number(existing?.total_days) || 1
+  for (const r of routines ?? []) {
+    if (r.interval_rented_days == null) continue
+    const { error: accErr } = await supabase
+      .from('bike_routines')
+      .update({ rented_days_accumulated: (r.rented_days_accumulated ?? 0) + daysUsed })
+      .eq('id', r.id)
+    if (accErr) console.error('[rental/return] rented_days_accumulated update failed:', r.id, JSON.stringify(accErr))
+  }
 
   // Lookup staff name
   const { data: staffRow } = await supabase.from('staff').select('name').eq('id', staffId).single()

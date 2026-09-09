@@ -8,7 +8,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { bikeId } = await params
-  const { task_name, last_done_date, interval_days, interval_km } = await request.json()
+  const { task_name, last_done_date, interval_days, interval_km, interval_rented_days } = await request.json()
 
   if (!task_name) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     last_done_date: last_done_date ?? null,
     interval_days: interval_days ? Number(interval_days) : null,
     interval_km: interval_km ? Number(interval_km) : null,
+    interval_rented_days: interval_rented_days ? Number(interval_rented_days) : null,
     next_due_date,
   }
 

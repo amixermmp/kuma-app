@@ -15,6 +15,8 @@ export type RoutineItem = {
   task_name: string
   interval_km: number | null
   interval_days: number | null
+  interval_rented_days: number | null
+  rented_days_accumulated: number | null
   last_done_km: number | null
   last_done_date: string | null
   next_due_km: number | null
