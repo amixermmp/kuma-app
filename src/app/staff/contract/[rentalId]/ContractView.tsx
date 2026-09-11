@@ -34,14 +34,29 @@ export default function ContractView({ rental, shop, branchName }: { rental: any
 
   return (
     <>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media print {
+          @page { size: A4; margin: 8mm; }
           .no-print { display: none !important; }
           .contract-wrap { padding: 0 !important; background: #fff !important; }
-          .contract-card { box-shadow: none !important; border: none !important; max-width: 100% !important; border-radius: 0 !important; }
+          .contract-card { box-shadow: none !important; border: none !important; max-width: 100% !important; border-radius: 0 !important; padding: 10px 16px !important; }
+          .contract-logo { width: 60px !important; height: 60px !important; margin-bottom: 4px !important; }
+          .contract-header { padding-bottom: 6px !important; margin-bottom: 8px !important; }
+          .contract-intro { margin-bottom: 6px !important; }
+          .contract-table { margin-bottom: 8px !important; }
+          .contract-table td { padding: 3px 8px !important; }
+          .contract-terms-title { margin-bottom: 4px !important; }
+          .contract-terms { font-size: 9.5px !important; line-height: 1.4 !important; margin-bottom: 8px !important; }
+          .contract-terms p { margin: 0 0 3px !important; }
+          .contract-fuel { padding: 6px 12px !important; margin-bottom: 8px !important; }
+          .contract-signatures { margin-bottom: 8px !important; }
+          .contract-sig-box { padding: 6px !important; }
+          .contract-sig-box > div:nth-child(2) { height: 55px !important; }
+          .contract-warning { padding: 5px 10px !important; margin-bottom: 6px !important; }
+          .contract-accept { margin-bottom: 6px !important; }
         }
         body { margin: 0; }
-      `}</style>
+      ` }} />
 
       {/* Top bar */}
       <div className="no-print" style={{
@@ -90,22 +105,22 @@ export default function ContractView({ rental, shop, branchName }: { rental: any
         }}>
 
           {/* Header */}
-          <div style={{ textAlign: 'center', borderBottom: '1.5px solid #111', paddingBottom: '10px', marginBottom: '12px' }}>
+          <div className="contract-header" style={{ textAlign: 'center', borderBottom: '1.5px solid #111', paddingBottom: '10px', marginBottom: '12px' }}>
             {shop.logo_url && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={shop.logo_url} alt={shopName} style={{ width: '110px', height: '110px', objectFit: 'contain', margin: '0 auto 8px' }} />
+              <img className="contract-logo" src={shop.logo_url} alt={shopName} style={{ width: '110px', height: '110px', objectFit: 'contain', margin: '0 auto 8px' }} />
             )}
             <div style={{ fontSize: '15px', fontWeight: 700 }}>สัญญาเช่ารถมอเตอร์ไซค์ / HIRING AGREEMENT MOTOR BIKE</div>
             <div style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>{shopLine}</div>
           </div>
 
           {/* Intro */}
-          <p style={{ marginBottom: '10px', fontSize: '11.5px', color: '#333' }}>
+          <p className="contract-intro" style={{ marginBottom: '10px', fontSize: '11.5px', color: '#333' }}>
             สัญญาฉบับนี้ทำขึ้นระหว่าง <strong>{lessorLabel}</strong>{shopAddress ? ` (${shopAddress})` : ''} ในฐานะ &quot;ผู้ให้เช่า&quot; กับผู้เช่าที่มีรายละเอียดดังต่อไปนี้:
           </p>
 
           {/* Details table */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '14px', fontSize: '12px' }}>
+          <table className="contract-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '14px', fontSize: '12px' }}>
             <tbody>
               <tr>
                 <td style={tdLabel}>ชื่อผู้เช่า / Name:</td>
@@ -151,12 +166,12 @@ export default function ContractView({ rental, shop, branchName }: { rental: any
           </table>
 
           {/* Terms header */}
-          <div style={{ fontWeight: 700, fontSize: '12px', borderBottom: '0.5px solid #ccc', paddingBottom: '4px', marginBottom: '8px' }}>
+          <div className="contract-terms-title" style={{ fontWeight: 700, fontSize: '12px', borderBottom: '0.5px solid #ccc', paddingBottom: '4px', marginBottom: '8px' }}>
             เงื่อนไขข้อตกลงการเช่า / RENTAL TERMS &amp; CONDITIONS
           </div>
 
           {/* Terms */}
-          <div style={{ fontSize: '11px', color: '#333', lineHeight: 1.65, marginBottom: '14px' }}>
+          <div className="contract-terms" style={{ fontSize: '11px', color: '#333', lineHeight: 1.65, marginBottom: '14px' }}>
             <p style={{ margin: '0 0 5px' }}><strong>1. ขอบเขตพื้นที่และเวลาช่วยเหลือฉุกเฉิน:</strong> ห้ามนำรถไปใช้นอกรัศมี 15 กิโลเมตรจากร้านโดยเด็ดขาด การซัพพอร์ตช่วยเหลือนอกสถานที่ให้บริการเฉพาะช่วง 08.00–21.00 น. เท่านั้น คืนรถล่าช้าปรับ 50 บาท/ชั่วโมง ต้องนำรถกลับคืนภายใน 09.00–20.00 น. เท่านั้น</p>
             <p style={{ margin: '0 0 5px' }}><strong>2. สถานะประกันภัย (ไม่มีประกันภาคสมัครใจ):</strong> รถเช่าคันนี้ไม่มีประกันภาคสมัครใจ มีเพียงความคุ้มครองจาก พ.ร.บ. ภาคบังคับตามกฎหมายเท่านั้น ซึ่งคุ้มครองเฉพาะค่ารักษาพยาบาลเบื้องต้น ไม่คุ้มครองค่าซ่อมแซมตัวรถ</p>
             <p style={{ margin: '0 0 5px' }}><strong>3. ความรับผิดชอบต่ออุบัติเหตุและความเสียหาย:</strong> ผู้เช่าได้ตรวจสอบและยอมรับว่ารถมีสภาพสมบูรณ์ก่อนรับรถ หากเกิดอุบัติเหตุ ชำรุด บุบ รอยขีดข่วน หรือรถสูญหาย ผู้เช่าตกลงรับผิดชอบชดใช้ค่าเสียหายทั้งหมดแต่เพียงผู้เดียว</p>
@@ -169,7 +184,7 @@ export default function ContractView({ rental, shop, branchName }: { rental: any
 
           {/* Fuel gauge */}
           {fuelLevel != null && (
-            <div style={{
+            <div className="contract-fuel" style={{
               background: '#f9fafb', border: '0.5px solid #e0e0e0', borderRadius: '8px',
               padding: '10px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px',
             }}>
@@ -195,15 +210,15 @@ export default function ContractView({ rental, shop, branchName }: { rental: any
           )}
 
           {/* Acceptance statement */}
-          <p style={{ fontSize: '11px', color: '#444', marginBottom: '14px', lineHeight: 1.7 }}>
+          <p className="contract-accept" style={{ fontSize: '11px', color: '#444', marginBottom: '14px', lineHeight: 1.7 }}>
             ข้าพเจ้าได้ตรวจสอบสภาพรถเช่าและระบบความปลอดภัยจนเป็นที่พอใจแล้ว และยอมรับเงื่อนไขข้อตกลงในสัญญานี้อย่างชัดเจนทุกประการ (รวมทั้งการจำกัดระยะ 15 กม. การรับผิดชอบต่ออุบัติเหตุ นโยบายคืนรถก่อนกำหนด และเรื่องยาง)<br />
             <em>I have inspected the vehicle, confirmed its safety mechanics, and agreed to all terms in this contract.</em>
           </p>
 
           {/* Signature section */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+          <div className="contract-signatures" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
             {/* Customer signature */}
-            <div style={{ border: '0.5px solid #ccc', borderRadius: '8px', padding: '10px' }}>
+            <div className="contract-sig-box" style={{ border: '0.5px solid #ccc', borderRadius: '8px', padding: '10px' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>ผู้เช่า / Renter</div>
               {rental.customer_signature ? (
                 <div style={{
@@ -231,7 +246,7 @@ export default function ContractView({ rental, shop, branchName }: { rental: any
             </div>
 
             {/* Shop signature */}
-            <div style={{ border: '0.5px solid #ccc', borderRadius: '8px', padding: '10px' }}>
+            <div className="contract-sig-box" style={{ border: '0.5px solid #ccc', borderRadius: '8px', padding: '10px' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>ผู้ให้เช่า / Shop</div>
               {lessor?.signature_data ? (
                 <div style={{
@@ -256,7 +271,7 @@ export default function ContractView({ rental, shop, branchName }: { rental: any
           </div>
 
           {/* Warning box */}
-          <div style={{
+          <div className="contract-warning" style={{
             background: '#fffbeb', border: '0.5px solid #fcd34d', borderRadius: '8px',
             padding: '8px 12px', marginBottom: '12px', fontSize: '11px', color: '#78350f',
           }}>
