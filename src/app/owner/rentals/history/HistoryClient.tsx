@@ -4,6 +4,13 @@ import { useState } from 'react'
 import Link from 'next/link'
 
 type Photo = { label: string; url: string }
+type DailyPayment = { id: string; kind: string; amount: number; paid_at: string }
+type MonthlyPayment = { id: string; amount: number; paid_date: string }
+
+const PAYMENT_KIND_LABEL: Record<string, string> = {
+  rental: 'ค่าเช่า', extend: 'ต่อเวลา', overtime: 'ค่าล่วงเวลา',
+  early_return_refund: 'คืนเงิน (คืนก่อนกำหนด)', return_fee: 'ค่ารับคืนนอกสถานที่',
+}
 
 type DailyRental = {
   id: string
@@ -14,6 +21,7 @@ type DailyRental = {
   return_odometer: number | null
   sendPhotos: Photo[]
   returnPhotos: Photo[]
+  payments: DailyPayment[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bikes: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,6 +37,7 @@ type MonthlyRental = {
   return_odometer: number | null
   sendPhotos: Photo[]
   returnPhotos: Photo[]
+  payments: MonthlyPayment[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bikes: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -96,15 +105,55 @@ function PhotoSection({ sendPhotos, returnPhotos }: { sendPhotos: Photo[]; retur
       {open && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
           {[...sendPhotos, ...returnPhotos].map((p, i) => (
-            <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-              <div style={{ width: '84px' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.url} alt={p.label} style={{
-                  width: '84px', height: '84px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e5e7eb',
-                }} />
-                <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px', textAlign: 'center' }}>{p.label}</div>
+            <div key={i} style={{ width: '84px' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt={p.label} onClick={() => window.open(p.url, '_blank')} style={{
+                width: '84px', height: '84px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e5e7eb', cursor: 'pointer',
+              }} />
+              <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px', textAlign: 'center' }}>{p.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ReceiptSection({ payments, type }: { payments: (DailyPayment | MonthlyPayment)[]; type: 'daily' | 'monthly' }) {
+  const [open, setOpen] = useState(false)
+  if (payments.length === 0) return null
+  return (
+    <div style={{ marginTop: '10px', borderTop: '1px dashed #e5e7eb', paddingTop: '10px' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: '8px',
+          padding: '6px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+        }}
+      >
+        🧾 {open ? 'ซ่อนใบเสร็จ' : `ดูใบเสร็จ (${payments.length})`}
+      </button>
+      {open && (
+        <div style={{ marginTop: '8px' }}>
+          {payments.map(p => (
+            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>
+                  {type === 'daily' ? (PAYMENT_KIND_LABEL[(p as DailyPayment).kind] ?? (p as DailyPayment).kind) : 'ค่าเช่ารายเดือน'}
+                  {' • '}{formatMoney(p.amount)}
+                </div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                  {formatDate(type === 'daily' ? (p as DailyPayment).paid_at : (p as MonthlyPayment).paid_date)}
+                </div>
               </div>
-            </a>
+              <Link
+                href={type === 'daily' ? `/staff/invoice/${p.id}` : `/staff/invoice/monthly/${p.id}`}
+                target="_blank"
+                style={{ fontSize: '12px', color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}
+              >
+                เปิดดู →
+              </Link>
+            </div>
           ))}
         </div>
       )}
@@ -233,6 +282,7 @@ export default function HistoryClient({
                       <Info label="ยอดรวม" value={formatMoney(r.total_amount)} />
                     </div>
                     <KmStats days={days} km={km} />
+                    <ReceiptSection payments={r.payments} type="daily" />
                     <PhotoSection sendPhotos={r.sendPhotos} returnPhotos={r.returnPhotos} />
                   </div>
                 </div>
@@ -281,6 +331,7 @@ export default function HistoryClient({
                       <Info label="ค่าเช่า/เดือน" value={formatMoney(r.monthly_rate)} />
                     </div>
                     <KmStats days={days} km={km} />
+                    <ReceiptSection payments={r.payments} type="monthly" />
                     <PhotoSection sendPhotos={r.sendPhotos} returnPhotos={r.returnPhotos} />
                   </div>
                 </div>

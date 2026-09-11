@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import InvoiceView from '../../[paymentId]/InvoiceView'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +20,12 @@ function invoiceNumber(paymentId: string, paidAt: string) {
 export default async function MonthlyInvoicePage({ params }: { params: Promise<{ paymentId: string }> }) {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
-  if (!staffId) redirect('/staff/login')
+  if (!staffId) {
+    // ไม่มี staff login — เปิดได้ถ้าเป็นโอนเนอร์ (เช่น ดูจากหน้าประวัติรถที่คืนแล้ว)
+    const ownerSupabase = await createClient()
+    const { data: { user } } = await ownerSupabase.auth.getUser()
+    if (!user) redirect('/staff/login')
+  }
 
   const { paymentId } = await params
   const supabase = createAdminClient()

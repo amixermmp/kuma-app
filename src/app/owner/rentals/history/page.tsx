@@ -66,5 +66,24 @@ export default async function OwnerRentalHistoryPage() {
   const withPhotos = <T extends { send_photos: unknown; return_photos: unknown }>(rows: T[]) =>
     rows.map(r => ({ ...r, sendPhotos: normalizePhotos(r.send_photos), returnPhotos: normalizePhotos(r.return_photos) }))
 
-  return <HistoryClient dailyRentals={withPhotos(dailyRentals ?? [])} monthlyRentals={withPhotos(monthlyRentals ?? [])} />
+  // ใบเสร็จของแต่ละสัญญา — ดึงเป็นชุดเดียวแล้วจับกลุ่มเอง กันยิง query ทีละคัน
+  const dailyIds = (dailyRentals ?? []).map(r => r.id)
+  const monthlyIds = (monthlyRentals ?? []).map(r => r.id)
+  const [{ data: dailyPayments }, { data: monthlyPayments }] = await Promise.all([
+    dailyIds.length
+      ? admin.from('rental_payments').select('id, rental_id, kind, amount, paid_at').in('rental_id', dailyIds).is('voided_at', null).order('paid_at')
+      : Promise.resolve({ data: [] as { id: string; rental_id: string; kind: string; amount: number; paid_at: string }[] }),
+    monthlyIds.length
+      ? admin.from('monthly_payments').select('id, monthly_rental_id, amount, paid_date').in('monthly_rental_id', monthlyIds).is('voided_at', null).order('paid_date')
+      : Promise.resolve({ data: [] as { id: string; monthly_rental_id: string; amount: number; paid_date: string }[] }),
+  ])
+
+  const dailyList = withPhotos(dailyRentals ?? []).map(r => ({
+    ...r, payments: (dailyPayments ?? []).filter(p => p.rental_id === r.id),
+  }))
+  const monthlyList = withPhotos(monthlyRentals ?? []).map(r => ({
+    ...r, payments: (monthlyPayments ?? []).filter(p => p.monthly_rental_id === r.id),
+  }))
+
+  return <HistoryClient dailyRentals={dailyList} monthlyRentals={monthlyList} />
 }
