@@ -14,7 +14,7 @@ function fmtTime(iso: string) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ContractView({ rental, shop }: { rental: any; shop: any }) {
+export default function ContractView({ rental, shop, branchName }: { rental: any; shop: any; branchName?: string | null }) {
   const bike = rental.bikes ?? {}
   const customer = rental.customers ?? {}
   const lessor = Array.isArray(bike.lessor_profiles) ? bike.lessor_profiles[0] : bike.lessor_profiles
@@ -27,6 +27,7 @@ export default function ContractView({ rental, shop }: { rental: any; shop: any 
   const shopName = shop.shop_name ?? 'คุมะ'
   const shopPhone = shop.phone ?? ''
   const shopAddress = shop.address ?? ''
+  const shopLine = branchName ? `${shopName} — สาขา${branchName}` : shopName
   const lessorLabel = lessor
     ? `${lessor.name} (บัตรประชาชนเลขที่ ${lessor.id_card_number}) ในนาม ${shopName}`
     : shopName
@@ -90,8 +91,12 @@ export default function ContractView({ rental, shop }: { rental: any; shop: any 
 
           {/* Header */}
           <div style={{ textAlign: 'center', borderBottom: '1.5px solid #111', paddingBottom: '10px', marginBottom: '12px' }}>
+            {shop.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={shop.logo_url} alt={shopName} style={{ width: '56px', height: '56px', objectFit: 'contain', margin: '0 auto 8px' }} />
+            )}
             <div style={{ fontSize: '15px', fontWeight: 700 }}>สัญญาเช่ารถมอเตอร์ไซค์ / HIRING AGREEMENT MOTOR BIKE</div>
-            <div style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>{shopName}</div>
+            <div style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>{shopLine}</div>
           </div>
 
           {/* Intro */}

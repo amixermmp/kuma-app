@@ -60,5 +60,20 @@ export default async function PublicContractPage({ params }: { params: Promise<{
 
   if (!rental) notFound()
 
-  return <ContractPublicView rental={rental} shop={shop ?? {}} />
+  // สาขาตั้งชื่อร้าน/ที่อยู่/เบอร์/โลโก้ ในใบเสร็จเองได้ — ไม่ตั้งค่าใช้ของร้านกลางแทน (เอามาใช้กับสัญญาด้วย)
+  const [{ data: branch }, { data: branchReceipt }] = await Promise.all([
+    supabase.from('branches').select('name').eq('id', rental.branch_id).maybeSingle(),
+    supabase.from('branch_settings')
+      .select('receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url')
+      .eq('branch_id', rental.branch_id)
+      .maybeSingle(),
+  ])
+  const resolvedShop = {
+    shop_name: branchReceipt?.receipt_shop_name || shop?.shop_name,
+    address: branchReceipt?.receipt_address || shop?.address,
+    phone: branchReceipt?.receipt_phone || shop?.phone,
+    logo_url: branchReceipt?.receipt_logo_url || null,
+  }
+
+  return <ContractPublicView rental={rental} shop={resolvedShop} branchName={branch?.name ?? null} />
 }
