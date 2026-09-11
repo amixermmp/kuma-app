@@ -15,7 +15,7 @@ export default async function PublicContractPage({ params }: { params: Promise<{
         id, branch_id, start_datetime, expected_end_datetime, total_days, daily_rate,
         total_amount, deposit_amount, payment_method, notes,
         customer_signature,
-        bikes(license_plate, brand, model, color),
+        bikes(license_plate, brand, model, color, lessor_profiles(name, id_card_number, signature_data)),
         customers(name, phone, workplace)
       `)
       .eq('id', rentalId)
@@ -25,7 +25,7 @@ export default async function PublicContractPage({ params }: { params: Promise<{
       .select(`
         id, branch_id, start_date, payment_day, monthly_rate,
         deposit_amount, customer_signature,
-        bikes(license_plate, brand, model, color),
+        bikes(license_plate, brand, model, color, lessor_profiles(name, id_card_number, signature_data)),
         customers(name, phone, workplace)
       `)
       .eq('id', rentalId)

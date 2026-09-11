@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     branch_id: BRANCH_ID,
     license_plate, brand, model, year, color,
     odometer, notes, photo_url,
-    daily_rate, monthly_rate, deposit_amount,
+    daily_rate, monthly_rate, deposit_amount, lessor_profile_id,
     docs, routines,
   } = body
 
@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
       daily_rate: daily_rate ?? null,
       monthly_rate: monthly_rate ?? null,
       deposit_amount: deposit_amount ?? 0,
+      lessor_profile_id: lessor_profile_id ?? null,
       status: 'available',
     })
     .select('id')

@@ -15,6 +15,7 @@ function fmtTime(iso: string) {
 export default function ContractPublicView({ rental, shop, qrImageUrl }: { rental: any; shop: any; qrImageUrl?: string | null }) {
   const bike = rental.bikes ?? {}
   const customer = rental.customers ?? {}
+  const lessor = Array.isArray(bike.lessor_profiles) ? bike.lessor_profiles[0] : bike.lessor_profiles
 
   const fuelMatch = (rental.notes ?? '').match(/น้ำมัน\s*(\d+)\/8/)
   const fuelLevel = fuelMatch ? parseInt(fuelMatch[1]) : null
@@ -23,6 +24,9 @@ export default function ContractPublicView({ rental, shop, qrImageUrl }: { renta
   const shopName = shop.shop_name ?? 'คุมะ'
   const shopPhone = shop.phone ?? ''
   const shopAddress = shop.address ?? ''
+  const lessorLabel = lessor
+    ? `${lessor.name} (บัตรประชาชนเลขที่ ${lessor.id_card_number}) ในนาม ${shopName}`
+    : shopName
 
   return (
     <>
@@ -65,7 +69,7 @@ export default function ContractPublicView({ rental, shop, qrImageUrl }: { renta
           </div>
 
           <p style={{ marginBottom: '10px', fontSize: '11.5px', color: '#333' }}>
-            สัญญาฉบับนี้ทำขึ้นระหว่าง <strong>{shopName}</strong>{shopAddress ? ` (${shopAddress})` : ''} ในฐานะ &quot;ผู้ให้เช่า&quot; กับผู้เช่าที่มีรายละเอียดดังต่อไปนี้:
+            สัญญาฉบับนี้ทำขึ้นระหว่าง <strong>{lessorLabel}</strong>{shopAddress ? ` (${shopAddress})` : ''} ในฐานะ &quot;ผู้ให้เช่า&quot; กับผู้เช่าที่มีรายละเอียดดังต่อไปนี้:
           </p>
 
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '14px', fontSize: '12px' }}>
@@ -181,10 +185,17 @@ export default function ContractPublicView({ rental, shop, qrImageUrl }: { renta
             </div>
             <div style={{ border: '0.5px solid #ccc', borderRadius: '8px', padding: '10px' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>ผู้ให้เช่า / Shop</div>
-              <div style={{ background: '#fafafa', border: '0.5px dashed #ccc', borderRadius: '6px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: '11px', color: '#bbb' }}>ลายเซ็นพนักงาน</span>
-              </div>
-              <div style={{ fontSize: '11px', color: '#555', marginTop: '6px', textAlign: 'center' }}>{shopName}</div>
+              {lessor?.signature_data ? (
+                <div style={{ background: '#fafafa', border: '0.5px solid #e0e0e0', borderRadius: '6px', height: '80px', overflow: 'hidden' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={lessor.signature_data} alt="ลายเซ็นผู้ให้เช่า" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </div>
+              ) : (
+                <div style={{ background: '#fafafa', border: '0.5px dashed #ccc', borderRadius: '6px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '11px', color: '#bbb' }}>ลายเซ็นพนักงาน</span>
+                </div>
+              )}
+              <div style={{ fontSize: '11px', color: '#555', marginTop: '6px', textAlign: 'center' }}>{lessor?.name ?? shopName}</div>
             </div>
           </div>
 

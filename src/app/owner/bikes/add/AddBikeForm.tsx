@@ -8,6 +8,7 @@ import type { BikeModel } from '@/lib/bikeCatalog'
 
 
 type Branch = { id: string; name: string }
+type Lessor = { id: string; name: string }
 type Routine = { task_name: string; interval_km: string; interval_days: string; last_done_date: string }
 
 const DEFAULT_ROUTINES: Routine[] = [
@@ -15,7 +16,7 @@ const DEFAULT_ROUTINES: Routine[] = [
   { task_name: 'เปลี่ยนน้ำมันเฟืองท้าย', interval_km: '3000', interval_days: '120', last_done_date: '' },
 ]
 
-export default function AddBikeForm({ ownerId, branches, brands, models }: { ownerId: string; branches: Branch[]; brands: string[]; models: BikeModel[] }) {
+export default function AddBikeForm({ ownerId, branches, brands, models, lessors }: { ownerId: string; branches: Branch[]; brands: string[]; models: BikeModel[]; lessors: Lessor[] }) {
   const router = useRouter()
 
   const [branchId, setBranchId] = useState(branches[0]?.id ?? '')
@@ -24,6 +25,7 @@ export default function AddBikeForm({ ownerId, branches, brands, models }: { own
   const [model, setModel] = useState('')
   const [year, setYear] = useState('')
   const [color, setColor] = useState('')
+  const [lessorProfileId, setLessorProfileId] = useState('')
   const [odometer, setOdometer] = useState('0')
   const [notes, setNotes] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
@@ -70,6 +72,7 @@ export default function AddBikeForm({ ownerId, branches, brands, models }: { own
           daily_rate: dailyRate ? parseFloat(dailyRate) : null,
           monthly_rate: monthlyRate ? parseFloat(monthlyRate) : null,
           deposit_amount: 0,
+          lessor_profile_id: lessorProfileId || null,
           docs: {
             registration: { photo_url: regPhotoUrl || null },
             tax: { photo_url: taxPhotoUrl || null, expiry_date: taxExpiry || null },
@@ -154,6 +157,13 @@ export default function AddBikeForm({ ownerId, branches, brands, models }: { own
             <select className="field-input" value={model} onChange={e => setModel(e.target.value)} disabled={!brand}>
               <option value="">{brand ? '— เลือกรุ่น —' : '— เลือกยี่ห้อก่อน —'}</option>
               {models.filter(m => m.brand === brand).map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
+            </select>
+          </div>
+          <div className="field-row">
+            <label className="field-label">ผู้ให้เช่า (เจ้าของรถคันนี้)</label>
+            <select className="field-input" value={lessorProfileId} onChange={e => setLessorProfileId(e.target.value)}>
+              <option value="">— ยังไม่ตั้งค่า (ใช้ชื่อร้าน) —</option>
+              {lessors.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
           </div>
           <div className="field-row">

@@ -12,10 +12,11 @@ export default async function OwnerAddBikePage() {
   if (!user) redirect('/owner/login')
 
   const admin = createAdminClient()
-  const [{ data: branches }, catalog] = await Promise.all([
+  const [{ data: branches }, catalog, { data: lessors }] = await Promise.all([
     admin.from('branches').select('id, name').order('name', { ascending: true }),
     getBikeCatalog(),
+    admin.from('lessor_profiles').select('id, name').order('created_at'),
   ])
 
-  return <AddBikeForm ownerId={user.id} branches={branches ?? []} brands={catalog.brands} models={catalog.models} />
+  return <AddBikeForm ownerId={user.id} branches={branches ?? []} brands={catalog.brands} models={catalog.models} lessors={lessors ?? []} />
 }

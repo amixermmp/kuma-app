@@ -20,7 +20,7 @@ export default async function ContractPage({ params }: { params: Promise<{ renta
         id, start_datetime, expected_end_datetime, total_days, daily_rate,
         total_amount, deposit_amount, discount, payment_method, created_at, notes,
         customer_signature,
-        bikes(license_plate, brand, model, color),
+        bikes(license_plate, brand, model, color, lessor_profiles(name, id_card_number, signature_data)),
         customers(name, phone, workplace)
       `)
       .eq('id', rentalId)

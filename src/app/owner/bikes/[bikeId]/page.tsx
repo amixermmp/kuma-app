@@ -16,9 +16,9 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
 
   const admin = createAdminClient()
 
-  const [bikeRes, docsRes, branchesRes, statsRes, monthlyStatsRes, routinesRes, repairsRes] = await Promise.all([
+  const [bikeRes, docsRes, branchesRes, statsRes, monthlyStatsRes, routinesRes, repairsRes, lessorsRes] = await Promise.all([
     admin.from('bikes')
-      .select('id, license_plate, brand, model, year, color, photo_url, daily_rate, monthly_rate, deposit_amount, odometer, notes, status, branch_id, branches(id, name)')
+      .select('id, license_plate, brand, model, year, color, photo_url, daily_rate, monthly_rate, deposit_amount, odometer, notes, status, branch_id, lessor_profile_id, branches(id, name)')
       .eq('id', bikeId)
       .single(),
     admin.from('bike_documents')
@@ -41,6 +41,7 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
       .select('id, title, description, notes, status, created_at, resolved_at, repair_shop, repair_cost')
       .eq('bike_id', bikeId)
       .order('created_at', { ascending: false }),
+    admin.from('lessor_profiles').select('id, name').order('created_at'),
   ])
 
   if (!bikeRes.data) notFound()
@@ -63,6 +64,7 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
   const monthlyPayments = monthlyStatsRes.data ?? []
   const routines = routinesRes.data ?? []
   const repairs = repairsRes.data ?? []
+  const lessors = lessorsRes.data ?? []
 
   const totalRevenueDays = rentals.reduce((s, r) => s + (r.total_amount ?? 0), 0)
   const totalRevenueMonthly = monthlyPayments.reduce((s, p) => s + Number(p.amount ?? 0), 0)
@@ -93,6 +95,7 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
         brands={catalog.brands}
         models={catalog.models}
         pricingByBranch={pricingByBranch}
+        lessors={lessors}
       />
     </div>
   )

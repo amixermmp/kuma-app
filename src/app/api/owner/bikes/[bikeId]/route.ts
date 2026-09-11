@@ -15,7 +15,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bike
   const body = await request.json()
 
   // Whitelist allowed fields
-  const allowed = ['license_plate', 'brand', 'model', 'year', 'color', 'daily_rate', 'monthly_rate', 'deposit_amount', 'odometer', 'notes', 'status', 'branch_id', 'photo_url']
+  const allowed = ['license_plate', 'brand', 'model', 'year', 'color', 'daily_rate', 'monthly_rate', 'deposit_amount', 'odometer', 'notes', 'status', 'branch_id', 'photo_url', 'lessor_profile_id']
   const update: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) update[key] = body[key]

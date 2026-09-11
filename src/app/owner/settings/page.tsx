@@ -12,6 +12,7 @@ const CATEGORIES = [
   { icon: '🔔', label: 'แจ้งเตือน', sub: 'เกณฑ์แจ้งเตือน + LINE ทั้งร้าน/รายสาขา', href: '/owner/settings/notifications', color: '#00b900' },
   { icon: '🖼️', label: 'รูปโปรโมท', sub: 'กรอบ/สติ๊กเกอร์ปิดหน้า รายสาขา', href: '/owner/settings/marketing', color: '#a78bfa' },
   { icon: '🛢️', label: 'สต๊อกน้ำมัน', sub: 'สต๊อกน้ำมันเครื่อง/เฟืองท้าย รายสาขา', href: '/owner/settings/oil-stock', color: '#b45309' },
+  { icon: '👤', label: 'ผู้ให้เช่า', sub: 'ชื่อ-เลขบัตร-ลายเซ็น สำหรับสัญญาเช่า', href: '/owner/settings/lessors', color: '#0f766e' },
 ] as const
 
 export default async function SettingsPage() {

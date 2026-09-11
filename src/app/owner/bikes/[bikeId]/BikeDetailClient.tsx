@@ -21,10 +21,12 @@ type Bike = {
   status: string
   branch_id: string
   branch_name: string
+  lessor_profile_id: string | null
 }
 
 type DocRecord = { doc_type: string; doc_photo_url: string | null; expiry_date: string | null }
 type Branch = { id: string; name: string }
+type Lessor = { id: string; name: string }
 type Stats = { totalRevenue: number; rentalCount: number; lastRental: string | null }
 type Routine = {
   id: string
@@ -101,7 +103,7 @@ function DocStatusRow({ icon, name, expiry, hasPhoto }: { icon: string; name: st
 
 type BranchPricing = { dailyRate: number | null; monthlyRate: number | null }
 
-export default function BikeDetailClient({ bike, docMap, branches, stats, routines, repairs, brands, models, pricingByBranch }: {
+export default function BikeDetailClient({ bike, docMap, branches, stats, routines, repairs, brands, models, pricingByBranch, lessors }: {
   bike: Bike
   docMap: Record<string, DocRecord>
   branches: Branch[]
@@ -111,6 +113,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
   brands: string[]
   models: BikeModel[]
   pricingByBranch: Record<string, BranchPricing>
+  lessors: Lessor[]
 }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -133,6 +136,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
   const [odometer, setOdometer] = useState(String(bike.odometer))
   const [notes, setNotes] = useState(bike.notes ?? '')
   const [licensePlate, setLicensePlate] = useState(bike.license_plate)
+  const [lessorProfileId, setLessorProfileId] = useState(bike.lessor_profile_id ?? '')
 
   // Doc expiry editor
   const [editingDocs, setEditingDocs] = useState(false)
@@ -294,6 +298,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
         deposit_amount: parseFloat(deposit) || 0,
         odometer: parseInt(odometer) || 0,
         notes: notes.trim() || null,
+        lessor_profile_id: lessorProfileId || null,
       }),
     })
     setSaving(false)
@@ -429,6 +434,13 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                   {modelChoices.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
+              <div className="field-row">
+                <label className="field-label">ผู้ให้เช่า (เจ้าของรถคันนี้)</label>
+                <select className="field-input" value={lessorProfileId} onChange={e => setLessorProfileId(e.target.value)}>
+                  <option value="">— ยังไม่ตั้งค่า (ใช้ชื่อร้าน) —</option>
+                  {lessors.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                </select>
+              </div>
               {[
                 { label: 'ปีรถ', val: year, set: setYear, type: 'number' },
                 { label: 'สี', val: color, set: setColor },
@@ -468,6 +480,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
               {[
                 ['ทะเบียน', bike.license_plate],
                 ['ยี่ห้อ/รุ่น', `${bike.brand} ${bike.model}`],
+                ['ผู้ให้เช่า', lessors.find(l => l.id === bike.lessor_profile_id)?.name ?? 'ยังไม่ตั้งค่า (ใช้ชื่อร้าน)'],
                 bike.year ? ['ปีรถ', String(bike.year)] : null,
                 bike.color ? ['สี', bike.color] : null,
                 ['เลขไมล์', `${Number(bike.odometer).toLocaleString()} กม.`],
