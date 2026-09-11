@@ -60,15 +60,5 @@ export default async function PublicContractPage({ params }: { params: Promise<{
 
   if (!rental) notFound()
 
-  // QR รับเงินของสาขานั้น — เลือกตามประเภทการเช่า (รายวัน/รายเดือน ใช้คนละ QR ได้)
-  const { data: branchSettings } = await supabase
-    .from('branch_settings')
-    .select('payment_qr_daily_url, payment_qr_monthly_url')
-    .eq('branch_id', rental.branch_id)
-    .maybeSingle()
-  const qrImageUrl = rental._type === 'monthly'
-    ? branchSettings?.payment_qr_monthly_url ?? null
-    : branchSettings?.payment_qr_daily_url ?? null
-
-  return <ContractPublicView rental={rental} shop={shop ?? {}} qrImageUrl={qrImageUrl} />
+  return <ContractPublicView rental={rental} shop={shop ?? {}} />
 }
