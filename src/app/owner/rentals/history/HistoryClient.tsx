@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
+type Photo = { label: string; url: string }
+
 type DailyRental = {
   id: string
   start_datetime: string
@@ -10,6 +12,8 @@ type DailyRental = {
   total_amount: number | null
   send_odometer: number | null
   return_odometer: number | null
+  sendPhotos: Photo[]
+  returnPhotos: Photo[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bikes: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,6 +27,8 @@ type MonthlyRental = {
   monthly_rate: number
   send_odometer: number | null
   return_odometer: number | null
+  sendPhotos: Photo[]
+  returnPhotos: Photo[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bikes: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -68,6 +74,40 @@ function Info({ label, value }: { label: string; value: string }) {
     <div>
       <div style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 600, marginBottom: '1px' }}>{label}</div>
       <div style={{ fontSize: '12px', color: '#374151' }}>{value}</div>
+    </div>
+  )
+}
+
+function PhotoSection({ sendPhotos, returnPhotos }: { sendPhotos: Photo[]; returnPhotos: Photo[] }) {
+  const [open, setOpen] = useState(false)
+  const total = sendPhotos.length + returnPhotos.length
+  if (total === 0) return null
+  return (
+    <div style={{ marginTop: '10px', borderTop: '1px dashed #e5e7eb', paddingTop: '10px' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: '8px',
+          padding: '6px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+        }}
+      >
+        📷 {open ? 'ซ่อนรูป' : `ดูรูป (${total})`}
+      </button>
+      {open && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
+          {[...sendPhotos, ...returnPhotos].map((p, i) => (
+            <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+              <div style={{ width: '84px' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.url} alt={p.label} style={{
+                  width: '84px', height: '84px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e5e7eb',
+                }} />
+                <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px', textAlign: 'center' }}>{p.label}</div>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -193,6 +233,7 @@ export default function HistoryClient({
                       <Info label="ยอดรวม" value={formatMoney(r.total_amount)} />
                     </div>
                     <KmStats days={days} km={km} />
+                    <PhotoSection sendPhotos={r.sendPhotos} returnPhotos={r.returnPhotos} />
                   </div>
                 </div>
               )
@@ -240,6 +281,7 @@ export default function HistoryClient({
                       <Info label="ค่าเช่า/เดือน" value={formatMoney(r.monthly_rate)} />
                     </div>
                     <KmStats days={days} km={km} />
+                    <PhotoSection sendPhotos={r.sendPhotos} returnPhotos={r.returnPhotos} />
                   </div>
                 </div>
               )

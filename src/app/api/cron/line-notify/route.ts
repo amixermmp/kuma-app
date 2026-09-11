@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { linePush, textMessage, imageMessage, LineMessage } from '@/lib/line'
 import { findBrokenBookings } from '@/lib/bookingConflicts'
+import { writeLog } from '@/lib/log'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -27,7 +28,36 @@ const OVERDUE_AFTER_HOURS = 3     // ทวงครั้งแรกหลั�
 const DAILY_SEND_HOUR = 9         // แจ้งเตือนแบบรายวัน (รายเดือน/รูทีน/เอกสาร) ส่งหลัง 9 โมงเช้า
 const AVAILABLE_SEND_HOUR = 8     // สรุปรถว่าง ส่งหลัง 8 โมงเช้า
 const REVENUE_SEND_HOUR = 21      // สรุปรายได้ ส่งหลัง 3 ทุ่ม
+const PHOTO_RETENTION_DAYS = 30   // เก็บรูปส่ง/รับรถไว้กี่วันหลังคืน ก่อนลบถาวร
 const DAY_MS = 24 * 60 * 60 * 1000
+
+function extractRentalPhotoPath(url: string): string | null {
+  const match = url.match(/\/rental-photo\/(.+?)(?:\?|$)/)
+  return match ? match[1] : null
+}
+
+// send_photos เก็บ 2 รูปแบบไม่เหมือนกัน: รายวัน = object {category: url}, รายเดือน/return_photos = array [{url, label}]
+function photoUrls(photos: unknown): string[] {
+  if (!photos) return []
+  if (Array.isArray(photos)) {
+    return photos
+      .map(p => (p && typeof p === 'object' && 'url' in p && typeof p.url === 'string') ? p.url : null)
+      .filter((u): u is string => !!u)
+  }
+  if (typeof photos === 'object') {
+    return Object.values(photos as Record<string, unknown>).filter((u): u is string => typeof u === 'string' && u.length > 0)
+  }
+  return []
+}
+
+async function deletePhotosFromStorage(
+  admin: ReturnType<typeof createAdminClient>,
+  photos: unknown
+): Promise<number> {
+  const paths = photoUrls(photos).map(extractRentalPhotoPath).filter((p): p is string => !!p)
+  if (paths.length > 0) await admin.storage.from('rental-photo').remove(paths)
+  return paths.length
+}
 
 const thaiTime = new Intl.DateTimeFormat('th-TH', {
   timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -662,10 +692,60 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ═══ 10) ลบรูปส่ง/รับรถถาวร — เก็บไว้ 30 วันหลังคืนรถเผื่อกรณีพิพาท พ้นแล้วลบทิ้งจริง ═══
+  let photosDeleted = 0
+  if (bkkHour >= DAILY_SEND_HOUR || testMode) {
+    const cutoffMs = now - PHOTO_RETENTION_DAYS * DAY_MS
+    const cutoffIso = new Date(cutoffMs).toISOString()
+    const cutoffDate = cutoffIso.split('T')[0]
+
+    const [{ data: staleDaily }, { data: staleMonthly }] = await Promise.all([
+      supabase
+        .from('rentals')
+        .select('id, send_photos, return_photos, bikes(license_plate)')
+        .eq('status', 'returned')
+        .lte('actual_end_datetime', cutoffIso)
+        .limit(200),
+      supabase
+        .from('monthly_rentals')
+        .select('id, send_photos, return_photos, bikes(license_plate)')
+        .eq('status', 'ended')
+        .lte('end_date', cutoffDate)
+        .limit(200),
+    ])
+
+    for (const r of staleDaily ?? []) {
+      if (photoUrls(r.send_photos).length === 0 && photoUrls(r.return_photos).length === 0) continue
+      const count = await deletePhotosFromStorage(supabase, r.send_photos) + await deletePhotosFromStorage(supabase, r.return_photos)
+      await supabase.from('rentals').update({ send_photos: [], return_photos: [] }).eq('id', r.id)
+      photosDeleted += count
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const plate = (r.bikes as any)?.license_plate ?? ''
+      await writeLog({
+        actorType: 'system', actorName: 'System', action: 'photos_deleted',
+        description: `ลบรูปพ้นกำหนดเก็บ ${PHOTO_RETENTION_DAYS} วัน ${count} ภาพ — rental ${plate}`,
+        metadata: { rentalId: r.id, count },
+      })
+    }
+    for (const r of staleMonthly ?? []) {
+      if (photoUrls(r.send_photos).length === 0 && photoUrls(r.return_photos).length === 0) continue
+      const count = await deletePhotosFromStorage(supabase, r.send_photos) + await deletePhotosFromStorage(supabase, r.return_photos)
+      await supabase.from('monthly_rentals').update({ send_photos: [], return_photos: [] }).eq('id', r.id)
+      photosDeleted += count
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const plate = (r.bikes as any)?.license_plate ?? ''
+      await writeLog({
+        actorType: 'system', actorName: 'System', action: 'photos_deleted',
+        description: `ลบรูปพ้นกำหนดเก็บ ${PHOTO_RETENTION_DAYS} วัน ${count} ภาพ — rental รายเดือน ${plate}`,
+        metadata: { rentalId: r.id, count },
+      })
+    }
+  }
+
   return NextResponse.json({
     checkedAt: nowIso,
     rentals: rentals?.length ?? 0,
     monthlies: monthlies?.length ?? 0,
-    sent, failed,
+    sent, failed, photosDeleted,
   })
 }

@@ -5,33 +5,6 @@ import { writeLog } from '@/lib/log'
 import { recalcNeverDoneRoutines, calcRoutineUrgency } from '@/lib/routines'
 import { hasOpenContract } from '@/lib/availability'
 
-function extractStoragePath(url: string): string | null {
-  try {
-    const match = url.match(/\/rental-photo\/(.+?)(?:\?|$)/)
-    return match ? match[1] : null
-  } catch {
-    return null
-  }
-}
-
-async function deletePhotosFromStorage(
-  admin: ReturnType<typeof createAdminClient>,
-  photos: unknown
-): Promise<number> {
-  if (!photos || !Array.isArray(photos)) return 0
-  const paths: string[] = []
-  for (const p of photos) {
-    if (p && typeof p === 'object' && 'url' in p && typeof p.url === 'string') {
-      const path = extractStoragePath(p.url)
-      if (path) paths.push(path)
-    }
-  }
-  if (paths.length > 0) {
-    await admin.storage.from('rental-photo').remove(paths)
-  }
-  return paths.length
-}
-
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
@@ -56,17 +29,13 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // Get existing send_photos before clearing
   const { data: existing } = await supabase
     .from('rentals')
-    .select('branch_id, send_photos, total_days, customers(name, phone), bikes(license_plate, odometer)')
+    .select('branch_id, total_days, customers(name, phone), bikes(license_plate, odometer)')
     .eq('id', rentalId)
     .single()
 
-  // Delete send_photos from storage
-  const deleted = await deletePhotosFromStorage(supabase, existing?.send_photos)
-
-  // Close the rental + clear photos
+  // Close the rental — รูปตอนส่งรถเก็บไว้ 30 วันหลังคืน (ลบอัตโนมัติผ่าน cron ไม่ใช่ตอนนี้)
   const { error: rentalErr } = await supabase
     .from('rentals')
     .update({
@@ -81,7 +50,6 @@ export async function POST(request: NextRequest) {
       return_photos: returnPhotoUrl ? [{ url: returnPhotoUrl, label: 'รูปรับคืน' }] : [],
       refund_amount: refundAmount,
       total_amount: finalRentAmount,
-      send_photos: [],
       // จุดคืนรถยังไม่ฟันธงตอนส่งรถ — ตัดสินใจจริงตอนนี้แทน (ถ้ายืนยันนอกสถานที่ไปแล้วตอนส่งรถ ไม่ต้องแตะ ไม่ส่ง newReturnType มา)
       ...(newReturnType !== undefined ? {
         return_type: newReturnType ?? null,
@@ -199,17 +167,6 @@ export async function POST(request: NextRequest) {
     description: `รับรถคืน ${plate} — ลูกค้า ${customerName}${damageFee > 0 ? ` • ค่าเสียหาย ฿${damageFee}` : ''}${fuelFee > 0 ? ` • ค่าน้ำมัน ฿${fuelFee}` : ''}`,
     metadata: { rentalId, bikeId, damageFee, fuelFee, refundAmount },
   })
-
-  // Log system photo deletion
-  if (deleted > 0) {
-    await writeLog({
-      actorType: 'system',
-      actorName: 'System',
-      action: 'photos_deleted',
-      description: `ลบรูปส่งรถ ${deleted} ภาพ — rental ${plate} (${customerName})`,
-      metadata: { rentalId, bikeId, count: deleted },
-    })
-  }
 
   return NextResponse.json({ success: true, routineDue })
 }

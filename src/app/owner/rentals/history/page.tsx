@@ -5,6 +5,32 @@ import HistoryClient from './HistoryClient'
 
 export const dynamic = 'force-dynamic'
 
+const PHOTO_LABEL: Record<string, string> = {
+  id_card: 'บัตรประชาชน/พาสปอร์ต',
+  selfie: 'เซลฟี่',
+  with_bike: 'รูปคู่รถ',
+  damage: 'รูปตำหนิ',
+  payment: 'สลิปโอนเงิน',
+  student_id_card: 'บัตรนักศึกษา',
+  accommodation_proof: 'หลักฐานที่พัก',
+}
+
+// send_photos เก็บ 2 รูปแบบ: รายวัน = object {category: url}, รายเดือน = array [{label, url}] — แปลงให้เป็นรูปแบบเดียวกัน
+function normalizePhotos(photos: unknown): { label: string; url: string }[] {
+  if (!photos) return []
+  if (Array.isArray(photos)) {
+    return photos
+      .filter((p): p is { label?: string; url: string } => !!p && typeof p === 'object' && typeof p.url === 'string' && p.url.length > 0)
+      .map(p => ({ label: PHOTO_LABEL[p.label ?? ''] ?? p.label ?? '', url: p.url }))
+  }
+  if (typeof photos === 'object') {
+    return Object.entries(photos as Record<string, unknown>)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].length > 0)
+      .map(([key, url]) => ({ label: PHOTO_LABEL[key] ?? key, url }))
+  }
+  return []
+}
+
 export default async function OwnerRentalHistoryPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -17,7 +43,7 @@ export default async function OwnerRentalHistoryPage() {
       .from('rentals')
       .select(`
         id, start_datetime, actual_end_datetime, total_amount,
-        send_odometer, return_odometer,
+        send_odometer, return_odometer, send_photos, return_photos,
         bikes(id, license_plate, brand, model, color),
         customers(name, phone)
       `)
@@ -28,7 +54,7 @@ export default async function OwnerRentalHistoryPage() {
       .from('monthly_rentals')
       .select(`
         id, start_date, end_date, monthly_rate,
-        send_odometer, return_odometer,
+        send_odometer, return_odometer, send_photos, return_photos,
         bikes(id, license_plate, brand, model, color),
         customers(name, phone)
       `)
@@ -37,5 +63,8 @@ export default async function OwnerRentalHistoryPage() {
       .limit(300),
   ])
 
-  return <HistoryClient dailyRentals={dailyRentals ?? []} monthlyRentals={monthlyRentals ?? []} />
+  const withPhotos = <T extends { send_photos: unknown; return_photos: unknown }>(rows: T[]) =>
+    rows.map(r => ({ ...r, sendPhotos: normalizePhotos(r.send_photos), returnPhotos: normalizePhotos(r.return_photos) }))
+
+  return <HistoryClient dailyRentals={withPhotos(dailyRentals ?? [])} monthlyRentals={withPhotos(monthlyRentals ?? [])} />
 }
