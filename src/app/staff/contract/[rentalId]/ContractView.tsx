@@ -52,7 +52,6 @@ export default function ContractView({ rental, shop, branchName }: { rental: any
           .contract-signatures { margin-bottom: 8px !important; }
           .contract-sig-box { padding: 6px !important; }
           .contract-sig-box > div:nth-child(2) { height: 55px !important; }
-          .contract-warning { padding: 5px 10px !important; margin-bottom: 6px !important; }
           .contract-accept { margin-bottom: 6px !important; }
         }
         body { margin: 0; }
@@ -268,14 +267,6 @@ export default function ContractView({ rental, shop, branchName }: { rental: any
                 {lessor?.name ?? shopName}
               </div>
             </div>
-          </div>
-
-          {/* Warning box */}
-          <div className="contract-warning" style={{
-            background: '#fffbeb', border: '0.5px solid #fcd34d', borderRadius: '8px',
-            padding: '8px 12px', marginBottom: '12px', fontSize: '11px', color: '#78350f',
-          }}>
-            <strong>ข้อพึงระวัง / REMARK:</strong> ห้ามขับขี่รถลงบนผืนหาดทรายโดยเด็ดขาด · ห้ามดื่มแอลกอฮอล์ขณะขับขี่ · ปฏิบัติตามกฎจราจรอย่างเคร่งครัด
           </div>
 
           {/* Footer */}
