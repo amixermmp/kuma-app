@@ -56,10 +56,13 @@ export default function BookingConfirmCard(props: Props) {
     bike, customerName, customerPhone, customerHotel, deliveryType, deliveryAddress, notes,
     shop, contactPhone, contactLine } = props
 
+  // >= 30 วัน = แพ็คเกจรายเดือน (คิดเป็นเดือนปฏิทิน ไม่ใช่ราคา/วัน x จำนวนวัน) — เทียบกับราคา/วันตรงๆ จะดูเหมือนลดเว่อร์เกินจริง
+  const isMonthlyPackage = totalDays >= 30
+
   // ใช้ยอดจริงที่คำนวณไว้ตอนจอง (รวมโปรรายสัปดาห์/เดือนแล้ว) — คูณ dailyRate*totalDays ตรงๆ จะได้ราคาเต็มไม่ลด
   const estimatedTotal = totalAmount ?? (dailyRate ? dailyRate * totalDays : null)
   const fullPrice = dailyRate ? dailyRate * totalDays : null
-  const discountAmount = fullPrice != null && estimatedTotal != null ? Math.max(0, fullPrice - estimatedTotal) : 0
+  const discountAmount = !isMonthlyPackage && fullPrice != null && estimatedTotal != null ? Math.max(0, fullPrice - estimatedTotal) : 0
 
   // เกินวันเต็มไปกี่ชม. (เช่น 1 วัน 3 ชม.) — โชว์แยกให้ชัด กันลูกค้าเข้าใจผิดว่าชั่วโมงเกินฟรี
   const excessHours = calcExcessHours(new Date(startDatetime), new Date(endDatetime), totalDays)
@@ -204,10 +207,19 @@ export default function BookingConfirmCard(props: Props) {
                   <span>฿{estimatedTotal.toLocaleString('th-TH')}</span>
                 </div>
                 <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-                  ฿{dailyRate!.toLocaleString('th-TH')} × {totalDays} วัน
-                  {overtimeCharge > 0 && ` + ค่าล่วงเวลา ${excessHours} ชม. ฿${overtimeCharge.toLocaleString('th-TH')}`}
-                  {' '}— ค่าเช่าเท่านั้น ไม่รวมค่าบริการส่วนอื่น
-                  {discountAmount > 0 && ` (ลดโปรโมชั่นแล้ว ฿${discountAmount.toLocaleString('th-TH')})`}
+                  {isMonthlyPackage ? (
+                    <>
+                      ราคาแพ็คเกจรายเดือน — ค่าเช่าเท่านั้น ไม่รวมค่าบริการส่วนอื่น
+                      {overtimeCharge > 0 && ` (รวมค่าล่วงเวลาเกินกำหนด ${excessHours} ชม. ฿${overtimeCharge.toLocaleString('th-TH')})`}
+                    </>
+                  ) : (
+                    <>
+                      ฿{dailyRate!.toLocaleString('th-TH')} × {totalDays} วัน
+                      {overtimeCharge > 0 && ` + ค่าล่วงเวลา ${excessHours} ชม. ฿${overtimeCharge.toLocaleString('th-TH')}`}
+                      {' '}— ค่าเช่าเท่านั้น ไม่รวมค่าบริการส่วนอื่น
+                      {discountAmount > 0 && ` (ลดโปรโมชั่นแล้ว ฿${discountAmount.toLocaleString('th-TH')})`}
+                    </>
+                  )}
                 </div>
               </div>
             )}
