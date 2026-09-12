@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
 
 type Shop = {
   shop_name: string
@@ -59,6 +60,11 @@ export default function BookingConfirmCard(props: Props) {
   const estimatedTotal = totalAmount ?? (dailyRate ? dailyRate * totalDays : null)
   const fullPrice = dailyRate ? dailyRate * totalDays : null
   const discountAmount = fullPrice != null && estimatedTotal != null ? Math.max(0, fullPrice - estimatedTotal) : 0
+
+  // เกินวันเต็มไปกี่ชม. (เช่น 1 วัน 3 ชม.) — โชว์แยกให้ชัด กันลูกค้าเข้าใจผิดว่าชั่วโมงเกินฟรี
+  const excessHours = calcExcessHours(new Date(startDatetime), new Date(endDatetime), totalDays)
+  const overtimeCharge = dailyRate ? calcOvertimeCharge(excessHours, dailyRate) : 0
+  const durationLabel = excessHours > 0 ? `${totalDays} วัน ${excessHours} ชม.` : `${totalDays} วัน`
 
   const cardRef = useRef<HTMLDivElement>(null)
   const [imgSrc, setImgSrc] = useState<string | null>(null)
@@ -186,7 +192,7 @@ export default function BookingConfirmCard(props: Props) {
                 </tr>
                 <tr>
                   <td style={{ padding: '8px 6px', color: '#6b7280' }}>ระยะเวลา</td>
-                  <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 700 }}>{totalDays} วัน</td>
+                  <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 700 }}>{durationLabel}</td>
                 </tr>
               </tbody>
             </table>
@@ -198,7 +204,9 @@ export default function BookingConfirmCard(props: Props) {
                   <span>฿{estimatedTotal.toLocaleString('th-TH')}</span>
                 </div>
                 <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-                  ฿{dailyRate!.toLocaleString('th-TH')} × {totalDays} วัน — ค่าเช่าเท่านั้น ไม่รวมค่าบริการส่วนอื่น
+                  ฿{dailyRate!.toLocaleString('th-TH')} × {totalDays} วัน
+                  {overtimeCharge > 0 && ` + ค่าล่วงเวลา ${excessHours} ชม. ฿${overtimeCharge.toLocaleString('th-TH')}`}
+                  {' '}— ค่าเช่าเท่านั้น ไม่รวมค่าบริการส่วนอื่น
                   {discountAmount > 0 && ` (ลดโปรโมชั่นแล้ว ฿${discountAmount.toLocaleString('th-TH')})`}
                 </div>
               </div>
