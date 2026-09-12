@@ -23,6 +23,7 @@ type Props = {
   endDatetime: string
   totalDays: number
   dailyRate: number | null
+  totalAmount: number | null
   displayBrand: string
   displayModel: string
   bike: Bike | null
@@ -50,11 +51,14 @@ function fmtTime(iso: string) {
 }
 
 export default function BookingConfirmCard(props: Props) {
-  const { bookingRef, createdAt, startDatetime, endDatetime, totalDays, dailyRate, displayBrand, displayModel,
+  const { bookingRef, createdAt, startDatetime, endDatetime, totalDays, dailyRate, totalAmount, displayBrand, displayModel,
     bike, customerName, customerPhone, customerHotel, deliveryType, deliveryAddress, notes,
     shop, contactPhone, contactLine } = props
 
-  const estimatedTotal = dailyRate ? dailyRate * totalDays : null
+  // ใช้ยอดจริงที่คำนวณไว้ตอนจอง (รวมโปรรายสัปดาห์/เดือนแล้ว) — คูณ dailyRate*totalDays ตรงๆ จะได้ราคาเต็มไม่ลด
+  const estimatedTotal = totalAmount ?? (dailyRate ? dailyRate * totalDays : null)
+  const fullPrice = dailyRate ? dailyRate * totalDays : null
+  const discountAmount = fullPrice != null && estimatedTotal != null ? Math.max(0, fullPrice - estimatedTotal) : 0
 
   const cardRef = useRef<HTMLDivElement>(null)
   const [imgSrc, setImgSrc] = useState<string | null>(null)
@@ -195,6 +199,7 @@ export default function BookingConfirmCard(props: Props) {
                 </div>
                 <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
                   ฿{dailyRate!.toLocaleString('th-TH')} × {totalDays} วัน — ค่าเช่าเท่านั้น ไม่รวมค่าบริการส่วนอื่น
+                  {discountAmount > 0 && ` (ลดโปรโมชั่นแล้ว ฿${discountAmount.toLocaleString('th-TH')})`}
                 </div>
               </div>
             )}

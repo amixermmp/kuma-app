@@ -73,6 +73,7 @@ export default async function BookingConfirmPage({ params }: { params: { bikeId:
         endDatetime={booking.end_datetime}
         totalDays={booking.total_days}
         dailyRate={booking.daily_rate != null ? Number(booking.daily_rate) : null}
+        totalAmount={booking.total_amount != null ? Number(booking.total_amount) : null}
         displayBrand={displayBrand}
         displayModel={displayModel}
         bike={bike ? { license_plate: bike.license_plate, color: bike.color, year: bike.year } : null}
