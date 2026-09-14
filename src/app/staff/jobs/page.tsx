@@ -95,7 +95,6 @@ export default async function JobsPage() {
     applyBike(supabase.from('bike_documents')
       .select('id, doc_type, expiry_date, bike_id, bikes(id, license_plate, brand, model, color, photo_url)')
       .lte('expiry_date', in30days)
-      .gte('expiry_date', today)
       .limit(20)),
 
     applyBike(supabase.from('monthly_payments')
