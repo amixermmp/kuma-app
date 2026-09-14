@@ -400,28 +400,24 @@ export async function GET(request: NextRequest) {
         const DIGEST_REF = '00000000-0000-0000-0000-000000000000'
         const claimId = await claim('owner_digest', DIGEST_REF, bkkToday)
         if (claimId) {
-          // จัดกลุ่มตามสาขา — สาขาละ 1 ข้อความ ก๊อปส่งต่อ staff สาขานั้นได้เลย
+          // รวมทุกสาขาเป็นข้อความเดียว (ประหยัดโควตา LINE) — คั่นแต่ละสาขาด้วยเส้นคั่นให้อ่านง่าย
           const branchIds = sortBranchIds(items.map(i => i.branchId))
 
           const dateText = thaiDate.format(new Date(now))
-          const messages: LineMessage[] = branchIds.map(branchId => {
+          const branchBlocks = branchIds.map(branchId => {
             const docLines = items.filter(i => i.branchId === branchId && i.section === 'doc').map(i => i.line)
             const routineLines = items.filter(i => i.branchId === branchId && i.section === 'routine').map(i => i.line)
             const oilStockLines = items.filter(i => i.branchId === branchId && i.section === 'oil_stock').map(i => i.line)
-            let text = `📋 งานค้างที่ยังไม่ได้ทำ (${dateText}) ${displayBranch(branchId)}`
-            if (docLines.length > 0) text += `\n\n📄 เอกสารรถ\n${docLines.join('\n')}`
-            if (routineLines.length > 0) text += `\n\n🔧 งานเซอร์วิส\n${routineLines.join('\n')}`
-            if (oilStockLines.length > 0) text += `\n\n🛢️ สต๊อกน้ำมันใกล้หมด\n${oilStockLines.join('\n')}`
-            return textMessage(text)
+            let block = `📍 ${displayBranch(branchId)}`
+            if (docLines.length > 0) block += `\n\n📄 เอกสารรถ\n${docLines.join('\n')}`
+            if (routineLines.length > 0) block += `\n\n🔧 งานเซอร์วิส\n${routineLines.join('\n')}`
+            if (oilStockLines.length > 0) block += `\n\n🛢️ สต๊อกน้ำมันใกล้หมด\n${oilStockLines.join('\n')}`
+            return block
           })
+          const text = `📋 งานค้างที่ยังไม่ได้ทำ (${dateText})\n\n${branchBlocks.join('\n\n━━━━━━━━━━\n\n')}`
 
-          // LINE จำกัด 5 ข้อความ/การส่ง — ส่งเป็นชุดถ้าสาขาเยอะ
-          let allOk = true
-          for (let i = 0; i < messages.length; i += 5) {
-            const ok = await linePush(shop.line_token, shop.line_target_id, messages.slice(i, i + 5))
-            allOk = allOk && ok
-          }
-          if (allOk) sent += messages.length
+          const ok = await linePush(shop.line_token, shop.line_target_id, [textMessage(text)])
+          if (ok) sent++
           else { failed++; await release(claimId) }
         }
       }
@@ -434,7 +430,7 @@ export async function GET(request: NextRequest) {
     const broken = await findBrokenBookings(supabase)
     if (broken.length > 0) {
       const branchIds = sortBranchIds(broken.map(bb => bb.branch_id))
-      const messages: LineMessage[] = []
+      const branchBlocks: string[] = []
       const claimedIds: string[] = []
       for (const branchId of branchIds) {
         const items = broken.filter(bb => bb.branch_id === branchId)
@@ -447,14 +443,13 @@ export async function GET(request: NextRequest) {
         const lines = newItems.map(bb =>
           `• ${bb.fastLane ? '⚡ Fast lane — ' : ''}${bb.booking_ref} คุณ${bb.customer_name} รับรถ ${thaiTime.format(new Date(bb.start_datetime))} น.\n   ${bb.reason}`
         )
-        messages.push(textMessage(`🚨 คิวมีปัญหา ${displayBranch(branchId)} — ${newItems.length} คิว\n\n${lines.join('\n')}\n\nเข้าแอพ → คิวมีปัญหา เพื่อจัดการ`))
+        branchBlocks.push(`📍 ${displayBranch(branchId)} — ${newItems.length} คิว\n\n${lines.join('\n')}`)
       }
-      if (messages.length > 0) {
-        let allOk = true
-        for (let i = 0; i < messages.length; i += 5) {
-          allOk = (await linePush(shop.line_token, shop.line_target_id, messages.slice(i, i + 5))) && allOk
-        }
-        if (allOk) sent += messages.length
+      // รวมทุกสาขาเป็นข้อความเดียว (ประหยัดโควตา LINE) — คั่นแต่ละสาขาด้วยเส้นคั่นให้อ่านง่าย
+      if (branchBlocks.length > 0) {
+        const text = `🚨 คิวมีปัญหา\n\n${branchBlocks.join('\n\n━━━━━━━━━━\n\n')}\n\nเข้าแอพ → คิวมีปัญหา เพื่อจัดการ`
+        const ok = await linePush(shop.line_token, shop.line_target_id, [textMessage(text)])
+        if (ok) sent++
         else { failed++; await Promise.all(claimedIds.map(release)) }
       }
     }
@@ -486,19 +481,18 @@ export async function GET(request: NextRequest) {
         // แสดงทุกสาขาที่มีรถจริงเสมอ แม้จะว่าง 0 คัน — กันดูเหมือนไม่ได้เช็คครบ (สาขาที่ยังไม่มีรถเลยไม่ต้องโชว์)
         const operatingBranchIds = new Set((allBikes ?? []).map(b => b.branch_id).filter((id): id is string => !!id))
         const branchIds = sortBranchIds(Array.from(operatingBranchIds))
-        const messages: LineMessage[] = branchIds.map(branchId => {
+        // รวมทุกสาขาเป็นข้อความเดียว (ประหยัดโควตา LINE) — คั่นแต่ละสาขาด้วยเส้นคั่นให้อ่านง่าย
+        const branchBlocks = branchIds.map(branchId => {
           const list = available.filter(b => (b.branch_id ?? '') === branchId)
           const body = list.length > 0
             ? list.map(b => `• ${b.license_plate} ${[b.brand, b.model].filter(Boolean).join(' ')}`).join('\n')
             : 'ไม่มีรถว่าง — ทุกคันออกงานหมด'
-          return textMessage(`🛵 รถว่างวันนี้ (${dateText} ณ ${timeText} น.) ${displayBranch(branchId)} — ${list.length} คัน\n\n${body}`)
+          return `📍 ${displayBranch(branchId)} — ${list.length} คัน\n\n${body}`
         })
+        const text = `🛵 รถว่างวันนี้ (${dateText} ณ ${timeText} น.)\n\n${branchBlocks.join('\n\n━━━━━━━━━━\n\n')}`
 
-        let allOk = true
-        for (let i = 0; i < messages.length; i += 5) {
-          allOk = (await linePush(shop.line_token, shop.line_target_id, messages.slice(i, i + 5))) && allOk
-        }
-        if (allOk) sent += messages.length
+        const ok = await linePush(shop.line_token, shop.line_target_id, [textMessage(text)])
+        if (ok) sent++
         else { failed++; await release(claimId) }
       }
     }
