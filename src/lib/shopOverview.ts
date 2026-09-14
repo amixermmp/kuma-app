@@ -167,7 +167,6 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
 
   // เอกสารรถ (ภาษี/พ.ร.บ./ประกัน) ที่ใกล้หมดอายุ — เกณฑ์เดียวกับหน้า Job Tasks
   const DOC_LABEL: Record<string, string> = { tax: 'ภาษีรถ', pob: 'พ.ร.บ.', insurance: 'ประกันภัย' }
-  const today = new Date().toISOString().split('T')[0]
   const in30days = new Date(Date.now() + 30 * 86_400_000).toISOString().split('T')[0]
   const docTasksByBike = new Map<string, string[]>()
   if (routineCheckIds.length > 0) {
@@ -176,12 +175,11 @@ export async function getShopOverviewGroups(admin: Admin, branchIds: string[] | 
       .select('bike_id, doc_type, expiry_date')
       .in('bike_id', routineCheckIds)
       .lte('expiry_date', in30days)
-      .gte('expiry_date', today)
     for (const d of docs ?? []) {
       const daysLeft = Math.ceil((new Date(d.expiry_date).getTime() - Date.now()) / 86_400_000)
       const label = DOC_LABEL[d.doc_type] ?? d.doc_type
       const list = docTasksByBike.get(d.bike_id) ?? []
-      list.push(`${label} (อีก ${daysLeft} วัน)`)
+      list.push(daysLeft < 0 ? `${label} (เกินมา ${-daysLeft} วัน)` : `${label} (อีก ${daysLeft} วัน)`)
       docTasksByBike.set(d.bike_id, list)
     }
   }
