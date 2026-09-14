@@ -464,35 +464,43 @@ export async function GET(request: NextRequest) {
   if ((bkkHour >= AVAILABLE_SEND_HOUR || testMode) && shop?.line_token && shop.line_target_id) {
     const claimId = await claim('owner_available', '00000000-0000-0000-0000-000000000000', bkkToday)
     if (claimId) {
-      const [{ data: allBikes }, { data: activeRentalBikes }] = await Promise.all([
+      const [{ data: allBikes, error: bikesErr }, { data: activeRentalBikes, error: rentalsErr }] = await Promise.all([
         supabase.from('bikes').select('id, branch_id, license_plate, brand, model, status'),
         supabase.from('rentals').select('bike_id').in('status', ['active', 'extended']),
       ])
-      // ว่างจริง = สถานะ available และไม่มีสัญญา active คาอยู่ (กันสถานะรถค้าง)
-      const busy = new Set<string>([
-        ...(activeRentalBikes ?? []).map(r => r.bike_id),
-        ...(monthlies ?? []).map(m => m.bike_id),
-      ])
-      const available = (allBikes ?? []).filter(b => b.status === 'available' && !busy.has(b.id))
 
-      const dateText = thaiDate.format(new Date(now))
-      const timeText = thaiTime.format(new Date(now)).split(' ').pop() // เวลา ณ ตอนสร้างข้อความ
-      const branchIds = sortBranchIds(available.map(b => b.branch_id ?? ''))
-      const messages: LineMessage[] = branchIds.map(branchId => {
-        const list = available.filter(b => (b.branch_id ?? '') === branchId)
-        const lines = list.map(b => `• ${b.license_plate} ${[b.brand, b.model].filter(Boolean).join(' ')}`)
-        return textMessage(`🛵 รถว่างวันนี้ (${dateText} ณ ${timeText} น.) ${displayBranch(branchId)} — ${list.length} คัน\n\n${lines.join('\n')}`)
-      })
-      if (messages.length === 0) {
-        messages.push(textMessage(`🛵 รถว่างวันนี้ (${dateText}) — ไม่มีรถว่างเลย ทุกคันออกงานหมด 🎉`))
-      }
+      // ดึงข้อมูลไม่สำเร็จ — ห้ามส่งข้อความเด็ดขาด (จะกลายเป็น "ไม่มีรถว่าง" ผิดๆ) ปล่อยให้รอบถัดไปลองใหม่แทน
+      if (bikesErr || rentalsErr) {
+        console.error('[cron/line-notify] owner_available: failed to fetch data, skip send', bikesErr?.message, rentalsErr?.message)
+        await release(claimId)
+      } else {
+        // ว่างจริง = สถานะ available และไม่มีสัญญา active คาอยู่ (กันสถานะรถค้าง)
+        const busy = new Set<string>([
+          ...(activeRentalBikes ?? []).map(r => r.bike_id),
+          ...(monthlies ?? []).map(m => m.bike_id),
+        ])
+        const available = (allBikes ?? []).filter(b => b.status === 'available' && !busy.has(b.id))
 
-      let allOk = true
-      for (let i = 0; i < messages.length; i += 5) {
-        allOk = (await linePush(shop.line_token, shop.line_target_id, messages.slice(i, i + 5))) && allOk
+        const dateText = thaiDate.format(new Date(now))
+        const timeText = thaiTime.format(new Date(now)).split(' ').pop() // เวลา ณ ตอนสร้างข้อความ
+        // แสดงทุกสาขาที่มีรถจริงเสมอ แม้จะว่าง 0 คัน — กันดูเหมือนไม่ได้เช็คครบ (สาขาที่ยังไม่มีรถเลยไม่ต้องโชว์)
+        const operatingBranchIds = new Set((allBikes ?? []).map(b => b.branch_id).filter((id): id is string => !!id))
+        const branchIds = sortBranchIds(Array.from(operatingBranchIds))
+        const messages: LineMessage[] = branchIds.map(branchId => {
+          const list = available.filter(b => (b.branch_id ?? '') === branchId)
+          const body = list.length > 0
+            ? list.map(b => `• ${b.license_plate} ${[b.brand, b.model].filter(Boolean).join(' ')}`).join('\n')
+            : 'ไม่มีรถว่าง — ทุกคันออกงานหมด'
+          return textMessage(`🛵 รถว่างวันนี้ (${dateText} ณ ${timeText} น.) ${displayBranch(branchId)} — ${list.length} คัน\n\n${body}`)
+        })
+
+        let allOk = true
+        for (let i = 0; i < messages.length; i += 5) {
+          allOk = (await linePush(shop.line_token, shop.line_target_id, messages.slice(i, i + 5))) && allOk
+        }
+        if (allOk) sent += messages.length
+        else { failed++; await release(claimId) }
       }
-      if (allOk) sent += messages.length
-      else { failed++; await release(claimId) }
     }
   }
 
