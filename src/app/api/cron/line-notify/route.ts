@@ -74,6 +74,8 @@ type BranchLineSettings = {
   promptpay_id: string | null
   line_notify_customer: boolean | null
   contact_phone: string | null
+  staff_line_token: string | null
+  staff_line_group_id: string | null
 }
 
 export async function GET(request: NextRequest) {
@@ -92,7 +94,7 @@ export async function GET(request: NextRequest) {
   const [{ data: branchSettings }, { data: shop }, { data: branchRows }] = await Promise.all([
     supabase
       .from('branch_settings')
-      .select('branch_id, line_token, promptpay_id, line_notify_customer, contact_phone'),
+      .select('branch_id, line_token, promptpay_id, line_notify_customer, contact_phone, staff_line_token, staff_line_group_id'),
     supabase
       .from('shop_settings')
       .select('line_token, line_target_id, line_notify_docs, line_notify_routine, line_notify_broken, doc_alert_days')
@@ -452,6 +454,67 @@ export async function GET(request: NextRequest) {
         if (ok) sent++
         else { failed++; await Promise.all(claimedIds.map(release)) }
       }
+    }
+  }
+
+  // ═══ 6.6) เตือนคิวส่ง/รับคืนนอกสถานที่ใกล้ถึงเวลา → กลุ่มพนักงานประจำสาขา (เช็คทุกรอบ) ═══
+  // ช่องทางเสริมของป็อปอัพบังคับรับทราบในแอพ (OffsiteReminderWatcher) — เผื่อพนักงานไม่ได้เปิดแอพอยู่พอดี
+  const OFFSITE_REMIND_BEFORE_MS = 15 * 60 * 1000
+  const staffBranches = Array.from(branchMap.values()).filter(b => b.staff_line_token && b.staff_line_group_id)
+  if (staffBranches.length > 0) {
+    const dueBefore = new Date(now + OFFSITE_REMIND_BEFORE_MS).toISOString()
+    const staffBranchIds = staffBranches.map(b => b.branch_id)
+
+    const [{ data: offsiteSends }, { data: offsiteReturns }] = await Promise.all([
+      supabase
+        .from('bookings')
+        .select('id, start_datetime, customer_name, delivery_address, branch_id, bikes(license_plate, brand, model)')
+        .eq('status', 'confirmed')
+        .eq('delivery_type', 'offsite')
+        .in('branch_id', staffBranchIds)
+        .lte('start_datetime', dueBefore),
+      supabase
+        .from('rentals')
+        .select('id, expected_end_datetime, return_address, branch_id, bikes(license_plate, brand, model), customers(name)')
+        .in('status', ['active', 'extended'])
+        .eq('return_type', 'offsite')
+        .in('branch_id', staffBranchIds)
+        .lte('expected_end_datetime', dueBefore),
+    ])
+
+    for (const branch of staffBranches) {
+      const sends = (offsiteSends ?? []).filter(b => b.branch_id === branch.branch_id)
+      const returns = (offsiteReturns ?? []).filter(r => r.branch_id === branch.branch_id)
+      if (sends.length === 0 && returns.length === 0) continue
+
+      const lines: string[] = []
+      const claimedIds: string[] = []
+      for (const b of sends) {
+        const claimId = await claim('staff_offsite_send', b.id, b.start_datetime)
+        if (!claimId) continue
+        claimedIds.push(claimId)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const bike = b.bikes as any
+        const bikeLabel = bike ? `${bike.brand ?? ''} ${bike.model ?? ''} ${bike.license_plate ?? ''}`.trim() : ''
+        lines.push(`🛵 ส่งนอกสถานที่ — ${thaiTime.format(new Date(b.start_datetime))} น.\n   ${b.customer_name}${bikeLabel ? ` • ${bikeLabel}` : ''}${b.delivery_address ? `\n   📍 ${b.delivery_address}` : ''}`)
+      }
+      for (const r of returns) {
+        const claimId = await claim('staff_offsite_return', r.id, r.expected_end_datetime)
+        if (!claimId) continue
+        claimedIds.push(claimId)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const bike = r.bikes as any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const customer = r.customers as any
+        const bikeLabel = bike ? `${bike.brand ?? ''} ${bike.model ?? ''} ${bike.license_plate ?? ''}`.trim() : ''
+        lines.push(`📦 รับคืนนอกสถานที่ — ${thaiTime.format(new Date(r.expected_end_datetime))} น.\n   ${customer?.name ?? 'ลูกค้า'}${bikeLabel ? ` • ${bikeLabel}` : ''}${r.return_address ? `\n   📍 ${r.return_address}` : ''}`)
+      }
+      if (lines.length === 0) continue
+
+      const text = `⏰ ใกล้ถึงเวลา — ${lines.length} รายการ\n\n${lines.join('\n\n')}`
+      const ok = await linePush(branch.staff_line_token!, branch.staff_line_group_id!, [textMessage(text)])
+      if (ok) sent++
+      else { failed++; await Promise.all(claimedIds.map(release)) }
     }
   }
 
