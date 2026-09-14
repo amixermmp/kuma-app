@@ -468,7 +468,7 @@ export async function GET(request: NextRequest) {
     const [{ data: offsiteSends }, { data: offsiteReturns }] = await Promise.all([
       supabase
         .from('bookings')
-        .select('id, start_datetime, customer_name, delivery_address, branch_id, bikes(license_plate, brand, model)')
+        .select('id, start_datetime, customer_name, delivery_address, branch_id, requested_brand, requested_model, bikes(license_plate, brand, model)')
         .eq('status', 'confirmed')
         .eq('delivery_type', 'offsite')
         .in('branch_id', staffBranchIds)
@@ -495,7 +495,10 @@ export async function GET(request: NextRequest) {
         claimedIds.push(claimId)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const bike = b.bikes as any
-        const bikeLabel = bike ? `${bike.brand ?? ''} ${bike.model ?? ''} ${bike.license_plate ?? ''}`.trim() : ''
+        // จองแบบ "รุ่นตามที่มี" ยังไม่ได้กำหนดคันจริง — ไม่มีทะเบียนให้โชว์ตอนนี้ ใช้รุ่นที่จองไว้แทน
+        const bikeLabel = bike
+          ? `${bike.brand ?? ''} ${bike.model ?? ''} ${bike.license_plate ?? ''}`.trim()
+          : (b.requested_brand || b.requested_model) ? `${b.requested_brand ?? ''} ${b.requested_model ?? ''} (ยังไม่กำหนดคัน)`.trim() : ''
         lines.push(`🛵 ส่งนอกสถานที่ — ${thaiTime.format(new Date(b.start_datetime))} น.\n   ${b.customer_name}${bikeLabel ? ` • ${bikeLabel}` : ''}${b.delivery_address ? `\n   📍 ${b.delivery_address}` : ''}`)
       }
       for (const r of returns) {

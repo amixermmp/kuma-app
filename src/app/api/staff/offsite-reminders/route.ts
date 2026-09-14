@@ -28,7 +28,7 @@ export async function GET() {
 
   let sendQuery = admin
     .from('bookings')
-    .select('id, booking_ref, start_datetime, customer_name, delivery_address, branch_id, bikes(license_plate, brand, model)')
+    .select('id, booking_ref, start_datetime, customer_name, delivery_address, branch_id, requested_brand, requested_model, bikes(license_plate, brand, model)')
     .eq('status', 'confirmed')
     .eq('delivery_type', 'offsite')
     .lte('start_datetime', dueBefore)
@@ -56,10 +56,14 @@ export async function GET() {
     if (ackedKeys.has(`send:${b.id}`)) continue
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bike = b.bikes as any
+    // จองแบบ "รุ่นตามที่มี" ยังไม่ได้กำหนดคันจริง — ไม่มีทะเบียนให้โชว์ตอนนี้ ใช้รุ่นที่จองไว้แทน
+    const bikeLabel = bike
+      ? `${bike.brand ?? ''} ${bike.model ?? ''} • ${bike.license_plate ?? ''}`
+      : (b.requested_brand || b.requested_model) ? `${b.requested_brand ?? ''} ${b.requested_model ?? ''} (ยังไม่กำหนดคัน)` : ''
     reminders.push({
       type: 'send', id: b.id, ref: b.booking_ref, customerName: b.customer_name,
       address: b.delivery_address, time: b.start_datetime,
-      bikeLabel: bike ? `${bike.brand ?? ''} ${bike.model ?? ''} • ${bike.license_plate ?? ''}` : '',
+      bikeLabel,
     })
   }
   for (const r of returns ?? []) {
