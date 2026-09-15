@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { SettingsHeader } from '../_shared'
+import Link from 'next/link'
 import { compressImagePng } from '@/lib/compressImage'
 
 type Branch = { id: string; name: string }
@@ -153,42 +153,32 @@ function PosterCard({ poster }: { poster: Poster }) {
   )
 }
 
-function BranchSection({ branch, models, posters }: { branch: Branch; models: string[]; posters: Poster[] }) {
-  return (
-    <div style={{ marginBottom: '24px' }}>
-      <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', marginBottom: '10px' }}>📍 {branch.name}</div>
-      {models.length === 0 ? (
-        <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '10px' }}>สาขานี้ยังไม่มีรถในระบบ</div>
-      ) : (
-        <>
-          {posters.map(p => <PosterCard key={p.id} poster={p} />)}
-          <AddPosterForm branchId={branch.id} models={models} />
-        </>
-      )}
-    </div>
-  )
-}
-
-export default function PostersClient({ branches, modelsByBranch, posters }: {
-  branches: Branch[]
-  modelsByBranch: Record<string, string[]>
+export default function BranchPostersClient({ branch, models, posters }: {
+  branch: Branch
+  models: string[]
   posters: Poster[]
 }) {
   return (
     <>
-      <SettingsHeader title="🖼️ โปสเตอร์รถว่าง" sub="อัพโหลดรูปที่กากบาทไว้แล้ว + ติ๊กรุ่นที่หมดในรูปนั้น" />
+      <div className="app-header" style={{ background: '#111827' }}>
+        <Link href="/owner/settings/posters" className="app-header-back">←</Link>
+        <div style={{ flex: 1 }}>
+          <h1>🖼️ {branch.name}</h1>
+          <div className="sub">โปสเตอร์รถว่าง — {posters.length} รูป</div>
+        </div>
+      </div>
       <div style={{ padding: '12px 16px 40px' }}>
         <div style={{ background: '#f0fdf4', borderRadius: '10px', padding: '12px', fontSize: '12px', color: '#166534', border: '1px solid #bbf7d0', marginBottom: '16px' }}>
           ระบบจะเลือกโชว์รูปที่ตรงกับรุ่นที่หมดจริงในหน้าค้นหารถของพนักงานให้อัตโนมัติ — ถ้าค้นหาแล้วรุ่นที่หมดไม่ตรงกับรูปไหนเลย จะไม่โชว์รูป
         </div>
-        {branches.map(b => (
-          <BranchSection
-            key={b.id}
-            branch={b}
-            models={modelsByBranch[b.id] ?? []}
-            posters={posters.filter(p => p.branch_id === b.id)}
-          />
-        ))}
+        {models.length === 0 ? (
+          <div style={{ fontSize: '12px', color: '#9ca3af' }}>สาขานี้ยังไม่มีรถในระบบ</div>
+        ) : (
+          <>
+            {posters.map(p => <PosterCard key={p.id} poster={p} />)}
+            <AddPosterForm branchId={branch.id} models={models} />
+          </>
+        )}
       </div>
     </>
   )
