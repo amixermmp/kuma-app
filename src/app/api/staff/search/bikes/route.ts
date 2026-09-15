@@ -135,9 +135,9 @@ export async function GET(request: NextRequest) {
     return { ...bike, available: true, conflict_type: null }
   })
 
-  // หารุ่นที่ "หมดจริง" ต่อสาขาในช่วงเวลานี้ แล้วหาโปสเตอร์ที่ติดป้ายตรงกันเป๊ะ (เซตเดียวกัน ไม่ใช่แค่ overlap)
+  // หารุ่นที่ "หมดจริง" ต่อสาขาในช่วงเวลานี้ — ส่งกลับไปให้หน้าเว็บกากบาททับโปสเตอร์ต้นฉบับเอง (ไม่ต้องมีรูปสำเร็จรูปเก็บไว้)
   const branchIds = Array.from(new Set(result.map(b => b.branch_id).filter((id): id is string => !!id)))
-  const outOfStockByBranch = new Map<string, Set<string>>()
+  const outOfStockByBranch: Record<string, string[]> = {}
   for (const branchId of branchIds) {
     const modelHasAvailable = new Map<string, boolean>()
     for (const b of result) {
@@ -145,28 +145,27 @@ export async function GET(request: NextRequest) {
       const key = `${b.brand}||${b.model}`
       modelHasAvailable.set(key, (modelHasAvailable.get(key) ?? false) || b.available)
     }
-    outOfStockByBranch.set(branchId, new Set(
-      Array.from(modelHasAvailable.entries()).filter(([, hasAvail]) => !hasAvail).map(([key]) => key)
-    ))
+    outOfStockByBranch[branchId] = Array.from(modelHasAvailable.entries())
+      .filter(([, hasAvail]) => !hasAvail).map(([key]) => key)
   }
 
-  const posterByBranch: Record<string, string | null> = {}
+  const posterDataByBranch: Record<string, { templateUrl: string; hotspots: { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }[] } | null> = {}
   if (branchIds.length > 0) {
-    const { data: posters } = await supabase
-      .from('availability_posters')
-      .select('branch_id, image_url, out_of_stock_models')
-      .in('branch_id', branchIds)
+    const [{ data: branchSettings }, { data: hotspots }] = await Promise.all([
+      supabase.from('branch_settings').select('branch_id, poster_template_url').in('branch_id', branchIds),
+      supabase.from('poster_hotspots').select('branch_id, brand, model, x_pct, y_pct, width_pct, height_pct').in('branch_id', branchIds),
+    ])
     for (const branchId of branchIds) {
-      const outSet = outOfStockByBranch.get(branchId) ?? new Set<string>()
-      const match = (posters ?? []).find(p => {
-        if (p.branch_id !== branchId) return false
-        const tagSet = new Set((p.out_of_stock_models ?? []) as string[])
-        if (tagSet.size !== outSet.size) return false
-        return Array.from(tagSet).every(k => outSet.has(k))
-      })
-      posterByBranch[branchId] = match?.image_url ?? null
+      const templateUrl = (branchSettings ?? []).find(b => b.branch_id === branchId)?.poster_template_url
+      if (!templateUrl) { posterDataByBranch[branchId] = null; continue }
+      posterDataByBranch[branchId] = {
+        templateUrl,
+        hotspots: (hotspots ?? []).filter(h => h.branch_id === branchId).map(h => ({
+          brand: h.brand, model: h.model, xPct: h.x_pct, yPct: h.y_pct, widthPct: h.width_pct, heightPct: h.height_pct,
+        })),
+      }
     }
   }
 
-  return NextResponse.json({ bikes: result, posters: posterByBranch })
+  return NextResponse.json({ bikes: result, outOfStockByBranch, posterDataByBranch })
 }
