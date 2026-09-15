@@ -8,7 +8,7 @@ import { calcRentQuote, calendarDays, calcExcessHours, calcOvertimeCharge } from
 import QuarterHourInput from '@/components/staff/QuarterHourInput'
 import PosterOverlay from './PosterOverlay'
 
-type PosterData = { templateUrl: string; hotspots: { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }[] }
+type PosterData = { templateUrl: string; xMarkUrl: string | null; hotspots: { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }[] }
 
 type BikeResult = {
   id: string
@@ -171,7 +171,7 @@ export default function SearchPage() {
           <>
             {/* โปสเตอร์รถว่าง — กากบาททับรุ่นที่หมดจริงของช่วงเวลานี้ให้อัตโนมัติ กดค้างเซฟส่งลูกค้าได้เลย */}
             {posterData && (
-              <PosterOverlay templateUrl={posterData.templateUrl} hotspots={posterData.hotspots} outOfStock={outOfStock} />
+              <PosterOverlay templateUrl={posterData.templateUrl} xMarkUrl={posterData.xMarkUrl} hotspots={posterData.hotspots} outOfStock={outOfStock} />
             )}
 
             {/* กรองรุ่น — ลูกค้ารีเควสรุ่นเจาะจง เลือกแล้วเจอเลย */}

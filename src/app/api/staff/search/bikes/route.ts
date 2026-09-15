@@ -149,17 +149,18 @@ export async function GET(request: NextRequest) {
       .filter(([, hasAvail]) => !hasAvail).map(([key]) => key)
   }
 
-  const posterDataByBranch: Record<string, { templateUrl: string; hotspots: { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }[] } | null> = {}
+  const posterDataByBranch: Record<string, { templateUrl: string; xMarkUrl: string | null; hotspots: { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }[] } | null> = {}
   if (branchIds.length > 0) {
     const [{ data: branchSettings }, { data: hotspots }] = await Promise.all([
-      supabase.from('branch_settings').select('branch_id, poster_template_url').in('branch_id', branchIds),
+      supabase.from('branch_settings').select('branch_id, poster_template_url, poster_x_mark_url').in('branch_id', branchIds),
       supabase.from('poster_hotspots').select('branch_id, brand, model, x_pct, y_pct, width_pct, height_pct').in('branch_id', branchIds),
     ])
     for (const branchId of branchIds) {
-      const templateUrl = (branchSettings ?? []).find(b => b.branch_id === branchId)?.poster_template_url
-      if (!templateUrl) { posterDataByBranch[branchId] = null; continue }
+      const settings = (branchSettings ?? []).find(b => b.branch_id === branchId)
+      if (!settings?.poster_template_url) { posterDataByBranch[branchId] = null; continue }
       posterDataByBranch[branchId] = {
-        templateUrl,
+        templateUrl: settings.poster_template_url,
+        xMarkUrl: settings.poster_x_mark_url ?? null,
         hotspots: (hotspots ?? []).filter(h => h.branch_id === branchId).map(h => ({
           brand: h.brand, model: h.model, xPct: h.x_pct, yPct: h.y_pct, widthPct: h.width_pct, heightPct: h.height_pct,
         })),

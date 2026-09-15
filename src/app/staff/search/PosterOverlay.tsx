@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 
 type Hotspot = { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }
 
-export default function PosterOverlay({ templateUrl, hotspots, outOfStock }: {
+export default function PosterOverlay({ templateUrl, xMarkUrl, hotspots, outOfStock }: {
   templateUrl: string
+  xMarkUrl?: string | null
   hotspots: Hotspot[]
   outOfStock: string[] // "brand||model"
 }) {
@@ -39,7 +40,7 @@ export default function PosterOverlay({ templateUrl, hotspots, outOfStock }: {
     const timer = setTimeout(capture, 400)
     return () => { cancelled = true; clearTimeout(timer) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateUrl, outOfStockKey])
+  }, [templateUrl, xMarkUrl, outOfStockKey])
 
   return (
     <div style={{ marginBottom: '14px' }}>
@@ -56,10 +57,15 @@ export default function PosterOverlay({ templateUrl, hotspots, outOfStock }: {
               width: `${h.widthPct}%`, height: `${h.heightPct}%`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <svg viewBox="0 0 100 100" style={{ width: '80%', height: '80%' }}>
-                <line x1="10" y1="10" x2="90" y2="90" stroke="#dc2626" strokeWidth="14" strokeLinecap="round" />
-                <line x1="90" y1="10" x2="10" y2="90" stroke="#dc2626" strokeWidth="14" strokeLinecap="round" />
-              </svg>
+              {xMarkUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={xMarkUrl} alt="X" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              ) : (
+                <svg viewBox="0 0 100 100" style={{ width: '80%', height: '80%' }}>
+                  <line x1="10" y1="10" x2="90" y2="90" stroke="#dc2626" strokeWidth="14" strokeLinecap="round" />
+                  <line x1="90" y1="10" x2="10" y2="90" stroke="#dc2626" strokeWidth="14" strokeLinecap="round" />
+                </svg>
+              )}
             </div>
           ))}
         </div>

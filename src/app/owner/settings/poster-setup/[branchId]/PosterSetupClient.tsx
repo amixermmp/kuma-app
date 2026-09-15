@@ -10,14 +10,16 @@ type Branch = { id: string; name: string }
 type Hotspot = { id: string; brand: string; model: string; x_pct: number; y_pct: number; width_pct: number; height_pct: number }
 type PendingRegion = { xPct: number; yPct: number; widthPct: number; heightPct: number }
 
-export default function PosterSetupClient({ branch, templateUrl, models, hotspots }: {
+export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, models, hotspots }: {
   branch: Branch
   templateUrl: string | null
+  xMarkUrl: string | null
   models: BikeModel[]
   hotspots: Hotspot[]
 }) {
   const router = useRouter()
   const [uploading, setUploading] = useState(false)
+  const [uploadingXMark, setUploadingXMark] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
   const [dragCurrent, setDragCurrent] = useState<{ x: number; y: number } | null>(null)
@@ -39,7 +41,7 @@ export default function PosterSetupClient({ branch, templateUrl, models, hotspot
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
       const saveRes = await fetch('/api/owner/settings/poster-template', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ branchId: branch.id, imageUrl: data.url }),
+        body: JSON.stringify({ branchId: branch.id, imageUrl: data.url, field: 'poster_template_url' }),
       })
       if (!saveRes.ok) throw new Error('บันทึกรูปไม่สำเร็จ')
       router.refresh()
@@ -48,6 +50,30 @@ export default function PosterSetupClient({ branch, templateUrl, models, hotspot
       setTimeout(() => setMsg(''), 4000)
     } finally {
       setUploading(false)
+    }
+  }
+
+  const uploadXMark = async (file: File) => {
+    setUploadingXMark(true)
+    try {
+      const compressed = await compressImagePng(file)
+      const fd = new FormData()
+      fd.append('file', new File([compressed], 'xmark.png', { type: 'image/png' }))
+      fd.append('folder', 'poster-templates')
+      const res = await fetch('/api/owner/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      const saveRes = await fetch('/api/owner/settings/poster-template', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branchId: branch.id, imageUrl: data.url, field: 'poster_x_mark_url' }),
+      })
+      if (!saveRes.ok) throw new Error('บันทึกรูปไม่สำเร็จ')
+      router.refresh()
+    } catch (e) {
+      setMsg('❌ ' + (e instanceof Error ? e.message : 'อัพโหลดไม่สำเร็จ'))
+      setTimeout(() => setMsg(''), 4000)
+    } finally {
+      setUploadingXMark(false)
     }
   }
 
@@ -204,6 +230,24 @@ export default function PosterSetupClient({ branch, templateUrl, models, hotspot
             )}
 
             {msg && <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '8px' }}>{msg}</div>}
+
+            <div style={{ marginTop: '16px', border: '1.5px solid #e5e7eb', borderRadius: '10px', padding: '12px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '8px' }}>รูปกากบาท (ไม่บังคับ)</div>
+              <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '8px' }}>
+                ถ้าไม่อัพโหลด จะใช้กากบาทสีแดงมาตรฐานแทน
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {xMarkUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={xMarkUrl} alt="รูปกากบาท" style={{ width: '48px', height: '48px', objectFit: 'contain', background: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }} />
+                )}
+                <label style={{ fontSize: '12px', color: '#2563eb', cursor: 'pointer' }}>
+                  {uploadingXMark ? 'กำลังอัพโหลด...' : xMarkUrl ? '🔄 เปลี่ยนรูปกากบาท' : '+ อัพโหลดรูปกากบาท'}
+                  <input type="file" accept="image/*" style={{ display: 'none' }}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadXMark(f) }} />
+                </label>
+              </div>
+            </div>
 
             <div style={{ marginTop: '16px' }}>
               <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '8px' }}>ตำแหน่งที่ตั้งไว้ ({hotspots.length})</div>
