@@ -13,6 +13,7 @@ const CATEGORIES = [
   { icon: '🖼️', label: 'รูปโปรโมท', sub: 'กรอบ/สติ๊กเกอร์ปิดหน้า รายสาขา', href: '/owner/settings/marketing', color: '#a78bfa' },
   { icon: '🛢️', label: 'สต๊อกน้ำมัน', sub: 'สต๊อกน้ำมันเครื่อง/เฟืองท้าย รายสาขา', href: '/owner/settings/oil-stock', color: '#b45309' },
   { icon: '👤', label: 'ผู้ให้เช่า', sub: 'ชื่อ-เลขบัตร-ลายเซ็น สำหรับสัญญาเช่า', href: '/owner/settings/lessors', color: '#0f766e' },
+  { icon: '🖼️', label: 'โปสเตอร์รถว่าง', sub: 'รูปกากบาทรุ่นที่หมด ใช้ตอบลูกค้า', href: '/owner/settings/posters', color: '#c026d3' },
 ] as const
 
 export default async function SettingsPage() {

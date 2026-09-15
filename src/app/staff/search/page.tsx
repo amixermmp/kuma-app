@@ -69,6 +69,7 @@ export default function SearchPage() {
   const [from, setFrom] = useState(nowLocal())
   const [to, setTo] = useState(nowLocal(1 * 24 * 60 * 60 * 1000))
   const [results, setResults] = useState<BikeResult[] | null>(null)
+  const [posterUrl, setPosterUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [fBrand, setFBrand] = useState('')
@@ -83,9 +84,13 @@ export default function SearchPage() {
       )
       const data = await res.json()
       setResults(data.bikes ?? [])
+      // ปกติพนักงานเห็นสาขาเดียว — เอาโปสเตอร์แรกที่มีค่ามาโชว์
+      const posterValues = Object.values(data.posters ?? {}) as (string | null)[]
+      setPosterUrl(posterValues.find(u => u) ?? null)
       setSearched(true)
     } catch {
       setResults([])
+      setPosterUrl(null)
     } finally {
       setLoading(false)
     }
@@ -156,6 +161,17 @@ export default function SearchPage() {
           </div>
         ) : (
           <>
+            {/* โปสเตอร์รถว่างที่ตรงกับสต็อกจริงของช่วงเวลานี้ — กดค้างเซฟส่งลูกค้าได้เลย */}
+            {posterUrl && (
+              <div style={{ marginBottom: '14px' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={posterUrl} alt="โปสเตอร์รถว่าง" style={{ width: '100%', borderRadius: '12px', border: '1px solid #e5e7eb' }} />
+                <div style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center', marginTop: '4px' }}>
+                  กดค้างที่รูปเพื่อเซฟส่งลูกค้า
+                </div>
+              </div>
+            )}
+
             {/* กรองรุ่น — ลูกค้ารีเควสรุ่นเจาะจง เลือกแล้วเจอเลย */}
             {groups.length > 0 && (
               <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
