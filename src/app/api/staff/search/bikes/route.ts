@@ -162,8 +162,13 @@ export async function GET(request: NextRequest) {
       if (!settings?.poster_template_url) { posterDataByBranch[branchId] = null; continue }
       const branchHotspots = (hotspots ?? []).filter(h => h.branch_id === branchId)
       const hotspotModelKeys = new Set(branchHotspots.flatMap(h => h.poster_hotspot_models.map(m => `${m.brand}||${m.model}`)))
+      // รุ่นที่ตั้งป้ายไว้แต่สาขานี้ไม่มีรถรุ่นนั้นเลย (เช่นย้ายรถไปสาขาอื่น/ยังไม่ซื้อมา) — ถือว่าหมดเหมือนกัน จะได้ไม่ต้องคอยแก้ป้ายเองทุกครั้งที่สลับรถ
+      const branchModelKeys = modelHasAvailableByBranch[branchId] ?? new Map<string, boolean>()
+      for (const key of Array.from(hotspotModelKeys)) {
+        if (!branchModelKeys.has(key)) outOfStockByBranch[branchId].push(key)
+      }
       // รุ่นที่ไม่มีบนป้าย (เช่นมีน้อย/ติดรายเดือนตลอด เลยไม่เคยทำป้ายไว้) แต่ตอนนี้ว่างจริง — แจ้งเป็นข้อความเสริมแทนการขึ้นบนรูป
-      const extraAvailableModels = Array.from(modelHasAvailableByBranch[branchId]?.entries() ?? [])
+      const extraAvailableModels = Array.from(branchModelKeys.entries())
         .filter(([key, hasAvail]) => hasAvail && !hotspotModelKeys.has(key))
         .map(([key]) => { const [brand, model] = key.split('||'); return { brand, model } })
       posterDataByBranch[branchId] = {
