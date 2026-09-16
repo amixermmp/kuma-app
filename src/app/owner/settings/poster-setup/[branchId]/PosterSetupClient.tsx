@@ -10,6 +10,10 @@ type Branch = { id: string; name: string }
 type Hotspot = { id: string; brand: string; model: string; x_pct: number; y_pct: number; width_pct: number; height_pct: number }
 type PendingRegion = { xPct: number; yPct: number; widthPct: number; heightPct: number }
 
+// ขนาดกากบาทตายตัวทุกรุ่น — กันปัญหาลากกรอบเองแล้วขนาดไม่เท่ากันระหว่างรุ่น
+const MARK_WIDTH_PCT = 16
+const MARK_HEIGHT_PCT = 16
+
 export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, models, hotspots }: {
   branch: Branch
   templateUrl: string | null
@@ -21,8 +25,7 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
   const [uploading, setUploading] = useState(false)
   const [uploadingXMark, setUploadingXMark] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
-  const [dragCurrent, setDragCurrent] = useState<{ x: number; y: number } | null>(null)
+  const [isDraggingPoint, setIsDraggingPoint] = useState(false)
   const [pendingRegion, setPendingRegion] = useState<PendingRegion | null>(null)
   const [selectedBrand, setSelectedBrand] = useState('')
   const [selectedModel, setSelectedModel] = useState('')
@@ -85,24 +88,26 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
     }
   }
 
+  const centeredRegion = (cx: number, cy: number): PendingRegion => ({
+    xPct: Math.min(100 - MARK_WIDTH_PCT, Math.max(0, cx - MARK_WIDTH_PCT / 2)),
+    yPct: Math.min(100 - MARK_HEIGHT_PCT, Math.max(0, cy - MARK_HEIGHT_PCT / 2)),
+    widthPct: MARK_WIDTH_PCT,
+    heightPct: MARK_HEIGHT_PCT,
+  })
+
   const onPointerDown = (e: React.PointerEvent) => {
-    if (pendingRegion) return // ยังไม่จบกรอบก่อนหน้า วาดใหม่ไม่ได้
+    if (pendingRegion) return // ยังไม่จบตำแหน่งก่อนหน้า วางใหม่ไม่ได้
     const p = getPct(e.clientX, e.clientY)
-    setDragStart(p); setDragCurrent(p)
+    setPendingRegion(centeredRegion(p.x, p.y))
+    setIsDraggingPoint(true)
   }
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragStart) return
-    setDragCurrent(getPct(e.clientX, e.clientY))
+    if (!isDraggingPoint) return
+    const p = getPct(e.clientX, e.clientY)
+    setPendingRegion(centeredRegion(p.x, p.y))
   }
   const onPointerUp = () => {
-    if (!dragStart || !dragCurrent) { setDragStart(null); setDragCurrent(null); return }
-    const xPct = Math.min(dragStart.x, dragCurrent.x)
-    const yPct = Math.min(dragStart.y, dragCurrent.y)
-    const widthPct = Math.abs(dragCurrent.x - dragStart.x)
-    const heightPct = Math.abs(dragCurrent.y - dragStart.y)
-    setDragStart(null); setDragCurrent(null)
-    if (widthPct < 2 || heightPct < 2) return // ลากสั้นเกินไป ถือว่าคลิกพลาด
-    setPendingRegion({ xPct, yPct, widthPct, heightPct })
+    setIsDraggingPoint(false)
   }
 
   const saveHotspot = async () => {
@@ -135,11 +140,6 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
   const brandChoices = Array.from(new Set(models.map(m => m.brand))).sort()
   const modelChoices = models.filter(m => m.brand === selectedBrand).map(m => m.name).sort()
 
-  const previewRect = dragStart && dragCurrent ? {
-    left: Math.min(dragStart.x, dragCurrent.x), top: Math.min(dragStart.y, dragCurrent.y),
-    width: Math.abs(dragCurrent.x - dragStart.x), height: Math.abs(dragCurrent.y - dragStart.y),
-  } : null
-
   return (
     <>
       <div className="app-header" style={{ background: '#111827' }}>
@@ -163,7 +163,7 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
         ) : (
           <>
             <div style={{ background: '#eff6ff', borderRadius: '10px', padding: '10px 12px', fontSize: '12px', color: '#1e40af', marginBottom: '10px' }}>
-              ลากบนรูปเพื่อวาดกรอบตำแหน่งรุ่น แล้วเลือกว่ากรอบนี้คือรุ่นอะไร ทำจนครบทุกรุ่นที่มีบนโปสเตอร์
+              แตะ/คลิกตรงตำแหน่งรุ่นบนรูป (ลากปรับตำแหน่งได้ก่อนปล่อยนิ้ว) ขนาดกากบาทจะเท่ากันทุกรุ่นอัตโนมัติ แล้วเลือกว่าจุดนี้คือรุ่นอะไร ทำจนครบทุกรุ่นที่มีบนโปสเตอร์
             </div>
             <div
               ref={containerRef}
@@ -188,14 +188,6 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
                 </div>
               ))}
 
-              {previewRect && (
-                <div style={{
-                  position: 'absolute', left: `${previewRect.left}%`, top: `${previewRect.top}%`,
-                  width: `${previewRect.width}%`, height: `${previewRect.height}%`,
-                  border: '2px dashed #dc2626', background: 'rgba(220,38,38,.15)',
-                }} />
-              )}
-
               {pendingRegion && (
                 <div style={{
                   position: 'absolute', left: `${pendingRegion.xPct}%`, top: `${pendingRegion.yPct}%`,
@@ -207,7 +199,7 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
 
             {pendingRegion && (
               <div style={{ marginTop: '10px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: '10px', padding: '12px' }}>
-                <div style={{ fontSize: '12px', color: '#374151', marginBottom: '8px', fontWeight: 700 }}>กรอบนี้คือรุ่นอะไร?</div>
+                <div style={{ fontSize: '12px', color: '#374151', marginBottom: '8px', fontWeight: 700 }}>จุดนี้คือรุ่นอะไร?</div>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                   <select className="field-input" style={{ flex: 1 }} value={selectedBrand} onChange={e => { setSelectedBrand(e.target.value); setSelectedModel('') }}>
                     <option value="">เลือกยี่ห้อ</option>
