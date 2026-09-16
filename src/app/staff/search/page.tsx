@@ -79,7 +79,39 @@ export default function SearchPage() {
   const [fBrand, setFBrand] = useState('')
   const [fModel, setFModel] = useState('')
 
+  // วางข้อความลูกค้า (ไม่บังคับ) — ให้ AI อ่านวันที่-เวลาแล้วเติมในช่องให้ พนักงานเช็คก่อนค่อยกดค้นหาจริงอีกครั้ง
+  const [pasteText, setPasteText] = useState('')
+  const [parsedText, setParsedText] = useState('')
+  const [parsing, setParsing] = useState(false)
+  const [parseHint, setParseHint] = useState('')
+  const trimmedPaste = pasteText.trim()
+  const willParse = trimmedPaste !== '' && trimmedPaste !== parsedText
+
   const handleSearch = async () => {
+    if (willParse) {
+      setParsing(true)
+      setParseHint('')
+      try {
+        const res = await fetch('/api/staff/parse-availability-text', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: trimmedPaste }),
+        })
+        const data = await res.json()
+        if (data.startDate && data.startTime) setFrom(`${data.startDate}T${data.startTime}`)
+        if (data.endDate && data.endTime) setTo(`${data.endDate}T${data.endTime}`)
+        setParsedText(trimmedPaste)
+        setParseHint(
+          data.startDate && data.startTime && data.endDate && data.endTime
+            ? '✓ อ่านข้อความแล้ว ตรวจสอบวันที่-เวลาด้านบนให้ถูกต้องแล้วกดค้นหาอีกครั้ง'
+            : '⚠️ อ่านวันที่-เวลาได้ไม่ครบ กรุณาตรวจ/แก้ไขด้านบนเอง แล้วกดค้นหาอีกครั้ง'
+        )
+      } catch {
+        setParseHint('❌ อ่านข้อความไม่สำเร็จ กรุณากรอกวันที่-เวลาเอง')
+      } finally {
+        setParsing(false)
+      }
+      return
+    }
     if (!from || !to || new Date(to) <= new Date(from)) return
     setLoading(true)
     try {
@@ -130,6 +162,26 @@ export default function SearchPage() {
         </div>
       </div>
 
+      {/* วางข้อความลูกค้า — ไม่บังคับ ให้ AI อ่านวันที่-เวลาแทนพิมพ์เอง */}
+      <div style={{ margin: '12px 16px 0', background: '#1e1e1e', borderRadius: '18px', padding: '14px' }}>
+        <div style={{ color: 'rgba(255,255,255,.55)', fontSize: '11px', fontWeight: 600, marginBottom: '8px' }}>
+          วางข้อความลูกค้า (ไม่บังคับ) — ให้ระบบอ่านวันที่-เวลาให้
+        </div>
+        <textarea
+          className="field-input"
+          value={pasteText}
+          onChange={e => { setPasteText(e.target.value); setParseHint('') }}
+          placeholder={'เช่น วันรับ 26/9/69 เวลา 09.00 วันคืน 27/9/69 เวลา 09.00'}
+          rows={3}
+          style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit', fontSize: '13px' }}
+        />
+        {parseHint && (
+          <div style={{ fontSize: '11px', marginTop: '6px', color: parseHint.startsWith('✓') ? '#4ade80' : '#fbbf24' }}>
+            {parseHint}
+          </div>
+        )}
+      </div>
+
       {/* Search form */}
       <div style={{ margin: '12px 16px', background: '#1e1e1e', borderRadius: '18px', padding: '14px' }}>
         <div style={{ color: 'rgba(255,255,255,.55)', fontSize: '11px', fontWeight: 600, marginBottom: '10px' }}>ช่วงเวลาที่ต้องการ</div>
@@ -152,12 +204,12 @@ export default function SearchPage() {
           style={{
             background: '#e5231b', color: '#fff', width: '100%', border: 'none',
             borderRadius: '14px', padding: '13px', fontSize: '14px', fontWeight: 700,
-            fontFamily: 'inherit', cursor: 'pointer', opacity: loading ? 0.7 : 1,
+            fontFamily: 'inherit', cursor: 'pointer', opacity: (loading || parsing) ? 0.7 : 1,
           }}
           onClick={handleSearch}
-          disabled={loading || !from || !to}
+          disabled={loading || parsing || (!willParse && (!from || !to))}
         >
-          {loading ? 'กำลังค้นหา...' : 'ค้นหารถว่าง'}
+          {loading ? 'กำลังค้นหา...' : parsing ? 'กำลังอ่านข้อความ...' : willParse ? '📋 อ่านข้อความลูกค้า' : 'ค้นหารถว่าง'}
         </button>
       </div>
 
