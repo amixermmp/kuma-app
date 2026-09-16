@@ -11,14 +11,11 @@ type HotspotModel = { brand: string; model: string }
 type Hotspot = { id: string; x_pct: number; y_pct: number; width_pct: number; height_pct: number; models: HotspotModel[] }
 type PendingRegion = { xPct: number; yPct: number; widthPct: number; heightPct: number }
 
-// ขนาดกากบาทตายตัวทุกรุ่น — กันปัญหาลากกรอบเองแล้วขนาดไม่เท่ากันระหว่างรุ่น
-const MARK_WIDTH_PCT = 16
-const MARK_HEIGHT_PCT = 16
-
-export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, models, hotspots }: {
+export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, markSizePct, models, hotspots }: {
   branch: Branch
   templateUrl: string | null
   xMarkUrl: string | null
+  markSizePct: number
   models: BikeModel[]
   hotspots: Hotspot[]
 }) {
@@ -31,6 +28,24 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  // ขนาดกากบาทเท่ากันทุกจุดในสาขานี้ — ปรับแล้วจุดเดิมที่เคยตั้งไว้จะถูกปรับตามไปด้วย
+  const [sizePct, setSizePct] = useState(markSizePct)
+  const [savingSize, setSavingSize] = useState(false)
+  const sizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleSizeChange = (value: number) => {
+    setSizePct(value)
+    if (sizeTimerRef.current) clearTimeout(sizeTimerRef.current)
+    sizeTimerRef.current = setTimeout(async () => {
+      setSavingSize(true)
+      await fetch('/api/owner/settings/poster-mark-size', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branchId: branch.id, sizePct: value }),
+      })
+      setSavingSize(false)
+      router.refresh()
+    }, 500)
+  }
 
   const uploadTemplate = async (file: File) => {
     setUploading(true)
@@ -89,10 +104,10 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
   }
 
   const centeredRegion = (cx: number, cy: number): PendingRegion => ({
-    xPct: Math.min(100 - MARK_WIDTH_PCT, Math.max(0, cx - MARK_WIDTH_PCT / 2)),
-    yPct: Math.min(100 - MARK_HEIGHT_PCT, Math.max(0, cy - MARK_HEIGHT_PCT / 2)),
-    widthPct: MARK_WIDTH_PCT,
-    heightPct: MARK_HEIGHT_PCT,
+    xPct: Math.min(100 - sizePct, Math.max(0, cx - sizePct / 2)),
+    yPct: Math.min(100 - sizePct, Math.max(0, cy - sizePct / 2)),
+    widthPct: sizePct,
+    heightPct: sizePct,
   })
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -176,6 +191,17 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
           <>
             <div style={{ background: '#eff6ff', borderRadius: '10px', padding: '10px 12px', fontSize: '12px', color: '#1e40af', marginBottom: '10px' }}>
               แตะ/คลิกตรงตำแหน่งรุ่นบนรูป (ลากปรับตำแหน่งได้ก่อนปล่อยนิ้ว) ขนาดกากบาทจะเท่ากันทุกรุ่นอัตโนมัติ แล้วเลือกว่าจุดนี้คือรุ่นอะไร ทำจนครบทุกรุ่นที่มีบนโปสเตอร์
+            </div>
+
+            <div style={{ marginBottom: '10px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px 12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>ขนาดกากบาท</span>
+                <span style={{ fontSize: '11px', color: '#9ca3af' }}>{savingSize ? 'กำลังบันทึก...' : `${sizePct}%`}</span>
+              </div>
+              <input type="range" min={6} max={35} step={1} value={sizePct}
+                onChange={e => handleSizeChange(Number(e.target.value))}
+                style={{ width: '100%' }} />
+              <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>ปรับแล้วจุดที่ตั้งไว้แล้วทั้งหมดจะเปลี่ยนขนาดตามด้วย</div>
             </div>
             <div
               ref={containerRef}
