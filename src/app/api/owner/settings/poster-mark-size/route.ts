@@ -7,10 +7,12 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { branchId, sizePct } = await request.json()
+  const { branchId, sizePct, aspectFactor } = await request.json()
   if (!branchId || typeof sizePct !== 'number' || sizePct <= 0 || sizePct > 50) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
+  // ชดเชยสัดส่วนภาพโปสเตอร์/สติ๊กเกอร์ที่ไม่เท่ากัน กัน width_pct=height_pct ตรงๆ ทำให้ภาพยืด/บีบ
+  const heightPct = sizePct * (typeof aspectFactor === 'number' && aspectFactor > 0 ? aspectFactor : 1)
 
   const admin = createAdminClient()
 
@@ -27,9 +29,9 @@ export async function POST(request: NextRequest) {
     const centerY = h.y_pct + h.height_pct / 2
     await admin.from('poster_hotspots').update({
       x_pct: Math.min(100 - sizePct, Math.max(0, centerX - sizePct / 2)),
-      y_pct: Math.min(100 - sizePct, Math.max(0, centerY - sizePct / 2)),
+      y_pct: Math.min(100 - heightPct, Math.max(0, centerY - heightPct / 2)),
       width_pct: sizePct,
-      height_pct: sizePct,
+      height_pct: heightPct,
     }).eq('id', h.id)
   }
 

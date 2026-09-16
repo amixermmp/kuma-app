@@ -33,6 +33,15 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, markS
   const [savingSize, setSavingSize] = useState(false)
   const sizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // สัดส่วนจริงของรูปโปสเตอร์/สติ๊กเกอร์ไม่เท่ากันเสมอไป — ถ้าใช้ width_pct=height_pct ตรงๆ
+  // สติ๊กเกอร์จะถูกยืด/บีบเพราะ % ของความกว้างกับความสูงคือคนละฐานอ้างอิงกัน จึงต้องคำนวณ
+  // height_pct จาก width_pct โดยชดเชยด้วยสัดส่วนภาพทั้งสองใบ ให้กากบาทออกมาไม่เพี้ยนสัดส่วน
+  const [templateAspect, setTemplateAspect] = useState<number | null>(null)
+  const [xMarkAspect, setXMarkAspect] = useState<number | null>(null)
+  const aspectFactor = xMarkUrl
+    ? (templateAspect && xMarkAspect ? templateAspect / xMarkAspect : 1)
+    : (templateAspect ?? 1)
+
   const handleSizeChange = (value: number) => {
     setSizePct(value)
     if (sizeTimerRef.current) clearTimeout(sizeTimerRef.current)
@@ -40,7 +49,7 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, markS
       setSavingSize(true)
       await fetch('/api/owner/settings/poster-mark-size', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ branchId: branch.id, sizePct: value }),
+        body: JSON.stringify({ branchId: branch.id, sizePct: value, aspectFactor }),
       })
       setSavingSize(false)
       router.refresh()
@@ -103,12 +112,15 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, markS
     }
   }
 
-  const centeredRegion = (cx: number, cy: number): PendingRegion => ({
-    xPct: Math.min(100 - sizePct, Math.max(0, cx - sizePct / 2)),
-    yPct: Math.min(100 - sizePct, Math.max(0, cy - sizePct / 2)),
-    widthPct: sizePct,
-    heightPct: sizePct,
-  })
+  const centeredRegion = (cx: number, cy: number): PendingRegion => {
+    const heightPct = sizePct * aspectFactor
+    return {
+      xPct: Math.min(100 - sizePct, Math.max(0, cx - sizePct / 2)),
+      yPct: Math.min(100 - heightPct, Math.max(0, cy - heightPct / 2)),
+      widthPct: sizePct,
+      heightPct,
+    }
+  }
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (pendingRegion) return // ยังไม่จบตำแหน่งก่อนหน้า วางใหม่ไม่ได้
@@ -212,10 +224,12 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, markS
               style={{ position: 'relative', width: '100%', touchAction: 'none', userSelect: 'none', cursor: pendingRegion ? 'default' : 'crosshair' }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={templateUrl} alt="โปสเตอร์" draggable={false} style={{
-                width: '100%', display: 'block', borderRadius: '8px', pointerEvents: 'none',
-                WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none',
-              } as React.CSSProperties} />
+              <img src={templateUrl} alt="โปสเตอร์" draggable={false}
+                onLoad={e => setTemplateAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
+                style={{
+                  width: '100%', display: 'block', borderRadius: '8px', pointerEvents: 'none',
+                  WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none',
+                } as React.CSSProperties} />
 
               {hotspots.map(h => (
                 <div key={h.id} style={{
@@ -292,7 +306,9 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, markS
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 {xMarkUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={xMarkUrl} alt="รูปกากบาท" style={{ width: '48px', height: '48px', objectFit: 'contain', background: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }} />
+                  <img src={xMarkUrl} alt="รูปกากบาท"
+                    onLoad={e => setXMarkAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
+                    style={{ width: '48px', height: '48px', objectFit: 'contain', background: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }} />
                 )}
                 <label style={{ fontSize: '12px', color: '#2563eb', cursor: 'pointer' }}>
                   {uploadingXMark ? 'กำลังอัพโหลด...' : xMarkUrl ? '🔄 เปลี่ยนรูปกากบาท' : '+ อัพโหลดรูปกากบาท'}
