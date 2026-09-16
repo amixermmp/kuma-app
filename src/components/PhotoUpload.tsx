@@ -12,23 +12,6 @@ type Props = {
   uploadEndpoint?: string
 }
 
-// เซฟสำรองรูปลงเครื่องพนักงานทันทีหลังบีบอัด (ก่อนอัพโหลดขึ้นเซิร์ฟเวอร์ด้วยซ้ำ)
-// กันกรณีเน็ตหลุดระหว่างอัพโหลดแล้วรูปหาย — ยังมีสำรองในเครื่องให้แนบใหม่ได้
-function downloadToDevice(blob: Blob) {
-  try {
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `kuma-${Date.now()}.jpg`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    setTimeout(() => URL.revokeObjectURL(url), 5000)
-  } catch {
-    // เซฟสำรองไม่สำเร็จ — ไม่บล็อกการอัพโหลดหลัก แค่ไม่มีไฟล์สำรองในเครื่อง
-  }
-}
-
 export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove, uploadEndpoint = '/api/staff/upload' }: Props) {
   const [status, setStatus] = useState<'idle' | 'uploading' | 'done'>('idle')
   const [preview, setPreview] = useState<string | null>(null)
@@ -40,7 +23,6 @@ export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove, up
       const compressed = await compressImage(file, 200)
       const localPreview = URL.createObjectURL(compressed)
       setPreview(localPreview)
-      downloadToDevice(compressed)
 
       const fd = new FormData()
       fd.append('file', new File([compressed], 'photo.jpg', { type: 'image/jpeg' }))
