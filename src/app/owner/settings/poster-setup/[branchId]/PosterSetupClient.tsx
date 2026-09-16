@@ -195,10 +195,23 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
                 <div key={h.id} style={{
                   position: 'absolute', left: `${h.x_pct}%`, top: `${h.y_pct}%`,
                   width: `${h.width_pct}%`, height: `${h.height_pct}%`,
-                  border: '2px solid #16a34a', background: 'rgba(22,163,74,.15)',
+                  border: '2px dashed #16a34a',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <span style={{ background: '#16a34a', color: '#fff', fontSize: '10px', padding: '2px 5px', borderRadius: '4px' }}>
+                  {xMarkUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={xMarkUrl} alt="ตัวอย่างกากบาท" style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }} />
+                  ) : (
+                    <svg viewBox="0 0 100 100" style={{ width: '80%', height: '80%', pointerEvents: 'none' }}>
+                      <line x1="10" y1="10" x2="90" y2="90" stroke="#dc2626" strokeWidth="14" strokeLinecap="round" />
+                      <line x1="90" y1="10" x2="10" y2="90" stroke="#dc2626" strokeWidth="14" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  <span style={{
+                    position: 'absolute', bottom: '-16px', left: '50%', transform: 'translateX(-50%)',
+                    background: '#16a34a', color: '#fff', fontSize: '9px', padding: '1px 4px', borderRadius: '3px',
+                    whiteSpace: 'nowrap', pointerEvents: 'none',
+                  }}>
                     {h.models.map(m => m.model).join(', ')}
                   </span>
                 </div>
