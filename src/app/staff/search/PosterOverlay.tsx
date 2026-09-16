@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from 'react'
 
 type Hotspot = { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }
+type ExtraModel = { brand: string; model: string }
 
-export default function PosterOverlay({ templateUrl, xMarkUrl, hotspots, outOfStock }: {
+export default function PosterOverlay({ templateUrl, xMarkUrl, hotspots, outOfStock, extraAvailableModels }: {
   templateUrl: string
   xMarkUrl?: string | null
   hotspots: Hotspot[]
   outOfStock: string[] // "brand||model"
+  extraAvailableModels?: ExtraModel[] // รุ่นที่ว่างแต่ไม่มีตำแหน่งบนป้าย (เช่นมีน้อย/ติดรายเดือนตลอด เลยไม่เคยทำป้ายไว้)
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [imgSrc, setImgSrc] = useState<string | null>(null)
@@ -73,6 +75,11 @@ export default function PosterOverlay({ templateUrl, xMarkUrl, hotspots, outOfSt
       <div style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center', marginTop: '4px' }}>
         {capturing && !imgSrc ? 'กำลังเตรียมรูป...' : 'กดค้างที่รูปเพื่อเซฟส่งลูกค้า'}
       </div>
+      {extraAvailableModels && extraAvailableModels.length > 0 && (
+        <div style={{ marginTop: '8px', background: '#fefce8', border: '1px solid #fde047', borderRadius: '8px', padding: '8px 10px', fontSize: '12px', color: '#854d0e' }}>
+          + มีรุ่นอื่นว่างเพิ่มเติม (ไม่มีในป้าย): {extraAvailableModels.map(m => `${m.brand} ${m.model}`).join(', ')}
+        </div>
+      )}
     </div>
   )
 }

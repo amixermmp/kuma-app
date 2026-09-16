@@ -138,6 +138,7 @@ export async function GET(request: NextRequest) {
   // หารุ่นที่ "หมดจริง" ต่อสาขาในช่วงเวลานี้ — ส่งกลับไปให้หน้าเว็บกากบาททับโปสเตอร์ต้นฉบับเอง (ไม่ต้องมีรูปสำเร็จรูปเก็บไว้)
   const branchIds = Array.from(new Set(result.map(b => b.branch_id).filter((id): id is string => !!id)))
   const outOfStockByBranch: Record<string, string[]> = {}
+  const modelHasAvailableByBranch: Record<string, Map<string, boolean>> = {}
   for (const branchId of branchIds) {
     const modelHasAvailable = new Map<string, boolean>()
     for (const b of result) {
@@ -145,11 +146,12 @@ export async function GET(request: NextRequest) {
       const key = `${b.brand}||${b.model}`
       modelHasAvailable.set(key, (modelHasAvailable.get(key) ?? false) || b.available)
     }
+    modelHasAvailableByBranch[branchId] = modelHasAvailable
     outOfStockByBranch[branchId] = Array.from(modelHasAvailable.entries())
       .filter(([, hasAvail]) => !hasAvail).map(([key]) => key)
   }
 
-  const posterDataByBranch: Record<string, { templateUrl: string; xMarkUrl: string | null; hotspots: { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }[] } | null> = {}
+  const posterDataByBranch: Record<string, { templateUrl: string; xMarkUrl: string | null; hotspots: { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }[]; extraAvailableModels: { brand: string; model: string }[] } | null> = {}
   if (branchIds.length > 0) {
     const [{ data: branchSettings }, { data: hotspots }] = await Promise.all([
       supabase.from('branch_settings').select('branch_id, poster_template_url, poster_x_mark_url').in('branch_id', branchIds),
@@ -158,12 +160,19 @@ export async function GET(request: NextRequest) {
     for (const branchId of branchIds) {
       const settings = (branchSettings ?? []).find(b => b.branch_id === branchId)
       if (!settings?.poster_template_url) { posterDataByBranch[branchId] = null; continue }
+      const branchHotspots = (hotspots ?? []).filter(h => h.branch_id === branchId)
+      const hotspotModelKeys = new Set(branchHotspots.map(h => `${h.brand}||${h.model}`))
+      // รุ่นที่ไม่มีบนป้าย (เช่นมีน้อย/ติดรายเดือนตลอด เลยไม่เคยทำป้ายไว้) แต่ตอนนี้ว่างจริง — แจ้งเป็นข้อความเสริมแทนการขึ้นบนรูป
+      const extraAvailableModels = Array.from(modelHasAvailableByBranch[branchId]?.entries() ?? [])
+        .filter(([key, hasAvail]) => hasAvail && !hotspotModelKeys.has(key))
+        .map(([key]) => { const [brand, model] = key.split('||'); return { brand, model } })
       posterDataByBranch[branchId] = {
         templateUrl: settings.poster_template_url,
         xMarkUrl: settings.poster_x_mark_url ?? null,
-        hotspots: (hotspots ?? []).filter(h => h.branch_id === branchId).map(h => ({
+        hotspots: branchHotspots.map(h => ({
           brand: h.brand, model: h.model, xPct: h.x_pct, yPct: h.y_pct, widthPct: h.width_pct, heightPct: h.height_pct,
         })),
+        extraAvailableModels,
       }
     }
   }
