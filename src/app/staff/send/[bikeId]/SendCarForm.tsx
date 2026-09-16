@@ -675,6 +675,18 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     if (!validDates)           { setError('กรุณาเลือกช่วงวันเช่าให้ถูกต้อง'); return }
     if (paymentMethod === 'cash' && isThaiId) { setError('บัตรประชาชนไทย — จ่ายเงินสดไม่ได้ ต้องโอนเงินเท่านั้น'); return }
 
+    // รูปบังคับ 5 อย่าง — บอกให้ชัดว่าขาดรูปไหน แล้วเลื่อนจอไปที่ช่องนั้นเลย กันพนักงานงงว่า "ครบแล้ว" ทั้งที่ฟอร์มยาวจนมองข้ามไปจุดใดจุดหนึ่ง
+    const REQUIRED_PHOTO_LABELS: Record<string, string> = {
+      id_card: 'รูปบัตรประชาชน/พาสปอร์ต', selfie: 'รูปคู่บัตรประชาชน',
+      with_bike: 'รูปคู่รถ', damage: 'รูปตำหนิรถก่อนเช่า', payment: 'หลักฐานการชำระเงิน',
+    }
+    const missingPhotoKey = Object.keys(REQUIRED_PHOTO_LABELS).find(k => !photos[k as keyof PhotoState])
+    if (missingPhotoKey) {
+      setError(`กรุณาแนบ${REQUIRED_PHOTO_LABELS[missingPhotoKey]}ด้วย`)
+      document.getElementById(`photo-${missingPhotoKey}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+
     // ชื่อผู้โอนในสลิปไม่ตรงกับบัตรประชาชน — บล็อกไว้ก่อน ต้องกดยืนยันแบบ Fast lane ถึงผ่านได้
     // (ระบบจะบันทึก log ไว้เป็นหลักฐานว่าใครยืนยันข้ามเมื่อไหร่)
     let slipMismatchOverridden = slipMismatchConfirmed
@@ -1038,12 +1050,12 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
               </div>
             )}
           </div>
-          <div className="field-row">
+          <div className="field-row" id="photo-id_card">
             <label className="field-label">📄 รูปบัตรประชาชน / พาสปอร์ต *</label>
             <PhotoUpload icon="🪪" hint="ถ่ายรูปหรืออัพโหลดบัตร" folder={folder}
               onUpload={handleIdCardUpload} onRemove={clearPhoto('id_card')} />
           </div>
-          <div className="field-row">
+          <div className="field-row" id="photo-selfie">
             <label className="field-label">🤳 รูปคู่บัตรประชาชน *</label>
             <PhotoUpload icon="🤳" hint="ลูกค้าถือบัตรให้เห็นหน้า" folder={folder}
               onUpload={setPhoto('selfie')} onRemove={clearPhoto('selfie')} />
@@ -1580,7 +1592,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
                 style={depositMethod === 'id_card' ? { background: '#f3f4f6', color: '#9ca3af' } : undefined}
                 value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
             </div>
-            <div className="field-row" style={{ marginBottom: 0 }}>
+            <div className="field-row" style={{ marginBottom: 0 }} id="photo-payment">
               <label className="field-label">
                 💳 หลักฐานการชำระ{' '}
                 {slipOcrLoading && <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 400 }}>⏳ กำลังอ่านสลิป...</span>}
@@ -1668,12 +1680,12 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             เดินดูรอบคันด้วยกันก่อนนะคะ มีตำหนิตรงไหนขอถ่ายรูปเก็บไว้เป็นหลักฐานเลยค่ะ
             ตอนคืนรถขอน้ำมันเต็มถังเหมือนตอนรับไปนะคะ — ลูกค้าเคยใช้งานรุ่นนี้มาก่อนไหมคะ ให้แนะนำอะไรไหมคะ
           </ScriptBox>
-          <div className="field-row">
+          <div className="field-row" id="photo-with_bike">
             <label className="field-label">🛵 รูปคู่รถ *</label>
             <PhotoUpload icon="🛵" hint="ลูกค้ายืนคู่รถก่อนรับ" folder={folder}
               onUpload={setPhoto('with_bike')} onRemove={clearPhoto('with_bike')} />
           </div>
-          <div className="field-row">
+          <div className="field-row" id="photo-damage">
             <label className="field-label">🔍 รูปตำหนิรถก่อนเช่า *</label>
             <PhotoUpload icon="📷" hint="ถ่ายรูปรอบคันก่อนส่ง" folder={folder}
               onUpload={setPhoto('damage')} onRemove={clearPhoto('damage')} />

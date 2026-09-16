@@ -49,10 +49,13 @@ export async function POST(request: NextRequest) {
   }
 
   // หลักฐานที่พักไม่บังคับอีกต่อไป — ถ้าลูกค้าไม่มีจะเก็บมัดจำแทน แต่ถ้าแนบมาต้องมีรูปจริง
-  const REQUIRED_PHOTOS = ['id_card', 'selfie', 'with_bike', 'damage', 'payment']
-  const missingPhotos = REQUIRED_PHOTOS.filter(k => !photos?.[k])
+  const REQUIRED_PHOTO_LABELS: Record<string, string> = {
+    id_card: 'รูปบัตรประชาชน/พาสปอร์ต', selfie: 'รูปคู่บัตรประชาชน',
+    with_bike: 'รูปคู่รถ', damage: 'รูปตำหนิรถก่อนเช่า', payment: 'หลักฐานการชำระเงิน',
+  }
+  const missingPhotos = Object.keys(REQUIRED_PHOTO_LABELS).filter(k => !photos?.[k])
   if (missingPhotos.length > 0) {
-    return NextResponse.json({ error: 'กรุณาอัปโหลดรูปภาพให้ครบ (บัตร, รูปถ่าย, รถ, ตำหนิ, ชำระเงิน)' }, { status: 400 })
+    return NextResponse.json({ error: `กรุณาแนบ${missingPhotos.map(k => REQUIRED_PHOTO_LABELS[k]).join(', ')}` }, { status: 400 })
   }
   // สัญญารายเดือนถือเป็นเช่าระยะยาวเสมอ — วางบัตรแทนมัดจำไม่ได้
   if (depositMethod === 'id_card') {
