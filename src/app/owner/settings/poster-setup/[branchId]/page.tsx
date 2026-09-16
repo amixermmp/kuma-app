@@ -18,7 +18,7 @@ export default async function PosterSetupBranchPage({ params }: { params: Promis
     admin.from('branches').select('id, name').eq('id', branchId).maybeSingle(),
     admin.from('branch_settings').select('poster_template_url, poster_x_mark_url').eq('branch_id', branchId).maybeSingle(),
     getBikeCatalog(),
-    admin.from('poster_hotspots').select('id, brand, model, x_pct, y_pct, width_pct, height_pct').eq('branch_id', branchId).order('created_at'),
+    admin.from('poster_hotspots').select('id, x_pct, y_pct, width_pct, height_pct, poster_hotspot_models(brand, model)').eq('branch_id', branchId).order('created_at'),
   ])
 
   if (!branch) notFound()
@@ -30,7 +30,10 @@ export default async function PosterSetupBranchPage({ params }: { params: Promis
         templateUrl={branchSettings?.poster_template_url ?? null}
         xMarkUrl={branchSettings?.poster_x_mark_url ?? null}
         models={catalog.models}
-        hotspots={hotspots ?? []}
+        hotspots={(hotspots ?? []).map(h => ({
+          id: h.id, x_pct: h.x_pct, y_pct: h.y_pct, width_pct: h.width_pct, height_pct: h.height_pct,
+          models: h.poster_hotspot_models,
+        }))}
       />
     </div>
   )

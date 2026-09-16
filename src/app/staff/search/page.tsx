@@ -8,7 +8,7 @@ import { calcRentQuote, calendarDays, calcExcessHours, calcOvertimeCharge } from
 import QuarterHourInput from '@/components/staff/QuarterHourInput'
 import PosterOverlay from './PosterOverlay'
 
-type PosterData = { templateUrl: string; xMarkUrl: string | null; hotspots: { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }[]; extraAvailableModels: { brand: string; model: string }[] }
+type PosterData = { templateUrl: string; xMarkUrl: string | null; hotspots: { models: { brand: string; model: string }[]; xPct: number; yPct: number; widthPct: number; heightPct: number }[]; extraAvailableModels: { brand: string; model: string }[] }
 
 type BikeResult = {
   id: string

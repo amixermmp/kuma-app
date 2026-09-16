@@ -7,7 +7,8 @@ import { compressImagePng } from '@/lib/compressImage'
 import type { BikeModel } from '@/lib/bikeCatalog'
 
 type Branch = { id: string; name: string }
-type Hotspot = { id: string; brand: string; model: string; x_pct: number; y_pct: number; width_pct: number; height_pct: number }
+type HotspotModel = { brand: string; model: string }
+type Hotspot = { id: string; x_pct: number; y_pct: number; width_pct: number; height_pct: number; models: HotspotModel[] }
 type PendingRegion = { xPct: number; yPct: number; widthPct: number; heightPct: number }
 
 // ขนาดกากบาทตายตัวทุกรุ่น — กันปัญหาลากกรอบเองแล้วขนาดไม่เท่ากันระหว่างรุ่น
@@ -27,8 +28,7 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
   const containerRef = useRef<HTMLDivElement>(null)
   const [isDraggingPoint, setIsDraggingPoint] = useState(false)
   const [pendingRegion, setPendingRegion] = useState<PendingRegion | null>(null)
-  const [selectedBrand, setSelectedBrand] = useState('')
-  const [selectedModel, setSelectedModel] = useState('')
+  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -110,16 +110,29 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
     setIsDraggingPoint(false)
   }
 
+  const toggleModel = (key: string) => {
+    setSelectedModels(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
   const saveHotspot = async () => {
-    if (!pendingRegion || !selectedBrand || !selectedModel) { setMsg('❌ กรุณาเลือกรุ่น'); return }
+    if (!pendingRegion || selectedModels.size === 0) { setMsg('❌ กรุณาเลือกรุ่นอย่างน้อย 1 รุ่น'); return }
     setSaving(true)
+    const modelsPayload = Array.from(selectedModels).map(key => {
+      const [brand, model] = key.split('||')
+      return { brand, model }
+    })
     const res = await fetch('/api/owner/settings/poster-hotspots', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ branchId: branch.id, brand: selectedBrand, model: selectedModel, ...pendingRegion }),
+      body: JSON.stringify({ branchId: branch.id, models: modelsPayload, ...pendingRegion }),
     })
     setSaving(false)
     if (res.ok) {
-      setPendingRegion(null); setSelectedBrand(''); setSelectedModel('')
+      setPendingRegion(null); setSelectedModels(new Set())
       router.refresh()
     } else {
       const data = await res.json().catch(() => null)
@@ -138,7 +151,6 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
   }
 
   const brandChoices = Array.from(new Set(models.map(m => m.brand))).sort()
-  const modelChoices = models.filter(m => m.brand === selectedBrand).map(m => m.name).sort()
 
   return (
     <>
@@ -183,7 +195,7 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   <span style={{ background: '#16a34a', color: '#fff', fontSize: '10px', padding: '2px 5px', borderRadius: '4px' }}>
-                    {h.brand} {h.model}
+                    {h.models.map(m => m.model).join(', ')}
                   </span>
                 </div>
               ))}
@@ -199,22 +211,28 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
 
             {pendingRegion && (
               <div style={{ marginTop: '10px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: '10px', padding: '12px' }}>
-                <div style={{ fontSize: '12px', color: '#374151', marginBottom: '8px', fontWeight: 700 }}>จุดนี้คือรุ่นอะไร?</div>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                  <select className="field-input" style={{ flex: 1 }} value={selectedBrand} onChange={e => { setSelectedBrand(e.target.value); setSelectedModel('') }}>
-                    <option value="">เลือกยี่ห้อ</option>
-                    {brandChoices.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                  <select className="field-input" style={{ flex: 1 }} value={selectedModel} onChange={e => setSelectedModel(e.target.value)} disabled={!selectedBrand}>
-                    <option value="">เลือกรุ่น</option>
-                    {modelChoices.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                <div style={{ fontSize: '12px', color: '#374151', marginBottom: '4px', fontWeight: 700 }}>จุดนี้คือรุ่นอะไร? (เลือกได้หลายรุ่น ถ้าราคาเท่ากันใช้จุดร่วมกันได้ — กากบาทเมื่อทุกรุ่นในจุดนี้หมดพร้อมกัน)</div>
+                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', marginBottom: '8px', background: '#fff' }}>
+                  {brandChoices.map(brand => (
+                    <div key={brand} style={{ marginBottom: '6px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', marginBottom: '2px' }}>{brand}</div>
+                      {models.filter(m => m.brand === brand).map(m => {
+                        const key = `${brand}||${m.name}`
+                        return (
+                          <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '3px 0', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={selectedModels.has(key)} onChange={() => toggleModel(key)} />
+                            {m.name}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  ))}
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={saveHotspot} disabled={saving} className="btn btn-primary" style={{ flex: 1, padding: '8px', fontSize: '13px' }}>
                     {saving ? '⏳' : '💾 บันทึกตำแหน่งนี้'}
                   </button>
-                  <button onClick={() => { setPendingRegion(null); setSelectedBrand(''); setSelectedModel('') }} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', cursor: 'pointer' }}>
+                  <button onClick={() => { setPendingRegion(null); setSelectedModels(new Set()) }} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', cursor: 'pointer' }}>
                     ยกเลิก
                   </button>
                 </div>
@@ -245,7 +263,7 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
               <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '8px' }}>ตำแหน่งที่ตั้งไว้ ({hotspots.length})</div>
               {hotspots.map(h => (
                 <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f3f4f6', fontSize: '12px' }}>
-                  <span>{h.brand} {h.model}</span>
+                  <span>{h.models.map(m => `${m.brand} ${m.model}`).join(', ')}</span>
                   <button onClick={() => deleteHotspot(h.id)} style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '11px', cursor: 'pointer' }}>🗑️ ลบ</button>
                 </div>
               ))}

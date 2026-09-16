@@ -151,17 +151,17 @@ export async function GET(request: NextRequest) {
       .filter(([, hasAvail]) => !hasAvail).map(([key]) => key)
   }
 
-  const posterDataByBranch: Record<string, { templateUrl: string; xMarkUrl: string | null; hotspots: { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }[]; extraAvailableModels: { brand: string; model: string }[] } | null> = {}
+  const posterDataByBranch: Record<string, { templateUrl: string; xMarkUrl: string | null; hotspots: { models: { brand: string; model: string }[]; xPct: number; yPct: number; widthPct: number; heightPct: number }[]; extraAvailableModels: { brand: string; model: string }[] } | null> = {}
   if (branchIds.length > 0) {
     const [{ data: branchSettings }, { data: hotspots }] = await Promise.all([
       supabase.from('branch_settings').select('branch_id, poster_template_url, poster_x_mark_url').in('branch_id', branchIds),
-      supabase.from('poster_hotspots').select('branch_id, brand, model, x_pct, y_pct, width_pct, height_pct').in('branch_id', branchIds),
+      supabase.from('poster_hotspots').select('branch_id, x_pct, y_pct, width_pct, height_pct, poster_hotspot_models(brand, model)').in('branch_id', branchIds),
     ])
     for (const branchId of branchIds) {
       const settings = (branchSettings ?? []).find(b => b.branch_id === branchId)
       if (!settings?.poster_template_url) { posterDataByBranch[branchId] = null; continue }
       const branchHotspots = (hotspots ?? []).filter(h => h.branch_id === branchId)
-      const hotspotModelKeys = new Set(branchHotspots.map(h => `${h.brand}||${h.model}`))
+      const hotspotModelKeys = new Set(branchHotspots.flatMap(h => h.poster_hotspot_models.map(m => `${m.brand}||${m.model}`)))
       // รุ่นที่ไม่มีบนป้าย (เช่นมีน้อย/ติดรายเดือนตลอด เลยไม่เคยทำป้ายไว้) แต่ตอนนี้ว่างจริง — แจ้งเป็นข้อความเสริมแทนการขึ้นบนรูป
       const extraAvailableModels = Array.from(modelHasAvailableByBranch[branchId]?.entries() ?? [])
         .filter(([key, hasAvail]) => hasAvail && !hotspotModelKeys.has(key))
@@ -170,7 +170,8 @@ export async function GET(request: NextRequest) {
         templateUrl: settings.poster_template_url,
         xMarkUrl: settings.poster_x_mark_url ?? null,
         hotspots: branchHotspots.map(h => ({
-          brand: h.brand, model: h.model, xPct: h.x_pct, yPct: h.y_pct, widthPct: h.width_pct, heightPct: h.height_pct,
+          models: h.poster_hotspot_models.map(m => ({ brand: m.brand, model: m.model })),
+          xPct: h.x_pct, yPct: h.y_pct, widthPct: h.width_pct, heightPct: h.height_pct,
         })),
         extraAvailableModels,
       }

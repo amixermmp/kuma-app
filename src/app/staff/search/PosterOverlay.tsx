@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-type Hotspot = { brand: string; model: string; xPct: number; yPct: number; widthPct: number; heightPct: number }
+type Hotspot = { models: { brand: string; model: string }[]; xPct: number; yPct: number; widthPct: number; heightPct: number }
 type ExtraModel = { brand: string; model: string }
 
 export default function PosterOverlay({ templateUrl, xMarkUrl, hotspots, outOfStock, extraAvailableModels }: {
@@ -17,7 +17,8 @@ export default function PosterOverlay({ templateUrl, xMarkUrl, hotspots, outOfSt
   const [capturing, setCapturing] = useState(true)
 
   const outSet = new Set(outOfStock)
-  const crossedHotspots = hotspots.filter(h => outSet.has(`${h.brand}||${h.model}`))
+  // จุดร่วมหลายรุ่น (เช่นราคาเท่ากัน) กากบาทเมื่อทุกรุ่นในจุดนั้นหมดพร้อมกันเท่านั้น
+  const crossedHotspots = hotspots.filter(h => h.models.length > 0 && h.models.every(m => outSet.has(`${m.brand}||${m.model}`)))
   const outOfStockKey = outOfStock.slice().sort().join(',')
 
   useEffect(() => {
