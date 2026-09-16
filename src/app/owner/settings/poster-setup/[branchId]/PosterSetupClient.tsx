@@ -182,10 +182,14 @@ export default function PosterSetupClient({ branch, templateUrl, xMarkUrl, model
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
+              onContextMenu={e => e.preventDefault()}
               style={{ position: 'relative', width: '100%', touchAction: 'none', userSelect: 'none', cursor: pendingRegion ? 'default' : 'crosshair' }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={templateUrl} alt="โปสเตอร์" draggable={false} style={{ width: '100%', display: 'block', borderRadius: '8px' }} />
+              <img src={templateUrl} alt="โปสเตอร์" draggable={false} style={{
+                width: '100%', display: 'block', borderRadius: '8px', pointerEvents: 'none',
+                WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none',
+              } as React.CSSProperties} />
 
               {hotspots.map(h => (
                 <div key={h.id} style={{
