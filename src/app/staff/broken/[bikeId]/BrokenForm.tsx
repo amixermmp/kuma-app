@@ -18,19 +18,27 @@ type Props = { bike: Bike; staffId: string }
 
 export default function BrokenForm({ bike, staffId }: Props) {
   const router = useRouter()
+  const [repairType, setRepairType] = useState<'instant' | 'long' | null>(null)
   const [description, setDescription] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
   const [locationType, setLocationType] = useState<'shop' | 'offsite' | null>(null)
   const [locationAddress, setLocationAddress] = useState('')
+  const [repairShop, setRepairShop] = useState('')
+  const [repairCost, setRepairCost] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [conflicts, setConflicts] = useState<any[]>([])
 
+  const isInstant = repairType === 'instant'
+
   const handleSubmit = async () => {
+    if (!repairType) { setError('กรุณาเลือกประเภทงานซ่อม'); return }
     if (!description.trim()) { setError('กรุณาอธิบายอาการของรถ'); return }
-    if (!locationType) { setError('กรุณาเลือกตำแหน่งรถ'); return }
-    if (locationType === 'offsite' && !locationAddress.trim()) { setError('กรุณาระบุว่ารถอยู่ที่ไหน'); return }
+    if (!isInstant) {
+      if (!locationType) { setError('กรุณาเลือกตำแหน่งรถ'); return }
+      if (locationType === 'offsite' && !locationAddress.trim()) { setError('กรุณาระบุว่ารถอยู่ที่ไหน'); return }
+    }
     setLoading(true)
     setError('')
     try {
@@ -42,8 +50,10 @@ export default function BrokenForm({ bike, staffId }: Props) {
           staffId,
           description: description.trim(),
           photoUrl: photoUrl || null,
-          locationType,
-          locationAddress: locationType === 'offsite' ? locationAddress.trim() : null,
+          instantDone: isInstant,
+          ...(isInstant
+            ? { repairShop: repairShop.trim() || null, repairCost: repairCost ? parseFloat(repairCost) : null }
+            : { locationType, locationAddress: locationType === 'offsite' ? locationAddress.trim() : null }),
         }),
       })
       const data = await res.json()
@@ -74,77 +84,124 @@ export default function BrokenForm({ bike, staffId }: Props) {
 
       <div className="section-pad">
         <div className="card">
-          <div className="card-title">อาการที่พบ</div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
-            <label className="field-label">อธิบายอาการของรถ *</label>
-            <textarea className="field-input" rows={4}
-              placeholder="เช่น เครื่องไม่ติด, ยางแบน, ไฟหน้าไม่ติด..."
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-title">รูปภาพ</div>
-          <PhotoUpload
-            icon="📷"
-            hint="ถ่ายรูปจุดที่เสีย / ความเสียหาย"
-            folder={`repair/${bike.id}`}
-            onUpload={url => setPhotoUrl(url)}
-            onRemove={() => setPhotoUrl('')}
-          />
-        </div>
-
-        <div className="card">
-          <div className="card-title">ตำแหน่งรถ *</div>
+          <div className="card-title">ประเภทงานซ่อม *</div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={() => setLocationType('shop')} style={{
-              flex: 1, padding: '10px', borderRadius: '10px',
-              border: `2px solid ${locationType === 'shop' ? '#111827' : '#e5e7eb'}`,
-              background: locationType === 'shop' ? '#f1f5f9' : '#fff',
-              color: locationType === 'shop' ? '#111827' : '#6b7280',
-              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-            }}>🏠 ที่ร้าน</button>
-            <button onClick={() => setLocationType('offsite')} style={{
-              flex: 1, padding: '10px', borderRadius: '10px',
-              border: `2px solid ${locationType === 'offsite' ? '#dc2626' : '#e5e7eb'}`,
-              background: locationType === 'offsite' ? '#fef2f2' : '#fff',
-              color: locationType === 'offsite' ? '#dc2626' : '#6b7280',
-              fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
-            }}>📍 นอกร้าน</button>
+            <button onClick={() => setRepairType('instant')} style={{
+              flex: 1, padding: '12px 10px', borderRadius: '10px',
+              border: `2px solid ${repairType === 'instant' ? '#16a34a' : '#e5e7eb'}`,
+              background: repairType === 'instant' ? '#f0fdf4' : '#fff',
+              color: repairType === 'instant' ? '#16a34a' : '#6b7280',
+              fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
+            }}>⚡ ซ่อมเล็กน้อย<br /><span style={{ fontWeight: 400, fontSize: '11px' }}>(รถไม่ต้องจอด)</span></button>
+            <button onClick={() => setRepairType('long')} style={{
+              flex: 1, padding: '12px 10px', borderRadius: '10px',
+              border: `2px solid ${repairType === 'long' ? '#dc2626' : '#e5e7eb'}`,
+              background: repairType === 'long' ? '#fef2f2' : '#fff',
+              color: repairType === 'long' ? '#dc2626' : '#6b7280',
+              fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
+            }}>🔧 ซ่อมใหญ่<br /><span style={{ fontWeight: 400, fontSize: '11px' }}>(รถต้องจอด)</span></button>
           </div>
-          {locationType === 'offsite' && (
-            <div className="field-row" style={{ marginTop: '10px', marginBottom: 0 }}>
-              <label className="field-label">ระบุว่าอยู่ที่ไหน *</label>
-              <input className="field-input" type="text"
-                placeholder="เช่น หน้าเซเว่นตลาดใหม่, ถนน... ตรงข้าม..."
-                value={locationAddress}
-                onChange={e => setLocationAddress(e.target.value)}
+        </div>
+
+        {repairType && (
+          <>
+            <div className="card">
+              <div className="card-title">อาการที่พบ</div>
+              <div className="field-row" style={{ marginBottom: 0 }}>
+                <label className="field-label">อธิบายอาการของรถ *</label>
+                <textarea className="field-input" rows={4}
+                  placeholder="เช่น เครื่องไม่ติด, ยางแบน, ไฟหน้าไม่ติด..."
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-title">รูปภาพ</div>
+              <PhotoUpload
+                icon="📷"
+                hint="ถ่ายรูปจุดที่เสีย / ความเสียหาย"
+                folder={`repair/${bike.id}`}
+                onUpload={url => setPhotoUrl(url)}
+                onRemove={() => setPhotoUrl('')}
               />
             </div>
-          )}
-        </div>
 
-        <div style={{
-          background: '#fef2f2', borderRadius: '10px', padding: '14px',
-          margin: '0 0 12px', fontSize: '13px', color: '#dc2626',
-        }}>
-          ⚠️ เมื่อกดบันทึก รถจะเปลี่ยนสถานะเป็น <strong>"ซ่อม"</strong> และจะสร้าง Job Task อัตโนมัติ
-        </div>
+            {isInstant ? (
+              <div className="card">
+                <div className="card-title">บันทึกผลการซ่อม</div>
+                <div className="field-row">
+                  <label className="field-label">ร้านซ่อม</label>
+                  <input className="field-input" type="text"
+                    placeholder="ร้านซ่อมมอเตอร์ไซค์เจริญ"
+                    value={repairShop}
+                    onChange={e => setRepairShop(e.target.value)}
+                  />
+                </div>
+                <div className="field-row" style={{ marginBottom: 0 }}>
+                  <label className="field-label">ค่าซ่อม (บาท)</label>
+                  <input className="field-input" type="number" placeholder="200"
+                    value={repairCost}
+                    onChange={e => setRepairCost(e.target.value)}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="card">
+                <div className="card-title">ตำแหน่งรถ *</div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => setLocationType('shop')} style={{
+                    flex: 1, padding: '10px', borderRadius: '10px',
+                    border: `2px solid ${locationType === 'shop' ? '#111827' : '#e5e7eb'}`,
+                    background: locationType === 'shop' ? '#f1f5f9' : '#fff',
+                    color: locationType === 'shop' ? '#111827' : '#6b7280',
+                    fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                  }}>🏠 ที่ร้าน</button>
+                  <button onClick={() => setLocationType('offsite')} style={{
+                    flex: 1, padding: '10px', borderRadius: '10px',
+                    border: `2px solid ${locationType === 'offsite' ? '#dc2626' : '#e5e7eb'}`,
+                    background: locationType === 'offsite' ? '#fef2f2' : '#fff',
+                    color: locationType === 'offsite' ? '#dc2626' : '#6b7280',
+                    fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                  }}>📍 นอกร้าน</button>
+                </div>
+                {locationType === 'offsite' && (
+                  <div className="field-row" style={{ marginTop: '10px', marginBottom: 0 }}>
+                    <label className="field-label">ระบุว่าอยู่ที่ไหน *</label>
+                    <input className="field-input" type="text"
+                      placeholder="เช่น หน้าเซเว่นตลาดใหม่, ถนน... ตรงข้าม..."
+                      value={locationAddress}
+                      onChange={e => setLocationAddress(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
-        {error && (
-          <div style={{
-            background: '#fef2f2', border: '1px solid #fecaca',
-            borderRadius: '10px', padding: '12px', color: '#dc2626',
-            fontSize: '14px', marginBottom: '12px',
-          }}>⚠️ {error}</div>
+            <div style={{
+              background: isInstant ? '#f0fdf4' : '#fef2f2', borderRadius: '10px', padding: '14px',
+              margin: '0 0 12px', fontSize: '13px', color: isInstant ? '#16a34a' : '#dc2626',
+            }}>
+              {isInstant
+                ? '✅ บันทึกแล้วรถยังพร้อมเช่าตามปกติ ไม่เปลี่ยนสถานะ แค่เก็บประวัติการซ่อมไว้เท่านั้น'
+                : <>⚠️ เมื่อกดบันทึก รถจะเปลี่ยนสถานะเป็น <strong>"ซ่อม"</strong> และจะสร้าง Job Task อัตโนมัติ</>}
+            </div>
+
+            {error && (
+              <div style={{
+                background: '#fef2f2', border: '1px solid #fecaca',
+                borderRadius: '10px', padding: '12px', color: '#dc2626',
+                fontSize: '14px', marginBottom: '12px',
+              }}>⚠️ {error}</div>
+            )}
+
+            <button className={isInstant ? 'btn btn-success' : 'btn btn-danger'} onClick={handleSubmit} disabled={loading}
+              style={{ width: '100%', opacity: loading ? 0.7 : 1 }}>
+              {loading ? '⏳ กำลังบันทึก...' : isInstant ? '✅ บันทึกประวัติซ่อม' : '🔧 บันทึกแจ้งรถเสีย'}
+            </button>
+          </>
         )}
-
-        <button className="btn btn-danger" onClick={handleSubmit} disabled={loading}
-          style={{ width: '100%', opacity: loading ? 0.7 : 1 }}>
-          {loading ? '⏳ กำลังบันทึก...' : '🔧 บันทึกแจ้งรถเสีย'}
-        </button>
       </div>
 
       <BookingConflictModal conflicts={conflicts} onAcknowledge={() => router.push('/staff/jobs')} />

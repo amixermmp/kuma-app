@@ -12,16 +12,50 @@ export async function POST(request: NextRequest) {
 
   const BRANCH_ID = await getStaffOwnBranchId(staffId)
 
-  const { bikeId, description, photoUrl, locationType, locationAddress } = await request.json()
+  const { bikeId, description, photoUrl, locationType, locationAddress, instantDone, repairShop, repairCost } = await request.json()
   if (!bikeId || !description) return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
+
+  const supabase = createAdminClient()
+
+  // ซ่อมเล็กน้อย รถไม่ต้องจอด — ซ่อมเสร็จแล้วจริง แค่บันทึกประวัติไว้ ไม่ต้องเปลี่ยนสถานะรถ/เช็คคิวจองเลย
+  if (instantDone) {
+    const { data: repair, error: repairErr } = await supabase
+      .from('repairs')
+      .insert({
+        bike_id: bikeId,
+        branch_id: BRANCH_ID,
+        title: description.substring(0, 100),
+        description,
+        status: 'done',
+        location_type: 'shop',
+        location_address: null,
+        repair_photos: photoUrl ? [{ url: photoUrl, label: 'รูปตอนแจ้งซ่อม' }] : [],
+        repair_shop: repairShop || null,
+        repair_cost: repairCost ?? null,
+        resolved_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    if (repairErr || !repair) {
+      console.error('Repair create (instant) error:', repairErr?.message)
+      return NextResponse.json({ error: 'บันทึกไม่สำเร็จ' }, { status: 500 })
+    }
+
+    const { data: bike } = await supabase.from('bikes').select('license_plate').eq('id', bikeId).single()
+    await logStaffAction(staffId, 'repair_created',
+      `บันทึกซ่อมเล็กน้อย ${bike?.license_plate ?? ''} — ${description.substring(0, 80)}`,
+      { repairId: repair.id, bikeId })
+
+    return NextResponse.json({ success: true, repairId: repair.id, conflicts: [] })
+  }
+
   if (!locationType || (locationType !== 'shop' && locationType !== 'offsite')) {
     return NextResponse.json({ error: 'กรุณาเลือกตำแหน่งรถ' }, { status: 400 })
   }
   if (locationType === 'offsite' && !locationAddress) {
     return NextResponse.json({ error: 'กรุณาระบุว่ารถอยู่ที่ไหน' }, { status: 400 })
   }
-
-  const supabase = createAdminClient()
 
   // กันแจ้งซ้ำ — รถคันนี้ต้องไม่มีงานซ่อมเปิดค้างอยู่แล้ว (เผื่อข้าม picker เข้ามาตรงๆ หรือกดส่งซ้ำ)
   const { data: existingOpen } = await supabase
