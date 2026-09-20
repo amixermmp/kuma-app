@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existing } = await supabase
     .from('rentals')
-    .select('branch_id, total_days, customers(name, phone), bikes(license_plate, odometer)')
+    .select('branch_id, customers(name, phone), bikes(license_plate, odometer)')
     .eq('id', rentalId)
     .single()
 
@@ -139,16 +139,8 @@ export async function POST(request: NextRequest) {
     .filter(r => r.urgency === 'overdue')
     .map(r => ({ taskName: r.task_name, dueReason: r.due_reason }))
 
-  // สะสมวันเช่าเข้ารูทีนทุกตัวของรถคันนี้ — ใช้เฉพาะรูทีนที่เปิดใช้ระบบวันเช่าแล้ว (interval_rented_days ตั้งค่าแล้ว)
-  const daysUsed = Number(existing?.total_days) || 1
-  for (const r of routines ?? []) {
-    if (r.interval_rented_days == null) continue
-    const { error: accErr } = await supabase
-      .from('bike_routines')
-      .update({ rented_days_accumulated: (r.rented_days_accumulated ?? 0) + daysUsed })
-      .eq('id', r.id)
-    if (accErr) console.error('[rental/return] rented_days_accumulated update failed:', r.id, JSON.stringify(accErr))
-  }
+  // หมายเหตุ: "วันเช่าสะสม" ของรูทีนนับทีละ 1 วันทุกวันที่รถออกใช้งานจริงผ่าน cron รายวันแทนแล้ว
+  // (เดิมบวกยกก้อนทั้งสัญญาตรงนี้ ทำให้นับซ้ำวันที่เกิดก่อนเปลี่ยนน้ำมันครั้งล่าสุดไปแล้ว)
 
   // Lookup staff name
   const { data: staffRow } = await supabase.from('staff').select('name').eq('id', staffId).single()
