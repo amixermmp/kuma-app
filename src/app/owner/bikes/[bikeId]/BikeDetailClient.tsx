@@ -51,6 +51,7 @@ type RepairRecord = {
   resolved_at: string | null
   repair_shop: string | null
   repair_cost: number | null
+  odometer: number | null
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -765,6 +766,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                   {r.resolved_at && <span>✅ เสร็จ: {new Date(r.resolved_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                   {r.repair_shop && <span>🏪 {r.repair_shop}</span>}
                   {!!r.repair_cost && <span>💰 ฿{Number(r.repair_cost).toLocaleString()}</span>}
+                  {!!r.odometer && <span>🛣️ {Number(r.odometer).toLocaleString()} กม.</span>}
                 </div>
               </div>
             ))

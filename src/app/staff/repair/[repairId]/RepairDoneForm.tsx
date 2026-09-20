@@ -49,6 +49,7 @@ export default function RepairDoneForm({ repair, isFromSwap = false }: Props) {
   const [repairNotes, setRepairNotes] = useState('')
   const [repairShop, setRepairShop] = useState('')
   const [repairCost, setRepairCost] = useState('')
+  const [odometer, setOdometer] = useState('')
   const [lockForSwap, setLockForSwap] = useState(isFromSwap)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -90,6 +91,7 @@ export default function RepairDoneForm({ repair, isFromSwap = false }: Props) {
   }
 
   const handleSubmit = async () => {
+    if (!odometer.trim()) { setError('กรุณากรอกเลขไมล์ปัจจุบัน'); return }
     setLoading(true)
     setError('')
     try {
@@ -102,6 +104,7 @@ export default function RepairDoneForm({ repair, isFromSwap = false }: Props) {
           repairNotes: repairNotes.trim() || null,
           repairShop: repairShop.trim() || null,
           repairCost: repairCost ? parseFloat(repairCost) : null,
+          odometer: parseFloat(odometer),
           lockForSwap,
         }),
       })
@@ -251,11 +254,18 @@ export default function RepairDoneForm({ repair, isFromSwap = false }: Props) {
               onChange={e => setRepairShop(e.target.value)}
             />
           </div>
-          <div className="field-row" style={{ marginBottom: 0 }}>
+          <div className="field-row">
             <label className="field-label">ค่าซ่อม (บาท)</label>
             <input className="field-input" type="number" placeholder="850"
               value={repairCost}
               onChange={e => setRepairCost(e.target.value)}
+            />
+          </div>
+          <div className="field-row" style={{ marginBottom: 0 }}>
+            <label className="field-label">เลขไมล์ปัจจุบัน (กม.) *</label>
+            <input className="field-input" type="number" placeholder="12345"
+              value={odometer}
+              onChange={e => setOdometer(e.target.value)}
             />
           </div>
         </div>

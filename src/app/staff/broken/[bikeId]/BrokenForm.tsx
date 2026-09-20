@@ -25,6 +25,7 @@ export default function BrokenForm({ bike, staffId }: Props) {
   const [locationAddress, setLocationAddress] = useState('')
   const [repairShop, setRepairShop] = useState('')
   const [repairCost, setRepairCost] = useState('')
+  const [odometer, setOdometer] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,7 +36,9 @@ export default function BrokenForm({ bike, staffId }: Props) {
   const handleSubmit = async () => {
     if (!repairType) { setError('กรุณาเลือกประเภทงานซ่อม'); return }
     if (!description.trim()) { setError('กรุณาอธิบายอาการของรถ'); return }
-    if (!isInstant) {
+    if (isInstant) {
+      if (!odometer.trim()) { setError('กรุณากรอกเลขไมล์ปัจจุบัน'); return }
+    } else {
       if (!locationType) { setError('กรุณาเลือกตำแหน่งรถ'); return }
       if (locationType === 'offsite' && !locationAddress.trim()) { setError('กรุณาระบุว่ารถอยู่ที่ไหน'); return }
     }
@@ -52,7 +55,7 @@ export default function BrokenForm({ bike, staffId }: Props) {
           photoUrl: photoUrl || null,
           instantDone: isInstant,
           ...(isInstant
-            ? { repairShop: repairShop.trim() || null, repairCost: repairCost ? parseFloat(repairCost) : null }
+            ? { repairShop: repairShop.trim() || null, repairCost: repairCost ? parseFloat(repairCost) : null, odometer: parseFloat(odometer) }
             : { locationType, locationAddress: locationType === 'offsite' ? locationAddress.trim() : null }),
         }),
       })
@@ -139,11 +142,18 @@ export default function BrokenForm({ bike, staffId }: Props) {
                     onChange={e => setRepairShop(e.target.value)}
                   />
                 </div>
-                <div className="field-row" style={{ marginBottom: 0 }}>
+                <div className="field-row">
                   <label className="field-label">ค่าซ่อม (บาท)</label>
                   <input className="field-input" type="number" placeholder="200"
                     value={repairCost}
                     onChange={e => setRepairCost(e.target.value)}
+                  />
+                </div>
+                <div className="field-row" style={{ marginBottom: 0 }}>
+                  <label className="field-label">เลขไมล์ปัจจุบัน (กม.) *</label>
+                  <input className="field-input" type="number" placeholder="12345"
+                    value={odometer}
+                    onChange={e => setOdometer(e.target.value)}
                   />
                 </div>
               </div>

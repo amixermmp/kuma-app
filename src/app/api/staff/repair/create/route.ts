@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import { logStaffAction } from '@/lib/log'
 import { findBookingConflictsForBike } from '@/lib/bookingConflicts'
+import { recalcNeverDoneRoutines } from '@/lib/routines'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -12,13 +13,15 @@ export async function POST(request: NextRequest) {
 
   const BRANCH_ID = await getStaffOwnBranchId(staffId)
 
-  const { bikeId, description, photoUrl, locationType, locationAddress, instantDone, repairShop, repairCost } = await request.json()
+  const { bikeId, description, photoUrl, locationType, locationAddress, instantDone, repairShop, repairCost, odometer } = await request.json()
   if (!bikeId || !description) return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
 
   const supabase = createAdminClient()
 
   // ซ่อมเล็กน้อย รถไม่ต้องจอด — ซ่อมเสร็จแล้วจริง แค่บันทึกประวัติไว้ ไม่ต้องเปลี่ยนสถานะรถ/เช็คคิวจองเลย
   if (instantDone) {
+    if (!odometer) return NextResponse.json({ error: 'กรุณากรอกเลขไมล์ปัจจุบัน' }, { status: 400 })
+
     const { data: repair, error: repairErr } = await supabase
       .from('repairs')
       .insert({
@@ -32,6 +35,7 @@ export async function POST(request: NextRequest) {
         repair_photos: photoUrl ? [{ url: photoUrl, label: 'รูปตอนแจ้งซ่อม' }] : [],
         repair_shop: repairShop || null,
         repair_cost: repairCost ?? null,
+        odometer,
         resolved_at: new Date().toISOString(),
       })
       .select('id')
@@ -41,6 +45,9 @@ export async function POST(request: NextRequest) {
       console.error('Repair create (instant) error:', repairErr?.message)
       return NextResponse.json({ error: 'บันทึกไม่สำเร็จ' }, { status: 500 })
     }
+
+    await supabase.from('bikes').update({ odometer }).eq('id', bikeId)
+    await recalcNeverDoneRoutines(supabase, bikeId, Number(odometer) || 0)
 
     const { data: bike } = await supabase.from('bikes').select('license_plate').eq('id', bikeId).single()
     await logStaffAction(staffId, 'repair_created',
