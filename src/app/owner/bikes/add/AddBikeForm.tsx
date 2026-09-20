@@ -26,7 +26,7 @@ export default function AddBikeForm({ ownerId, branches, brands, models, lessors
   const [year, setYear] = useState('')
   const [color, setColor] = useState('')
   const [lessorProfileId, setLessorProfileId] = useState('')
-  const [odometer, setOdometer] = useState('0')
+  const [odometer, setOdometer] = useState('')
   const [notes, setNotes] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
   const [dailyRate, setDailyRate] = useState('')
@@ -52,6 +52,7 @@ export default function AddBikeForm({ ownerId, branches, brands, models, lessors
     if (!brand.trim()) { setError('กรุณาระบุยี่ห้อรถ'); return }
     if (!model.trim()) { setError('กรุณาระบุรุ่นรถ'); return }
     if (dailyRate && isNaN(Number(dailyRate))) { setError('ราคาเช่า/วัน ไม่ถูกต้อง'); return }
+    if (odometer.trim() === '') { setError('กรุณากรอกเลขไมล์เริ่มต้น (ถ้ารถใหม่ป้ายแดงให้ใส่ 0)'); return }
 
     setLoading(true)
     setError('')
@@ -177,8 +178,8 @@ export default function AddBikeForm({ ownerId, branches, brands, models, lessors
               value={color} onChange={e => setColor(e.target.value)} />
           </div>
           <div className="field-row">
-            <label className="field-label">เลขไมล์เริ่มต้น</label>
-            <input className="field-input" type="number" placeholder="0"
+            <label className="field-label">เลขไมล์เริ่มต้น *</label>
+            <input className="field-input" type="number" placeholder="เช่น 0 (รถใหม่) หรือ 5000 (รถมือสอง)"
               value={odometer} onChange={e => setOdometer(e.target.value)} />
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>

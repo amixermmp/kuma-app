@@ -22,6 +22,10 @@ export async function POST(request: NextRequest) {
   if (!license_plate || !brand || !model) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
+  // บังคับกรอกเลขไมล์ตั้งแต่ตอนเพิ่มรถเสมอ — กันรูทีน (เปลี่ยนน้ำมันเครื่องฯลฯ) ตั้งเป้าจากไมล์เดา (0) ที่ผิดจากไมล์จริงตั้งแต่ต้น
+  if (odometer === undefined || odometer === null || odometer === '') {
+    return NextResponse.json({ error: 'กรุณากรอกเลขไมล์เริ่มต้น' }, { status: 400 })
+  }
 
   const supabase = createAdminClient()
 
