@@ -5,6 +5,7 @@ import { writeLog } from '@/lib/log'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
 import { getBranchModelPricing } from '@/lib/bikeCatalog'
 import { syncMonthlyRentalRate } from '@/lib/monthlyRate'
+import { hasOpenContract } from '@/lib/availability'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ bikeId: string }> }) {
   const supabase = await createClient()
@@ -26,6 +27,24 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bike
   }
 
   const admin = createAdminClient()
+
+  // ย้ายสาขารถที่ยังติดซ่อมค้างอยู่ — ย้ายใบซ่อมตามไปสาขาใหม่ด้วย (กันใบซ่อมค้างมองไม่เห็นที่สาขาไหนเลย)
+  // แล้วปลดสถานะ "ซ่อม" ให้เช่าได้ทันที ไม่ต้องรอปิดงานซ่อมก่อน (ตัวใบซ่อมเองยังเปิดค้างไว้ให้ติดตามต่อได้)
+  let movedRepairId: string | null = null
+  if ('branch_id' in update) {
+    const { data: prevBike } = await admin.from('bikes').select('branch_id, status').eq('id', bikeId).single()
+    if (prevBike && prevBike.branch_id !== update.branch_id && prevBike.status === 'repair') {
+      const { data: openRepair } = await admin.from('repairs').select('id').eq('bike_id', bikeId).eq('status', 'in_progress').maybeSingle()
+      if (openRepair) {
+        await admin.from('repairs').update({ branch_id: update.branch_id }).eq('id', openRepair.id)
+        movedRepairId = openRepair.id
+        if (!('status' in update) && !(await hasOpenContract(admin, bikeId))) {
+          update.status = 'available'
+        }
+      }
+    }
+  }
+
   const { error } = await admin.from('bikes').update(update).eq('id', bikeId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -50,8 +69,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bike
     actorId: user.id,
     actorName: user.email ?? 'Owner',
     action: 'bike_updated',
-    description: `แก้ไขข้อมูลรถ ${bike?.license_plate ?? bikeId} — ${Object.keys(update).join(', ')}`,
-    metadata: { bikeId, changed: update },
+    description: `แก้ไขข้อมูลรถ ${bike?.license_plate ?? bikeId} — ${Object.keys(update).join(', ')}`
+      + (movedRepairId ? ' (ย้ายใบซ่อมค้างไปสาขาใหม่ + ปลดสถานะซ่อมให้เช่าได้)' : ''),
+    metadata: { bikeId, changed: update, movedRepairId },
   })
 
   return NextResponse.json({ success: true })
