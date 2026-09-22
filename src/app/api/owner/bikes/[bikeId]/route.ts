@@ -97,35 +97,29 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'ไม่สามารถลบรถที่มีการเช่าอยู่' }, { status: 400 })
   }
 
-  // Cascade delete related records first — เคยเงียบไม่เช็ค error ตรงนี้ ถ้าตัวใดตัวหนึ่งลบไม่ผ่าน
-  // (เช่นติด FK constraint) รถจะถูกลบไปแล้วแต่ข้อมูลลูกตัวอื่นค้างเป็นขยะแบบไม่มีใครรู้
-  // ต้องลบ "หลานๆ" (rental_payments/monthly_payments ที่อ้างอิง rentals/monthly_rentals) ก่อนลบตัวแม่เสมอ
-  // ไม่งั้นติด FK constraint ลบไม่ผ่าน (เคยเจอจริง — รถมีประวัติเช่ารายเดือนที่จ่ายเงินแล้วลบไม่ได้)
-  const [{ data: rentalIds }, { data: monthlyIds }] = await Promise.all([
-    admin.from('rentals').select('id').eq('bike_id', bikeId),
-    admin.from('monthly_rentals').select('id').eq('bike_id', bikeId),
+  // ดึงข้อมูลรถก่อนลบ — ใช้ทั้งเก็บ log และ snapshot ทะเบียน/รุ่นไว้ในสัญญาเช่าเก่า
+  const { data: bike } = await admin
+    .from('bikes')
+    .select('license_plate, brand, model')
+    .eq('id', bikeId)
+    .single()
+  const bikeSnapshot = bike ? `${bike.brand} ${bike.model} (${bike.license_plate})` : null
+
+  // ตัดขาดรถออกจากสัญญาเช่า/ใบเสร็จเก่า แทนการลบทิ้ง — ยอดรายได้ที่เก็บไปแล้วต้องไม่หายไปจากรายงานย้อนหลัง
+  // (เดิมลบ rentals/monthly_rentals ทิ้งทั้งคู่กับ rental_payments/monthly_payments ที่ผูกอยู่ กระทบยอดรายได้เก่าโดยไม่ตั้งใจ)
+  const detachResults = await Promise.all([
+    admin.from('rentals').update({ bike_id: null, deleted_bike_info: bikeSnapshot }).eq('bike_id', bikeId),
+    admin.from('monthly_rentals').update({ bike_id: null, deleted_bike_info: bikeSnapshot }).eq('bike_id', bikeId),
   ])
-  const rentalIdList = (rentalIds ?? []).map(r => r.id)
-  const monthlyIdList = (monthlyIds ?? []).map(r => r.id)
-  const grandchildResults = await Promise.all([
-    rentalIdList.length > 0 ? admin.from('rental_payments').delete().in('rental_id', rentalIdList) : Promise.resolve({ error: null }),
-    monthlyIdList.length > 0 ? admin.from('monthly_payments').delete().in('monthly_rental_id', monthlyIdList) : Promise.resolve({ error: null }),
-    // ตารางเก่าที่ไม่มีโค้ดจุดไหนเขียนแล้ว (rental_extensions ถูกแทนที่ด้วย rental_payments kind:'extend', invoices ไม่มีจุดใช้งานเลย)
-    // แต่ยังมี FK ผูกอยู่ — เผื่อมีข้อมูลเก่าตกค้างจะได้ไม่ติดลบเหมือนที่เพิ่งเจอ
-    rentalIdList.length > 0 ? admin.from('rental_extensions').delete().in('rental_id', rentalIdList) : Promise.resolve({ error: null }),
-    rentalIdList.length > 0 ? admin.from('invoices').delete().in('rental_id', rentalIdList) : Promise.resolve({ error: null }),
-    monthlyIdList.length > 0 ? admin.from('invoices').delete().in('monthly_rental_id', monthlyIdList) : Promise.resolve({ error: null }),
-  ])
-  const grandchildErr = grandchildResults.find(r => r.error)
-  if (grandchildErr) {
-    console.error('[owner/bikes] grandchild delete failed:', bikeId, JSON.stringify(grandchildErr.error))
-    return NextResponse.json({ error: 'ลบข้อมูลที่เกี่ยวข้องไม่สำเร็จ — ยกเลิกการลบรถ ลองใหม่อีกครั้ง' }, { status: 500 })
+  const detachErr = detachResults.find(r => r.error)
+  if (detachErr) {
+    console.error('[owner/bikes] detach rentals from bike failed:', bikeId, JSON.stringify(detachErr.error))
+    return NextResponse.json({ error: 'ตัดขาดสัญญาเช่าเก่าไม่สำเร็จ — ยกเลิกการลบรถ ลองใหม่อีกครั้ง' }, { status: 500 })
   }
 
+  // ส่วนที่เหลือ (เอกสารรถ/คิวจอง/งานซ่อม/รูทีน) ไม่ใช่ข้อมูลรายได้ ลบทิ้งได้ตรงๆ ไม่กระทบรายงานการเงิน
   const cascadeResults = await Promise.all([
     admin.from('bike_documents').delete().eq('bike_id', bikeId),
-    admin.from('rentals').delete().eq('bike_id', bikeId),
-    admin.from('monthly_rentals').delete().eq('bike_id', bikeId),
     admin.from('bookings').delete().eq('bike_id', bikeId),
     admin.from('repairs').delete().eq('bike_id', bikeId),
     admin.from('bike_routines').delete().eq('bike_id', bikeId),
@@ -135,13 +129,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     console.error('[owner/bikes] cascade delete failed:', bikeId, JSON.stringify(cascadeErr.error))
     return NextResponse.json({ error: 'ลบข้อมูลที่เกี่ยวข้องไม่สำเร็จ — ยกเลิกการลบรถ ลองใหม่อีกครั้ง' }, { status: 500 })
   }
-
-  // ดึงข้อมูลรถก่อนลบ เพื่อ log
-  const { data: bike } = await admin
-    .from('bikes')
-    .select('license_plate, brand, model')
-    .eq('id', bikeId)
-    .single()
 
   const { error } = await admin.from('bikes').delete().eq('id', bikeId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

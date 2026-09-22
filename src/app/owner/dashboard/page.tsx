@@ -141,7 +141,7 @@ export default async function OwnerDashboardPage({
     // ตอนเก็บเงินก้อนนั้น ถ้าสัญญานี้เคยสลับรถกลางทาง — ไปหาราคาคันที่ถูกต้องจาก bikes ที่ดึงมาแล้วด้านบนแทน
     (() => {
       let q = admin.from('rental_payments')
-        .select('amount, kind, paid_at, branch_id, rentals(bike_id, swap_log)')
+        .select('amount, kind, paid_at, branch_id, rentals(bike_id, swap_log, deleted_bike_info)')
         .is('voided_at', null)
         .gte('paid_at', periodStart.toISOString())
         .lte('paid_at', periodEnd.toISOString())
@@ -150,7 +150,7 @@ export default async function OwnerDashboardPage({
     })(),
     // Monthly payments — นับเงินที่เก็บได้จริงในช่วง (งวดแรกของสัญญาใหม่ก็ลงตารางนี้)
     admin.from('monthly_payments')
-      .select('amount, paid_date, monthly_rentals(branch_id, bike_id, swap_log)')
+      .select('amount, paid_date, monthly_rentals(branch_id, bike_id, swap_log, deleted_bike_info)')
       .in('status', ['paid', 'partial'])
       .is('voided_at', null)
       .gte('paid_date', periodStartDate)
@@ -269,8 +269,20 @@ export default async function OwnerDashboardPage({
   const bikeRevMap: Record<string, { label: string; revenue: number; count: number }> = {}
   const modelRevMap: Record<string, { label: string; revenue: number }> = {}
   for (const p of rentalPayments) {
-    const rental = one((p as any).rentals) as { bike_id?: string; swap_log?: unknown } | null
-    if (!rental?.bike_id) continue
+    const rental = one((p as any).rentals) as { bike_id?: string; swap_log?: unknown; deleted_bike_info?: string | null } | null
+    if (!rental) continue
+    if (!rental.bike_id) {
+      // รถถูกลบไปแล้ว — ใช้ชื่อสำรองที่เก็บไว้ตอนลบแทน จะได้ไม่หายไปจากกราฟรายได้เงียบๆ
+      if (rental.deleted_bike_info) {
+        const key = rental.deleted_bike_info
+        if (!bikeRevMap[key]) bikeRevMap[key] = { label: key, revenue: 0, count: 0 }
+        bikeRevMap[key].revenue += Number(p.amount ?? 0)
+        if (p.kind === 'rental') bikeRevMap[key].count++
+        if (!modelRevMap[key]) modelRevMap[key] = { label: key, revenue: 0 }
+        modelRevMap[key].revenue += Number(p.amount ?? 0)
+      }
+      continue
+    }
     const paidDateStr = String(p.paid_at).slice(0, 10)
     const historicalBikeId = getBikeIdAtDate(rental.bike_id, rental.swap_log as any, paidDateStr)
     const bike = bikesById.get(historicalBikeId)
@@ -286,8 +298,16 @@ export default async function OwnerDashboardPage({
     modelRevMap[mKey].revenue += Number(p.amount ?? 0)
   }
   for (const p of monthlyPaymentsScoped) {
-    const mr = one((p as any).monthly_rentals) as { bike_id?: string; swap_log?: unknown } | null
-    if (!mr?.bike_id) continue
+    const mr = one((p as any).monthly_rentals) as { bike_id?: string; swap_log?: unknown; deleted_bike_info?: string | null } | null
+    if (!mr) continue
+    if (!mr.bike_id) {
+      if (mr.deleted_bike_info) {
+        const key = mr.deleted_bike_info
+        if (!modelRevMap[key]) modelRevMap[key] = { label: key, revenue: 0 }
+        modelRevMap[key].revenue += Number(p.amount ?? 0)
+      }
+      continue
+    }
     const paidDateStr = String((p as any).paid_date).slice(0, 10)
     const historicalBikeId = getBikeIdAtDate(mr.bike_id, mr.swap_log as any, paidDateStr)
     const bike = bikesById.get(historicalBikeId)

@@ -37,6 +37,7 @@ export default async function MonthlyInvoicePage({ params }: { params: Promise<{
       monthly_rentals(
         start_date, payment_day, deposit_amount, branch_id,
         billing_name, billing_address, billing_phone, billing_id,
+        deleted_bike_info,
         bikes(license_plate, brand, model),
         customers(name, phone, workplace, id_card_number)
       )
@@ -84,7 +85,9 @@ export default async function MonthlyInvoicePage({ params }: { params: Promise<{
   }
 
   const bike = rental.bikes
-  const bikeLine = `${bike?.brand ?? ''} ${bike?.model ?? ''} • ${bike?.license_plate ?? ''}`
+  const bikeLine = bike
+    ? `${bike.brand ?? ''} ${bike.model ?? ''} • ${bike.license_plate ?? ''}`
+    : (rental.deleted_bike_info ?? 'รถถูกลบออกจากระบบแล้ว')
 
   const invoicePayment = {
     id: payment.id,

@@ -31,11 +31,11 @@ export default async function SlipsPage({
   const [branchesRes, rentalPaysRes, monthlyPaysRes] = await Promise.all([
     admin.from('branches').select('id, name').order('name'),
     admin.from('rental_payments')
-      .select('id, kind, amount, paid_at, branch_id, voided_at, photo_url, slip_customer_name, rentals(customers(name), bikes(license_plate), send_photos)')
+      .select('id, kind, amount, paid_at, branch_id, voided_at, photo_url, slip_customer_name, rentals(customers(name), bikes(license_plate), send_photos, deleted_bike_info)')
       .gte('paid_at', dayStart.toISOString())
       .lte('paid_at', dayEnd.toISOString()),
     admin.from('monthly_payments')
-      .select('id, amount, paid_date, payment_method, photo_url, slip_customer_name, voided_at, monthly_rentals(branch_id, customers(name), bikes(license_plate))')
+      .select('id, amount, paid_date, payment_method, photo_url, slip_customer_name, voided_at, monthly_rentals(branch_id, customers(name), bikes(license_plate), deleted_bike_info)')
       .eq('paid_date', date),
   ])
 
@@ -51,7 +51,7 @@ export default async function SlipsPage({
     if (p.voided_at) continue
     const rental = one((p as any).rentals)
     const cust = one(rental?.customers)?.name ?? ''
-    const plate = one(rental?.bikes)?.license_plate ?? ''
+    const plate = one(rental?.bikes)?.license_plate ?? rental?.deleted_bike_info ?? ''
     // งวดแรก (kind='rental') รูปอยู่ใน send_photos ตอนสร้างสัญญา — งวดต่อเวลา (kind='extend') มีรูปของตัวเอง
     const photoUrl = p.photo_url ?? rental?.send_photos?.payment ?? null
     const slipName = p.slip_customer_name ?? null
@@ -68,7 +68,7 @@ export default async function SlipsPage({
     if (p.voided_at) continue
     const mr = one((p as any).monthly_rentals)
     const cust = one(mr?.customers)?.name ?? ''
-    const plate = one(mr?.bikes)?.license_plate ?? ''
+    const plate = one(mr?.bikes)?.license_plate ?? mr?.deleted_bike_info ?? ''
     const slipName = p.slip_customer_name ?? null
     rows.push({
       source: 'monthly', id: p.id, time: `${p.paid_date}T12:00:00+07:00`,

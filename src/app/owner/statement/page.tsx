@@ -55,11 +55,11 @@ export default async function StatementPage({
   const [branchesRes, rentalPaysRes, monthlyPaysRes, expensesRes, repairsRes] = await Promise.all([
     admin.from('branches').select('id, name').order('name'),
     admin.from('rental_payments')
-      .select('id, kind, amount, paid_at, voided_at, void_reason, branch_id, rentals(customers(name), bikes(license_plate))')
+      .select('id, kind, amount, paid_at, voided_at, void_reason, branch_id, rentals(customers(name), bikes(license_plate), deleted_bike_info)')
       .gte('paid_at', periodStart.toISOString())
       .lte('paid_at', periodEnd.toISOString()),
     admin.from('monthly_payments')
-      .select('id, amount, paid_date, voided_at, void_reason, monthly_rentals(branch_id, customers(name), bikes(license_plate))')
+      .select('id, amount, paid_date, voided_at, void_reason, monthly_rentals(branch_id, customers(name), bikes(license_plate), deleted_bike_info)')
       .in('status', ['paid', 'partial'])
       .gte('paid_date', startDate)
       .lte('paid_date', endDate),
@@ -89,7 +89,7 @@ export default async function StatementPage({
   for (const p of rentalPaysRes.data ?? []) {
     const rental = one((p as any).rentals)
     const cust = one(rental?.customers)?.name ?? ''
-    const plate = one(rental?.bikes)?.license_plate ?? ''
+    const plate = one(rental?.bikes)?.license_plate ?? rental?.deleted_bike_info ?? ''
     rows.push({
       source: 'rental', id: p.id, date: p.paid_at,
       branchId: p.branch_id ?? '', branch: branchName.get(p.branch_id) ?? '—',
@@ -102,7 +102,7 @@ export default async function StatementPage({
   for (const p of monthlyPaysRes.data ?? []) {
     const mr = one((p as any).monthly_rentals)
     const cust = one(mr?.customers)?.name ?? ''
-    const plate = one(mr?.bikes)?.license_plate ?? ''
+    const plate = one(mr?.bikes)?.license_plate ?? mr?.deleted_bike_info ?? ''
     rows.push({
       source: 'monthly', id: p.id, date: `${p.paid_date}T12:00:00+07:00`,
       branchId: mr?.branch_id ?? '', branch: branchName.get(mr?.branch_id) ?? '—',
