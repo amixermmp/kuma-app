@@ -99,6 +99,24 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   // Cascade delete related records first — เคยเงียบไม่เช็ค error ตรงนี้ ถ้าตัวใดตัวหนึ่งลบไม่ผ่าน
   // (เช่นติด FK constraint) รถจะถูกลบไปแล้วแต่ข้อมูลลูกตัวอื่นค้างเป็นขยะแบบไม่มีใครรู้
+  // ต้องลบ "หลานๆ" (rental_payments/monthly_payments ที่อ้างอิง rentals/monthly_rentals) ก่อนลบตัวแม่เสมอ
+  // ไม่งั้นติด FK constraint ลบไม่ผ่าน (เคยเจอจริง — รถมีประวัติเช่ารายเดือนที่จ่ายเงินแล้วลบไม่ได้)
+  const [{ data: rentalIds }, { data: monthlyIds }] = await Promise.all([
+    admin.from('rentals').select('id').eq('bike_id', bikeId),
+    admin.from('monthly_rentals').select('id').eq('bike_id', bikeId),
+  ])
+  const rentalIdList = (rentalIds ?? []).map(r => r.id)
+  const monthlyIdList = (monthlyIds ?? []).map(r => r.id)
+  const grandchildResults = await Promise.all([
+    rentalIdList.length > 0 ? admin.from('rental_payments').delete().in('rental_id', rentalIdList) : Promise.resolve({ error: null }),
+    monthlyIdList.length > 0 ? admin.from('monthly_payments').delete().in('monthly_rental_id', monthlyIdList) : Promise.resolve({ error: null }),
+  ])
+  const grandchildErr = grandchildResults.find(r => r.error)
+  if (grandchildErr) {
+    console.error('[owner/bikes] grandchild delete failed:', bikeId, JSON.stringify(grandchildErr.error))
+    return NextResponse.json({ error: 'ลบข้อมูลที่เกี่ยวข้องไม่สำเร็จ — ยกเลิกการลบรถ ลองใหม่อีกครั้ง' }, { status: 500 })
+  }
+
   const cascadeResults = await Promise.all([
     admin.from('bike_documents').delete().eq('bike_id', bikeId),
     admin.from('rentals').delete().eq('bike_id', bikeId),
