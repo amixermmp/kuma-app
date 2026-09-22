@@ -110,6 +110,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const grandchildResults = await Promise.all([
     rentalIdList.length > 0 ? admin.from('rental_payments').delete().in('rental_id', rentalIdList) : Promise.resolve({ error: null }),
     monthlyIdList.length > 0 ? admin.from('monthly_payments').delete().in('monthly_rental_id', monthlyIdList) : Promise.resolve({ error: null }),
+    // ตารางเก่าที่ไม่มีโค้ดจุดไหนเขียนแล้ว (rental_extensions ถูกแทนที่ด้วย rental_payments kind:'extend', invoices ไม่มีจุดใช้งานเลย)
+    // แต่ยังมี FK ผูกอยู่ — เผื่อมีข้อมูลเก่าตกค้างจะได้ไม่ติดลบเหมือนที่เพิ่งเจอ
+    rentalIdList.length > 0 ? admin.from('rental_extensions').delete().in('rental_id', rentalIdList) : Promise.resolve({ error: null }),
+    rentalIdList.length > 0 ? admin.from('invoices').delete().in('rental_id', rentalIdList) : Promise.resolve({ error: null }),
+    monthlyIdList.length > 0 ? admin.from('invoices').delete().in('monthly_rental_id', monthlyIdList) : Promise.resolve({ error: null }),
   ])
   const grandchildErr = grandchildResults.find(r => r.error)
   if (grandchildErr) {
