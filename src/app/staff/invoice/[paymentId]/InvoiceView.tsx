@@ -64,6 +64,8 @@ const PAYMENT_LABEL: Record<string, string> = {
 
 export default function InvoiceView({ payment, customer, shop, contractType, contractId, theme = 'kuma' }: Props) {
   const isZame = theme === 'zame'
+  // ZAME เจอลูกค้าต่างชาติเยอะ — ป้ายทุกจุดเลยขึ้นสองภาษา ไทย/อังกฤษ (KUMA ยังคงเป็นไทยล้วนเหมือนเดิม)
+  const bi = (th: string, en: string) => isZame ? `${th} / ${en}` : th
   const grandTotal = payment.amount + payment.depositAmount
   const vatRate = 0.07
   const baseAmount = grandTotal / (1 + vatRate)
@@ -145,7 +147,7 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
             }}>
               <div>
                 <div style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '1px' }}>RECEIPT</div>
-                <div style={{ fontSize: '13px', opacity: 0.85, marginTop: '2px' }}>ใบเสร็จรับเงิน</div>
+                <div style={{ fontSize: '13px', opacity: 0.85, marginTop: '2px' }}>{bi('ใบเสร็จรับเงิน', 'Receipt')}</div>
               </div>
               {isZame ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -165,17 +167,17 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
             <div style={{ padding: '20px' }}>
 
               {/* Customer + Invoice meta */}
-              <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : KUMA.red, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.5px' }}>ข้อมูลลูกค้า</div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : KUMA.red, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.5px' }}>{bi('ข้อมูลลูกค้า', 'Customer Info')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', fontSize: '12px', lineHeight: 1.9 }}>
                 <div>
-                  <div><span style={{ color: '#6b7280' }}>ชื่อลูกค้า: </span>{custName}</div>
-                  {custPhone && <div><span style={{ color: '#6b7280' }}>เบอร์โทรศัพท์: </span>{custPhone}</div>}
-                  {custAddr && <div><span style={{ color: '#6b7280' }}>ที่อยู่: </span>{custAddr}</div>}
-                  {custIdCard && <div><span style={{ color: '#6b7280' }}>เลขประจำตัวผู้เสียภาษี / บัตรประชาชน: </span>{custIdCard}</div>}
+                  <div><span style={{ color: '#6b7280' }}>{bi('ชื่อลูกค้า', 'Customer Name')}: </span>{custName}</div>
+                  {custPhone && <div><span style={{ color: '#6b7280' }}>{bi('เบอร์โทรศัพท์', 'Phone')}: </span>{custPhone}</div>}
+                  {custAddr && <div><span style={{ color: '#6b7280' }}>{bi('ที่อยู่', 'Address')}: </span>{custAddr}</div>}
+                  {custIdCard && <div><span style={{ color: '#6b7280' }}>{bi('เลขประจำตัวผู้เสียภาษี / บัตรประชาชน', 'Tax ID / ID Card')}: </span>{custIdCard}</div>}
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div><span style={{ color: '#6b7280' }}>เลขที่ใบเสร็จรับเงิน: </span><strong>{payment.invoiceNo}</strong></div>
-                  <div><span style={{ color: '#6b7280' }}>วันที่ชำระเงิน: </span><strong>{fmtDate(payment.paidAt)}</strong></div>
+                  <div><span style={{ color: '#6b7280' }}>{bi('เลขที่ใบเสร็จรับเงิน', 'Receipt No.')}: </span><strong>{payment.invoiceNo}</strong></div>
+                  <div><span style={{ color: '#6b7280' }}>{bi('วันที่ชำระเงิน', 'Payment Date')}: </span><strong>{fmtDate(payment.paidAt)}</strong></div>
                 </div>
               </div>
 
@@ -185,11 +187,11 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '16px' }}>
                 <thead>
                   <tr style={{ background: isZame ? `${ZAME.yellow}33` : `${KUMA.red}14`, borderBottom: `1px solid ${isZame ? ZAME.yellow : KUMA.red}` }}>
-                    <th style={{ padding: '8px 6px', textAlign: 'center', width: '32px' }}>ลำดับ</th>
-                    <th style={{ padding: '8px 6px', textAlign: 'left' }}>รายการ</th>
-                    {hasQty && <th style={{ padding: '8px 6px', textAlign: 'center' }}>จำนวน</th>}
-                    {hasQty && <th style={{ padding: '8px 6px', textAlign: 'right' }}>ราคา/วัน</th>}
-                    <th style={{ padding: '8px 6px', textAlign: 'right' }}>ราคารวม</th>
+                    <th style={{ padding: '8px 6px', textAlign: 'center', width: '32px' }}>{bi('ลำดับ', 'No.')}</th>
+                    <th style={{ padding: '8px 6px', textAlign: 'left' }}>{bi('รายการ', 'Item')}</th>
+                    {hasQty && <th style={{ padding: '8px 6px', textAlign: 'center' }}>{bi('จำนวน', 'Qty')}</th>}
+                    {hasQty && <th style={{ padding: '8px 6px', textAlign: 'right' }}>{bi('ราคา/วัน', 'Price/day')}</th>}
+                    <th style={{ padding: '8px 6px', textAlign: 'right' }}>{bi('ราคารวม', 'Total')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -216,24 +218,24 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
                 <div style={{ width: '220px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '12px' }}>
-                    <span style={{ color: '#6b7280' }}>รวมเป็นเงิน</span>
+                    <span style={{ color: '#6b7280' }}>{bi('รวมเป็นเงิน', 'Subtotal')}</span>
                     <span>{(shop.tax_id ? baseAmount : payment.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
                   </div>
                   {shop.tax_id && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '12px' }}>
-                      <span style={{ color: '#6b7280' }}>ภาษีมูลค่าเพิ่ม (7%)</span>
+                      <span style={{ color: '#6b7280' }}>{bi('ภาษีมูลค่าเพิ่ม (7%)', 'VAT (7%)')}</span>
                       <span>{vatAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
                     </div>
                   )}
                   {payment.discountAmount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '12px' }}>
-                      <span style={{ color: '#6b7280' }}>ส่วนลด</span>
+                      <span style={{ color: '#6b7280' }}>{bi('ส่วนลด', 'Discount')}</span>
                       <span>{payment.discountAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
                     </div>
                   )}
                   {payment.depositAmount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '12px' }}>
-                      <span style={{ color: '#6b7280' }}>มัดจำ (คืนเมื่อส่งรถ)</span>
+                      <span style={{ color: '#6b7280' }}>{bi('มัดจำ (คืนเมื่อส่งรถ)', 'Deposit (refunded on return)')}</span>
                       <span>{payment.depositAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
                     </div>
                   )}
@@ -242,7 +244,7 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
                     borderTop: `2px solid ${isZame ? ZAME.blue : KUMA.red}`, paddingTop: '8px', marginTop: '4px',
                     color: isZame ? ZAME.blue : KUMA.red,
                   }}>
-                    <span>รวมเป็นเงินทั้งสิ้น</span>
+                    <span>{bi('รวมเป็นเงินทั้งสิ้น', 'Grand Total')}</span>
                     <span>{grandTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
                   </div>
                 </div>
@@ -258,14 +260,14 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
                   <div style={{ fontWeight: 700, color: isZame ? ZAME.black : KUMA.black }}>{shopName}</div>
                   {shop.phone && <div>{shop.phone}</div>}
                   {shop.address && <div>{shop.address}</div>}
-                  {shop.tax_id && <div>เลขประจำตัวผู้เสียภาษี: {shop.tax_id}</div>}
-                  <div>ชำระโดย: {payMethod}</div>
+                  {shop.tax_id && <div>{bi('เลขประจำตัวผู้เสียภาษี', 'Tax ID')}: {shop.tax_id}</div>}
+                  <div>{bi('ชำระโดย', 'Paid via')}: {payMethod}</div>
                 </div>
                 {payment.staffName && (
                   <div style={{ fontSize: '11px', color: '#6b7280', textAlign: 'center', minWidth: '110px' }}>
                     <div style={{ borderBottom: '1px solid #9ca3af', paddingBottom: '20px', marginBottom: '4px' }} />
                     <div style={{ color: isZame ? ZAME.black : KUMA.black }}>{payment.staffName}</div>
-                    <div>ผู้ทำรายการ</div>
+                    <div>{bi('ผู้ทำรายการ', 'Staff')}</div>
                   </div>
                 )}
               </div>

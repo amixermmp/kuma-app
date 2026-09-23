@@ -62,6 +62,8 @@ export default function BookingConfirmCard(props: Props) {
     bike, customerName, customerPhone, customerHotel, deliveryType, deliveryAddress, notes,
     shop, contactPhone, contactLine, theme = 'kuma' } = props
   const isZame = theme === 'zame'
+  // ZAME เจอลูกค้าต่างชาติเยอะ — ป้ายทุกจุดเลยขึ้นสองภาษา ไทย/อังกฤษ (KUMA ยังคงเป็นไทยล้วนเหมือนเดิม)
+  const bi = (th: string, en: string) => isZame ? `${th} / ${en}` : th
 
   // >= 30 วัน = แพ็คเกจรายเดือน (คิดเป็นเดือนปฏิทิน ไม่ใช่ราคา/วัน x จำนวนวัน) — เทียบกับราคา/วันตรงๆ จะดูเหมือนลดเว่อร์เกินจริง
   const isMonthlyPackage = totalDays >= 30
@@ -138,7 +140,7 @@ export default function BookingConfirmCard(props: Props) {
               }} />
               <div style={{ position: 'relative' }}>
                 <div style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '1px', fontStyle: 'italic' }}>BOOKING!</div>
-                <div style={{ fontSize: '13px', opacity: 0.9, marginTop: '2px', fontWeight: 700 }}>ใบยืนยันการจอง</div>
+                <div style={{ fontSize: '13px', opacity: 0.9, marginTop: '2px', fontWeight: 700 }}>{bi('ใบยืนยันการจอง', 'Booking Confirmation')}</div>
               </div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={ZAME_LOGO_WHITE} alt="ZAME" crossOrigin="anonymous" style={{ width: '64px', height: '64px', objectFit: 'contain', position: 'relative' }} />
@@ -175,25 +177,25 @@ export default function BookingConfirmCard(props: Props) {
                 {shop.address && <div style={{ color: '#6b7280' }}>{shop.address}</div>}
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div><span style={{ color: '#6b7280' }}>เลขที่การจอง: </span><strong>#{bookingRef}</strong></div>
-                <div><span style={{ color: '#6b7280' }}>วันที่จอง: </span><strong>{fmtDate(createdAt)}</strong></div>
+                <div><span style={{ color: '#6b7280' }}>{bi('เลขที่การจอง', 'Booking No.')}: </span><strong>#{bookingRef}</strong></div>
+                <div><span style={{ color: '#6b7280' }}>{bi('วันที่จอง', 'Date')}: </span><strong>{fmtDate(createdAt)}</strong></div>
               </div>
             </div>
 
             <div style={{ borderTop: `2px solid ${isZame ? ZAME.yellow : KUMA.red}`, marginBottom: '12px' }} />
 
             {/* Bike */}
-            <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : KUMA.red, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>รถที่จอง</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : KUMA.red, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>{bi('รถที่จอง', 'Vehicle')}</div>
             <div style={{ marginBottom: '16px', fontSize: '13px', lineHeight: 1.8 }}>
               <div style={{ fontWeight: 700 }}>{displayBrand} {displayModel}</div>
               {bike ? (
                 <div style={{ color: '#6b7280', fontSize: '12px' }}>
-                  ทะเบียน {bike.license_plate}
+                  {bi('ทะเบียน', 'Plate')} {bike.license_plate}
                   {bike.color ? ` • ${bike.color}` : ''}
-                  {bike.year ? ` • ปี ${bike.year}` : ''}
+                  {bike.year ? ` • ${bi('ปี', 'Year')} ${bike.year}` : ''}
                 </div>
               ) : (
-                <div style={{ color: '#6b7280', fontSize: '12px' }}>รุ่นตามที่มี — กำหนดคันจริงก่อนส่งรถ</div>
+                <div style={{ color: '#6b7280', fontSize: '12px' }}>{bi('รุ่นตามที่มี — กำหนดคันจริงก่อนส่งรถ', 'Model as available — exact unit confirmed before delivery')}</div>
               )}
             </div>
 
@@ -201,21 +203,21 @@ export default function BookingConfirmCard(props: Props) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '16px' }}>
               <thead>
                 <tr style={{ background: isZame ? `${ZAME.yellow}33` : '#f3f4f6', borderBottom: `1px solid ${isZame ? ZAME.yellow : '#d1d5db'}` }}>
-                  <th style={{ padding: '8px 6px', textAlign: 'left' }}>กำหนดการ</th>
-                  <th style={{ padding: '8px 6px', textAlign: 'right' }}>วันที่ / เวลา</th>
+                  <th style={{ padding: '8px 6px', textAlign: 'left' }}>{bi('กำหนดการ', 'Schedule')}</th>
+                  <th style={{ padding: '8px 6px', textAlign: 'right' }}>{bi('วันที่ / เวลา', 'Date / Time')}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '8px 6px', color: '#6b7280' }}>รับรถ</td>
+                  <td style={{ padding: '8px 6px', color: '#6b7280' }}>{bi('รับรถ', 'Pick-up')}</td>
                   <td style={{ padding: '8px 6px', textAlign: 'right' }}>{fmtDate(startDatetime)} · {fmtTime(startDatetime)} น.</td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '8px 6px', color: '#6b7280' }}>คืนรถ</td>
+                  <td style={{ padding: '8px 6px', color: '#6b7280' }}>{bi('คืนรถ', 'Return')}</td>
                   <td style={{ padding: '8px 6px', textAlign: 'right' }}>{fmtDate(endDatetime)} · {fmtTime(endDatetime)} น.</td>
                 </tr>
                 <tr>
-                  <td style={{ padding: '8px 6px', color: '#6b7280' }}>ระยะเวลา</td>
+                  <td style={{ padding: '8px 6px', color: '#6b7280' }}>{bi('ระยะเวลา', 'Duration')}</td>
                   <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 700 }}>{durationLabel}</td>
                 </tr>
               </tbody>
@@ -227,7 +229,7 @@ export default function BookingConfirmCard(props: Props) {
                 ...(isZame ? { background: `${ZAME.red}10`, border: `1.5px solid ${ZAME.red}`, borderRadius: '10px', padding: '10px 12px' } : {}),
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700, color: isZame ? ZAME.red : KUMA.red }}>
-                  <span>ราคาเช่า</span>
+                  <span>{bi('ราคาเช่า', 'Rental Price')}</span>
                   <span>฿{estimatedTotal.toLocaleString('th-TH')}</span>
                 </div>
                 <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
@@ -235,6 +237,12 @@ export default function BookingConfirmCard(props: Props) {
                     <>
                       ราคาแพ็คเกจรายเดือน — ค่าเช่าเท่านั้น ไม่รวมค่าบริการส่วนอื่น
                       {overtimeCharge > 0 && ` (รวมค่าล่วงเวลาเกินกำหนด ${excessHours} ชม. ฿${overtimeCharge.toLocaleString('th-TH')})`}
+                      {isZame && (
+                        <>
+                          <br />Monthly package price — rental fee only, other service fees not included
+                          {overtimeCharge > 0 && ` (incl. overtime ${excessHours} hr(s), ฿${overtimeCharge.toLocaleString('th-TH')})`}
+                        </>
+                      )}
                     </>
                   ) : (
                     <>
@@ -242,6 +250,14 @@ export default function BookingConfirmCard(props: Props) {
                       {overtimeCharge > 0 && ` + ค่าล่วงเวลา ${excessHours} ชม. ฿${overtimeCharge.toLocaleString('th-TH')}`}
                       {' '}— ค่าเช่าเท่านั้น ไม่รวมค่าบริการส่วนอื่น
                       {discountAmount > 0 && ` (ลดโปรโมชั่นแล้ว ฿${discountAmount.toLocaleString('th-TH')})`}
+                      {isZame && (
+                        <>
+                          <br />฿{dailyRate!.toLocaleString('th-TH')} × {totalDays} day(s)
+                          {overtimeCharge > 0 && ` + overtime ${excessHours} hr(s) ฿${overtimeCharge.toLocaleString('th-TH')}`}
+                          {' '}— rental fee only, other service fees not included
+                          {discountAmount > 0 && ` (promotion applied ฿${discountAmount.toLocaleString('th-TH')})`}
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -249,36 +265,36 @@ export default function BookingConfirmCard(props: Props) {
             )}
 
             {/* Customer */}
-            <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : KUMA.red, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>ข้อมูลผู้จอง</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : KUMA.red, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>{bi('ข้อมูลผู้จอง', 'Customer Info')}</div>
             <div style={{ marginBottom: '16px', fontSize: '12px', lineHeight: 1.9 }}>
-              <div><span style={{ color: '#6b7280' }}>ชื่อ: </span>{customerName}</div>
-              <div><span style={{ color: '#6b7280' }}>เบอร์โทร: </span>{customerPhone}</div>
-              {customerHotel && <div><span style={{ color: '#6b7280' }}>ที่พัก: </span>{customerHotel}</div>}
+              <div><span style={{ color: '#6b7280' }}>{bi('ชื่อ', 'Name')}: </span>{customerName}</div>
+              <div><span style={{ color: '#6b7280' }}>{bi('เบอร์โทร', 'Phone')}: </span>{customerPhone}</div>
+              {customerHotel && <div><span style={{ color: '#6b7280' }}>{bi('ที่พัก', 'Accommodation')}: </span>{customerHotel}</div>}
             </div>
 
             <div style={{ marginBottom: '16px', fontSize: '12px' }}>
-              <span style={{ color: '#6b7280' }}>วิธีรับรถ: </span>
+              <span style={{ color: '#6b7280' }}>{bi('วิธีรับรถ', 'Delivery')}: </span>
               {deliveryType === 'offsite'
-                ? `ส่งนอกสถานที่ — ${deliveryAddress || 'ไม่ระบุที่อยู่'}`
-                : 'รับหน้าร้าน'}
+                ? `${bi('ส่งนอกสถานที่', 'Off-site delivery')} — ${deliveryAddress || bi('ไม่ระบุที่อยู่', 'No address specified')}`
+                : bi('รับหน้าร้าน', 'Pick up at shop')}
             </div>
 
             {notes && (
               <div style={{ marginBottom: '16px', fontSize: '12px' }}>
-                <span style={{ color: '#6b7280' }}>หมายเหตุ: </span>{notes}
+                <span style={{ color: '#6b7280' }}>{bi('หมายเหตุ', 'Notes')}: </span>{notes}
               </div>
             )}
 
             {/* Footer */}
             <div style={{ borderTop: `1px solid ${isZame ? ZAME.yellow : KUMA.red}`, paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
               <div style={{ fontSize: '11px', color: '#6b7280', lineHeight: 1.7 }}>
-                {contactPhone && <div>โทร: {contactPhone}</div>}
+                {contactPhone && <div>{bi('โทร', 'Tel')}: {contactPhone}</div>}
                 {contactLine && <div>LINE: {contactLine}</div>}
               </div>
               <div style={isZame
                 ? { fontSize: '12px', padding: '4px 12px', background: ZAME.yellow, borderRadius: '20px', color: ZAME.black, fontWeight: 800 }
                 : { fontSize: '12px', padding: '4px 10px', border: `1px solid ${KUMA.red}`, borderRadius: '8px', color: KUMA.red, fontWeight: 700 }}>
-                ยืนยันแล้ว
+                {bi('ยืนยันแล้ว', 'Confirmed')}
               </div>
             </div>
           </div>

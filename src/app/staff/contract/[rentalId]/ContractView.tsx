@@ -18,9 +18,22 @@ const ZAME = { blue: '#1976D2', yellow: '#FFCB3E', red: '#D22524', black: '#0000
 const KUMA_LOGO_COLOR = 'https://wvpeivfzeijzurfohtjr.supabase.co/storage/v1/object/sign/rental-photo/brand-assets/kuma/kuma-logo-vertical-color.png?token=eyJraWQiOiJhZDlmOTQ5OS1jMGMzLTQ4NDYtYWFlZC02ZTJhNWM2NjU5N2IiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJyZW50YWwtcGhvdG8vYnJhbmQtYXNzZXRzL2t1bWEva3VtYS1sb2dvLXZlcnRpY2FsLWNvbG9yLnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTAxNzg4NDAsImV4cCI6MTk0Nzg1ODg0MH0.90Dza0BG1r7d4jRmTTxXvDrRWBZxGAvherP51Iw8JeU'
 const KUMA = { red: '#FF0000', black: '#2F302B', white: '#FFFFFF' }
 
+const TERMS_EN = [
+  'Service Area & Emergency Support Hours: The vehicle must not be taken beyond a 15 km radius from the shop under any circumstances. On-site emergency support is available only from 08:00–21:00. Late returns are charged 50 THB/hour. The vehicle must be returned within 09:00–20:00 only.',
+  'Insurance Status (No Voluntary Insurance): This rental vehicle has no voluntary insurance — only the mandatory Compulsory Motor Insurance (พ.ร.บ.) required by law, which covers basic medical expenses only and does not cover vehicle repair costs.',
+  "Liability for Accidents & Damage: The renter has inspected and confirms the vehicle is in good condition before pickup. In the event of an accident, damage, dents, scratches, or loss of the vehicle, the renter agrees to bear full responsibility for all resulting costs.",
+  'Fuel Policy (Gasohol 95 Only): The vehicle is provided with a full tank. On the return date, the renter must refill the tank to full using Gasohol 95 only. Using the wrong fuel type or failing to refill will result in a charge to the renter.',
+  'Contract Renewal: If the rental period ends but the renter transfers additional payment which the shop receives, this contract and its terms remain in effect for the extended period.',
+  'No Subletting & Lost Equipment: Subletting is not allowed and the vehicle may not be used for any commercial purpose — personal tourism use only. Penalty fees: standard key 500 THB / remote key 2,000 THB / helmet 250 THB each.',
+  'Pricing & Early Return: Weekly/monthly rates are a special one-time package price. If the vehicle is returned early, the charge will be recalculated at the normal daily rate for that model, with any remaining balance refunded (if applicable).',
+  "Maintenance & Tire Policy: The shop covers all engine issues. Flat tires due to old or worn tread are covered free of charge by the shop. Flat tires caused by sharp objects or rough terrain are the renter's responsibility to repair or replace.",
+]
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function ContractView({ rental, shop, branchName, theme = 'kuma' }: { rental: any; shop: any; branchName?: string | null; theme?: 'kuma' | 'zame' }) {
   const isZame = theme === 'zame'
+  // ZAME เจอลูกค้าต่างชาติเยอะ — ป้ายทุกจุดเลยขึ้นสองภาษา ไทย/อังกฤษ (KUMA ยังคงเป็นไทยล้วนเหมือนเดิม)
+  const bi = (th: string, en: string) => isZame ? `${th} / ${en}` : th
   const bike = rental.bikes ?? {}
   const customer = rental.customers ?? {}
   const lessor = Array.isArray(bike.lessor_profiles) ? bike.lessor_profiles[0] : bike.lessor_profiles
@@ -129,6 +142,9 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
           {/* Intro */}
           <p className="contract-intro" style={{ marginBottom: '10px', fontSize: '11.5px', color: '#333' }}>
             สัญญาฉบับนี้ทำขึ้นระหว่าง <strong>{lessorLabel}</strong>{shopAddress ? ` (${shopAddress})` : ''} ในฐานะ &quot;ผู้ให้เช่า&quot; กับผู้เช่าที่มีรายละเอียดดังต่อไปนี้:
+            {isZame && (
+              <><br /><em>This agreement is made between <strong>{lessorLabel}</strong>{shopAddress ? ` (${shopAddress})` : ''} as the &quot;Lessor&quot; and the renter with the following details:</em></>
+            )}
           </p>
 
           {/* Details table */}
@@ -137,17 +153,17 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
               <tr>
                 <td style={tdLabel}>ชื่อผู้เช่า / Name:</td>
                 <td style={tdValue}><strong>{customer.name ?? '—'}</strong></td>
-                <td style={tdLabel}>บัตร/พาสปอร์ต:</td>
+                <td style={tdLabel}>{bi('บัตร/พาสปอร์ต', 'ID/Passport')}:</td>
                 <td style={tdValue}>{customer.phone ?? '—'}</td>
               </tr>
               <tr>
                 <td style={tdLabel}>เบอร์โทร / Tel:</td>
                 <td style={tdValue}>{customer.phone ?? '—'}</td>
-                <td style={tdLabel}>ที่อยู่/โรงแรม:</td>
+                <td style={tdLabel}>{bi('ที่อยู่/โรงแรม', 'Address/Hotel')}:</td>
                 <td style={tdValue}>{customer.workplace ?? '—'}</td>
               </tr>
               <tr>
-                <td style={tdLabel}>รถทะเบียน:</td>
+                <td style={tdLabel}>{bi('รถทะเบียน', 'License Plate')}:</td>
                 <td style={tdValue}><strong>{bike.license_plate ?? '—'}</strong></td>
                 <td style={tdLabel}>รุ่น / Model:</td>
                 <td style={tdValue}>{bike.brand ?? ''} {bike.model ?? ''}</td>
@@ -191,7 +207,12 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
             <p style={{ margin: '0 0 5px' }}><strong>5. การต่ออายุสัญญาเช่า:</strong> หากสิ้นสุดกำหนดเวลาแต่ผู้เช่ามีการโอนเงินชำระค่าเช่าต่อเวลาและร้านได้รับแล้ว ให้ถือว่าสัญญาและเงื่อนไขฉบับนี้ยังมีผลบังคับใช้ต่อไปตลอดระยะเวลาที่ต่ออายุนั้น</p>
             <p style={{ margin: '0 0 5px' }}><strong>6. ข้อห้ามเช่าช่วงและอุปกรณ์สูญหาย:</strong> ไม่อนุญาตให้เช่าช่วง และห้ามใช้งานเชิงพาณิชย์ทุกประเภท ใช้เพื่อการท่องเที่ยวส่วนบุคคลเท่านั้น ค่าปรับ: กุญแจธรรมดา 500 บ. / รีโมท 2,000 บ. / หมวกกันน็อค 250 บ./ใบ</p>
             <p style={{ margin: '0 0 5px' }}><strong>7. เงื่อนไขราคาและการคืนรถก่อนกำหนด:</strong> ราคารายสัปดาห์/รายเดือนเป็นราคาเหมาจ่ายพิเศษ ชำระครั้งเดียว หากคืนรถก่อนกำหนดจะคำนวณตามราคารายวันปกติของรถรุ่นนั้นๆ ตามจริงและคืนส่วนที่เหลือ (ถ้ามี)</p>
-            <p style={{ margin: '0' }}><strong>8. การบำรุงรักษาและนโยบายเรื่องยาง:</strong> ร้านดูแลปัญหาเครื่องยนต์ทั้งหมด ยางแบนจากสภาพเก่าหรือดอกหมด ร้านรับผิดชอบ (เปลี่ยนฟรี) ยางแบนจากของแหลมหรือขีบในพื้นที่ขรุขระ ผู้เช่ารับผิดชอบค่าปะ/เปลี่ยนยางเอง</p>
+            <p style={{ margin: isZame ? '0 0 5px' : '0' }}><strong>8. การบำรุงรักษาและนโยบายเรื่องยาง:</strong> ร้านดูแลปัญหาเครื่องยนต์ทั้งหมด ยางแบนจากสภาพเก่าหรือดอกหมด ร้านรับผิดชอบ (เปลี่ยนฟรี) ยางแบนจากของแหลมหรือขีบในพื้นที่ขรุขระ ผู้เช่ารับผิดชอบค่าปะ/เปลี่ยนยางเอง</p>
+            {isZame && TERMS_EN.map((t, i) => (
+              <p key={i} style={{ margin: i === TERMS_EN.length - 1 ? '0' : '0 0 5px', fontStyle: 'italic', color: '#555' }}>
+                <strong>{i + 1}. </strong>{t}
+              </p>
+            ))}
           </div>
 
           {/* Fuel gauge */}
@@ -217,7 +238,7 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
                 fontSize: '11px', fontWeight: 700, color: '#111',
                 background: '#fff', border: '0.5px solid #ccc', borderRadius: '6px', padding: '2px 10px',
               }}>{fuelLevel}/8</div>
-              <div style={{ fontSize: '11px', color: '#555' }}>☑ รับรถ &nbsp; ☐ คืนรถ</div>
+              <div style={{ fontSize: '11px', color: '#555' }}>☑ {bi('รับรถ', 'Pick-up')} &nbsp; ☐ {bi('คืนรถ', 'Return')}</div>
             </div>
           )}
 
@@ -249,7 +270,7 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
                   background: '#fafafa', border: '0.5px dashed #ccc', borderRadius: '6px',
                   height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <span style={{ fontSize: '11px', color: '#bbb' }}>ไม่มีลายเซ็น</span>
+                  <span style={{ fontSize: '11px', color: '#bbb' }}>{bi('ไม่มีลายเซ็น', 'No signature')}</span>
                 </div>
               )}
               <div style={{ fontSize: '11px', color: '#555', marginTop: '6px', textAlign: 'center' }}>
@@ -273,7 +294,7 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
                   background: '#fafafa', border: '0.5px dashed #ccc', borderRadius: '6px',
                   height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <span style={{ fontSize: '11px', color: '#bbb' }}>ลายเซ็นพนักงาน</span>
+                  <span style={{ fontSize: '11px', color: '#bbb' }}>{bi('ลายเซ็นพนักงาน', 'Staff signature')}</span>
                 </div>
               )}
               <div style={{ fontSize: '11px', color: '#555', marginTop: '6px', textAlign: 'center' }}>
@@ -284,7 +305,7 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
 
           {/* Footer */}
           <div style={{ fontSize: '11px', color: '#888', textAlign: 'center' }}>
-            ★ เวลาทำการรับ-คืนรถ: 09.00 – 20.00 น. ★{shopPhone ? `  |  โทร ${shopPhone}` : ''}
+            ★ {bi('เวลาทำการรับ-คืนรถ', 'Business hours')}: 09.00 – 20.00 น. ★{shopPhone ? `  |  ${bi('โทร', 'Tel')} ${shopPhone}` : ''}
           </div>
 
         </div>
