@@ -73,7 +73,7 @@ export default async function MonthlyInvoicePage({ params }: { params: Promise<{
   // สาขาตั้งชื่อร้าน/ที่อยู่/เบอร์/โลโก้ ในใบเสร็จเองได้ — ไม่ตั้งค่าใช้ของร้านกลางแทน
   const { data: branchReceipt } = await supabase
     .from('branch_settings')
-    .select('receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url')
+    .select('receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url, document_theme')
     .eq('branch_id', rental.branch_id)
     .maybeSingle()
   const resolvedShop = {
@@ -83,6 +83,7 @@ export default async function MonthlyInvoicePage({ params }: { params: Promise<{
     phone: branchReceipt?.receipt_phone || shop?.phone,
     logo_url: branchReceipt?.receipt_logo_url || shop?.logo_url,
   }
+  const theme = branchReceipt?.document_theme === 'zame' ? 'zame' : 'kuma'
 
   const bike = rental.bikes
   const bikeLine = bike
@@ -121,6 +122,7 @@ export default async function MonthlyInvoicePage({ params }: { params: Promise<{
       shop={resolvedShop}
       contractType="monthly"
       contractId={payment.monthly_rental_id}
+      theme={theme}
     />
   )
 }

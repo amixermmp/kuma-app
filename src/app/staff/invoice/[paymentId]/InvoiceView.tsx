@@ -40,7 +40,11 @@ type Props = {
   shop: Shop
   contractType: 'rental' | 'monthly'
   contractId: string
+  theme?: 'kuma' | 'zame'
 }
+
+const ZAME_LOGO_WHITE = 'https://wvpeivfzeijzurfohtjr.supabase.co/storage/v1/object/sign/rental-photo/brand-assets/zame/zame-logo-vertical-white.png?token=eyJraWQiOiJhZDlmOTQ5OS1jMGMzLTQ4NDYtYWFlZC02ZTJhNWM2NjU5N2IiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJyZW50YWwtcGhvdG8vYnJhbmQtYXNzZXRzL3phbWUvemFtZS1sb2dvLXZlcnRpY2FsLXdoaXRlLnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTAxNzY0NjUsImV4cCI6MTk0Nzg1NjQ2NX0.9i9Ljixdqv9HudEYPzdAe8GVpC27McCjB393Bqt1D10'
+const ZAME = { blue: '#1976D2', yellow: '#FFCB3E', red: '#D22524', black: '#000000' }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
@@ -56,7 +60,8 @@ const PAYMENT_LABEL: Record<string, string> = {
   cash: 'เงินสด',
 }
 
-export default function InvoiceView({ payment, customer, shop, contractType, contractId }: Props) {
+export default function InvoiceView({ payment, customer, shop, contractType, contractId, theme = 'kuma' }: Props) {
+  const isZame = theme === 'zame'
   const grandTotal = payment.amount + payment.depositAmount
   const vatRate = 0.07
   const baseAmount = grandTotal / (1 + vatRate)
@@ -132,14 +137,18 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
 
             {/* Header bar */}
             <div style={{
-              background: '#111827', color: '#fff', padding: '20px',
+              background: isZame ? ZAME.blue : '#111827', color: '#fff', padding: '20px',
               display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+              ...(isZame ? { borderBottom: `5px solid ${ZAME.yellow}` } : {}),
             }}>
               <div>
                 <div style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '1px' }}>RECEIPT</div>
                 <div style={{ fontSize: '13px', opacity: 0.85, marginTop: '2px' }}>ใบเสร็จรับเงิน</div>
               </div>
-              {shop.logo_url ? (
+              {isZame ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={ZAME_LOGO_WHITE} alt={shopName} style={{ width: '72px', height: '72px', objectFit: 'contain' }} />
+              ) : shop.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={shop.logo_url} alt={shopName} style={{
                   width: '84px', height: '84px', objectFit: 'contain',
@@ -173,12 +182,12 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
                 </div>
               </div>
 
-              <div style={{ borderTop: '2px solid #111827', marginBottom: '12px' }} />
+              <div style={{ borderTop: `2px solid ${isZame ? ZAME.blue : '#111827'}`, marginBottom: '12px' }} />
 
               {/* Items table */}
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '16px' }}>
                 <thead>
-                  <tr style={{ background: '#f3f4f6', borderBottom: '1px solid #d1d5db' }}>
+                  <tr style={{ background: isZame ? `${ZAME.yellow}33` : '#f3f4f6', borderBottom: `1px solid ${isZame ? ZAME.yellow : '#d1d5db'}` }}>
                     <th style={{ padding: '8px 6px', textAlign: 'center', width: '32px' }}>ลำดับ</th>
                     <th style={{ padding: '8px 6px', textAlign: 'left' }}>รายการ</th>
                     {hasQty && <th style={{ padding: '8px 6px', textAlign: 'center' }}>จำนวน</th>}
@@ -233,7 +242,8 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
                   )}
                   <div style={{
                     display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: 800,
-                    borderTop: '2px solid #111827', paddingTop: '8px', marginTop: '4px', color: '#111827',
+                    borderTop: `2px solid ${isZame ? ZAME.blue : '#111827'}`, paddingTop: '8px', marginTop: '4px',
+                    color: isZame ? ZAME.blue : '#111827',
                   }}>
                     <span>รวมเป็นเงินทั้งสิ้น</span>
                     <span>{grandTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
@@ -311,7 +321,7 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
             onClick={handlePrint}
             className="no-print"
             style={{
-              width: '100%', background: '#111827', color: '#fff', border: 'none',
+              width: '100%', background: isZame ? ZAME.blue : '#111827', color: '#fff', border: 'none',
               borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
               cursor: 'pointer', marginBottom: '80px',
             }}
