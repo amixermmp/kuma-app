@@ -145,6 +145,9 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
       )}
 
       <div style={{ padding: '10px' }}>
+        {photo.processedUrl && !adjusting && (
+          <div style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center', marginBottom: '8px' }}>กดค้างที่รูปเพื่อบันทึกลงเครื่องได้เลย</div>
+        )}
         <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '8px' }}>{fmtDate(photo.createdAt)}</div>
         {error && <div style={{ fontSize: '11px', color: '#dc2626', marginBottom: '8px' }}>{error}</div>}
 
