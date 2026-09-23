@@ -175,6 +175,12 @@ function BranchLineRow({ branch }: { branch: Branch }) {
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState('')
 
+  const [showWhatsapp, setShowWhatsapp] = useState(false)
+  const [waQrUrl, setWaQrUrl] = useState(branch.whatsappQrUrl ?? '')
+  const [waNumber, setWaNumber] = useState(branch.whatsappNumber ?? '')
+  const [waUploading, setWaUploading] = useState(false)
+  const [waMsg, setWaMsg] = useState('')
+
   const save = async (fields: { line_qr_url?: string; line_id?: string }) => {
     const res = await fetch('/api/owner/settings/branch-line-qr', {
       method: 'POST',
@@ -206,6 +212,40 @@ function BranchLineRow({ branch }: { branch: Branch }) {
       setTimeout(() => setMsg(''), 3000)
     } finally {
       setUploading(false)
+    }
+  }
+
+  const saveWhatsapp = async (fields: { whatsapp_qr_url?: string; whatsapp_number?: string }) => {
+    const res = await fetch('/api/owner/settings/branch-whatsapp-qr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        branch_id: branch.id,
+        whatsapp_qr_url: waQrUrl,
+        whatsapp_number: waNumber,
+        ...fields,
+      }),
+    })
+    setWaMsg(res.ok ? '✅ บันทึกแล้ว' : '❌ เกิดข้อผิดพลาด')
+    setTimeout(() => setWaMsg(''), 3000)
+  }
+
+  const uploadWhatsapp = async (file: File) => {
+    setWaUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', 'branch-whatsapp-qr')
+      const res = await fetch('/api/owner/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setWaQrUrl(data.url)
+      await saveWhatsapp({ whatsapp_qr_url: data.url })
+    } catch (e) {
+      setWaMsg('❌ ' + (e instanceof Error ? e.message : 'อัพโหลดไม่สำเร็จ'))
+      setTimeout(() => setWaMsg(''), 3000)
+    } finally {
+      setWaUploading(false)
     }
   }
 
@@ -252,6 +292,61 @@ function BranchLineRow({ branch }: { branch: Branch }) {
           💾
         </button>
       </div>
+
+      <button
+        onClick={() => setShowWhatsapp(v => !v)}
+        style={{
+          background: 'none', border: 'none', color: '#6b7280', fontSize: '12px', fontWeight: 600,
+          cursor: 'pointer', padding: '10px 0 0', display: 'flex', alignItems: 'center', gap: '4px',
+        }}
+      >
+        {showWhatsapp ? '▲' : '▼'} WhatsApp QR
+      </button>
+
+      {showWhatsapp && (
+        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #e5e7eb' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+            {waMsg && <span style={{ fontSize: '12px', color: waMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{waMsg}</span>}
+          </div>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>QR WhatsApp ร้าน</div>
+              {waQrUrl ? (
+                <div style={{ position: 'relative' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={waQrUrl} alt="QR WhatsApp" style={{ width: '100%', height: '90px', objectFit: 'contain', background: '#f3f4f6', borderRadius: '8px' }} />
+                  <label style={{
+                    position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(17,24,39,.8)', color: '#fff',
+                    fontSize: '11px', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
+                  }}>
+                    {waUploading ? '...' : 'เปลี่ยน'}
+                    <input type="file" accept="image/*" style={{ display: 'none' }}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadWhatsapp(f) }} />
+                  </label>
+                </div>
+              ) : (
+                <label style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', height: '90px',
+                  border: '1.5px dashed #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: '#9ca3af',
+                }}>
+                  {waUploading ? 'กำลังอัพโหลด...' : '+ อัพโหลด'}
+                  <input type="file" accept="image/*" style={{ display: 'none' }}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadWhatsapp(f) }} />
+                </label>
+              )}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>เบอร์ WhatsApp</div>
+              <input className="field-input" value={waNumber} onChange={e => setWaNumber(e.target.value)} placeholder="66812345678" />
+            </div>
+            <button onClick={() => saveWhatsapp({})} className="btn" style={{ padding: '10px 14px', fontSize: '12px', width: 'auto' }}>
+              💾
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

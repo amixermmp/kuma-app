@@ -15,7 +15,7 @@ export default async function ShopSettingsPage() {
   const [shopRes, branchRes, branchSettingsRes] = await Promise.all([
     admin.from('shop_settings').select('*').limit(1).maybeSingle(),
     admin.from('branches').select('id, name').order('name'),
-    admin.from('branch_settings').select('branch_id, close_time_earliest, payment_qr_daily_url, payment_qr_monthly_url, line_qr_url, line_id, receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url, student_promo_university, document_theme'),
+    admin.from('branch_settings').select('branch_id, close_time_earliest, payment_qr_daily_url, payment_qr_monthly_url, line_qr_url, line_id, whatsapp_qr_url, whatsapp_number, receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url, student_promo_university, document_theme'),
   ])
 
   const settingsMap = new Map((branchSettingsRes.data ?? []).map(b => [b.branch_id, b]))
@@ -28,6 +28,8 @@ export default async function ShopSettingsPage() {
       paymentQrMonthlyUrl: s?.payment_qr_monthly_url ?? null,
       lineQrUrl: s?.line_qr_url ?? null,
       lineId: s?.line_id ?? null,
+      whatsappQrUrl: s?.whatsapp_qr_url ?? null,
+      whatsappNumber: s?.whatsapp_number ?? null,
       receiptShopName: s?.receipt_shop_name ?? null,
       receiptAddress: s?.receipt_address ?? null,
       receiptPhone: s?.receipt_phone ?? null,

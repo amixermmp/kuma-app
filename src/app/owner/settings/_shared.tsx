@@ -10,6 +10,8 @@ export type Branch = {
   paymentQrMonthlyUrl?: string | null
   lineQrUrl?: string | null
   lineId?: string | null
+  whatsappQrUrl?: string | null
+  whatsappNumber?: string | null
   receiptShopName?: string | null
   receiptAddress?: string | null
   receiptPhone?: string | null
