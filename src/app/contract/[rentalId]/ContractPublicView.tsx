@@ -11,8 +11,12 @@ function fmtTime(iso: string) {
   })
 }
 
+const ZAME_LOGO_COLOR = 'https://wvpeivfzeijzurfohtjr.supabase.co/storage/v1/object/sign/rental-photo/brand-assets/zame/zame-logo-vertical-color.png?token=eyJraWQiOiJhZDlmOTQ5OS1jMGMzLTQ4NDYtYWFlZC02ZTJhNWM2NjU5N2IiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJyZW50YWwtcGhvdG8vYnJhbmQtYXNzZXRzL3phbWUvemFtZS1sb2dvLXZlcnRpY2FsLWNvbG9yLnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTAxNzY0NjUsImV4cCI6MTk0Nzg1NjQ2NX0.E5XYyO5eehTlkjfi2BZmFUCwrvKCq868MvFQj8gOvWA'
+const ZAME = { blue: '#1976D2', yellow: '#FFCB3E', red: '#D22524', black: '#000000' }
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ContractPublicView({ rental, shop, branchName }: { rental: any; shop: any; branchName?: string | null }) {
+export default function ContractPublicView({ rental, shop, branchName, theme = 'kuma' }: { rental: any; shop: any; branchName?: string | null; theme?: 'kuma' | 'zame' }) {
+  const isZame = theme === 'zame'
   const bike = rental.bikes ?? {}
   const customer = rental.customers ?? {}
   const lessor = Array.isArray(bike.lessor_profiles) ? bike.lessor_profiles[0] : bike.lessor_profiles
@@ -56,14 +60,14 @@ export default function ContractPublicView({ rental, shop, branchName }: { renta
 
       {/* Top bar */}
       <div className="no-print" style={{
-        background: '#4f46e5', padding: '12px 16px',
+        background: isZame ? ZAME.blue : '#4f46e5', padding: '12px 16px',
         display: 'flex', alignItems: 'center', gap: '10px',
       }}>
         <span style={{ color: '#fff', fontWeight: 700, fontSize: '15px', flex: 1 }}>📄 สัญญาเช่ารถ — {shopLine}</span>
         <button
           onClick={() => window.print()}
           style={{
-            background: '#fff', color: '#4f46e5', border: 'none', borderRadius: '8px',
+            background: '#fff', color: isZame ? ZAME.blue : '#4f46e5', border: 'none', borderRadius: '8px',
             padding: '8px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer',
           }}
         >
@@ -76,15 +80,19 @@ export default function ContractPublicView({ rental, shop, branchName }: { renta
           background: '#fff', borderRadius: '12px', maxWidth: '540px',
           margin: '0 auto', padding: '24px',
           boxShadow: '0 1px 4px rgba(0,0,0,.1)', fontSize: '12px', lineHeight: 1.6, color: '#111',
+          ...(isZame ? { borderTop: `4px solid ${ZAME.blue}` } : {}),
         }}>
 
           {/* Header */}
-          <div className="contract-header" style={{ textAlign: 'center', borderBottom: '1.5px solid #111', paddingBottom: '10px', marginBottom: '12px' }}>
-            {shop.logo_url && (
+          <div className="contract-header" style={{ textAlign: 'center', borderBottom: `1.5px solid ${isZame ? ZAME.blue : '#111'}`, paddingBottom: '10px', marginBottom: '12px' }}>
+            {isZame ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="contract-logo" src={ZAME_LOGO_COLOR} alt={shopName} style={{ width: '90px', height: '90px', objectFit: 'contain', margin: '0 auto 8px' }} />
+            ) : shop.logo_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img className="contract-logo" src={shop.logo_url} alt={shopName} style={{ width: '110px', height: '110px', objectFit: 'contain', margin: '0 auto 8px' }} />
             )}
-            <div style={{ fontSize: '15px', fontWeight: 700 }}>สัญญาเช่ารถมอเตอร์ไซค์ / HIRING AGREEMENT MOTOR BIKE</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: isZame ? ZAME.blue : '#111' }}>สัญญาเช่ารถมอเตอร์ไซค์ / HIRING AGREEMENT MOTOR BIKE</div>
             <div style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>{shopLine}</div>
           </div>
 
@@ -140,7 +148,7 @@ export default function ContractPublicView({ rental, shop, branchName }: { renta
             </tbody>
           </table>
 
-          <div className="contract-terms-title" style={{ fontWeight: 700, fontSize: '12px', borderBottom: '0.5px solid #ccc', paddingBottom: '4px', marginBottom: '8px' }}>
+          <div className="contract-terms-title" style={{ fontWeight: 700, fontSize: '12px', borderBottom: `0.5px solid ${isZame ? ZAME.yellow : '#ccc'}`, paddingBottom: '4px', marginBottom: '8px', color: isZame ? ZAME.blue : '#111' }}>
             เงื่อนไขข้อตกลงการเช่า / RENTAL TERMS &amp; CONDITIONS
           </div>
 

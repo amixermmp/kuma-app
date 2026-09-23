@@ -37,7 +37,11 @@ type Props = {
   shop: Shop
   contactPhone: string | null
   contactLine: string | null
+  theme?: 'kuma' | 'zame'
 }
+
+const ZAME_LOGO_WHITE = 'https://wvpeivfzeijzurfohtjr.supabase.co/storage/v1/object/sign/rental-photo/brand-assets/zame/zame-logo-vertical-white.png?token=eyJraWQiOiJhZDlmOTQ5OS1jMGMzLTQ4NDYtYWFlZC02ZTJhNWM2NjU5N2IiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJyZW50YWwtcGhvdG8vYnJhbmQtYXNzZXRzL3phbWUvemFtZS1sb2dvLXZlcnRpY2FsLXdoaXRlLnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTAxNzY0NjUsImV4cCI6MTk0Nzg1NjQ2NX0.9i9Ljixdqv9HudEYPzdAe8GVpC27McCjB393Bqt1D10'
+const ZAME = { blue: '#1976D2', yellow: '#FFCB3E', red: '#D22524', black: '#000000' }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
@@ -54,7 +58,8 @@ function fmtTime(iso: string) {
 export default function BookingConfirmCard(props: Props) {
   const { bookingRef, createdAt, startDatetime, endDatetime, totalDays, dailyRate, totalAmount, displayBrand, displayModel,
     bike, customerName, customerPhone, customerHotel, deliveryType, deliveryAddress, notes,
-    shop, contactPhone, contactLine } = props
+    shop, contactPhone, contactLine, theme = 'kuma' } = props
+  const isZame = theme === 'zame'
 
   // >= 30 วัน = แพ็คเกจรายเดือน (คิดเป็นเดือนปฏิทิน ไม่ใช่ราคา/วัน x จำนวนวัน) — เทียบกับราคา/วันตรงๆ จะดูเหมือนลดเว่อร์เกินจริง
   const isMonthlyPackage = totalDays >= 30
@@ -119,37 +124,56 @@ export default function BookingConfirmCard(props: Props) {
         <div ref={cardRef} className="card" style={{ padding: 0, overflow: 'hidden', fontSize: '13px' }}>
 
           {/* Header bar */}
-          <div style={{
-            background: '#111827', color: '#fff', padding: '20px',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-          }}>
-            <div>
-              <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '1px' }}>BOOKING</div>
-              <div style={{ fontSize: '13px', opacity: 0.85, marginTop: '2px' }}>ใบยืนยันการจอง</div>
-            </div>
-            {shop.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={shop.logo_url} alt={shop.shop_name} crossOrigin="anonymous" style={{
-                width: '68px', height: '68px', objectFit: 'contain',
-                background: '#fff', borderRadius: '8px', padding: '4px',
-              }} />
-            ) : (
+          {isZame ? (
+            <div style={{
+              background: ZAME.blue, color: '#fff', padding: '20px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              borderBottom: `6px solid ${ZAME.yellow}`, position: 'relative', overflow: 'hidden',
+            }}>
               <div style={{
-                width: '52px', height: '52px', border: '1px dashed rgba(255,255,255,.4)',
-                borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '10px', color: 'rgba(255,255,255,.6)',
-              }}>
-                LOGO
+                position: 'absolute', top: 0, right: 0, width: '90px', height: '90px',
+                background: ZAME.red, borderRadius: '0 0 0 100%', opacity: 0.5,
+              }} />
+              <div style={{ position: 'relative' }}>
+                <div style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '1px', fontStyle: 'italic' }}>BOOKING!</div>
+                <div style={{ fontSize: '13px', opacity: 0.9, marginTop: '2px', fontWeight: 700 }}>ใบยืนยันการจอง</div>
               </div>
-            )}
-          </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={ZAME_LOGO_WHITE} alt="ZAME" crossOrigin="anonymous" style={{ width: '64px', height: '64px', objectFit: 'contain', position: 'relative' }} />
+            </div>
+          ) : (
+            <div style={{
+              background: '#111827', color: '#fff', padding: '20px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+            }}>
+              <div>
+                <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '1px' }}>BOOKING</div>
+                <div style={{ fontSize: '13px', opacity: 0.85, marginTop: '2px' }}>ใบยืนยันการจอง</div>
+              </div>
+              {shop.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={shop.logo_url} alt={shop.shop_name} crossOrigin="anonymous" style={{
+                  width: '68px', height: '68px', objectFit: 'contain',
+                  background: '#fff', borderRadius: '8px', padding: '4px',
+                }} />
+              ) : (
+                <div style={{
+                  width: '52px', height: '52px', border: '1px dashed rgba(255,255,255,.4)',
+                  borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '10px', color: 'rgba(255,255,255,.6)',
+                }}>
+                  LOGO
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ padding: '20px' }}>
 
             {/* Branch + booking meta */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', fontSize: '12px', lineHeight: 1.9 }}>
               <div>
-                <div style={{ fontWeight: 700, color: '#111827' }}>{shop.shop_name}</div>
+                <div style={{ fontWeight: 700, color: isZame ? ZAME.blue : '#111827' }}>{shop.shop_name}</div>
                 {shop.phone && <div style={{ color: '#6b7280' }}>{shop.phone}</div>}
                 {shop.address && <div style={{ color: '#6b7280' }}>{shop.address}</div>}
               </div>
@@ -159,10 +183,10 @@ export default function BookingConfirmCard(props: Props) {
               </div>
             </div>
 
-            <div style={{ borderTop: '2px solid #111827', marginBottom: '12px' }} />
+            <div style={{ borderTop: `2px solid ${isZame ? ZAME.yellow : '#111827'}`, marginBottom: '12px' }} />
 
             {/* Bike */}
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#111827', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>รถที่จอง</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : '#111827', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>รถที่จอง</div>
             <div style={{ marginBottom: '16px', fontSize: '13px', lineHeight: 1.8 }}>
               <div style={{ fontWeight: 700 }}>{displayBrand} {displayModel}</div>
               {bike ? (
@@ -179,7 +203,7 @@ export default function BookingConfirmCard(props: Props) {
             {/* Schedule table */}
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '16px' }}>
               <thead>
-                <tr style={{ background: '#f3f4f6', borderBottom: '1px solid #d1d5db' }}>
+                <tr style={{ background: isZame ? `${ZAME.yellow}33` : '#f3f4f6', borderBottom: `1px solid ${isZame ? ZAME.yellow : '#d1d5db'}` }}>
                   <th style={{ padding: '8px 6px', textAlign: 'left' }}>กำหนดการ</th>
                   <th style={{ padding: '8px 6px', textAlign: 'right' }}>วันที่ / เวลา</th>
                 </tr>
@@ -201,8 +225,11 @@ export default function BookingConfirmCard(props: Props) {
             </table>
 
             {estimatedTotal != null && (
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+              <div style={{
+                marginBottom: '16px',
+                ...(isZame ? { background: `${ZAME.red}10`, border: `1.5px solid ${ZAME.red}`, borderRadius: '10px', padding: '10px 12px' } : {}),
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700, color: isZame ? ZAME.red : '#111827' }}>
                   <span>ราคาเช่า</span>
                   <span>฿{estimatedTotal.toLocaleString('th-TH')}</span>
                 </div>
@@ -225,7 +252,7 @@ export default function BookingConfirmCard(props: Props) {
             )}
 
             {/* Customer */}
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#111827', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>ข้อมูลผู้จอง</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : '#111827', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>ข้อมูลผู้จอง</div>
             <div style={{ marginBottom: '16px', fontSize: '12px', lineHeight: 1.9 }}>
               <div><span style={{ color: '#6b7280' }}>ชื่อ: </span>{customerName}</div>
               <div><span style={{ color: '#6b7280' }}>เบอร์โทร: </span>{customerPhone}</div>
@@ -246,12 +273,14 @@ export default function BookingConfirmCard(props: Props) {
             )}
 
             {/* Footer */}
-            <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+            <div style={{ borderTop: `1px solid ${isZame ? ZAME.yellow : '#e5e7eb'}`, paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
               <div style={{ fontSize: '11px', color: '#6b7280', lineHeight: 1.7 }}>
                 {contactPhone && <div>โทร: {contactPhone}</div>}
                 {contactLine && <div>LINE: {contactLine}</div>}
               </div>
-              <div style={{ fontSize: '12px', padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: '8px', color: '#111827' }}>
+              <div style={isZame
+                ? { fontSize: '12px', padding: '4px 12px', background: ZAME.yellow, borderRadius: '20px', color: ZAME.black, fontWeight: 800 }
+                : { fontSize: '12px', padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: '8px', color: '#111827' }}>
                 ยืนยันแล้ว
               </div>
             </div>

@@ -35,7 +35,7 @@ export default async function BookingConfirmPage({ params }: { params: { bikeId:
     // สาขาตั้งชื่อร้าน/ที่อยู่/เบอร์/โลโก้ ในใบเสร็จเองได้ — ใบจองใช้ข้อมูลเดียวกันนี้
     supabase
       .from('branch_settings')
-      .select('receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url')
+      .select('receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url, document_theme')
       .eq('branch_id', BRANCH_ID)
       .maybeSingle(),
   ])
@@ -86,6 +86,7 @@ export default async function BookingConfirmPage({ params }: { params: { bikeId:
         shop={resolvedShop}
         contactPhone={settings?.contact_phone ?? null}
         contactLine={settings?.contact_line ?? null}
+        theme={branchReceipt?.document_theme === 'zame' ? 'zame' : 'kuma'}
       />
     </div>
   )

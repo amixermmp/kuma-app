@@ -64,7 +64,7 @@ export default async function PublicContractPage({ params }: { params: Promise<{
   const [{ data: branch }, { data: branchReceipt }] = await Promise.all([
     supabase.from('branches').select('name').eq('id', rental.branch_id).maybeSingle(),
     supabase.from('branch_settings')
-      .select('receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url')
+      .select('receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url, document_theme')
       .eq('branch_id', rental.branch_id)
       .maybeSingle(),
   ])
@@ -74,6 +74,7 @@ export default async function PublicContractPage({ params }: { params: Promise<{
     phone: branchReceipt?.receipt_phone || shop?.phone,
     logo_url: branchReceipt?.receipt_logo_url || null,
   }
+  const theme = branchReceipt?.document_theme === 'zame' ? 'zame' : 'kuma'
 
-  return <ContractPublicView rental={rental} shop={resolvedShop} branchName={branch?.name ?? null} />
+  return <ContractPublicView rental={rental} shop={resolvedShop} branchName={branch?.name ?? null} theme={theme} />
 }

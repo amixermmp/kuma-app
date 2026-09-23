@@ -262,10 +262,11 @@ function BranchReceiptRow({ branch }: { branch: Branch }) {
   const [phone, setPhone] = useState(branch.receiptPhone ?? '')
   const [logoUrl, setLogoUrl] = useState(branch.receiptLogoUrl ?? '')
   const [logoUploading, setLogoUploading] = useState(false)
+  const [documentTheme, setDocumentTheme] = useState(branch.documentTheme ?? 'kuma')
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
 
-  const save = async (overrideLogoUrl?: string) => {
+  const save = async (overrideLogoUrl?: string, overrideTheme?: string) => {
     setLoading(true)
     const res = await fetch('/api/owner/settings/branch-receipt', {
       method: 'POST',
@@ -276,6 +277,7 @@ function BranchReceiptRow({ branch }: { branch: Branch }) {
         receipt_address: address,
         receipt_phone: phone,
         receipt_logo_url: overrideLogoUrl ?? logoUrl,
+        document_theme: overrideTheme ?? documentTheme,
       }),
     })
     setLoading(false)
@@ -333,6 +335,13 @@ function BranchReceiptRow({ branch }: { branch: Branch }) {
       </Field>
       <Field label="เบอร์โทรในใบเสร็จ" hint="ว่าง = ใช้เบอร์กลาง">
         <input className="field-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="038-000-000" />
+      </Field>
+      <Field label="สไตล์ใบจอง/สัญญาเช่า" hint="กำหนดหน้าตาใบจองที่ส่งลูกค้า + สัญญาเช่าที่พิมพ์ของสาขานี้">
+        <select className="field-input" value={documentTheme}
+          onChange={e => { const v = e.target.value; setDocumentTheme(v); save(undefined, v) }}>
+          <option value="kuma">KUMA (ดำ-แดง)</option>
+          <option value="zame">ZAME (น้ำเงิน-เหลือง-ฉลาม)</option>
+        </select>
       </Field>
       <button onClick={() => save()} disabled={loading} className="btn" style={{ width: '100%' }}>
         {loading ? '⏳' : '💾 บันทึก'}

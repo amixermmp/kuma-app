@@ -15,6 +15,7 @@ export type Branch = {
   receiptPhone?: string | null
   receiptLogoUrl?: string | null
   studentPromoUniversity?: string | null
+  documentTheme?: string | null
 }
 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {

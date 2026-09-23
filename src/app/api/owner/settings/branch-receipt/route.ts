@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { branch_id, receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url } = await request.json()
+  const { branch_id, receipt_shop_name, receipt_address, receipt_phone, receipt_logo_url, document_theme } = await request.json()
   if (!branch_id) return NextResponse.json({ error: 'Missing branch' }, { status: 400 })
 
   const admin = createAdminClient()
@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     receipt_address: receipt_address?.trim() || null,
     receipt_phone: receipt_phone?.trim() || null,
     receipt_logo_url: receipt_logo_url || null,
+    ...(document_theme === 'kuma' || document_theme === 'zame' ? { document_theme } : {}),
   }
 
   const { error } = existing
