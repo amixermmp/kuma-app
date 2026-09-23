@@ -15,6 +15,8 @@ function fmtTime(iso: string) {
 
 const ZAME_LOGO_COLOR = 'https://wvpeivfzeijzurfohtjr.supabase.co/storage/v1/object/sign/rental-photo/brand-assets/zame/zame-logo-vertical-color.png?token=eyJraWQiOiJhZDlmOTQ5OS1jMGMzLTQ4NDYtYWFlZC02ZTJhNWM2NjU5N2IiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJyZW50YWwtcGhvdG8vYnJhbmQtYXNzZXRzL3phbWUvemFtZS1sb2dvLXZlcnRpY2FsLWNvbG9yLnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTAxNzY0NjUsImV4cCI6MTk0Nzg1NjQ2NX0.E5XYyO5eehTlkjfi2BZmFUCwrvKCq868MvFQj8gOvWA'
 const ZAME = { blue: '#1976D2', yellow: '#FFCB3E', red: '#D22524', black: '#000000' }
+const KUMA_LOGO_COLOR = 'https://wvpeivfzeijzurfohtjr.supabase.co/storage/v1/object/sign/rental-photo/brand-assets/kuma/kuma-logo-vertical-color.png?token=eyJraWQiOiJhZDlmOTQ5OS1jMGMzLTQ4NDYtYWFlZC02ZTJhNWM2NjU5N2IiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJyZW50YWwtcGhvdG8vYnJhbmQtYXNzZXRzL2t1bWEva3VtYS1sb2dvLXZlcnRpY2FsLWNvbG9yLnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTAxNzg4NDAsImV4cCI6MTk0Nzg1ODg0MH0.90Dza0BG1r7d4jRmTTxXvDrRWBZxGAvherP51Iw8JeU'
+const KUMA = { red: '#FF0000', black: '#2F302B', white: '#FFFFFF' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function ContractView({ rental, shop, branchName, theme = 'kuma' }: { rental: any; shop: any; branchName?: string | null; theme?: 'kuma' | 'zame' }) {
@@ -63,7 +65,7 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
 
       {/* Top bar */}
       <div className="no-print" style={{
-        background: isZame ? ZAME.blue : '#111827', padding: '12px 16px',
+        background: isZame ? ZAME.blue : KUMA.red, padding: '12px 16px',
         display: 'flex', alignItems: 'center', gap: '10px',
       }}>
         <Link href="/staff/jobs" style={{
@@ -92,7 +94,7 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
         <button
           onClick={() => window.print()}
           style={{
-            background: '#fff', color: isZame ? ZAME.blue : '#111827', border: 'none', borderRadius: '8px',
+            background: '#fff', color: isZame ? ZAME.blue : KUMA.red, border: 'none', borderRadius: '8px',
             padding: '8px 16px', fontWeight: 700, fontSize: '13px', cursor: 'pointer',
           }}
         >
@@ -105,19 +107,22 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
           background: '#fff', borderRadius: '12px', maxWidth: '540px',
           margin: '0 auto', padding: '24px 24px',
           boxShadow: '0 1px 4px rgba(0,0,0,.1)', fontSize: '12px', lineHeight: 1.6, color: '#111',
-          ...(isZame ? { borderTop: `4px solid ${ZAME.blue}` } : {}),
+          borderTop: `4px solid ${isZame ? ZAME.blue : KUMA.red}`,
         }}>
 
           {/* Header */}
-          <div className="contract-header" style={{ textAlign: 'center', borderBottom: `1.5px solid ${isZame ? ZAME.blue : '#111'}`, paddingBottom: '10px', marginBottom: '12px' }}>
+          <div className="contract-header" style={{ textAlign: 'center', borderBottom: `1.5px solid ${isZame ? ZAME.blue : KUMA.red}`, paddingBottom: '10px', marginBottom: '12px' }}>
             {isZame ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img className="contract-logo" src={ZAME_LOGO_COLOR} alt={shopName} style={{ width: '90px', height: '90px', objectFit: 'contain', margin: '0 auto 8px' }} />
-            ) : shop.logo_url && (
+            ) : shop.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img className="contract-logo" src={shop.logo_url} alt={shopName} style={{ width: '110px', height: '110px', objectFit: 'contain', margin: '0 auto 8px' }} />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="contract-logo" src={KUMA_LOGO_COLOR} alt={shopName} style={{ width: '90px', height: '90px', objectFit: 'contain', margin: '0 auto 8px' }} />
             )}
-            <div style={{ fontSize: '15px', fontWeight: 700, color: isZame ? ZAME.blue : '#111' }}>สัญญาเช่ารถมอเตอร์ไซค์ / HIRING AGREEMENT MOTOR BIKE</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: isZame ? ZAME.blue : KUMA.red }}>สัญญาเช่ารถมอเตอร์ไซค์ / HIRING AGREEMENT MOTOR BIKE</div>
             <div style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>{shopLine}</div>
           </div>
 
@@ -173,7 +178,7 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
           </table>
 
           {/* Terms header */}
-          <div className="contract-terms-title" style={{ fontWeight: 700, fontSize: '12px', borderBottom: `0.5px solid ${isZame ? ZAME.yellow : '#ccc'}`, paddingBottom: '4px', marginBottom: '8px', color: isZame ? ZAME.blue : '#111' }}>
+          <div className="contract-terms-title" style={{ fontWeight: 700, fontSize: '12px', borderBottom: `0.5px solid ${isZame ? ZAME.yellow : KUMA.red}`, paddingBottom: '4px', marginBottom: '8px', color: isZame ? ZAME.blue : KUMA.red }}>
             เงื่อนไขข้อตกลงการเช่า / RENTAL TERMS &amp; CONDITIONS
           </div>
 

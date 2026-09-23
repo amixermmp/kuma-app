@@ -42,6 +42,8 @@ type Props = {
 
 const ZAME_LOGO_WHITE = 'https://wvpeivfzeijzurfohtjr.supabase.co/storage/v1/object/sign/rental-photo/brand-assets/zame/zame-logo-vertical-white.png?token=eyJraWQiOiJhZDlmOTQ5OS1jMGMzLTQ4NDYtYWFlZC02ZTJhNWM2NjU5N2IiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJyZW50YWwtcGhvdG8vYnJhbmQtYXNzZXRzL3phbWUvemFtZS1sb2dvLXZlcnRpY2FsLXdoaXRlLnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTAxNzY0NjUsImV4cCI6MTk0Nzg1NjQ2NX0.9i9Ljixdqv9HudEYPzdAe8GVpC27McCjB393Bqt1D10'
 const ZAME = { blue: '#1976D2', yellow: '#FFCB3E', red: '#D22524', black: '#000000' }
+const KUMA_LOGO_WHITE = 'https://wvpeivfzeijzurfohtjr.supabase.co/storage/v1/object/sign/rental-photo/brand-assets/kuma/kuma-logo-vertical-white.png?token=eyJraWQiOiJhZDlmOTQ5OS1jMGMzLTQ4NDYtYWFlZC02ZTJhNWM2NjU5N2IiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJyZW50YWwtcGhvdG8vYnJhbmQtYXNzZXRzL2t1bWEva3VtYS1sb2dvLXZlcnRpY2FsLXdoaXRlLnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTAxNzg4NDEsImV4cCI6MTk0Nzg1ODg0MX0.DC-CbWvUapEbG04dyKOQZqlerhut5u7YZwOmpIVD9UY'
+const KUMA = { red: '#FF0000', black: '#2F302B', white: '#FFFFFF' }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
@@ -143,7 +145,7 @@ export default function BookingConfirmCard(props: Props) {
             </div>
           ) : (
             <div style={{
-              background: '#111827', color: '#fff', padding: '20px',
+              background: KUMA.red, color: '#fff', padding: '20px',
               display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
             }}>
               <div>
@@ -157,13 +159,8 @@ export default function BookingConfirmCard(props: Props) {
                   background: '#fff', borderRadius: '8px', padding: '4px',
                 }} />
               ) : (
-                <div style={{
-                  width: '52px', height: '52px', border: '1px dashed rgba(255,255,255,.4)',
-                  borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '10px', color: 'rgba(255,255,255,.6)',
-                }}>
-                  LOGO
-                </div>
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={KUMA_LOGO_WHITE} alt={shop.shop_name} crossOrigin="anonymous" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
               )}
             </div>
           )}
@@ -173,7 +170,7 @@ export default function BookingConfirmCard(props: Props) {
             {/* Branch + booking meta */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', fontSize: '12px', lineHeight: 1.9 }}>
               <div>
-                <div style={{ fontWeight: 700, color: isZame ? ZAME.blue : '#111827' }}>{shop.shop_name}</div>
+                <div style={{ fontWeight: 700, color: isZame ? ZAME.blue : KUMA.red }}>{shop.shop_name}</div>
                 {shop.phone && <div style={{ color: '#6b7280' }}>{shop.phone}</div>}
                 {shop.address && <div style={{ color: '#6b7280' }}>{shop.address}</div>}
               </div>
@@ -183,10 +180,10 @@ export default function BookingConfirmCard(props: Props) {
               </div>
             </div>
 
-            <div style={{ borderTop: `2px solid ${isZame ? ZAME.yellow : '#111827'}`, marginBottom: '12px' }} />
+            <div style={{ borderTop: `2px solid ${isZame ? ZAME.yellow : KUMA.red}`, marginBottom: '12px' }} />
 
             {/* Bike */}
-            <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : '#111827', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>รถที่จอง</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : KUMA.red, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>รถที่จอง</div>
             <div style={{ marginBottom: '16px', fontSize: '13px', lineHeight: 1.8 }}>
               <div style={{ fontWeight: 700 }}>{displayBrand} {displayModel}</div>
               {bike ? (
@@ -229,7 +226,7 @@ export default function BookingConfirmCard(props: Props) {
                 marginBottom: '16px',
                 ...(isZame ? { background: `${ZAME.red}10`, border: `1.5px solid ${ZAME.red}`, borderRadius: '10px', padding: '10px 12px' } : {}),
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700, color: isZame ? ZAME.red : '#111827' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700, color: isZame ? ZAME.red : KUMA.red }}>
                   <span>ราคาเช่า</span>
                   <span>฿{estimatedTotal.toLocaleString('th-TH')}</span>
                 </div>
@@ -252,7 +249,7 @@ export default function BookingConfirmCard(props: Props) {
             )}
 
             {/* Customer */}
-            <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : '#111827', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>ข้อมูลผู้จอง</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : KUMA.red, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '.5px' }}>ข้อมูลผู้จอง</div>
             <div style={{ marginBottom: '16px', fontSize: '12px', lineHeight: 1.9 }}>
               <div><span style={{ color: '#6b7280' }}>ชื่อ: </span>{customerName}</div>
               <div><span style={{ color: '#6b7280' }}>เบอร์โทร: </span>{customerPhone}</div>
@@ -273,14 +270,14 @@ export default function BookingConfirmCard(props: Props) {
             )}
 
             {/* Footer */}
-            <div style={{ borderTop: `1px solid ${isZame ? ZAME.yellow : '#e5e7eb'}`, paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+            <div style={{ borderTop: `1px solid ${isZame ? ZAME.yellow : KUMA.red}`, paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
               <div style={{ fontSize: '11px', color: '#6b7280', lineHeight: 1.7 }}>
                 {contactPhone && <div>โทร: {contactPhone}</div>}
                 {contactLine && <div>LINE: {contactLine}</div>}
               </div>
               <div style={isZame
                 ? { fontSize: '12px', padding: '4px 12px', background: ZAME.yellow, borderRadius: '20px', color: ZAME.black, fontWeight: 800 }
-                : { fontSize: '12px', padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: '8px', color: '#111827' }}>
+                : { fontSize: '12px', padding: '4px 10px', border: `1px solid ${KUMA.red}`, borderRadius: '8px', color: KUMA.red, fontWeight: 700 }}>
                 ยืนยันแล้ว
               </div>
             </div>

@@ -45,6 +45,8 @@ type Props = {
 
 const ZAME_LOGO_WHITE = 'https://wvpeivfzeijzurfohtjr.supabase.co/storage/v1/object/sign/rental-photo/brand-assets/zame/zame-logo-vertical-white.png?token=eyJraWQiOiJhZDlmOTQ5OS1jMGMzLTQ4NDYtYWFlZC02ZTJhNWM2NjU5N2IiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJyZW50YWwtcGhvdG8vYnJhbmQtYXNzZXRzL3phbWUvemFtZS1sb2dvLXZlcnRpY2FsLXdoaXRlLnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTAxNzY0NjUsImV4cCI6MTk0Nzg1NjQ2NX0.9i9Ljixdqv9HudEYPzdAe8GVpC27McCjB393Bqt1D10'
 const ZAME = { blue: '#1976D2', yellow: '#FFCB3E', red: '#D22524', black: '#000000' }
+const KUMA_LOGO_WHITE = 'https://wvpeivfzeijzurfohtjr.supabase.co/storage/v1/object/sign/rental-photo/brand-assets/kuma/kuma-logo-vertical-white.png?token=eyJraWQiOiJhZDlmOTQ5OS1jMGMzLTQ4NDYtYWFlZC02ZTJhNWM2NjU5N2IiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJyZW50YWwtcGhvdG8vYnJhbmQtYXNzZXRzL2t1bWEva3VtYS1sb2dvLXZlcnRpY2FsLXdoaXRlLnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTAxNzg4NDEsImV4cCI6MTk0Nzg1ODg0MX0.DC-CbWvUapEbG04dyKOQZqlerhut5u7YZwOmpIVD9UY'
+const KUMA = { red: '#FF0000', black: '#2F302B', white: '#FFFFFF' }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
@@ -137,7 +139,7 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
 
             {/* Header bar */}
             <div style={{
-              background: isZame ? ZAME.blue : '#111827', color: '#fff', padding: '20px',
+              background: isZame ? ZAME.blue : KUMA.red, color: '#fff', padding: '20px',
               display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
               ...(isZame ? { borderBottom: `5px solid ${ZAME.yellow}` } : {}),
             }}>
@@ -155,20 +157,15 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
                   background: '#fff', borderRadius: '8px', padding: '4px',
                 }} />
               ) : (
-                <div style={{
-                  width: '52px', height: '52px', border: '1px dashed rgba(255,255,255,.4)',
-                  borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '10px', color: 'rgba(255,255,255,.6)',
-                }}>
-                  LOGO
-                </div>
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={KUMA_LOGO_WHITE} alt={shopName} style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
               )}
             </div>
 
             <div style={{ padding: '20px' }}>
 
               {/* Customer + Invoice meta */}
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#111827', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.5px' }}>ข้อมูลลูกค้า</div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: isZame ? ZAME.blue : KUMA.red, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.5px' }}>ข้อมูลลูกค้า</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', fontSize: '12px', lineHeight: 1.9 }}>
                 <div>
                   <div><span style={{ color: '#6b7280' }}>ชื่อลูกค้า: </span>{custName}</div>
@@ -182,12 +179,12 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
                 </div>
               </div>
 
-              <div style={{ borderTop: `2px solid ${isZame ? ZAME.blue : '#111827'}`, marginBottom: '12px' }} />
+              <div style={{ borderTop: `2px solid ${isZame ? ZAME.blue : KUMA.red}`, marginBottom: '12px' }} />
 
               {/* Items table */}
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '16px' }}>
                 <thead>
-                  <tr style={{ background: isZame ? `${ZAME.yellow}33` : '#f3f4f6', borderBottom: `1px solid ${isZame ? ZAME.yellow : '#d1d5db'}` }}>
+                  <tr style={{ background: isZame ? `${ZAME.yellow}33` : `${KUMA.red}14`, borderBottom: `1px solid ${isZame ? ZAME.yellow : KUMA.red}` }}>
                     <th style={{ padding: '8px 6px', textAlign: 'center', width: '32px' }}>ลำดับ</th>
                     <th style={{ padding: '8px 6px', textAlign: 'left' }}>รายการ</th>
                     {hasQty && <th style={{ padding: '8px 6px', textAlign: 'center' }}>จำนวน</th>}
@@ -242,8 +239,8 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
                   )}
                   <div style={{
                     display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: 800,
-                    borderTop: `2px solid ${isZame ? ZAME.blue : '#111827'}`, paddingTop: '8px', marginTop: '4px',
-                    color: isZame ? ZAME.blue : '#111827',
+                    borderTop: `2px solid ${isZame ? ZAME.blue : KUMA.red}`, paddingTop: '8px', marginTop: '4px',
+                    color: isZame ? ZAME.blue : KUMA.red,
                   }}>
                     <span>รวมเป็นเงินทั้งสิ้น</span>
                     <span>{grandTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
@@ -258,7 +255,7 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
               {/* Footer */}
               <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
                 <div style={{ fontSize: '11px', color: '#6b7280', lineHeight: 1.7 }}>
-                  <div style={{ fontWeight: 700, color: '#111827' }}>{shopName}</div>
+                  <div style={{ fontWeight: 700, color: isZame ? ZAME.black : KUMA.black }}>{shopName}</div>
                   {shop.phone && <div>{shop.phone}</div>}
                   {shop.address && <div>{shop.address}</div>}
                   {shop.tax_id && <div>เลขประจำตัวผู้เสียภาษี: {shop.tax_id}</div>}
@@ -267,7 +264,7 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
                 {payment.staffName && (
                   <div style={{ fontSize: '11px', color: '#6b7280', textAlign: 'center', minWidth: '110px' }}>
                     <div style={{ borderBottom: '1px solid #9ca3af', paddingBottom: '20px', marginBottom: '4px' }} />
-                    <div style={{ color: '#111827' }}>{payment.staffName}</div>
+                    <div style={{ color: isZame ? ZAME.black : KUMA.black }}>{payment.staffName}</div>
                     <div>ผู้ทำรายการ</div>
                   </div>
                 )}
@@ -321,7 +318,7 @@ export default function InvoiceView({ payment, customer, shop, contractType, con
             onClick={handlePrint}
             className="no-print"
             style={{
-              width: '100%', background: isZame ? ZAME.blue : '#111827', color: '#fff', border: 'none',
+              width: '100%', background: isZame ? ZAME.blue : KUMA.red, color: '#fff', border: 'none',
               borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
               cursor: 'pointer', marginBottom: '80px',
             }}
