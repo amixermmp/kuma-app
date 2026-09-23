@@ -24,7 +24,7 @@ export default async function MarketingPage({
   ])
 
   let q = admin.from('marketing_photos')
-    .select('id, branch_id, original_photo_url, processed_photo_url, sticker_x, sticker_y, created_at')
+    .select('id, branch_id, original_photo_url, processed_photo_url, sticker_x, sticker_y, sticker_x2, sticker_y2, created_at')
     .order('created_at', { ascending: false })
   if (branch) q = q.eq('branch_id', branch)
   const { data: rows } = await q
@@ -36,6 +36,8 @@ export default async function MarketingPage({
     processedUrl: r.processed_photo_url,
     stickerX: r.sticker_x,
     stickerY: r.sticker_y,
+    stickerX2: r.sticker_x2,
+    stickerY2: r.sticker_y2,
     createdAt: r.created_at,
   }))
 

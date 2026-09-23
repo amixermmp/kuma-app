@@ -11,8 +11,12 @@ export type MarketingPhoto = {
   processedUrl: string | null
   stickerX: number | null
   stickerY: number | null
+  stickerX2: number | null
+  stickerY2: number | null
   createdAt: string
 }
+
+type Point = { x: number; y: number }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short' })
@@ -27,6 +31,7 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [adjusting, setAdjusting] = useState(false)
+  const [points, setPoints] = useState<Point[]>([])
   const imgRef = useRef<HTMLImageElement>(null)
 
   // ใส่กรอบอัตโนมัติทันทีที่รูปเข้าคิว — ไม่ต้องกดเอง กดแค่ตอนอยากปรับตำแหน่งสติ๊กเกอร์
@@ -44,7 +49,7 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      onChanged({ processedUrl: data.processedUrl, stickerX: data.stickerX, stickerY: data.stickerY })
+      onChanged({ processedUrl: data.processedUrl, stickerX: data.stickerX, stickerY: data.stickerY, stickerX2: data.stickerX2, stickerY2: data.stickerY2 })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
     } finally {
@@ -52,22 +57,42 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
     }
   }
 
-  const adjustAt = async (clientX: number, clientY: number) => {
-    if (busy) return // กันกดซ้ำระหว่างบันทึกค่าเดิมยังไม่เสร็จ — ไม่งั้น request ซ้อนกันแล้วผลลัพธ์กลับมาไม่เรียงลำดับ ทำให้จุดขยับเอง
+  const startAdjusting = () => {
+    const initial: Point[] = []
+    if (photo.stickerX != null && photo.stickerY != null) initial.push({ x: photo.stickerX, y: photo.stickerY })
+    if (photo.stickerX2 != null && photo.stickerY2 != null) initial.push({ x: photo.stickerX2, y: photo.stickerY2 })
+    setPoints(initial)
+    setAdjusting(true)
+  }
+
+  // แตะเพิ่มจุด (สูงสุด 2) — แตะใกล้จุดเดิมคือลบจุดนั้นแทน, แตะตอนครบ 2 แล้วคือเริ่มใหม่จากจุดนี้
+  const tapAt = (clientX: number, clientY: number) => {
+    if (busy) return
     const el = imgRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     const x = (clientX - rect.left) / rect.width
     const y = (clientY - rect.top) / rect.height
+
+    const hitIndex = points.findIndex(p => Math.hypot(p.x - x, p.y - y) < 0.06)
+    if (hitIndex !== -1) {
+      setPoints(prev => prev.filter((_, i) => i !== hitIndex))
+      return
+    }
+    setPoints(prev => (prev.length >= 2 ? [{ x, y }] : [...prev, { x, y }]))
+  }
+
+  const savePositions = async () => {
+    if (busy) return // กันกดซ้ำระหว่างบันทึกค่าเดิมยังไม่เสร็จ — ไม่งั้น request ซ้อนกันแล้วผลลัพธ์กลับมาไม่เรียงลำดับ
     setBusy(true); setError('')
     try {
       const res = await fetch('/api/owner/marketing/adjust', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoId: photo.id, stickerX: x, stickerY: y }),
+        body: JSON.stringify({ photoId: photo.id, positions: points }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      onChanged({ processedUrl: data.processedUrl, stickerX: x, stickerY: y })
+      onChanged({ processedUrl: data.processedUrl, stickerX: data.stickerX, stickerY: data.stickerY, stickerX2: data.stickerX2, stickerY2: data.stickerY2 })
       setAdjusting(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
@@ -92,18 +117,23 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
         <div style={{ position: 'relative' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            ref={imgRef} src={photo.originalUrl} alt="ต้นฉบับ" onClick={e => adjustAt(e.clientX, e.clientY)}
-            style={{ width: '100%', display: 'block', cursor: busy ? 'wait' : 'crosshair', opacity: busy ? 0.6 : 1 }}
+            ref={imgRef} src={photo.originalUrl} alt="ต้นฉบับ" onClick={e => tapAt(e.clientX, e.clientY)}
+            style={{ width: '100%', display: 'block', cursor: busy ? 'wait' : 'crosshair', opacity: busy ? 0.6 : 1, pointerEvents: busy ? 'none' : 'auto' }}
           />
-          {photo.stickerX != null && photo.stickerY != null && (
-            <div style={{
-              position: 'absolute', left: `${photo.stickerX * 100}%`, top: `${photo.stickerY * 100}%`,
+          {points.map((p, i) => (
+            <div key={i} style={{
+              position: 'absolute', left: `${p.x * 100}%`, top: `${p.y * 100}%`,
               width: '24px', height: '24px', marginLeft: '-12px', marginTop: '-12px',
               border: '2px solid #e11d48', borderRadius: '50%', pointerEvents: 'none',
-            }} />
-          )}
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(225,29,72,.15)', color: '#e11d48', fontSize: '11px', fontWeight: 800,
+            }}>{i + 1}</div>
+          ))}
           <div style={{ position: 'absolute', top: '8px', left: '8px', right: '8px', background: 'rgba(17,24,39,.8)', color: '#fff', fontSize: '11px', padding: '6px 10px', borderRadius: '8px', textAlign: 'center' }}>
-            {busy ? '⏳ กำลังบันทึก...' : 'แตะตำแหน่งใบหน้าใหม่'}
+            {busy ? '⏳ กำลังบันทึก...'
+              : points.length === 0 ? 'แตะตำแหน่งใบหน้า (สูงสุด 2 จุด)'
+              : points.length === 1 ? 'แตะเพิ่มอีกจุดได้ (ถ้ามี) หรือกดบันทึก'
+              : 'ครบ 2 จุดแล้ว — แตะจุดเดิมเพื่อลบ หรือกดบันทึก'}
           </div>
         </div>
       ) : photo.processedUrl ? (
@@ -119,10 +149,16 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
         {error && <div style={{ fontSize: '11px', color: '#dc2626', marginBottom: '8px' }}>{error}</div>}
 
         {adjusting ? (
-          <button onClick={() => setAdjusting(false)} disabled={busy} style={{
-            width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #e5e7eb',
-            background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-          }}>ยกเลิก</button>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={savePositions} disabled={busy} style={{
+              flex: 1, padding: '8px', borderRadius: '8px', border: 'none',
+              background: '#111827', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+            }}>{busy ? '⏳' : '💾 บันทึก'}</button>
+            <button onClick={() => setAdjusting(false)} disabled={busy} style={{
+              padding: '8px 14px', borderRadius: '8px', border: '1px solid #e5e7eb',
+              background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+            }}>ยกเลิก</button>
+          </div>
         ) : !photo.processedUrl ? (
           <button onClick={process} disabled={busy || !hasFrame} style={{
             width: '100%', padding: '8px', borderRadius: '8px', border: 'none',
@@ -135,7 +171,7 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
               flex: 1, padding: '8px', borderRadius: '8px', border: 'none', textAlign: 'center',
               background: '#16a34a', color: '#fff', fontSize: '12px', fontWeight: 700, textDecoration: 'none',
             }}>📥 โหลด</a>
-            <button onClick={() => setAdjusting(true)} disabled={busy} style={{
+            <button onClick={startAdjusting} disabled={busy} style={{
               padding: '8px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '12px', cursor: 'pointer',
             }}>✏️</button>
             <button onClick={remove} disabled={busy} style={{

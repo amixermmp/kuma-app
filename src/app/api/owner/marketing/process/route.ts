@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { detectFacePosition, compositeMarketingPhoto } from '@/lib/marketingPhotos'
+import { detectFacePositions, compositeMarketingPhoto } from '@/lib/marketingPhotos'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -21,13 +21,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'ยังไม่ได้อัปโหลดกรอบของสาขานี้ — ตั้งค่าที่หน้า Settings ก่อน' }, { status: 400 })
   }
 
-  const face = settings.sticker_url ? await detectFacePosition(photo.original_photo_url) : null
+  const faces = settings.sticker_url ? await detectFacePositions(photo.original_photo_url) : []
 
   let outputBuf: Buffer
   try {
     outputBuf = await compositeMarketingPhoto(
-      photo.original_photo_url, settings.frame_url, settings.sticker_url,
-      face?.x ?? null, face?.y ?? null,
+      photo.original_photo_url, settings.frame_url, settings.sticker_url, faces,
     )
   } catch (e) {
     return NextResponse.json({ error: 'ประมวลผลรูปไม่สำเร็จ', detail: String(e) }, { status: 500 })
@@ -42,9 +41,15 @@ export async function POST(request: Request) {
 
   await admin.from('marketing_photos').update({
     processed_photo_url: processedUrl,
-    sticker_x: face?.x ?? null,
-    sticker_y: face?.y ?? null,
+    sticker_x: faces[0]?.x ?? null,
+    sticker_y: faces[0]?.y ?? null,
+    sticker_x2: faces[1]?.x ?? null,
+    sticker_y2: faces[1]?.y ?? null,
   }).eq('id', photoId)
 
-  return NextResponse.json({ success: true, processedUrl, stickerX: face?.x ?? null, stickerY: face?.y ?? null })
+  return NextResponse.json({
+    success: true, processedUrl,
+    stickerX: faces[0]?.x ?? null, stickerY: faces[0]?.y ?? null,
+    stickerX2: faces[1]?.x ?? null, stickerY2: faces[1]?.y ?? null,
+  })
 }

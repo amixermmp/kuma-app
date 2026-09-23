@@ -39,14 +39,14 @@ async function fetchBuffer(url: string): Promise<Buffer> {
   return Buffer.from(await res.arrayBuffer())
 }
 
-// ให้ Gemini เดาตำแหน่งใบหน้าในรูปคู่รถ — คืนพิกัดสัดส่วน 0-1 ของขนาดรูป (null ถ้าไม่เจอหน้าคน เช่น ถ่ายแค่รถ)
-export async function detectFacePosition(imageUrl: string): Promise<{ x: number; y: number } | null> {
+// ให้ Gemini เดาตำแหน่งใบหน้าในรูปคู่รถ — คืนพิกัดสัดส่วน 0-1 ของขนาดรูป สูงสุด 2 คน (ว่างถ้าไม่เจอหน้าคนเลย เช่น ถ่ายแค่รถ)
+export async function detectFacePositions(imageUrl: string): Promise<{ x: number; y: number }[]> {
   const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) return null
+  if (!apiKey) return []
 
   try {
     const imgRes = await fetch(imageUrl)
-    if (!imgRes.ok) return null
+    if (!imgRes.ok) return []
     const imgBuffer = await imgRes.arrayBuffer()
     const base64 = Buffer.from(imgBuffer).toString('base64')
     const mimeType = imgRes.headers.get('content-type') || 'image/jpeg'
@@ -60,9 +60,9 @@ export async function detectFacePosition(imageUrl: string): Promise<{ x: number;
           contents: [{
             parts: [
               {
-                text: `นี่คือรูปถ่ายลูกค้ายืนคู่รถมอเตอร์ไซค์เช่า กรุณาหาตำแหน่งใบหน้าคนในรูป (ถ้ามีหลายคนเอาคนที่เห็นหน้าชัดที่สุด)
-ตอบเป็น JSON เท่านั้น พิกัดเป็นสัดส่วน 0-1 ของขนาดรูป (0,0 คือมุมซ้ายบน): {"x": จุดกึ่งกลางแนวนอนของใบหน้า, "y": จุดกึ่งกลางแนวตั้งของใบหน้า}
-ถ้าไม่เจอใบหน้าคนเลยในรูป (เช่นถ่ายแค่ตัวรถ) ตอบ: {"x": null, "y": null}`,
+                text: `นี่คือรูปถ่ายลูกค้ายืนคู่รถมอเตอร์ไซค์เช่า กรุณาหาตำแหน่งใบหน้าคนในรูป (ถ้ามีมากกว่า 2 คน เอาแค่ 2 คนที่เห็นหน้าชัดที่สุด)
+ตอบเป็น JSON array เท่านั้น พิกัดเป็นสัดส่วน 0-1 ของขนาดรูป (0,0 คือมุมซ้ายบน) แต่ละจุดคือจุดกึ่งกลางใบหน้าคนนั้น เช่น: [{"x":0.3,"y":0.4},{"x":0.7,"y":0.4}]
+ถ้าไม่เจอใบหน้าคนเลยในรูป (เช่นถ่ายแค่ตัวรถ) ตอบ: []`,
               },
               { inline_data: { mime_type: mimeType, data: base64 } },
             ],
@@ -71,27 +71,28 @@ export async function detectFacePosition(imageUrl: string): Promise<{ x: number;
         }),
       }
     )
-    if (!geminiRes.ok) return null
+    if (!geminiRes.ok) return []
 
     const geminiData = await geminiRes.json()
     const raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-    const match = raw.match(/\{[^}]+\}/)
-    if (!match) return null
+    const match = raw.match(/\[[\s\S]*\]/)
+    if (!match) return []
     const parsed = JSON.parse(match[0])
-    if (typeof parsed.x !== 'number' || typeof parsed.y !== 'number') return null
-    return { x: parsed.x, y: parsed.y }
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((p): p is { x: number; y: number } => typeof p?.x === 'number' && typeof p?.y === 'number')
+      .slice(0, 2)
   } catch {
-    return null
+    return []
   }
 }
 
-// ประกอบรูปสุดท้าย: รูปคู่รถ (ครอปให้เต็มขนาดกรอบ) + สติ๊กเกอร์ปิดหน้า (ถ้ามีตำแหน่ง) + กรอบสาขาทับบนสุด
+// ประกอบรูปสุดท้าย: รูปคู่รถ (ครอปให้เต็มขนาดกรอบ) + สติ๊กเกอร์ปิดหน้า (ถ้ามีตำแหน่ง สูงสุด 2 จุด) + กรอบสาขาทับบนสุด
 export async function compositeMarketingPhoto(
   originalUrl: string,
   frameUrl: string,
   stickerUrl: string | null,
-  stickerXNorm: number | null,
-  stickerYNorm: number | null,
+  stickerPositions: { x: number; y: number }[],
 ): Promise<Buffer> {
   const [originalBuf, frameBuf, stickerBuf] = await Promise.all([
     fetchBuffer(originalUrl),
@@ -107,17 +108,19 @@ export async function compositeMarketingPhoto(
 
   const composites: { input: Buffer; left: number; top: number }[] = []
 
-  if (stickerBuf && stickerXNorm != null && stickerYNorm != null) {
+  if (stickerBuf && stickerPositions.length > 0) {
     const stickerMeta = await sharp(stickerBuf).metadata()
     const stickerW = Math.round(W * 0.22)
     const ratio = (stickerMeta.height ?? 1) / (stickerMeta.width ?? 1)
     const stickerH = Math.round(stickerW * ratio)
     const stickerResized = await sharp(stickerBuf).resize(stickerW, stickerH).toBuffer()
-    composites.push({
-      input: stickerResized,
-      left: Math.round(stickerXNorm * W - stickerW / 2),
-      top: Math.round(stickerYNorm * H - stickerH / 2),
-    })
+    for (const pos of stickerPositions) {
+      composites.push({
+        input: stickerResized,
+        left: Math.round(pos.x * W - stickerW / 2),
+        top: Math.round(pos.y * H - stickerH / 2),
+      })
+    }
   }
 
   composites.push({ input: frameBuf, left: 0, top: 0 })

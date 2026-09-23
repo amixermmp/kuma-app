@@ -3,16 +3,19 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { compositeMarketingPhoto } from '@/lib/marketingPhotos'
 
-// ปรับตำแหน่งสติ๊กเกอร์ปิดหน้าเอง (ลาก) แล้วประกอบรูปใหม่ — ใช้ตอน AI เดาตำแหน่งเบี้ยว
+// ปรับตำแหน่งสติ๊กเกอร์ปิดหน้าเอง (แตะทีละจุด สูงสุด 2 จุด) แล้วประกอบรูปใหม่ — ใช้ตอน AI เดาตำแหน่งเบี้ยว
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { photoId, stickerX, stickerY } = await request.json()
-  if (!photoId || typeof stickerX !== 'number' || typeof stickerY !== 'number') {
+  const { photoId, positions } = await request.json()
+  const valid = Array.isArray(positions) && positions.length <= 2
+    && positions.every((p: unknown) => typeof (p as { x?: unknown })?.x === 'number' && typeof (p as { y?: unknown })?.y === 'number')
+  if (!photoId || !valid) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
   }
+  const stickerPositions: { x: number; y: number }[] = positions
 
   const admin = createAdminClient()
 
@@ -24,7 +27,7 @@ export async function POST(request: Request) {
 
   let outputBuf: Buffer
   try {
-    outputBuf = await compositeMarketingPhoto(photo.original_photo_url, settings.frame_url, settings.sticker_url, stickerX, stickerY)
+    outputBuf = await compositeMarketingPhoto(photo.original_photo_url, settings.frame_url, settings.sticker_url, stickerPositions)
   } catch (e) {
     return NextResponse.json({ error: 'ประมวลผลรูปไม่สำเร็จ', detail: String(e) }, { status: 500 })
   }
@@ -37,8 +40,14 @@ export async function POST(request: Request) {
   const processedUrl = signed?.signedUrl ?? ''
 
   await admin.from('marketing_photos').update({
-    processed_photo_url: processedUrl, sticker_x: stickerX, sticker_y: stickerY,
+    processed_photo_url: processedUrl,
+    sticker_x: stickerPositions[0]?.x ?? null, sticker_y: stickerPositions[0]?.y ?? null,
+    sticker_x2: stickerPositions[1]?.x ?? null, sticker_y2: stickerPositions[1]?.y ?? null,
   }).eq('id', photoId)
 
-  return NextResponse.json({ success: true, processedUrl })
+  return NextResponse.json({
+    success: true, processedUrl,
+    stickerX: stickerPositions[0]?.x ?? null, stickerY: stickerPositions[0]?.y ?? null,
+    stickerX2: stickerPositions[1]?.x ?? null, stickerY2: stickerPositions[1]?.y ?? null,
+  })
 }
