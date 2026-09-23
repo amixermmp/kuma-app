@@ -53,6 +53,7 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
   }
 
   const adjustAt = async (clientX: number, clientY: number) => {
+    if (busy) return // กันกดซ้ำระหว่างบันทึกค่าเดิมยังไม่เสร็จ — ไม่งั้น request ซ้อนกันแล้วผลลัพธ์กลับมาไม่เรียงลำดับ ทำให้จุดขยับเอง
     const el = imgRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
@@ -92,7 +93,7 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             ref={imgRef} src={photo.originalUrl} alt="ต้นฉบับ" onClick={e => adjustAt(e.clientX, e.clientY)}
-            style={{ width: '100%', display: 'block', cursor: 'crosshair' }}
+            style={{ width: '100%', display: 'block', cursor: busy ? 'wait' : 'crosshair', opacity: busy ? 0.6 : 1 }}
           />
           {photo.stickerX != null && photo.stickerY != null && (
             <div style={{
@@ -102,7 +103,7 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
             }} />
           )}
           <div style={{ position: 'absolute', top: '8px', left: '8px', right: '8px', background: 'rgba(17,24,39,.8)', color: '#fff', fontSize: '11px', padding: '6px 10px', borderRadius: '8px', textAlign: 'center' }}>
-            แตะตำแหน่งใบหน้าใหม่
+            {busy ? '⏳ กำลังบันทึก...' : 'แตะตำแหน่งใบหน้าใหม่'}
           </div>
         </div>
       ) : photo.processedUrl ? (
