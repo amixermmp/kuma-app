@@ -175,7 +175,6 @@ function BranchLineRow({ branch }: { branch: Branch }) {
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState('')
 
-  const [showWhatsapp, setShowWhatsapp] = useState(false)
   const [waQrUrl, setWaQrUrl] = useState(branch.whatsappQrUrl ?? '')
   const [waNumber, setWaNumber] = useState(branch.whatsappNumber ?? '')
   const [waUploading, setWaUploading] = useState(false)
@@ -293,60 +292,48 @@ function BranchLineRow({ branch }: { branch: Branch }) {
         </button>
       </div>
 
-      <button
-        onClick={() => setShowWhatsapp(v => !v)}
-        style={{
-          background: 'none', border: 'none', color: '#6b7280', fontSize: '12px', fontWeight: 600,
-          cursor: 'pointer', padding: '10px 0 0', display: 'flex', alignItems: 'center', gap: '4px',
-        }}
-      >
-        {showWhatsapp ? '▲' : '▼'} WhatsApp QR
-      </button>
+      <div style={{ borderTop: '1px solid #f3f4f6', margin: '14px 0 12px' }} />
 
-      {showWhatsapp && (
-        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #e5e7eb' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-            {waMsg && <span style={{ fontSize: '12px', color: waMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{waMsg}</span>}
-          </div>
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>QR WhatsApp ร้าน</div>
-              {waQrUrl ? (
-                <div style={{ position: 'relative' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={waQrUrl} alt="QR WhatsApp" style={{ width: '100%', height: '90px', objectFit: 'contain', background: '#f3f4f6', borderRadius: '8px' }} />
-                  <label style={{
-                    position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(17,24,39,.8)', color: '#fff',
-                    fontSize: '11px', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
-                  }}>
-                    {waUploading ? '...' : 'เปลี่ยน'}
-                    <input type="file" accept="image/*" style={{ display: 'none' }}
-                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadWhatsapp(f) }} />
-                  </label>
-                </div>
-              ) : (
-                <label style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', height: '90px',
-                  border: '1.5px dashed #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: '#9ca3af',
-                }}>
-                  {waUploading ? 'กำลังอัพโหลด...' : '+ อัพโหลด'}
-                  <input type="file" accept="image/*" style={{ display: 'none' }}
-                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadWhatsapp(f) }} />
-                </label>
-              )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+        {waMsg && <span style={{ fontSize: '12px', color: waMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{waMsg}</span>}
+      </div>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>QR WhatsApp ร้าน</div>
+          {waQrUrl ? (
+            <div style={{ position: 'relative' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={waQrUrl} alt="QR WhatsApp" style={{ width: '100%', height: '90px', objectFit: 'contain', background: '#f3f4f6', borderRadius: '8px' }} />
+              <label style={{
+                position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(17,24,39,.8)', color: '#fff',
+                fontSize: '11px', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
+              }}>
+                {waUploading ? '...' : 'เปลี่ยน'}
+                <input type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadWhatsapp(f) }} />
+              </label>
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>เบอร์ WhatsApp</div>
-              <input className="field-input" value={waNumber} onChange={e => setWaNumber(e.target.value)} placeholder="66812345678" />
-            </div>
-            <button onClick={() => saveWhatsapp({})} className="btn" style={{ padding: '10px 14px', fontSize: '12px', width: 'auto' }}>
-              💾
-            </button>
-          </div>
+          ) : (
+            <label style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', height: '90px',
+              border: '1.5px dashed #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: '#9ca3af',
+            }}>
+              {waUploading ? 'กำลังอัพโหลด...' : '+ อัพโหลด'}
+              <input type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadWhatsapp(f) }} />
+            </label>
+          )}
         </div>
-      )}
+      </div>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>เบอร์ WhatsApp</div>
+          <input className="field-input" value={waNumber} onChange={e => setWaNumber(e.target.value)} placeholder="66812345678" />
+        </div>
+        <button onClick={() => saveWhatsapp({})} className="btn" style={{ padding: '10px 14px', fontSize: '12px', width: 'auto' }}>
+          💾
+        </button>
+      </div>
     </div>
   )
 }

@@ -184,6 +184,8 @@ type Props = {
   qrMonthlyUrl?: string | null
   lineQrUrl?: string | null
   lineId?: string | null
+  whatsappQrUrl?: string | null
+  whatsappNumber?: string | null
   studentPromoUniversity?: string | null
 }
 
@@ -252,8 +254,9 @@ function bkkTimePart(iso: string): string {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings, promoPayDays = 5, qrDailyUrl, qrMonthlyUrl, lineQrUrl, lineId, studentPromoUniversity }: Props) {
+export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings, promoPayDays = 5, qrDailyUrl, qrMonthlyUrl, lineQrUrl, lineId, whatsappQrUrl, whatsappNumber, studentPromoUniversity }: Props) {
   const DRAFT_KEY = `send_draft_${bike.id}`
+  const [showWhatsapp, setShowWhatsapp] = useState(false)
 
   useEffect(() => {
     addTab({ type: 'sendcar', title: `ส่งรถ ${bike.license_plate}`, href: `/staff/send/${bike.id}` })
@@ -1668,6 +1671,36 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             {lineId && (
               <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: 700, color: '#111827' }}>
                 LINE ID: {lineId}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* WhatsApp ร้าน — ซ่อนไว้ ต้องกดถึงจะแสดง (ใช้น้อยกว่าไลน์) */}
+        {(whatsappQrUrl || whatsappNumber) && (
+          <div className="card" style={{ borderTop: '3px solid #25d366' }}>
+            <button
+              onClick={() => setShowWhatsapp(v => !v)}
+              style={{
+                background: 'none', border: 'none', color: '#166534', fontSize: '14px', fontWeight: 700,
+                cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
+              }}
+            >
+              {showWhatsapp ? '▲' : '▼'} WhatsApp ร้าน
+            </button>
+            {showWhatsapp && (
+              <div style={{ marginTop: '14px' }}>
+                {whatsappQrUrl && (
+                  <div style={{ textAlign: 'center', marginBottom: whatsappNumber ? '12px' : 0 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={whatsappQrUrl} alt="QR WhatsApp ร้าน" style={{ maxWidth: '220px', width: '100%', height: 'auto', borderRadius: '8px' }} />
+                  </div>
+                )}
+                {whatsappNumber && (
+                  <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                    WhatsApp: {whatsappNumber}
+                  </div>
+                )}
               </div>
             )}
           </div>

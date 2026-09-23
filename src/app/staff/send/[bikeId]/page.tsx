@@ -39,7 +39,7 @@ export default async function SendCarPage({
 
   const { data: branchQr } = await supabase
     .from('branch_settings')
-    .select('payment_qr_daily_url, payment_qr_monthly_url, line_qr_url, line_id, student_promo_university')
+    .select('payment_qr_daily_url, payment_qr_monthly_url, line_qr_url, line_id, whatsapp_qr_url, whatsapp_number, student_promo_university')
     .eq('branch_id', bike.branch_id)
     .maybeSingle()
 
@@ -118,6 +118,8 @@ export default async function SendCarPage({
       qrMonthlyUrl={branchQr?.payment_qr_monthly_url ?? null}
       lineQrUrl={branchQr?.line_qr_url ?? null}
       lineId={branchQr?.line_id ?? null}
+      whatsappQrUrl={branchQr?.whatsapp_qr_url ?? null}
+      whatsappNumber={branchQr?.whatsapp_number ?? null}
       studentPromoUniversity={branchQr?.student_promo_university ?? null}
     />
   )
