@@ -14,6 +14,7 @@ const CATEGORIES = [
   { icon: '🛢️', label: 'สต๊อกน้ำมัน', sub: 'สต๊อกน้ำมันเครื่อง/เฟืองท้าย รายสาขา', href: '/owner/settings/oil-stock', color: '#b45309' },
   { icon: '👤', label: 'ผู้ให้เช่า', sub: 'ชื่อ-เลขบัตร-ลายเซ็น สำหรับสัญญาเช่า', href: '/owner/settings/lessors', color: '#0f766e' },
   { icon: '🖼️', label: 'โปสเตอร์รถว่าง', sub: 'ตั้งตำแหน่งรุ่น กากบาทให้อัตโนมัติตามสต็อก', href: '/owner/settings/poster-setup', color: '#c026d3' },
+  { icon: '🤖', label: 'LINE Chatbot', sub: 'เปิด/ปิด AI ตอบแชท LINE อัตโนมัติ รายสาขา', href: '/owner/settings/line-chatbot', color: '#00b900' },
 ] as const
 
 export default async function SettingsPage() {
