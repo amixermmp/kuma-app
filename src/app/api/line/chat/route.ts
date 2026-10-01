@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { lineReply } from '@/lib/line'
+import { bangkokToUTC, utcToBangkokLocal } from '@/lib/time'
+import { calendarDays, calcRentQuote, calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
+import { searchBikes } from '@/lib/bikeSearch'
+import { checkBlacklist } from '@/lib/blacklist'
 
 // ─── Branch configs ───────────────────────────────────────────────────────────
 // เพิ่มสาขาใหม่ตรงนี้เมื่อต้องการขยาย
@@ -102,44 +106,51 @@ const SYSTEM_PROMPT = `คุณคือแชทบอทของร้าน
 🤖  กฎการตอบ
 ═══════════════════════════════
 - เมื่อลูกค้าถามว่ารถว่างไหม / อยากดูรถ / สอบถามราคา:
-  ถามแค่ วันเริ่ม-วันคืน แล้วใช้ tool check_availability เช็คเลย
-  แสดงผลรถว่างพร้อมราคา แล้วถามว่า "สนใจรุ่นไหนครับ หรือจะจองเลยไหมครับ?"
-  ห้ามเร่งให้จอง รอให้ลูกค้าตัดสินใจเองก่อน
+  ต้องรู้ วัน+เวลารับรถ และ วัน+เวลาคืนรถ ก่อน ถ้าลูกค้าบอกไม่ครบ (เช่นบอกแค่วัน) ให้ถามเวลาก่อน ห้ามเดาเวลาเอง
+  เช็คว่าเวลาอยู่ในเวลาทำการตามกฎด้านบน ถ้าไม่อยู่ ให้แจ้งลูกค้าและขอเวลาใหม่ก่อนเช็ค
+  จากนั้นใช้ tool check_availability แล้วแสดงรุ่นที่ว่างพร้อมราคารวมตามที่ tool คืนมาเท่านั้น
+  ห้ามคำนวณราคาเอง ใช้ตัวเลขจาก tool เสมอ (ระบบคิดโปรและค่าเกินเวลาให้แล้ว)
+  ถ้ามีค่าเกินเวลา (overtime) ให้บอกลูกค้าด้วยว่าเพราะเวลาคืนเลยเวลารับ และแนะนำว่าถ้าคืนเวลาเดียวกับที่รับจะไม่มีค่าส่วนนี้
+  แล้วถามว่า "สนใจรุ่นไหนครับ หรือจะจองเลยไหมครับ?" ห้ามเร่งให้จอง รอให้ลูกค้าตัดสินใจเองก่อน
 
 - เมื่อลูกค้าตัดสินใจจองแล้ว:
   ถามชื่อ-นามสกุล และ เบอร์โทรศัพท์
-  จากนั้นใช้ tool create_booking บันทึกจอง
-  แจ้ง booking ref และบอกให้รอรับใบจองจากพนักงานภายใน 30 นาที`
+  จากนั้นใช้ tool create_booking บันทึกจอง (ใช้วันเวลาเดียวกับที่เช็ค)
+  แจ้ง booking ref และบอกให้รอรับใบจองจากพนักงานภายใน 30 นาที
+  ถ้า tool แจ้งว่ารุ่นนั้นเต็มแล้ว ให้ขอโทษ แล้วเช็คใหม่เพื่อเสนอรุ่นอื่น
+
+- ถ้าลูกค้าถามเรื่องของร้านที่ไม่มีข้อมูลอยู่ในนี้ ห้ามเดาหรือแต่งคำตอบเด็ดขาด
+  ให้ตอบว่า "ขอเช็คกับแอดมินก่อนนะครับ เดี๋ยวแอดมินจะตอบกลับครับ" หรือให้โทร 065-5268531`
 
 // ─── Anthropic tool definitions ───────────────────────────────────────────────
+const DATETIME_DESC = 'เวลาไทย format YYYY-MM-DDTHH:mm เช่น 2026-10-05T10:00'
 const TOOLS = [
   {
     name: 'check_availability',
-    description: 'เช็ครถว่างในช่วงวันที่ที่ลูกค้าต้องการ คืนรายการรถว่างพร้อมราคาต่อวัน',
+    description: 'เช็ครถว่างตามวันเวลารับ-คืนที่ลูกค้าต้องการ คืนรายการรุ่นที่ว่างพร้อมราคารวม (คิดโปรและค่าเกินเวลาตามระบบร้านแล้ว)',
     input_schema: {
       type: 'object' as const,
       properties: {
-        start_date: { type: 'string', description: 'วันเริ่มเช่า format YYYY-MM-DD' },
-        end_date: { type: 'string', description: 'วันคืนรถ format YYYY-MM-DD' },
+        start_datetime: { type: 'string', description: `วันเวลารับรถ ${DATETIME_DESC}` },
+        end_datetime:   { type: 'string', description: `วันเวลาคืนรถ ${DATETIME_DESC}` },
       },
-      required: ['start_date', 'end_date'],
+      required: ['start_datetime', 'end_datetime'],
     },
   },
   {
     name: 'create_booking',
-    description: 'สร้างการจองคิวสำหรับลูกค้า คืน booking_ref ถ้าสำเร็จ',
+    description: 'สร้างการจองคิวตามรุ่นสำหรับลูกค้า ระบบคิดราคาเอง คืน booking_ref ถ้าสำเร็จ',
     input_schema: {
       type: 'object' as const,
       properties: {
         customer_name:  { type: 'string', description: 'ชื่อ-นามสกุลลูกค้า' },
         customer_phone: { type: 'string', description: 'เบอร์โทรศัพท์' },
-        start_date:     { type: 'string', description: 'วันเริ่มเช่า YYYY-MM-DD' },
-        end_date:       { type: 'string', description: 'วันคืนรถ YYYY-MM-DD' },
-        brand:          { type: 'string', description: 'ยี่ห้อรถ เช่น Honda, Yamaha' },
-        model:          { type: 'string', description: 'รุ่นรถ เช่น Scoopy-i, PCX' },
-        daily_rate:     { type: 'number', description: 'ราคาต่อวัน (บาท)' },
+        start_datetime: { type: 'string', description: `วันเวลารับรถ ${DATETIME_DESC}` },
+        end_datetime:   { type: 'string', description: `วันเวลาคืนรถ ${DATETIME_DESC}` },
+        brand:          { type: 'string', description: 'ยี่ห้อรถ ตามที่ check_availability คืนมา' },
+        model:          { type: 'string', description: 'รุ่นรถ ตามที่ check_availability คืนมา' },
       },
-      required: ['customer_name', 'customer_phone', 'start_date', 'end_date', 'brand', 'model', 'daily_rate'],
+      required: ['customer_name', 'customer_phone', 'start_datetime', 'end_datetime', 'brand', 'model'],
     },
   },
 ]
@@ -158,117 +169,127 @@ function genRef(): string {
   return `KM${yy}${mm}${dd}-${Math.floor(Math.random() * 9000) + 1000}`
 }
 
+// เวลาไทยแบบไม่มีโซน → utcIso สำหรับ DB/ค้นหา (ตัวแปลงเดียวกับทุกฟอร์มในแอป)
+// และ wall = Date ที่ "นาฬิกา UTC เท่ากับนาฬิกาไทย" สำหรับสูตรราคา — pricing.ts นับวันปฏิทินด้วย getter
+// แบบ local ซึ่งบนมือถือพนักงานคือเวลาไทย แต่บน Vercel คือ UTC ต้องเลื่อนให้ตรงก่อน ไม่งั้นนับวันเพี้ยน
+function parseBkk(local: unknown): { utcIso: string; wall: Date } | null {
+  if (typeof local !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local)) return null
+  const wall = new Date(`${local}:00Z`)
+  if (isNaN(wall.getTime())) return null
+  return { utcIso: bangkokToUTC(local), wall }
+}
+
+// ราคาเดียวกับหน้าจองของพนักงานเป๊ะ — โปร 7 วันจ่าย N + cap รายเดือน + ค่าเกินเวลา
+function quoteFor(start: Date, end: Date, dailyRate: number, monthlyRate: number | null, payDays: number) {
+  const days = calendarDays(start, end)
+  const quote = calcRentQuote(start, days, dailyRate, monthlyRate ?? dailyRate * 30, payDays)
+  const overtimeHours = calcExcessHours(start, end, days)
+  const overtime = calcOvertimeCharge(overtimeHours, dailyRate)
+  const promoApplied = !quote.isLong && !!quote.shortResult && quote.shortResult.calcDays < days
+  return { days, rentTotal: quote.total, overtimeHours, overtime, total: quote.total + overtime, promoApplied }
+}
+
+function validatePeriod(input: Record<string, unknown>) {
+  const s = parseBkk(input.start_datetime)
+  const e = parseBkk(input.end_datetime)
+  if (!s || !e) return { error: 'รูปแบบวันเวลาไม่ถูกต้อง ต้องเป็น YYYY-MM-DDTHH:mm (เวลาไทย)' } as const
+  if (e.wall <= s.wall) return { error: 'เวลาคืนรถต้องหลังเวลารับรถ' } as const
+  if (s.utcIso < new Date().toISOString()) return { error: 'เวลารับรถเป็นเวลาที่ผ่านมาแล้ว' } as const
+  return { s, e } as const
+}
+
 // ─── Tool execution ───────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function executeTool(name: string, input: Record<string, any>, branchId: string) {
   const supabase = createAdminClient()
-  const BKK = 'Asia/Bangkok'
 
   if (name === 'check_availability') {
-    const startUtc = new Date(`${input.start_date}T00:00:00+07:00`).toISOString()
-    const endUtc   = new Date(`${input.end_date}T23:59:59+07:00`).toISOString()
-    const bufMs    = 3 * 3_600_000
-    const bufStart = new Date(new Date(startUtc).getTime() - bufMs).toISOString()
-    const bufEnd   = new Date(new Date(endUtc).getTime()   + bufMs).toISOString()
-    const nowIso   = new Date().toISOString()
+    const period = validatePeriod(input)
+    if ('error' in period) return { error: period.error }
+    const { s, e } = period
 
-    const [{ data: bikes }, { data: rentals }, { data: monthlies }, { data: bookings }] = await Promise.all([
-      supabase.from('bikes').select('id, brand, model, daily_rate, status')
-        .eq('branch_id', branchId)
-        .not('status', 'in', '("repair","maintenance","locked","retired","inactive")'),
-      supabase.from('rentals').select('bike_id, expected_end_datetime')
-        .in('status', ['active', 'extended'])
-        .lt('start_datetime', bufEnd),
-      supabase.from('monthly_rentals').select('bike_id').eq('status', 'active'),
-      supabase.from('bookings').select('bike_id, requested_brand, requested_model')
-        .eq('branch_id', branchId).eq('status', 'confirmed')
-        .lt('start_datetime', bufEnd).gt('end_datetime', bufStart),
-    ])
+    // ค้นด้วยตัวกลางตัวเดียวกับหน้าค้นหาของพนักงาน — ผลตรงกับแอปเสมอ
+    const { bikes } = await searchBikes(supabase, [branchId], s.utcIso, e.utcIso)
 
-    const busyIds = new Set<string>()
-    for (const r of rentals ?? []) {
-      if (r.expected_end_datetime <= nowIso || r.expected_end_datetime > bufStart) busyIds.add(r.bike_id)
+    // จัดกลุ่มรายรุ่นแบบเดียวกับหน้าค้นหา (รุ่นเดียวกันแต่ราคาต่างกัน แยกกลุ่ม)
+    const groups = new Map<string, { brand: string; model: string; daily_rate: number; monthly_rate: number | null; promo_pay_days: number; count: number }>()
+    for (const b of bikes) {
+      if (!b.available) continue
+      const key = `${b.brand}__${b.model}__${b.daily_rate}__${b.monthly_rate ?? ''}`
+      if (!groups.has(key)) groups.set(key, { brand: b.brand, model: b.model, daily_rate: b.daily_rate, monthly_rate: b.monthly_rate, promo_pay_days: b.promo_pay_days, count: 0 })
+      groups.get(key)!.count++
     }
-    for (const m of monthlies ?? []) busyIds.add(m.bike_id)
-    for (const b of bookings ?? []) { if (b.bike_id) busyIds.add(b.bike_id) }
 
-    // นับ model-based bookings ที่กินสล็อต
-    const modelBookingCount = new Map<string, number>()
-    for (const b of bookings ?? []) {
-      if (!b.bike_id && b.requested_brand && b.requested_model) {
-        const k = `${b.requested_brand}__${b.requested_model}`
-        modelBookingCount.set(k, (modelBookingCount.get(k) ?? 0) + 1)
+    if (groups.size === 0) return { available: false, message: 'ไม่มีรถว่างในช่วงเวลานี้' }
+
+    const models = Array.from(groups.values()).map(g => {
+      const q = quoteFor(s.wall, e.wall, g.daily_rate, g.monthly_rate, g.promo_pay_days)
+      return {
+        brand: g.brand,
+        model: g.model,
+        available_count: g.count,
+        daily_rate: g.daily_rate,
+        rental_days: q.days,
+        rent_total: q.rentTotal,
+        promo: q.promoApplied ? `โปร 7 วันจ่าย ${g.promo_pay_days} วัน` : null,
+        overtime_hours: q.overtimeHours,
+        overtime_charge: q.overtime,
+        total: q.total,
       }
-    }
-    const modelBookingUsed = new Map<string, number>()
+    }).sort((a, b) => a.total - b.total)
 
-    const days = Math.max(1, Math.ceil((new Date(endUtc).getTime() - new Date(startUtc).getTime()) / 86_400_000))
-
-    // Group available bikes by model
-    const modelMap = new Map<string, { brand: string; model: string; daily_rate: number; count: number }>()
-    for (const bike of bikes ?? []) {
-      if (busyIds.has(bike.id)) continue
-      const k = `${bike.brand}__${bike.model}__${bike.daily_rate}`
-      const booked = modelBookingCount.get(`${bike.brand}__${bike.model}`) ?? 0
-      const used   = modelBookingUsed.get(k) ?? 0
-      if (used < booked) { modelBookingUsed.set(k, used + 1); continue }
-      if (!modelMap.has(k)) modelMap.set(k, { brand: bike.brand, model: bike.model, daily_rate: bike.daily_rate, count: 0 })
-      modelMap.get(k)!.count++
-    }
-
-    const available = Array.from(modelMap.values()).sort((a, b) => a.daily_rate - b.daily_rate)
-
-    if (available.length === 0) {
-      return { available: false, message: 'ไม่มีรถว่างในช่วงวันที่นี้' }
-    }
-
-    const fmt = (d: string) => new Date(d).toLocaleDateString('th-TH', { timeZone: BKK, day: 'numeric', month: 'short', year: 'numeric' })
-    return {
-      available: true,
-      period: `${fmt(startUtc)} – ${fmt(endUtc)} (${days} วัน)`,
-      bikes: available.map(b => ({
-        brand: b.brand,
-        model: b.model,
-        daily_rate: b.daily_rate,
-        total: b.daily_rate * days,
-        available_count: b.count,
-      })),
-    }
+    return { available: true, models }
   }
 
   if (name === 'create_booking') {
-    const startUtc = new Date(`${input.start_date}T09:00:00+07:00`).toISOString()
-    const endUtc   = new Date(`${input.end_date}T09:00:00+07:00`).toISOString()
-    const days     = Math.max(1, Math.ceil((new Date(endUtc).getTime() - new Date(startUtc).getTime()) / 86_400_000))
+    const period = validatePeriod(input)
+    if ('error' in period) return { success: false, error: period.error }
+    const { s, e } = period
+
+    // เช็คซ้ำตอนจองจริง + คิดราคาจากระบบเอง (ไม่เชื่อตัวเลขจาก AI) — กันคิวถูกแย่งระหว่างคุย
+    const norm = (v: unknown) => String(v ?? '').trim().toLowerCase()
+    const { bikes } = await searchBikes(supabase, [branchId], s.utcIso, e.utcIso)
+    const bike = bikes.find(b => b.available && norm(b.brand) === norm(input.brand) && norm(b.model) === norm(input.model))
+    if (!bike) return { success: false, error: 'รุ่นนี้ไม่ว่างแล้วในช่วงเวลานี้' }
+
+    const q = quoteFor(s.wall, e.wall, bike.daily_rate, bike.monthly_rate, bike.promo_pay_days)
 
     // หา staff คนแรกของสาขา (ใช้เป็น staff_id ของ bot)
     const { data: staffRow } = await supabase
       .from('staff').select('id').eq('branch_id', branchId).limit(1).maybeSingle()
 
+    // เช็คแบล็คลิสต์แบบเดียวกับหน้าจองของพนักงาน — ไม่บล็อก แค่แท็กเตือนพนักงาน (ไม่บอกลูกค้า)
+    const blacklistHit = await checkBlacklist(supabase, { name: input.customer_name, phone: input.customer_phone })
+
     const { data: booking, error } = await supabase.from('bookings').insert({
-      branch_id:        branchId,
-      bike_id:          null,
-      requested_brand:  input.brand,
-      requested_model:  input.model,
-      requested_daily_rate: input.daily_rate,
-      staff_id:         staffRow?.id ?? null,
-      customer_name:    input.customer_name,
-      customer_phone:   input.customer_phone,
-      start_datetime:   startUtc,
-      end_datetime:     endUtc,
-      total_days:       days,
-      daily_rate:       input.daily_rate,
-      total_amount:     input.daily_rate * days,
-      discount:         0,
-      source:           'line',
-      status:           'confirmed',
-      booking_ref:      genRef(),
+      branch_id:            branchId,
+      bike_id:              null,
+      requested_brand:      bike.brand,
+      requested_model:      bike.model,
+      requested_daily_rate: bike.daily_rate,
+      staff_id:             staffRow?.id ?? null,
+      customer_name:        input.customer_name,
+      customer_phone:       input.customer_phone,
+      start_datetime:       s.utcIso,
+      end_datetime:         e.utcIso,
+      total_days:           q.days,
+      daily_rate:           bike.daily_rate,
+      total_amount:         q.total,
+      discount:             0,
+      source:               'line',
+      status:               'confirmed',
+      booking_ref:          genRef(),
+      ...(blacklistHit ? {
+        blacklist_watch: true,
+        blacklist_watch_reason: `ชื่อ/เบอร์ตรงกับแบล็คลิสต์ "${blacklistHit.name}"${blacklistHit.reason ? ` — ${blacklistHit.reason}` : ''} (ตรงจาก${blacklistHit.matchedBy === 'phone' ? 'เบอร์โทร' : 'ชื่อ'}) — จองผ่าน LINE bot`,
+      } : {}),
     }).select('booking_ref').single()
 
     if (error || !booking) {
+      console.error('LINE bot booking insert error:', error)
       return { success: false, error: 'บันทึกการจองไม่สำเร็จ' }
     }
-    return { success: true, booking_ref: booking.booking_ref }
+    return { success: true, booking_ref: booking.booking_ref, total: q.total }
   }
 
   return { error: 'unknown tool' }
@@ -277,6 +298,11 @@ async function executeTool(name: string, input: Record<string, any>, branchId: s
 // ─── Claude call ──────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function callClaude(messages: unknown[]): Promise<any> {
+  // บอกวันเวลาปัจจุบัน — ไม่งั้นบอทตีความ "พรุ่งนี้/เสาร์นี้" ไม่ได้
+  const now = new Date()
+  const weekday = now.toLocaleDateString('th-TH', { weekday: 'long', timeZone: 'Asia/Bangkok' })
+  const system = `${SYSTEM_PROMPT}\n\nวันเวลาปัจจุบัน (เวลาไทย): ${utcToBangkokLocal(now.toISOString())} (${weekday})`
+
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -287,7 +313,7 @@ async function callClaude(messages: unknown[]): Promise<any> {
     body: JSON.stringify({
       model: 'claude-haiku-4-5',
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system,
       tools: TOOLS,
       messages,
     }),
