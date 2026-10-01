@@ -398,9 +398,10 @@ export async function POST(request: NextRequest) {
 
     } catch (err) {
       console.error('LINE chat error:', err)
+      const errMsg = err instanceof Error ? err.message : String(err)
       await lineReply(config.token, replyToken, [{
         type: 'text',
-        text: 'ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาโทรหาร้านโดยตรงครับ',
+        text: `[DEBUG] ${errMsg}`,
       }])
     }
   }
