@@ -91,6 +91,13 @@ const SYSTEM_PROMPT = `คุณคือแชทบอทของร้าน
 ⚠️ หากไม่มารับรถภายใน 1 ชั่วโมงจากเวลานัด ถือว่ายกเลิกอัตโนมัติ
 
 ═══════════════════════════════
+🕐  เวลารับ-คืนรถ
+═══════════════════════════════
+- รับรถและคืนรถต้องอยู่ในเวลาทำการ 08:00–20:00 น. เท่านั้น
+- ยกเว้น: เช่ามากกว่า 10 วัน สามารถนัดเวลารับ-คืนรถได้ตั้งแต่ 09:00–20:00 น.
+- ห้ามนัดรับ/คืนรถนอกเวลาทำการ ไม่ว่ากรณีใดก็ตาม (ยกเว้นตามเงื่อนไขข้างต้น)
+
+═══════════════════════════════
 🤖  กฎการตอบ
 ═══════════════════════════════
 - เมื่อลูกค้าถามว่ารถว่างไหม / อยากดูรถ / สอบถามราคา:
@@ -298,26 +305,4 @@ export async function POST(request: NextRequest) {
 
   // หา branch config จาก channel secret
   const config = BRANCH_CONFIGS[Object.keys(BRANCH_CONFIGS).find(
-    s => s && verifySignature(rawBody, lineSig, s)
-  ) ?? '']
-
-  if (!config) {
-    // ไม่ match channel secret ไหนเลย — ตอบ 200 เฉยๆ (LINE ต้องการ 200 เสมอ)
-    return NextResponse.json({ ok: true })
-  }
-
-  const supabase = createAdminClient()
-
-  // หา branch_id จากชื่อสาขา + เช็ค bot enabled
-  const { data: branch } = await supabase
-    .from('branches').select('id')
-    .ilike('name', config.branchNameLike)
-    .limit(1).maybeSingle()
-
-  if (!branch) return NextResponse.json({ ok: true })
-
-  // เช็คว่า bot เปิดอยู่ไหม (default true ถ้าไม่มี row)
-  const { data: botSetting } = await supabase
-    .from('branch_settings')
-    .select('line_bot_enabled')
-    .eq('bran
+    s => s && verifySignature(rawBody, lineSig
