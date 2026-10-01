@@ -12,6 +12,23 @@ export function imageMessage(url: string): LineMessage {
   return { type: 'image', originalContentUrl: url, previewImageUrl: url }
 }
 
+/** ตอบกลับ webhook event ด้วย replyToken (ใช้ได้ครั้งเดียว ภายใน 30 วิ) */
+export async function lineReply(token: string, replyToken: string, messages: LineMessage[]): Promise<boolean> {
+  const res = await fetch('https://api.line.me/v2/bot/message/reply', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ replyToken, messages }),
+  })
+  if (!res.ok) {
+    console.error('LINE reply failed:', res.status, await res.text())
+    return false
+  }
+  return true
+}
+
 /** ส่งข้อความหา user/group (to = userId 'U...' หรือ groupId 'C...') */
 export async function linePush(token: string, to: string, messages: LineMessage[]): Promise<boolean> {
   const res = await fetch('https://api.line.me/v2/bot/message/push', {
