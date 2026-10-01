@@ -306,4 +306,104 @@ export async function POST(request: NextRequest) {
 
   // หา branch config จาก channel secret
   const config = BRANCH_CONFIGS[Object.keys(BRANCH_CONFIGS).find(
-    s => s && verifySignature(rawBody, lineSig
+    s => s && verifySignature(rawBody, lineSig, s)
+  ) ?? '']
+
+  if (!config) {
+    // ไม่ match channel secret ไหนเลย — ตอบ 200 เฉยๆ (LINE ต้องการ 200 เสมอ)
+    return NextResponse.json({ ok: true })
+  }
+
+  const supabase = createAdminClient()
+
+  // หา branch_id จากชื่อสาขา + เช็ค bot enabled
+  const { data: branch } = await supabase
+    .from('branches').select('id')
+    .ilike('name', config.branchNameLike)
+    .limit(1).maybeSingle()
+
+  if (!branch) return NextResponse.json({ ok: true })
+
+  // เช็คว่า bot เปิดอยู่ไหม (default true ถ้าไม่มี row)
+  const { data: botSetting } = await supabase
+    .from('branch_settings')
+    .select('line_bot_enabled')
+    .eq('branch_id', branch.id)
+    .maybeSingle()
+  if (botSetting?.line_bot_enabled === false) return NextResponse.json({ ok: true })
+
+  const body = JSON.parse(rawBody)
+
+  for (const event of body.events ?? []) {
+    if (event.type !== 'message' || event.message?.type !== 'text') continue
+
+    const userId    = event.source.userId as string
+    const userText  = event.message.text as string
+    const replyToken = event.replyToken as string
+
+    try {
+      // โหลด conversation history
+      const { data: session } = await supabase
+        .from('line_chat_sessions')
+        .select('messages')
+        .eq('line_user_id', userId)
+        .eq('branch_id', branch.id)
+        .maybeSingle()
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const history: any[] = session?.messages ?? []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let messages: any[] = [...history, { role: 'user', content: userText }].slice(-20)
+
+      // เรียก Claude + handle tool use loop
+      let response = await callClaude(messages)
+      let loopCount = 0
+
+      while (response.stop_reason === 'tool_use' && loopCount < 5) {
+        loopCount++
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const toolBlock = response.content.find((c: any) => c.type === 'tool_use')
+        if (!toolBlock) break
+
+        const toolResult = await executeTool(toolBlock.name, toolBlock.input, branch.id)
+
+        messages = [
+          ...messages,
+          { role: 'assistant', content: response.content },
+          { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: JSON.stringify(toolResult) }] },
+        ]
+        response = await callClaude(messages)
+      }
+
+      // ดึง text response
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const textBlock = response.content?.find((c: any) => c.type === 'text')
+      const replyText: string = textBlock?.text ?? 'ขออภัยครับ เกิดข้อผิดพลาด กรุณาลองใหม่หรือโทรหาร้านโดยตรงครับ'
+
+      // ส่งกลับ LINE
+      await lineReply(config.token, replyToken, [{ type: 'text', text: replyText }])
+
+      // บันทึก history (เก็บแค่ 20 messages ล่าสุด)
+      const updatedHistory = [
+        ...messages.filter(m => typeof m.content === 'string'),
+        { role: 'assistant', content: replyText },
+      ].slice(-20)
+
+      await supabase.from('line_chat_sessions').upsert({
+        line_user_id: userId,
+        branch_id: branch.id,
+        messages: updatedHistory,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'line_user_id,branch_id' })
+
+    } catch (err) {
+      console.error('LINE chat error:', err)
+      await lineReply(config.token, replyToken, [{
+        type: 'text',
+        text: 'ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาโทรหาร้านโดยตรงครับ',
+      }])
+    }
+  }
+
+  return NextResponse.json({ ok: true })
+}
