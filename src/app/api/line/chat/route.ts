@@ -55,12 +55,15 @@ const SYSTEM_PROMPT = `คุณคือแชทบอทของร้าน
 - หากไม่มารับรถภายใน 1 ชั่วโมงจากเวลานัด ถือว่ายกเลิก
 - ต้องการยืนยันจอง ต้องแจ้ง: ชื่อ, เบอร์โทร, วันเริ่มเช่า, วันคืนรถ
 
-เมื่อลูกค้าสนใจเช่าหรือจอง ให้ถามข้อมูลต่อไปนี้ให้ครบก่อน:
-1. วันที่ต้องการเช่า (วัน/เดือน/ปี หรือวันเริ่มต้น–สิ้นสุด)
-2. รุ่นรถที่สนใจ (ถ้ามี) หรือบอกความต้องการ
-3. ชื่อ-นามสกุล
-4. เบอร์โทรศัพท์
-จากนั้นใช้ tool เพื่อเช็ครถว่างและจองให้ทันที`
+เมื่อลูกค้าถามว่ารถว่างไหม / อยากดูรถ / สอบถามราคา:
+- ถามแค่ วันเริ่ม-วันคืน แล้วเช็ครถว่างให้เลย ไม่ต้องถามชื่อ/เบอร์
+- แสดงรายการรถว่างพร้อมราคา แล้วถามว่า "สนใจรุ่นไหนครับ หรือต้องการจองเลยไหมครับ?"
+- ห้ามเร่งให้จอง รอให้ลูกค้าตัดสินใจเองก่อน
+
+เมื่อลูกค้าบอกว่าต้องการจองแล้ว ให้ถามข้อมูลเพิ่ม:
+1. ชื่อ-นามสกุล
+2. เบอร์โทรศัพท์
+จากนั้นจึงใช้ tool create_booking เพื่อจอง`
 
 // ─── Anthropic tool definitions ───────────────────────────────────────────────
 const TOOLS = [
@@ -267,13 +270,21 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // หา branch_id จากชื่อสาขา
+  // หา branch_id จากชื่อสาขา + เช็ค bot enabled
   const { data: branch } = await supabase
     .from('branches').select('id')
     .ilike('name', config.branchNameLike)
     .limit(1).maybeSingle()
 
   if (!branch) return NextResponse.json({ ok: true })
+
+  // เช็คว่า bot เปิดอยู่ไหม (default true ถ้าไม่มี row)
+  const { data: botSetting } = await supabase
+    .from('branch_settings')
+    .select('line_bot_enabled')
+    .eq('branch_id', branch.id)
+    .maybeSingle()
+  if (botSetting?.line_bot_enabled === false) return NextResponse.json({ ok: true })
 
   const body = JSON.parse(rawBody)
 
@@ -328,25 +339,4 @@ export async function POST(request: NextRequest) {
 
       // บันทึก history (เก็บแค่ 20 messages ล่าสุด)
       const updatedHistory = [
-        ...messages.filter(m => typeof m.content === 'string'),
-        { role: 'assistant', content: replyText },
-      ].slice(-20)
-
-      await supabase.from('line_chat_sessions').upsert({
-        line_user_id: userId,
-        branch_id: branch.id,
-        messages: updatedHistory,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'line_user_id,branch_id' })
-
-    } catch (err) {
-      console.error('LINE chat error:', err)
-      await lineReply(config.token, replyToken, [{
-        type: 'text',
-        text: 'ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาโทรหาร้านโดยตรงครับ',
-      }])
-    }
-  }
-
-  return NextResponse.json({ ok: true })
-}
+        ...messages.filter(m => typeof m.co
