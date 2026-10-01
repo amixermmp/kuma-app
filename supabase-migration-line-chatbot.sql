@@ -9,3 +9,7 @@ CREATE TABLE IF NOT EXISTS line_chat_sessions (
 
 -- Index for quick lookup
 CREATE INDEX IF NOT EXISTS idx_line_chat_sessions_branch ON line_chat_sessions(branch_id);
+
+-- เปิด/ปิด LINE chatbot รายสาขา
+ALTER TABLE branch_settings
+  ADD COLUMN IF NOT EXISTS line_bot_enabled BOOLEAN NOT NULL DEFAULT true;
