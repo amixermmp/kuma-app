@@ -293,8 +293,9 @@ async function callClaude(messages: unknown[]): Promise<any> {
     }),
   })
   if (!res.ok) {
-    console.error('Claude error:', res.status, await res.text())
-    throw new Error('Claude API error')
+    const errText = await res.text()
+    console.error('Claude error:', res.status, errText)
+    throw new Error(`Claude API ${res.status}: ${errText.slice(0, 300)}`)
   }
   return res.json()
 }
