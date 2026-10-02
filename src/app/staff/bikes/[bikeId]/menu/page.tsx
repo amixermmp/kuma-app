@@ -6,6 +6,8 @@ import UnlockButton from './UnlockButton'
 
 export const dynamic = 'force-dynamic'
 
+const RENTED_DAYS_AUTO_TASKS = ['เปลี่ยนน้ำมันเครื่อง', 'เปลี่ยนน้ำมันเฟืองท้าย']
+
 const STATUS_LABEL: Record<string, string> = {
   available: 'ว่าง',
   rented: 'กำลังถูกเช่า',
@@ -380,6 +382,8 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
             const daysLeft = r.next_due_date ? Math.ceil((new Date(r.next_due_date).getTime() - Date.now()) / 86_400_000) : null
             const kmLeft = r.next_due_km != null ? r.next_due_km - bike.odometer : null
             const rentedDone = r.interval_rented_days != null ? (r.rented_days_accumulated ?? 0) : null
+            // น้ำมันเครื่อง/เฟืองท้ายที่ยังไม่เคยเปลี่ยนหลังมีฟีเจอร์นี้ — ระบบจะตั้งเกณฑ์วันเช่าให้เองตอนกดทำรายการรอบหน้า (routine/complete)
+            const rentedPending = r.interval_rented_days == null && RENTED_DAYS_AUTO_TASKS.includes(r.task_name)
             const isLast = i === (routines ?? []).length - 1
             return (
               <div key={r.id} style={{ borderBottom: isLast ? 'none' : '1px solid #f1f5f9', paddingBottom: isLast ? 0 : '12px', marginBottom: isLast ? 0 : '12px' }}>
@@ -390,7 +394,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
                     border: '1px solid #fed7aa', borderRadius: '8px', padding: '6px 12px', textDecoration: 'none', whiteSpace: 'nowrap',
                   }}>✅ ทำรายการ</Link>
                 </div>
-                {(daysLeft != null || kmLeft != null || rentedDone != null) && (
+                {(daysLeft != null || kmLeft != null || rentedDone != null || rentedPending) && (
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
                     {daysLeft != null && (
                       <span style={{ fontSize: '11px', borderRadius: '6px', padding: '2px 8px',
@@ -409,6 +413,11 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
                         background: rentedDone >= r.interval_rented_days ? '#fef2f2' : '#faf5ff',
                         color: rentedDone >= r.interval_rented_days ? '#dc2626' : '#7e22ce' }}>
                         {rentedDone >= r.interval_rented_days ? '🚨 ' : '🛵 '}เช่าสะสม {rentedDone}/{r.interval_rented_days} วัน
+                      </span>
+                    )}
+                    {rentedPending && (
+                      <span style={{ fontSize: '11px', borderRadius: '6px', padding: '2px 8px', background: '#f3f4f6', color: '#6b7280' }}>
+                        🛵 ยังไม่เริ่มนับวันเช่า (เริ่มหลังเปลี่ยนรอบหน้า)
                       </span>
                     )}
                   </div>
