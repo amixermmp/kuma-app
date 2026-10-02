@@ -39,7 +39,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
       .in('doc_type', ['tax', 'pob', 'registration']),
     supabase
       .from('bike_routines')
-      .select('id, task_name, interval_km, interval_days, last_done_date, last_done_km, next_due_km, next_due_date')
+      .select('id, task_name, interval_km, interval_days, interval_rented_days, rented_days_accumulated, last_done_date, last_done_km, next_due_km, next_due_date')
       .eq('bike_id', params.bikeId),
     supabase
       .from('rentals')
@@ -379,6 +379,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
           {(routines ?? []).map((r, i) => {
             const daysLeft = r.next_due_date ? Math.ceil((new Date(r.next_due_date).getTime() - Date.now()) / 86_400_000) : null
             const kmLeft = r.next_due_km != null ? r.next_due_km - bike.odometer : null
+            const rentedDone = r.interval_rented_days != null ? (r.rented_days_accumulated ?? 0) : null
             const isLast = i === (routines ?? []).length - 1
             return (
               <div key={r.id} style={{ borderBottom: isLast ? 'none' : '1px solid #f1f5f9', paddingBottom: isLast ? 0 : '12px', marginBottom: isLast ? 0 : '12px' }}>
@@ -389,7 +390,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
                     border: '1px solid #fed7aa', borderRadius: '8px', padding: '6px 12px', textDecoration: 'none', whiteSpace: 'nowrap',
                   }}>✅ ทำรายการ</Link>
                 </div>
-                {(daysLeft != null || kmLeft != null) && (
+                {(daysLeft != null || kmLeft != null || rentedDone != null) && (
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
                     {daysLeft != null && (
                       <span style={{ fontSize: '11px', borderRadius: '6px', padding: '2px 8px',
@@ -403,11 +404,19 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
                         {kmLeft <= 0 ? `🚨 เลยกำหนด ${Math.abs(kmLeft).toLocaleString()} กม.` : `🛣️ อีก ${kmLeft.toLocaleString()} กม.`}
                       </span>
                     )}
+                    {rentedDone != null && r.interval_rented_days != null && (
+                      <span style={{ fontSize: '11px', borderRadius: '6px', padding: '2px 8px',
+                        background: rentedDone >= r.interval_rented_days ? '#fef2f2' : '#faf5ff',
+                        color: rentedDone >= r.interval_rented_days ? '#dc2626' : '#7e22ce' }}>
+                        {rentedDone >= r.interval_rented_days ? '🚨 ' : '🛵 '}เช่าสะสม {rentedDone}/{r.interval_rented_days} วัน
+                      </span>
+                    )}
                   </div>
                 )}
                 <div style={{ fontSize: '11px', color: '#6b7280', display: 'flex', flexWrap: 'wrap', gap: '2px 16px' }}>
                   {r.interval_km ? <span>ทุก {r.interval_km.toLocaleString()} กม.</span> : null}
                   {r.interval_days ? <span>ทุก {r.interval_days} วัน</span> : null}
+                  {r.interval_rented_days ? <span>ทุก {r.interval_rented_days} วันเช่า</span> : null}
                   {r.last_done_date ? <span>ทำล่าสุด: {fmtDate(r.last_done_date)}</span> : null}
                   {r.next_due_date ? <span>ครบกำหนด: {fmtDate(r.next_due_date)}</span> : null}
                 </div>
