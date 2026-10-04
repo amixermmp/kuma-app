@@ -5,6 +5,7 @@ import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import { logStaffAction } from '@/lib/log'
 import { findBookingConflictsForBike } from '@/lib/bookingConflicts'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
+import { hasOpenContract } from '@/lib/availability'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -62,6 +63,13 @@ export async function POST(request: NextRequest) {
   }
   if (locationType === 'offsite' && !locationAddress) {
     return NextResponse.json({ error: 'กรุณาระบุว่ารถอยู่ที่ไหน' }, { status: 400 })
+  }
+
+  // รถที่ลูกค้าถืออยู่ห้ามแจ้งซ่อมใหญ่ — ซ่อมใหญ่จะตั้งสถานะรถเป็น "ซ่อม" ทั้งที่ยังมีสัญญาเช่า แล้วตอนปิดงานสถานะไม่กลับเป็น "เช่าอยู่"
+  // (ค้างเป็นซ่อมทั้งที่อยู่กับลูกค้า) ต้องสลับรถให้ลูกค้าก่อน — ในหน้าสลับรถมีตัวเลือก "รถเสีย" ที่สร้างใบงานซ่อมให้เอง
+  // ซ่อมเล็กน้อย (instantDone) ไม่แตะสถานะรถ เลยไม่ติดกฎนี้
+  if (await hasOpenContract(supabase, bikeId)) {
+    return NextResponse.json({ error: 'รถคันนี้กำลังถูกเช่าอยู่ — ถ้าจะซ่อมใหญ่ ต้องสลับรถให้ลูกค้าก่อน (เลือก "รถเสีย" ในหน้าสลับรถ)' }, { status: 409 })
   }
 
   // กันแจ้งซ้ำ — รถคันนี้ต้องไม่มีงานซ่อมเปิดค้างอยู่แล้ว (เผื่อข้าม picker เข้ามาตรงๆ หรือกดส่งซ้ำ)

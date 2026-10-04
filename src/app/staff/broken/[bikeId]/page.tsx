@@ -28,5 +28,12 @@ export default async function BrokenPage({ params }: { params: { bikeId: string 
     .maybeSingle()
   if (openRepair) redirect(`/staff/repair/${openRepair.id}`)
 
-  return <BrokenForm bike={bike} staffId={staffId} />
+  // รถที่กำลังถูกเช่า — ซ่อมใหญ่ไม่ได้ ต้องสลับรถให้ลูกค้าก่อน (พาไปหน้าสลับรถของสัญญานั้น)
+  const [{ data: dailyRental }, { data: monthlyRental }] = await Promise.all([
+    supabase.from('rentals').select('id').eq('bike_id', params.bikeId).in('status', ['active', 'extended']).limit(1).maybeSingle(),
+    supabase.from('monthly_rentals').select('id').eq('bike_id', params.bikeId).eq('status', 'active').limit(1).maybeSingle(),
+  ])
+  const swapHref = dailyRental ? `/staff/swap/daily/${dailyRental.id}` : monthlyRental ? `/staff/swap/monthly/${monthlyRental.id}` : null
+
+  return <BrokenForm bike={bike} staffId={staffId} swapHref={swapHref} />
 }

@@ -14,9 +14,10 @@ type Bike = {
   status: string
 }
 
-type Props = { bike: Bike; staffId: string }
+// swapHref = ลิงก์หน้าสลับรถของสัญญาที่รถคันนี้เช่าอยู่ (null = ไม่ได้ถูกเช่า)
+type Props = { bike: Bike; staffId: string; swapHref?: string | null }
 
-export default function BrokenForm({ bike, staffId }: Props) {
+export default function BrokenForm({ bike, staffId, swapHref = null }: Props) {
   const router = useRouter()
   const [repairType, setRepairType] = useState<'instant' | 'long' | null>(null)
   const [description, setDescription] = useState('')
@@ -96,14 +97,24 @@ export default function BrokenForm({ bike, staffId }: Props) {
               color: repairType === 'instant' ? '#16a34a' : '#6b7280',
               fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
             }}>⚡ ซ่อมเล็กน้อย<br /><span style={{ fontWeight: 400, fontSize: '11px' }}>(รถไม่ต้องจอด)</span></button>
-            <button onClick={() => setRepairType('long')} style={{
+            <button onClick={() => { if (!swapHref) setRepairType('long') }} disabled={!!swapHref} style={{
               flex: 1, padding: '12px 10px', borderRadius: '10px',
               border: `2px solid ${repairType === 'long' ? '#dc2626' : '#e5e7eb'}`,
               background: repairType === 'long' ? '#fef2f2' : '#fff',
               color: repairType === 'long' ? '#dc2626' : '#6b7280',
-              fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
+              fontWeight: 700, fontSize: '13px', cursor: swapHref ? 'not-allowed' : 'pointer', fontFamily: 'inherit', lineHeight: 1.4,
+              opacity: swapHref ? 0.45 : 1,
             }}>🔧 ซ่อมใหญ่<br /><span style={{ fontWeight: 400, fontSize: '11px' }}>(รถต้องจอด)</span></button>
           </div>
+          {swapHref && (
+            <div style={{ marginTop: '12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '12px', fontSize: '12px', color: '#92400e', lineHeight: 1.6 }}>
+              🛵 รถคันนี้กำลังถูกเช่าอยู่ — ถ้าจะซ่อมใหญ่ ต้อง<strong>สลับรถให้ลูกค้าก่อน</strong> (ในหน้าสลับรถเลือก &quot;รถเสีย / ไม่ได้รถคืน&quot; ระบบสร้างใบงานซ่อมให้เอง)
+              <Link href={swapHref} style={{
+                display: 'block', marginTop: '10px', textAlign: 'center', background: '#7c3aed', color: '#fff',
+                borderRadius: '10px', padding: '10px', fontWeight: 700, fontSize: '13px', textDecoration: 'none',
+              }}>🔄 ไปสลับรถ</Link>
+            </div>
+          )}
         </div>
 
         {repairType && (
