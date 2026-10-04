@@ -10,9 +10,11 @@ type Props = {
   onUpload: (url: string, path: string) => void
   onRemove?: () => void
   uploadEndpoint?: string
+  // high = ชัด (บัตร/สลิปที่ต้องอ่านตัวหนังสือ) — normal = รูปทั่วไป ย่อเล็กกว่า เบากว่า
+  quality?: 'high' | 'normal'
 }
 
-export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove, uploadEndpoint = '/api/staff/upload' }: Props) {
+export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove, uploadEndpoint = '/api/staff/upload', quality = 'high' }: Props) {
   const [status, setStatus] = useState<'idle' | 'uploading' | 'done'>('idle')
   const [preview, setPreview] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -20,7 +22,7 @@ export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove, up
   const handleFile = async (file: File) => {
     setStatus('uploading')
     try {
-      const compressed = await compressImage(file, 200)
+      const compressed = quality === 'normal' ? await compressImage(file, 130, 1280) : await compressImage(file, 200)
       const localPreview = URL.createObjectURL(compressed)
       setPreview(localPreview)
 

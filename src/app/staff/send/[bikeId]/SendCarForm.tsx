@@ -1072,7 +1072,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             />
             {hasAccommodationProof === true && (
               <div style={{ marginTop: '10px' }}>
-                <PhotoUpload icon="🏨" hint="ถ่ายรูปหรืออัพโหลดใบจอง/หน้าจอโรงแรม" folder={folder}
+                <PhotoUpload icon="🏨" hint="ถ่ายรูปหรืออัพโหลดใบจอง/หน้าจอโรงแรม" folder={folder} quality="normal"
                   onUpload={setPhoto('accommodation_proof')} onRemove={clearPhoto('accommodation_proof')} />
               </div>
             )}
@@ -1715,12 +1715,12 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
           </ScriptBox>
           <div className="field-row" id="photo-with_bike">
             <label className="field-label">🛵 รูปคู่รถ *</label>
-            <PhotoUpload icon="🛵" hint="ลูกค้ายืนคู่รถก่อนรับ" folder={folder}
+            <PhotoUpload icon="🛵" hint="ลูกค้ายืนคู่รถก่อนรับ" folder={folder} quality="normal"
               onUpload={setPhoto('with_bike')} onRemove={clearPhoto('with_bike')} />
           </div>
           <div className="field-row" id="photo-damage">
             <label className="field-label">🔍 รูปตำหนิรถก่อนเช่า *</label>
-            <PhotoUpload icon="📷" hint="ถ่ายรูปรอบคันก่อนส่ง" folder={folder}
+            <PhotoUpload icon="📷" hint="ถ่ายรูปรอบคันก่อนส่ง" folder={folder} quality="normal"
               onUpload={setPhoto('damage')} onRemove={clearPhoto('damage')} />
           </div>
           <div className="field-row" style={{ marginBottom: 0 }}>
