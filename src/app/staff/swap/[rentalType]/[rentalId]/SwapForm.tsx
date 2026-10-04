@@ -56,6 +56,11 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
   const [selectedBikeId, setSelectedBikeId] = useState('')
   const [reason, setReason] = useState('')
   const [returnedOdo, setReturnedOdo] = useState('')
+  // รถคันเดิมเสีย/ไม่ได้รถคืน (เสียไกล, หน้าปัดอ่านไมล์ไม่ได้) — ไม่ต้องกรอกไมล์ แต่ต้องแจ้งอาการ+ที่อยู่รถ ระบบสร้างใบงานซ่อมให้เลย
+  const [broken, setBroken] = useState(false)
+  const [brokenDesc, setBrokenDesc] = useState('')
+  const [brokenLoc, setBrokenLoc] = useState<'shop' | 'offsite'>('offsite')
+  const [brokenAddress, setBrokenAddress] = useState('')
   // queue: set of booking IDs to reassign
   const [reassignIds, setReassignIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
@@ -79,17 +84,22 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
 
   const handleSubmit = async () => {
     if (!selectedBikeId) { setError('กรุณาเลือกรถคันใหม่'); return }
-    // ไมล์คันที่ได้คืนมา — บังคับกรอก ไม่งั้นไมล์ในระบบค้างค่าเก่า รูทีนเพี้ยน
     const currentOdo = bike.odometer ?? 0
     const odo = Number(returnedOdo)
-    if (returnedOdo.trim() === '' || !Number.isFinite(odo) || !Number.isInteger(odo) || odo < 0) {
-      setError(`กรุณากรอกไมล์คันที่ได้คืนมา (${bike.license_plate})`); return
+    if (broken) {
+      if (!brokenDesc.trim()) { setError('กรุณาระบุอาการเสีย'); return }
+      if (brokenLoc === 'offsite' && !brokenAddress.trim()) { setError('กรุณาระบุว่ารถอยู่ที่ไหน'); return }
+    } else {
+      // ไมล์คันที่ได้คืนมา — บังคับกรอก ไม่งั้นไมล์ในระบบค้างค่าเก่า รูทีนเพี้ยน
+      if (returnedOdo.trim() === '' || !Number.isFinite(odo) || !Number.isInteger(odo) || odo < 0) {
+        setError(`กรุณากรอกไมล์คันที่ได้คืนมา (${bike.license_plate})`); return
+      }
+      if (odo < currentOdo) {
+        setError(`ไมล์ที่กรอก (${odo.toLocaleString()}) ต่ำกว่าไมล์ในระบบ (${currentOdo.toLocaleString()} กม.) — เช็คตัวเลขอีกครั้ง`); return
+      }
+      if (odo - currentOdo > ODO_JUMP_CONFIRM_KM
+        && !window.confirm(`ไมล์เพิ่มขึ้น ${(odo - currentOdo).toLocaleString()} กม. จากในระบบ (${currentOdo.toLocaleString()}) แน่ใจว่าตัวเลขถูกต้อง?`)) return
     }
-    if (odo < currentOdo) {
-      setError(`ไมล์ที่กรอก (${odo.toLocaleString()}) ต่ำกว่าไมล์ในระบบ (${currentOdo.toLocaleString()} กม.) — เช็คตัวเลขอีกครั้ง`); return
-    }
-    if (odo - currentOdo > ODO_JUMP_CONFIRM_KM
-      && !window.confirm(`ไมล์เพิ่มขึ้น ${(odo - currentOdo).toLocaleString()} กม. จากในระบบ (${currentOdo.toLocaleString()}) แน่ใจว่าตัวเลขถูกต้อง?`)) return
     setLoading(true)
     setError('')
     try {
@@ -101,7 +111,14 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
           rentalId: rental.id,
           newBikeId: selectedBikeId,
           reason: reason.trim() || null,
-          returnedBikeOdometer: odo,
+          ...(broken
+            ? {
+                oldBikeBroken: true,
+                brokenDescription: brokenDesc.trim(),
+                brokenLocationType: brokenLoc,
+                brokenLocationAddress: brokenLoc === 'offsite' ? brokenAddress.trim() : null,
+              }
+            : { returnedBikeOdometer: odo }),
           reassignBookingIds: Array.from(reassignIds),
         }),
       })
@@ -273,18 +290,59 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
 
         {/* ไมล์คันที่ได้คืนมา */}
         <div className="card" style={{ borderTop: '3px solid #0ea5e9' }}>
-          <div className="card-title">ไมล์คันที่ได้คืนมา — {bike.license_plate} *</div>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
-            ดูเลขไมล์จากหน้าปัดรถคันที่ลูกค้าคืนตอนนี้ (ในระบบ: {(bike.odometer ?? 0).toLocaleString()} กม.)
-          </div>
-          <input
-            className="field-input"
-            type="number"
-            inputMode="numeric"
-            placeholder="เลขไมล์ปัจจุบัน"
-            value={returnedOdo}
-            onChange={e => setReturnedOdo(e.target.value)}
-          />
+          <div className="card-title">คันที่ได้คืนมา — {bike.license_plate}</div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, color: '#b91c1c', marginBottom: '10px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={broken} onChange={e => setBroken(e.target.checked)} />
+            🛵💥 รถเสีย / ไม่ได้รถคืน (อ่านไมล์ไม่ได้)
+          </label>
+
+          {!broken ? (
+            <>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
+                ไมล์คันที่ได้คืนมา * — ดูเลขไมล์จากหน้าปัดรถคันที่ลูกค้าคืนตอนนี้ (ในระบบ: {(bike.odometer ?? 0).toLocaleString()} กม.)
+              </div>
+              <input
+                className="field-input"
+                type="number"
+                inputMode="numeric"
+                placeholder="เลขไมล์ปัจจุบัน"
+                value={returnedOdo}
+                onChange={e => setReturnedOdo(e.target.value)}
+              />
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px', lineHeight: 1.5 }}>
+                ไม่ต้องกรอกไมล์ ระบบจะสร้างใบงานซ่อมให้ทันที และตั้งคันนี้เป็น &quot;ซ่อม&quot; (ไม่ขึ้นในรถว่าง) ไมล์จะบังคับกรอกตอนกด &quot;ซ่อมเสร็จ&quot;
+              </div>
+              <input
+                className="field-input"
+                type="text"
+                placeholder="อาการเสีย * เช่น หน้าปัดไม่ติด / เครื่องดับ"
+                value={brokenDesc}
+                onChange={e => setBrokenDesc(e.target.value)}
+                style={{ marginBottom: '8px' }}
+              />
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                {(['offsite', 'shop'] as const).map(v => (
+                  <button key={v} type="button" onClick={() => setBrokenLoc(v)} style={{
+                    flex: 1, padding: '10px', borderRadius: '10px', fontSize: '13px', fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+                    border: `1.5px solid ${brokenLoc === v ? '#dc2626' : '#e5e7eb'}`,
+                    background: brokenLoc === v ? '#fef2f2' : '#fff', color: brokenLoc === v ? '#dc2626' : '#374151',
+                  }}>{v === 'offsite' ? '📍 รถอยู่นอกร้าน' : '🏠 รถอยู่ที่ร้าน'}</button>
+                ))}
+              </div>
+              {brokenLoc === 'offsite' && (
+                <input
+                  className="field-input"
+                  type="text"
+                  placeholder="รถอยู่ที่ไหน * เช่น หน้าเซเว่น ถ.ลงหาดบางแสน"
+                  value={brokenAddress}
+                  onChange={e => setBrokenAddress(e.target.value)}
+                />
+              )}
+            </>
+          )}
         </div>
 
         {/* หมายเหตุ */}
