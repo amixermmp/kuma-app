@@ -43,7 +43,7 @@ export default async function OwnerRentalHistoryPage() {
       .from('rentals')
       .select(`
         id, start_datetime, actual_end_datetime, total_amount,
-        send_odometer, return_odometer, send_photos, return_photos,
+        send_odometer, return_odometer, send_photos, return_photos, swap_log,
         bikes(id, license_plate, brand, model, color),
         customers(name, phone)
       `)
@@ -54,7 +54,7 @@ export default async function OwnerRentalHistoryPage() {
       .from('monthly_rentals')
       .select(`
         id, start_date, end_date, monthly_rate,
-        send_odometer, return_odometer, send_photos, return_photos,
+        send_odometer, return_odometer, send_photos, return_photos, swap_log,
         bikes(id, license_plate, brand, model, color),
         customers(name, phone)
       `)

@@ -5,13 +5,14 @@ import { writeLog } from '@/lib/log'
 import { hasOpenContract } from '@/lib/availability'
 import { findBookingConflictsForBike } from '@/lib/bookingConflicts'
 import { resolveSingleBikeRate } from '@/lib/bikeCatalog'
+import { recalcNeverDoneRoutines } from '@/lib/routines'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { rentalType, rentalId, newBikeId, reason, reassignBookingIds } =
+  const { rentalType, rentalId, newBikeId, reason, reassignBookingIds, returnedBikeOdometer } =
     await request.json()
 
   if (!rentalType || !rentalId || !newBikeId) {
@@ -30,11 +31,12 @@ export async function POST(request: NextRequest) {
   let oldPlate: string
   let existingSwapLog: unknown[] = []
   let oldMonthlyRate = 0
+  let oldBikeOdometer = 0
 
   if (rentalType === 'monthly') {
     const { data: rental, error } = await supabase
       .from('monthly_rentals')
-      .select('id, bike_id, branch_id, monthly_rate, swap_log, bikes(license_plate, branch_id), customers(name)')
+      .select('id, bike_id, branch_id, monthly_rate, swap_log, bikes(license_plate, branch_id, odometer), customers(name)')
       .eq('id', rentalId)
       .eq('status', 'active')
       .single()
@@ -49,12 +51,14 @@ export async function POST(request: NextRequest) {
     customerName = (rental.customers as any)?.name ?? '—'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     oldPlate = (rental.bikes as any)?.license_plate ?? oldBikeId
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    oldBikeOdometer = Number((rental.bikes as any)?.odometer) || 0
     existingSwapLog = Array.isArray(rental.swap_log) ? rental.swap_log : []
     oldMonthlyRate = rental.monthly_rate
   } else {
     const { data: rental, error } = await supabase
       .from('rentals')
-      .select('id, bike_id, branch_id, swap_log, bikes(license_plate, branch_id), customers(name)')
+      .select('id, bike_id, branch_id, swap_log, bikes(license_plate, branch_id, odometer), customers(name)')
       .eq('id', rentalId)
       .in('status', ['active', 'extended'])
       .single()
@@ -69,11 +73,23 @@ export async function POST(request: NextRequest) {
     customerName = (rental.customers as any)?.name ?? '—'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     oldPlate = (rental.bikes as any)?.license_plate ?? oldBikeId
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    oldBikeOdometer = Number((rental.bikes as any)?.odometer) || 0
     existingSwapLog = Array.isArray(rental.swap_log) ? rental.swap_log : []
   }
 
   if (oldBikeId === newBikeId) {
     return NextResponse.json({ error: 'รถคันใหม่ต้องไม่ใช่คันเดิม' }, { status: 400 })
+  }
+
+  // ไมล์คันที่ได้คืนมา — บังคับกรอก (เช็คก่อนแก้ข้อมูลอะไรทั้งหมด) ไม่งั้นไมล์ในระบบค้างค่าเก่า รูทีนเพี้ยน
+  const returnedOdo = Number(returnedBikeOdometer)
+  if (returnedBikeOdometer === null || returnedBikeOdometer === undefined || returnedBikeOdometer === ''
+    || !Number.isInteger(returnedOdo) || returnedOdo < 0) {
+    return NextResponse.json({ error: `กรุณากรอกไมล์คันที่ได้คืนมา (${oldPlate})` }, { status: 400 })
+  }
+  if (returnedOdo < oldBikeOdometer) {
+    return NextResponse.json({ error: `ไมล์ที่กรอก (${returnedOdo.toLocaleString()}) ต่ำกว่าไมล์ในระบบ (${oldBikeOdometer.toLocaleString()} กม.) — เช็คตัวเลขอีกครั้ง` }, { status: 400 })
   }
 
   // ── 2. Verify new bike ───────────────────────────────────────────────────────
@@ -153,6 +169,11 @@ export async function POST(request: NextRequest) {
     if (r.error) console.error('[rental/swap] bike update failed:', JSON.stringify(r.error))
   }
 
+  // ไมล์คันที่ได้คืนมา → อัปเดต + เลื่อนเป้ารูทีนที่ไม่เคยทำ (ทุกจุดที่เขียน bikes.odometer ต้องเรียกตัวนี้)
+  const { error: odoErr } = await supabase.from('bikes').update({ odometer: returnedOdo }).eq('id', oldBikeId)
+  if (odoErr) console.error('[rental/swap] odometer update failed:', oldBikeId, JSON.stringify(odoErr))
+  else await recalcNeverDoneRoutines(supabase, oldBikeId, returnedOdo)
+
   // ── 5. Reassign bookings (queue) ─────────────────────────────────────────────
   const bookingIds: string[] = Array.isArray(reassignBookingIds) ? reassignBookingIds : []
   if (bookingIds.length > 0) {
@@ -171,7 +192,7 @@ export async function POST(request: NextRequest) {
     actorName: staffRow?.name ?? staffId,
     action: 'rental_swap',
     description: `สลับรถ${typeLabel} — ลูกค้า ${customerName} — ${oldPlate} → ${newPlate}${bookingIds.length > 0 ? ` • สลับคิว ${bookingIds.length} รายการ` : ''}`,
-    metadata: { rentalType, rentalId, oldBikeId, newBikeId, reason, reassignBookingIds: bookingIds },
+    metadata: { rentalType, rentalId, oldBikeId, newBikeId, reason, returnedOdometer: returnedOdo, reassignBookingIds: bookingIds },
   })
 
   // เช็คคิวจองที่ยังผูกกับรถคันเก่า (ที่ไม่ได้ถูกเลือกให้โยกย้าย) และคันใหม่ — ถ้ามีปัญหาให้ frontend เด้งเตือน

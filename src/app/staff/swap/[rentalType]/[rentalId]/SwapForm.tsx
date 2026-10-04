@@ -8,7 +8,7 @@ import BookingConflictModal from '@/components/staff/BookingConflictModal'
 type Rental = {
   id: string
   bike_id: string
-  bikes: { id: string; license_plate: string; brand: string; model: string }
+  bikes: { id: string; license_plate: string; brand: string; model: string; odometer: number | null }
   customers: { name: string; phone: string | null }
   label: string
   swap_log?: { date: string; from_plate: string; to_plate: string; type?: string; reason: string | null }[]
@@ -40,6 +40,9 @@ type Props = {
   pendingBookings: PendingBooking[]
 }
 
+// ไมล์คันที่ได้คืนมาเพิ่มจากในระบบเกินนี้ ถามยืนยันก่อน (กันพิมพ์ผิด/ใส่มั่ว) — แค่ถาม ไม่บล็อก เพราะรายเดือนเช่านานวิ่งเกินได้จริง
+const ODO_JUMP_CONFIRM_KM = 1500
+
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('th-TH', {
     timeZone: 'Asia/Bangkok',
@@ -52,6 +55,7 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
   const router = useRouter()
   const [selectedBikeId, setSelectedBikeId] = useState('')
   const [reason, setReason] = useState('')
+  const [returnedOdo, setReturnedOdo] = useState('')
   // queue: set of booking IDs to reassign
   const [reassignIds, setReassignIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
@@ -75,6 +79,17 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
 
   const handleSubmit = async () => {
     if (!selectedBikeId) { setError('กรุณาเลือกรถคันใหม่'); return }
+    // ไมล์คันที่ได้คืนมา — บังคับกรอก ไม่งั้นไมล์ในระบบค้างค่าเก่า รูทีนเพี้ยน
+    const currentOdo = bike.odometer ?? 0
+    const odo = Number(returnedOdo)
+    if (returnedOdo.trim() === '' || !Number.isFinite(odo) || !Number.isInteger(odo) || odo < 0) {
+      setError(`กรุณากรอกไมล์คันที่ได้คืนมา (${bike.license_plate})`); return
+    }
+    if (odo < currentOdo) {
+      setError(`ไมล์ที่กรอก (${odo.toLocaleString()}) ต่ำกว่าไมล์ในระบบ (${currentOdo.toLocaleString()} กม.) — เช็คตัวเลขอีกครั้ง`); return
+    }
+    if (odo - currentOdo > ODO_JUMP_CONFIRM_KM
+      && !window.confirm(`ไมล์เพิ่มขึ้น ${(odo - currentOdo).toLocaleString()} กม. จากในระบบ (${currentOdo.toLocaleString()}) แน่ใจว่าตัวเลขถูกต้อง?`)) return
     setLoading(true)
     setError('')
     try {
@@ -86,6 +101,7 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
           rentalId: rental.id,
           newBikeId: selectedBikeId,
           reason: reason.trim() || null,
+          returnedBikeOdometer: odo,
           reassignBookingIds: Array.from(reassignIds),
         }),
       })
@@ -254,6 +270,22 @@ export default function SwapForm({ rentalType, rental, availableBikes, pendingBo
             )}
           </div>
         )}
+
+        {/* ไมล์คันที่ได้คืนมา */}
+        <div className="card" style={{ borderTop: '3px solid #0ea5e9' }}>
+          <div className="card-title">ไมล์คันที่ได้คืนมา — {bike.license_plate} *</div>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
+            ดูเลขไมล์จากหน้าปัดรถคันที่ลูกค้าคืนตอนนี้ (ในระบบ: {(bike.odometer ?? 0).toLocaleString()} กม.)
+          </div>
+          <input
+            className="field-input"
+            type="number"
+            inputMode="numeric"
+            placeholder="เลขไมล์ปัจจุบัน"
+            value={returnedOdo}
+            onChange={e => setReturnedOdo(e.target.value)}
+          />
+        </div>
 
         {/* หมายเหตุ */}
         <div className="card">

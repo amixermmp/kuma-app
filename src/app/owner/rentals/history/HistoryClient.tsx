@@ -19,6 +19,7 @@ type DailyRental = {
   total_amount: number | null
   send_odometer: number | null
   return_odometer: number | null
+  swap_log?: unknown
   sendPhotos: Photo[]
   returnPhotos: Photo[]
   payments: DailyPayment[]
@@ -35,6 +36,7 @@ type MonthlyRental = {
   monthly_rate: number
   send_odometer: number | null
   return_odometer: number | null
+  swap_log?: unknown
   sendPhotos: Photo[]
   returnPhotos: Photo[]
   payments: MonthlyPayment[]
@@ -67,13 +69,22 @@ function kmDriven(sendOdo: number | null, returnOdo: number | null): number | nu
   return km >= 0 ? km : null
 }
 
-function KmStats({ days, km }: { days: number | null; km: number | null }) {
+// สัญญาที่เคยสลับรถกลางสัญญา — ไมล์ตอนส่งเป็นของคันเดิม ไมล์ตอนคืนเป็นของอีกคัน เอามาลบกันได้เลขผิด จึงไม่คำนวณ
+const hasSwapped = (swapLog: unknown) => Array.isArray(swapLog) && swapLog.length > 0
+
+function KmStats({ days, km, swapped }: { days: number | null; km: number | null; swapped?: boolean }) {
   if (days == null) return null
   return (
     <div style={{ display: 'flex', gap: '16px', marginTop: '10px', flexWrap: 'wrap' }}>
       <Info label="ใช้ไป" value={`${days} วัน`} />
-      <Info label="กิโลรวม" value={km != null ? `${km.toLocaleString()} กม.` : '—'} />
-      <Info label="เฉลี่ย/วัน" value={km != null ? `${Math.round(km / days).toLocaleString()} กม.` : '—'} />
+      {swapped ? (
+        <Info label="กิโลรวม" value="สลับรถ — ไม่คำนวณ" />
+      ) : (
+        <>
+          <Info label="กิโลรวม" value={km != null ? `${km.toLocaleString()} กม.` : '—'} />
+          <Info label="เฉลี่ย/วัน" value={km != null ? `${Math.round(km / days).toLocaleString()} กม.` : '—'} />
+        </>
+      )}
     </div>
   )
 }
@@ -281,7 +292,7 @@ export default function HistoryClient({
                       <Info label="วันคืน" value={r.actual_end_datetime ? formatDate(r.actual_end_datetime) : '—'} />
                       <Info label="ยอดรวม" value={formatMoney(r.total_amount)} />
                     </div>
-                    <KmStats days={days} km={km} />
+                    <KmStats days={days} km={km} swapped={hasSwapped(r.swap_log)} />
                     <ReceiptSection payments={r.payments} type="daily" />
                     <PhotoSection sendPhotos={r.sendPhotos} returnPhotos={r.returnPhotos} />
                   </div>
@@ -330,7 +341,7 @@ export default function HistoryClient({
                       <Info label="สิ้นสุด" value={r.end_date ? formatDate(r.end_date) : '—'} />
                       <Info label="ค่าเช่า/เดือน" value={formatMoney(r.monthly_rate)} />
                     </div>
-                    <KmStats days={days} km={km} />
+                    <KmStats days={days} km={km} swapped={hasSwapped(r.swap_log)} />
                     <ReceiptSection payments={r.payments} type="monthly" />
                     <PhotoSection sendPhotos={r.sendPhotos} returnPhotos={r.returnPhotos} />
                   </div>

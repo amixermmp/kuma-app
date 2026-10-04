@@ -27,7 +27,7 @@ export default async function SwapPage({
     id: string
     bike_id: string
     branch_id: string
-    bikes: { id: string; license_plate: string; brand: string; model: string; branch_id: string }
+    bikes: { id: string; license_plate: string; brand: string; model: string; branch_id: string; odometer: number | null }
     customers: { name: string; phone: string | null }
     label: string            // "฿X/วัน" or "฿X/เดือน"
     swap_log?: { date: string; from_plate: string; to_plate: string; type: string; reason: string | null }[]
@@ -36,7 +36,7 @@ export default async function SwapPage({
   if (rentalType === 'monthly') {
     const { data, error } = await supabase
       .from('monthly_rentals')
-      .select('id, bike_id, branch_id, monthly_rate, payment_day, swap_log, bikes(id, license_plate, brand, model, branch_id), customers(name, phone)')
+      .select('id, bike_id, branch_id, monthly_rate, payment_day, swap_log, bikes(id, license_plate, brand, model, branch_id, odometer), customers(name, phone)')
       .eq('id', rentalId)
       .eq('status', 'active')
       .single()
@@ -47,7 +47,7 @@ export default async function SwapPage({
   } else {
     const { data, error } = await supabase
       .from('rentals')
-      .select('id, bike_id, branch_id, daily_rate, total_days, expected_end_datetime, bikes(id, license_plate, brand, model, branch_id), customers(name, phone)')
+      .select('id, bike_id, branch_id, daily_rate, total_days, expected_end_datetime, bikes(id, license_plate, brand, model, branch_id, odometer), customers(name, phone)')
       .eq('id', rentalId)
       .in('status', ['active', 'extended'])
       .single()
