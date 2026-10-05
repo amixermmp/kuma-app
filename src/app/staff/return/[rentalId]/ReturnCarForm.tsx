@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
+import { confirmOdometerClient } from '@/lib/odometerCheck'
 import TabBar from '@/components/staff/TabBar'
 import { addTab } from '@/lib/tabStore'
 import { calcRentQuote, calcLateHours, calcOvertimeCharge, OVERTIME_HOURLY_RATE } from '@/lib/pricing'
@@ -134,6 +135,8 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
 
   const handleSubmit = async () => {
     if (!odometer) { setError('กรุณากรอกเลขไมล์ตอนรับคืน'); return }
+    const odoCheck = confirmOdometerClient(parseInt(odometer), bike.odometer)
+    if (!odoCheck.ok) { setError(odoCheck.error); return }
     if (fuelCheckIncomplete) { setError('กรุณาเลือกระดับน้ำมันตอนรับคืน'); return }
     if (!returnAlreadyConfirmed && newReturnType === null) { setError('กรุณาเลือกว่าวันนี้คืนที่ไหน'); return }
     setLoading(true)

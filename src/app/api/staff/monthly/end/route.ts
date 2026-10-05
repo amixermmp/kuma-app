@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
 import { logStaffAction } from '@/lib/log'
 import { hasOpenContract } from '@/lib/availability'
+import { odometerLowerError } from '@/lib/odometerCheck'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -18,13 +19,20 @@ export async function POST(request: NextRequest) {
   // Fetch rental to get bike_id
   const { data: rental, error: rentalErr } = await supabase
     .from('monthly_rentals')
-    .select('id, bike_id, status, bikes(license_plate), customers(name)')
+    .select('id, bike_id, status, bikes(license_plate, odometer), customers(name)')
     .eq('id', monthlyRentalId)
     .eq('status', 'active')
     .single()
 
   if (rentalErr || !rental) {
     return NextResponse.json({ error: 'ไม่พบสัญญา หรือสัญญาสิ้นสุดแล้ว' }, { status: 404 })
+  }
+
+  // ไมล์ตอนจบสัญญา (ถ้ากรอก) ต้องไม่ต่ำกว่าไมล์ในระบบ — กันพิมพ์หลักหาย เช็คก่อนแก้ข้อมูลอะไรทั้งหมด
+  if (returnOdometer) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lowerErr = odometerLowerError(Number(returnOdometer), (rental.bikes as any)?.odometer)
+    if (lowerErr) return NextResponse.json({ error: lowerErr }, { status: 400 })
   }
 
   const now = new Date().toISOString()

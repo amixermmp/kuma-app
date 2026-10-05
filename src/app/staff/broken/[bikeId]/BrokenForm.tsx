@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
 import BookingConflictModal from '@/components/staff/BookingConflictModal'
+import { confirmOdometerClient } from '@/lib/odometerCheck'
 
 type Bike = {
   id: string
@@ -12,6 +13,7 @@ type Bike = {
   brand: string
   model: string
   status: string
+  odometer?: number | null
 }
 
 // swapHref = ลิงก์หน้าสลับรถของสัญญาที่รถคันนี้เช่าอยู่ (null = ไม่ได้ถูกเช่า)
@@ -39,6 +41,8 @@ export default function BrokenForm({ bike, staffId, swapHref = null }: Props) {
     if (!description.trim()) { setError('กรุณาอธิบายอาการของรถ'); return }
     if (isInstant) {
       if (!odometer.trim()) { setError('กรุณากรอกเลขไมล์ปัจจุบัน'); return }
+      const odoCheck = confirmOdometerClient(parseFloat(odometer), bike.odometer)
+      if (!odoCheck.ok) { setError(odoCheck.error); return }
     } else {
       if (!locationType) { setError('กรุณาเลือกตำแหน่งรถ'); return }
       if (locationType === 'offsite' && !locationAddress.trim()) { setError('กรุณาระบุว่ารถอยู่ที่ไหน'); return }

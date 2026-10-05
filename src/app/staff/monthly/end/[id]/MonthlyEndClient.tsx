@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { calcRentQuote } from '@/lib/pricing'
+import { confirmOdometerClient } from '@/lib/odometerCheck'
 
 type Bike = { id: string; license_plate: string; brand: string; model: string; odometer: number; daily_rate: number; monthly_rate: number | null }
 type Customer = { id: string; name: string; phone: string }
@@ -79,6 +80,10 @@ export default function MonthlyEndClient({ rental, totalCollected, monthsRented,
 
   const handleConfirm = async () => {
     if (!confirmed) { setError('กรุณากดยืนยันก่อน'); return }
+    if (returnOdometer) {
+      const odoCheck = confirmOdometerClient(Number(returnOdometer), bike.odometer)
+      if (!odoCheck.ok) { setError(odoCheck.error); return }
+    }
     setLoading(true); setError('')
     try {
       const res = await fetch('/api/staff/monthly/end', {

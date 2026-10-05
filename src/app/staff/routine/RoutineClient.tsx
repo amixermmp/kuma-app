@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import PhotoUpload from '@/components/PhotoUpload'
+import { confirmOdometerClient } from '@/lib/odometerCheck'
 import type { RoutineItem } from './page'
 
 function urgencyColor(u: RoutineItem['urgency']) {
@@ -35,6 +36,10 @@ function RoutineCard({ r }: { r: RoutineItem }) {
 
   const handleSave = async () => {
     if (oilType && usedShopOil === null) { setError('กรุณาเลือกว่าใช้น้ำมันร้านหรือไม่'); return }
+    if (doneKm) {
+      const odoCheck = confirmOdometerClient(parseInt(doneKm), r.bikes?.odometer)
+      if (!odoCheck.ok) { setError(odoCheck.error); return }
+    }
     setLoading(true)
     setError('')
     try {

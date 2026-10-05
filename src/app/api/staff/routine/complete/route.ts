@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
 import { logStaffAction } from '@/lib/log'
+import { odometerLowerError } from '@/lib/odometerCheck'
 
 // ค่าเริ่มต้นวันเช่าสะสม — ใช้ตอนรูทีนนี้ยังไม่เคยตั้งค่านี้มาก่อน (เพิ่งย้ายมาระบบใหม่รอบแรก)
 // เจ้าของแก้ต่อบัตรได้ทีหลังผ่านหน้าแก้ไขรถ ค่านี้จะไม่ทับของที่ตั้งไว้แล้ว
@@ -21,6 +22,13 @@ export async function POST(request: NextRequest) {
   if (oilType && usedShopOil == null) return NextResponse.json({ error: 'กรุณาเลือกว่าใช้น้ำมันร้านหรือไม่' }, { status: 400 })
 
   const supabase = createAdminClient()
+
+  // ไมล์ตอนทำรูทีนต้องไม่ต่ำกว่าไมล์รถในระบบ — เลขนี้เขียนทับไมล์รถ ถ้าพิมพ์หลักหายรูทีนทุกอันของรถเพี้ยน
+  if (doneKm && bikeId) {
+    const { data: bikeRow } = await supabase.from('bikes').select('odometer').eq('id', bikeId).single()
+    const lowerErr = odometerLowerError(Number(doneKm), bikeRow?.odometer)
+    if (lowerErr) return NextResponse.json({ error: lowerErr }, { status: 400 })
+  }
 
   // เอาค่าปัจจุบันมาดูก่อน — ถ้ายังไม่เคยตั้ง interval_rented_days เลย (รอบแรกที่เข้าระบบใหม่) ค่อย seed ค่า default ให้
   const { data: currentRoutine } = await supabase

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PhotoUpload from '@/components/PhotoUpload'
+import { confirmOdometerClient } from '@/lib/odometerCheck'
 
 type LocationLogEntry = {
   date: string
@@ -24,7 +25,7 @@ type Repair = {
   location_address: string | null
   location_log: LocationLogEntry[] | null
   repair_photos: { url: string; label: string }[] | null
-  bikes: { id: string; license_plate: string; brand: string; model: string }
+  bikes: { id: string; license_plate: string; brand: string; model: string; odometer?: number | null }
 }
 
 function fmtLocation(type: string | null, address: string | null) {
@@ -92,6 +93,8 @@ export default function RepairDoneForm({ repair, isFromSwap = false }: Props) {
 
   const handleSubmit = async () => {
     if (!odometer.trim()) { setError('กรุณากรอกเลขไมล์ปัจจุบัน'); return }
+    const odoCheck = confirmOdometerClient(parseFloat(odometer), bike.odometer)
+    if (!odoCheck.ok) { setError(odoCheck.error); return }
     setLoading(true)
     setError('')
     try {

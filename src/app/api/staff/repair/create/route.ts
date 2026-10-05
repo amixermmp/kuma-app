@@ -6,6 +6,7 @@ import { logStaffAction } from '@/lib/log'
 import { findBookingConflictsForBike } from '@/lib/bookingConflicts'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
 import { hasOpenContract } from '@/lib/availability'
+import { odometerLowerError } from '@/lib/odometerCheck'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -22,6 +23,11 @@ export async function POST(request: NextRequest) {
   // ซ่อมเล็กน้อย รถไม่ต้องจอด — ซ่อมเสร็จแล้วจริง แค่บันทึกประวัติไว้ ไม่ต้องเปลี่ยนสถานะรถ/เช็คคิวจองเลย
   if (instantDone) {
     if (!odometer) return NextResponse.json({ error: 'กรุณากรอกเลขไมล์ปัจจุบัน' }, { status: 400 })
+
+    // ซ่อมเล็กน้อยก็เขียนทับไมล์รถ — ต้องไม่ต่ำกว่าไมล์ในระบบเหมือนจุดอื่น
+    const { data: bikeRow } = await supabase.from('bikes').select('odometer').eq('id', bikeId).single()
+    const lowerErr = odometerLowerError(Number(odometer), bikeRow?.odometer)
+    if (lowerErr) return NextResponse.json({ error: lowerErr }, { status: 400 })
 
     const { data: repair, error: repairErr } = await supabase
       .from('repairs')

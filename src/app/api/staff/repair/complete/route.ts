@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logStaffAction } from '@/lib/log'
 import { hasOpenContract } from '@/lib/availability'
+import { odometerLowerError } from '@/lib/odometerCheck'
 import { recalcNeverDoneRoutines } from '@/lib/routines'
 
 export async function POST(request: NextRequest) {
@@ -15,6 +16,11 @@ export async function POST(request: NextRequest) {
   if (!odometer) return NextResponse.json({ error: 'กรุณากรอกเลขไมล์ปัจจุบัน' }, { status: 400 })
 
   const supabase = createAdminClient()
+
+  // ไมล์ตอนซ่อมเสร็จต้องไม่ต่ำกว่าไมล์รถในระบบ — เลขนี้เขียนทับไมล์รถ (เช็คก่อนปิดใบงาน)
+  const { data: bikeRow } = await supabase.from('bikes').select('odometer').eq('id', bikeId).single()
+  const lowerErr = odometerLowerError(Number(odometer), bikeRow?.odometer)
+  if (lowerErr) return NextResponse.json({ error: lowerErr }, { status: 400 })
 
   const { error: repairErr } = await supabase
     .from('repairs')

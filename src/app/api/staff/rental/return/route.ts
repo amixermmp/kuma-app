@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
 import { recalcNeverDoneRoutines, calcRoutineUrgency } from '@/lib/routines'
 import { hasOpenContract } from '@/lib/availability'
+import { odometerLowerError } from '@/lib/odometerCheck'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -34,6 +35,11 @@ export async function POST(request: NextRequest) {
     .select('branch_id, customers(name, phone), bikes(license_plate, odometer)')
     .eq('id', rentalId)
     .single()
+
+  // ไมล์ตอนรับคืนต้องไม่ต่ำกว่าไมล์ในระบบ — กันพิมพ์หลักหาย (เลขนี้เขียนทับไมล์รถทันที รูทีนเพี้ยนตาม)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lowerErr = odometerLowerError(Number(returnOdometer), (existing?.bikes as any)?.odometer)
+  if (lowerErr) return NextResponse.json({ error: lowerErr }, { status: 400 })
 
   // Close the rental — รูปตอนส่งรถเก็บไว้ 30 วันหลังคืน (ลบอัตโนมัติผ่าน cron ไม่ใช่ตอนนี้)
   const { error: rentalErr } = await supabase

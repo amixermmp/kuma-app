@@ -13,7 +13,7 @@ export default async function BrokenPage({ params }: { params: { bikeId: string 
   const supabase = createAdminClient()
   const { data: bike } = await supabase
     .from('bikes')
-    .select('id, license_plate, brand, model, status')
+    .select('id, license_plate, brand, model, status, odometer')
     .eq('id', params.bikeId)
     .single()
 
