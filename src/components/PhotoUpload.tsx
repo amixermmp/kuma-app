@@ -17,6 +17,7 @@ type Props = {
 export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove, uploadEndpoint = '/api/staff/upload', quality = 'high' }: Props) {
   const [status, setStatus] = useState<'idle' | 'uploading' | 'done'>('idle')
   const [preview, setPreview] = useState<string | null>(null)
+  const [uploadedPath, setUploadedPath] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = async (file: File) => {
@@ -35,6 +36,7 @@ export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove, up
       if (!res.ok) throw new Error(data.error)
 
       onUpload(data.url, data.path)
+      setUploadedPath(data.path)
       setStatus('done')
     } catch (err) {
       console.error('Upload failed:', err)
@@ -68,6 +70,13 @@ export default function PhotoUpload({ icon, hint, folder, onUpload, onRemove, up
             setPreview(null)
             if (inputRef.current) inputRef.current.value = ''
             onRemove?.()
+            // รูปที่เพิ่งอัพโหลดแล้วกดลบ = ไม่มีใครใช้แล้ว ลบไฟล์จริงด้วย ไม่งั้นค้างในที่เก็บไฟล์ (ล้มเหลวก็ปล่อยผ่าน ไม่กระทบฟอร์ม)
+            if (uploadedPath && uploadEndpoint === '/api/staff/upload') {
+              fetch('/api/staff/upload/remove', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: uploadedPath }),
+              }).catch(() => {})
+            }
+            setUploadedPath(null)
           }}
           style={{
             position: 'absolute', top: '8px', right: '8px',

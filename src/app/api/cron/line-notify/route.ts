@@ -55,7 +55,11 @@ async function deletePhotosFromStorage(
   photos: unknown
 ): Promise<number> {
   const paths = photoUrls(photos).map(extractRentalPhotoPath).filter((p): p is string => !!p)
-  if (paths.length > 0) await admin.storage.from('rental-photo').remove(paths)
+  if (paths.length > 0) {
+    // ลบไม่สำเร็จต้อง throw — ผู้เรียกจะได้ไม่ล้างรายการรูปในฐานข้อมูล (ไม่งั้นไฟล์ค้างโดยไม่เหลือร่องรอย) แล้วรอบหน้าลองใหม่
+    const { error } = await admin.storage.from('rental-photo').remove(paths)
+    if (error) throw new Error(`ลบรูปไม่สำเร็จ: ${error.message}`)
+  }
   return paths.length
 }
 
@@ -784,7 +788,10 @@ export async function GET(request: NextRequest) {
 
     for (const r of staleDaily ?? []) {
       if (photoUrls(r.send_photos).length === 0 && photoUrls(r.return_photos).length === 0) continue
-      const count = await deletePhotosFromStorage(supabase, r.send_photos) + await deletePhotosFromStorage(supabase, r.return_photos)
+      let count: number
+      try {
+        count = await deletePhotosFromStorage(supabase, r.send_photos) + await deletePhotosFromStorage(supabase, r.return_photos)
+      } catch (e) { console.error('[cron] photo delete failed, rental', r.id, String(e)); continue }
       await supabase.from('rentals').update({ send_photos: [], return_photos: [] }).eq('id', r.id)
       photosDeleted += count
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -797,7 +804,10 @@ export async function GET(request: NextRequest) {
     }
     for (const r of staleMonthly ?? []) {
       if (photoUrls(r.send_photos).length === 0 && photoUrls(r.return_photos).length === 0) continue
-      const count = await deletePhotosFromStorage(supabase, r.send_photos) + await deletePhotosFromStorage(supabase, r.return_photos)
+      let count: number
+      try {
+        count = await deletePhotosFromStorage(supabase, r.send_photos) + await deletePhotosFromStorage(supabase, r.return_photos)
+      } catch (e) { console.error('[cron] photo delete failed, monthly', r.id, String(e)); continue }
       await supabase.from('monthly_rentals').update({ send_photos: [], return_photos: [] }).eq('id', r.id)
       photosDeleted += count
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

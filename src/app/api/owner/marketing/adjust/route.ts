@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient()
 
-  const { data: photo } = await admin.from('marketing_photos').select('id, branch_id, original_photo_url').eq('id', photoId).single()
+  const { data: photo } = await admin.from('marketing_photos').select('id, branch_id, original_photo_url, processed_photo_url').eq('id', photoId).single()
   if (!photo) return NextResponse.json({ error: 'ไม่พบรูป' }, { status: 404 })
 
   const { data: settings } = await admin.from('branch_settings').select('frame_url, sticker_url').eq('branch_id', photo.branch_id).maybeSingle()
@@ -44,6 +44,10 @@ export async function POST(request: Request) {
     sticker_x: stickerPositions[0]?.x ?? null, sticker_y: stickerPositions[0]?.y ?? null,
     sticker_x2: stickerPositions[1]?.x ?? null, sticker_y2: stickerPositions[1]?.y ?? null,
   }).eq('id', photoId)
+
+  // เวอร์ชันที่ประมวลผลก่อนหน้าไม่มีใครอ้างถึงแล้ว — ลบทิ้ง ไม่งั้นทุกครั้งที่ปรับตำแหน่งจะมีไฟล์ค้างเพิ่ม
+  const oldPath = photo.processed_photo_url?.match(/\/rental-photo\/(.+?)(?:\?|$)/)?.[1]
+  if (oldPath && oldPath !== uploaded.path) await admin.storage.from('rental-photo').remove([oldPath])
 
   return NextResponse.json({
     success: true, processedUrl,
