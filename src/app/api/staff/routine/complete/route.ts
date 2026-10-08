@@ -30,6 +30,22 @@ export async function POST(request: NextRequest) {
     if (lowerErr) return NextResponse.json({ error: lowerErr }, { status: 400 })
   }
 
+  // น้ำมันร้านหมดแล้วห้ามบันทึกว่าใช้น้ำมันร้าน — ไม่งั้นประวัติบอกว่าใช้ทั้งที่ไม่มีของ และสต๊อกค้างที่ 0 โดยไม่มีใครรู้
+  if (oilType && usedShopOil === true && bikeId) {
+    const { data: stockBike } = await supabase.from('bikes').select('branch_id').eq('id', bikeId).single()
+    if (stockBike?.branch_id) {
+      const { data: stockCheck } = await supabase
+        .from('branch_oil_stock')
+        .select('quantity')
+        .eq('branch_id', stockBike.branch_id)
+        .eq('oil_type', oilType)
+        .maybeSingle()
+      if ((stockCheck?.quantity ?? 0) <= 0) {
+        return NextResponse.json({ error: 'น้ำมันร้านของสาขานี้หมด (สต๊อก 0) — เลือก "ไม่ใช่" หรือแจ้งเจ้าของให้เติมสต๊อกก่อน' }, { status: 409 })
+      }
+    }
+  }
+
   // เอาค่าปัจจุบันมาดูก่อน — ถ้ายังไม่เคยตั้ง interval_rented_days เลย (รอบแรกที่เข้าระบบใหม่) ค่อย seed ค่า default ให้
   const { data: currentRoutine } = await supabase
     .from('bike_routines')

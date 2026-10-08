@@ -13,11 +13,6 @@ function urgencyColor(u: RoutineItem['urgency']) {
   return '#16a34a'
 }
 
-const OIL_TASK_TYPE: Record<string, 'engine' | 'gear'> = {
-  'เปลี่ยนน้ำมันเครื่อง': 'engine',
-  'เปลี่ยนน้ำมันเฟืองท้าย': 'gear',
-}
-
 function RoutineCard({ r }: { r: RoutineItem }) {
   const router = useRouter()
   const [shop, setShop] = useState('')
@@ -32,7 +27,8 @@ function RoutineCard({ r }: { r: RoutineItem }) {
   const color = urgencyColor(r.urgency)
   const isKmBased = r.interval_km != null
   const isActionable = true // ทำรายการได้ตลอด ไม่ต้องรอใกล้ครบกำหนด
-  const oilType = OIL_TASK_TYPE[r.task_name] ?? null
+  const oilType = r.oil_type
+  const shopOilOut = oilType != null && (r.shop_oil_qty ?? 0) <= 0
 
   const handleSave = async () => {
     if (oilType && usedShopOil === null) { setError('กรุณาเลือกว่าใช้น้ำมันร้านหรือไม่'); return }
@@ -127,12 +123,13 @@ function RoutineCard({ r }: { r: RoutineItem }) {
             <div className="field-row">
               <label className="field-label">ใช้น้ำมันร้านไหม *</label>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button type="button" onClick={() => setUsedShopOil(true)} style={{
+                <button type="button" disabled={shopOilOut} onClick={() => setUsedShopOil(true)} style={{
                   flex: 1, padding: '10px', borderRadius: '10px',
                   border: `2px solid ${usedShopOil === true ? '#b45309' : '#e5e7eb'}`,
                   background: usedShopOil === true ? '#fffbeb' : '#fff',
                   color: usedShopOil === true ? '#b45309' : '#6b7280',
-                  fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                  fontWeight: 700, fontSize: '14px', cursor: shopOilOut ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                  opacity: shopOilOut ? 0.4 : 1,
                 }}>🛢️ ใช้น้ำมันร้าน</button>
                 <button type="button" onClick={() => setUsedShopOil(false)} style={{
                   flex: 1, padding: '10px', borderRadius: '10px',
@@ -142,6 +139,11 @@ function RoutineCard({ r }: { r: RoutineItem }) {
                   fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
                 }}>ไม่ใช่</button>
               </div>
+              {shopOilOut && (
+                <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '6px' }}>
+                  น้ำมันร้านของสาขานี้หมด (สต๊อก 0) — เลือก &quot;ไม่ใช่&quot; หรือแจ้งเจ้าของให้เติมสต๊อกก่อน
+                </div>
+              )}
               {usedShopOil === true && (
                 <div style={{ fontSize: '12px', color: '#b45309', marginTop: '6px' }}>
                   จะหักสต๊อกสาขา 1 ขวดอัตโนมัติ — ค่าใช้จ่ายด้านล่างกรอกแค่ค่าแรง/ค่าเปลี่ยน ไม่ต้องรวมค่าน้ำมัน

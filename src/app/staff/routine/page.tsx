@@ -24,8 +24,16 @@ export type RoutineItem = {
   last_cost: number | null
   receipt_url: string | null
   bikes: { license_plate: string; brand: string; model: string; odometer: number }
+  oil_type: 'engine' | 'gear' | null
+  // น้ำมันร้านคงเหลือของสาขาที่รถผูกอยู่ (null = ไม่ใช่งานน้ำมัน) — 0 = หมด ใช้น้ำมันร้านไม่ได้
+  shop_oil_qty: number | null
   urgency: RoutineUrgency
   due_reason: string
+}
+
+const OIL_TASK_TYPE: Record<string, 'engine' | 'gear'> = {
+  'เปลี่ยนน้ำมันเครื่อง': 'engine',
+  'เปลี่ยนน้ำมันเฟืองท้าย': 'gear',
 }
 
 export default async function RoutinePage({ searchParams }: { searchParams: Promise<{ id?: string; bikeId?: string }> }) {
@@ -72,7 +80,7 @@ export default async function RoutinePage({ searchParams }: { searchParams: Prom
 
   let query = supabase
     .from('bike_routines')
-    .select('*, bikes(license_plate, brand, model, odometer)')
+    .select('*, bikes(license_plate, brand, model, odometer, branch_id)')
     .order('next_due_date', { ascending: true, nullsFirst: true })
 
   if (allowedBikeIds) {
@@ -84,11 +92,21 @@ export default async function RoutinePage({ searchParams }: { searchParams: Prom
 
   const { data: raw } = await query
 
+  // สต๊อกน้ำมันร้านของสาขาที่รถผูกอยู่ — ไม่มีแถว = 0 (ตรงกับที่ API บันทึกใช้ตัดสิน)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const branchIds = Array.from(new Set((raw ?? []).map(r => (r as any).bikes?.branch_id).filter(Boolean))) as string[]
+  const { data: stockRows } = branchIds.length
+    ? await supabase.from('branch_oil_stock').select('branch_id, oil_type, quantity').in('branch_id', branchIds)
+    : { data: [] as { branch_id: string; oil_type: string; quantity: number }[] }
+  const stockQty = new Map((stockRows ?? []).map(s => [`${s.branch_id}__${s.oil_type}`, s.quantity]))
+
   const routines: RoutineItem[] = (raw ?? []).map(r => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bike = (r as any).bikes
     const { urgency, due_reason } = calcRoutineUrgency(r as any, bike?.odometer ?? 0)
-    return { ...r, bikes: bike, urgency, due_reason }
+    const oil_type = OIL_TASK_TYPE[r.task_name] ?? null
+    const shop_oil_qty = oil_type ? (stockQty.get(`${bike?.branch_id}__${oil_type}`) ?? 0) : null
+    return { ...r, bikes: bike, oil_type, shop_oil_qty, urgency, due_reason }
   })
 
   const filtered = filterRoutineId
