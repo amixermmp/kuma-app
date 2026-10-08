@@ -28,7 +28,7 @@ const OVERDUE_AFTER_HOURS = 3     // ทวงครั้งแรกหลั�
 const DAILY_SEND_HOUR = 9         // แจ้งเตือนแบบรายวัน (รายเดือน/รูทีน/เอกสาร) ส่งหลัง 9 โมงเช้า
 const AVAILABLE_SEND_HOUR = 8     // สรุปรถว่าง ส่งหลัง 8 โมงเช้า
 const REVENUE_SEND_HOUR = 21      // สรุปรายได้ ส่งหลัง 3 ทุ่ม
-const PHOTO_RETENTION_DAYS = 30   // เก็บรูปส่ง/รับรถไว้กี่วันหลังคืน ก่อนลบถาวร
+const PHOTO_RETENTION_DAYS = 7    // เก็บรูปส่ง/รับรถไว้กี่วันหลังคืน ก่อนลบถาวร
 const CLOSESHOP_PLATE_RETENTION_DAYS = 3   // เก็บรูปป้ายทะเบียนตอนปิดร้านไว้กี่วัน ก่อนลบถาวร
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -53,9 +53,10 @@ function photoUrls(photos: unknown): string[] {
 
 async function deletePhotosFromStorage(
   admin: ReturnType<typeof createAdminClient>,
-  photos: unknown
+  photos: unknown,
+  keep?: Set<string>   // path ที่ห้ามลบ (รูปต้นฉบับที่รายการ marketing เอาไปใช้ — ลบพร้อมรายการ marketing เอง)
 ): Promise<number> {
-  const paths = photoUrls(photos).map(extractRentalPhotoPath).filter((p): p is string => !!p)
+  const paths = photoUrls(photos).map(extractRentalPhotoPath).filter((p): p is string => !!p && !keep?.has(p))
   if (paths.length > 0) {
     // ลบไม่สำเร็จต้อง throw — ผู้เรียกจะได้ไม่ล้างรายการรูปในฐานข้อมูล (ไม่งั้นไฟล์ค้างโดยไม่เหลือร่องรอย) แล้วรอบหน้าลองใหม่
     const { error } = await admin.storage.from('rental-photo').remove(paths)
@@ -765,33 +766,45 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ═══ 10) ลบรูปส่ง/รับรถถาวร — เก็บไว้ 30 วันหลังคืนรถเผื่อกรณีพิพาท พ้นแล้วลบทิ้งจริง ═══
+  // ═══ 10) ลบรูปส่ง/รับรถถาวร — เก็บไว้ 7 วันหลังคืนรถเผื่อกรณีพิพาท พ้นแล้วลบทิ้งจริง ═══
   let photosDeleted = 0
   if (bkkHour >= DAILY_SEND_HOUR || testMode) {
     const cutoffMs = now - PHOTO_RETENTION_DAYS * DAY_MS
     const cutoffIso = new Date(cutoffMs).toISOString()
     const cutoffDate = cutoffIso.split('T')[0]
 
-    const [{ data: staleDaily }, { data: staleMonthly }] = await Promise.all([
+    // กรองเฉพาะสัญญาที่ยังมีรูปค้าง (ล้างแล้วเป็น []) — ไม่งั้น limit 200 ถูกกินด้วยสัญญาที่ล้างไปแล้วทุกวัน รายที่ยังมีรูปไม่เคยถูกหยิบ
+    const stillHasPhotos = 'send_photos.neq.[],return_photos.neq.[]'
+    const [{ data: staleDaily }, { data: staleMonthly }, { data: marketingOriginals }] = await Promise.all([
       supabase
         .from('rentals')
         .select('id, send_photos, return_photos, bikes(license_plate)')
         .eq('status', 'returned')
         .lte('actual_end_datetime', cutoffIso)
+        .or(stillHasPhotos)
         .limit(200),
       supabase
         .from('monthly_rentals')
         .select('id, send_photos, return_photos, bikes(license_plate)')
         .eq('status', 'ended')
         .lte('end_date', cutoffDate)
+        .or(stillHasPhotos)
         .limit(200),
+      supabase.from('marketing_photos').select('original_photo_url'),
     ])
+    const marketingKeep = new Set(
+      (marketingOriginals ?? []).map(m => extractRentalPhotoPath(m.original_photo_url ?? '')).filter((p): p is string => !!p)
+    )
 
     for (const r of staleDaily ?? []) {
-      if (photoUrls(r.send_photos).length === 0 && photoUrls(r.return_photos).length === 0) continue
+      if (photoUrls(r.send_photos).length === 0 && photoUrls(r.return_photos).length === 0) {
+        // ไม่มีรูปจริง (เช่น {} เปล่า) — ล้างให้เป็น [] จะได้หลุดจากตัวกรองรอบหน้า ไม่ค้างกินโควตา 200 แถว
+        await supabase.from('rentals').update({ send_photos: [], return_photos: [] }).eq('id', r.id)
+        continue
+      }
       let count: number
       try {
-        count = await deletePhotosFromStorage(supabase, r.send_photos) + await deletePhotosFromStorage(supabase, r.return_photos)
+        count = await deletePhotosFromStorage(supabase, r.send_photos, marketingKeep) + await deletePhotosFromStorage(supabase, r.return_photos, marketingKeep)
       } catch (e) { console.error('[cron] photo delete failed, rental', r.id, String(e)); continue }
       await supabase.from('rentals').update({ send_photos: [], return_photos: [] }).eq('id', r.id)
       photosDeleted += count
@@ -804,10 +817,13 @@ export async function GET(request: NextRequest) {
       })
     }
     for (const r of staleMonthly ?? []) {
-      if (photoUrls(r.send_photos).length === 0 && photoUrls(r.return_photos).length === 0) continue
+      if (photoUrls(r.send_photos).length === 0 && photoUrls(r.return_photos).length === 0) {
+        await supabase.from('monthly_rentals').update({ send_photos: [], return_photos: [] }).eq('id', r.id)
+        continue
+      }
       let count: number
       try {
-        count = await deletePhotosFromStorage(supabase, r.send_photos) + await deletePhotosFromStorage(supabase, r.return_photos)
+        count = await deletePhotosFromStorage(supabase, r.send_photos, marketingKeep) + await deletePhotosFromStorage(supabase, r.return_photos, marketingKeep)
       } catch (e) { console.error('[cron] photo delete failed, monthly', r.id, String(e)); continue }
       await supabase.from('monthly_rentals').update({ send_photos: [], return_photos: [] }).eq('id', r.id)
       photosDeleted += count
