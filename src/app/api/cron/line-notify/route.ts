@@ -29,7 +29,8 @@ const DAILY_SEND_HOUR = 9         // แจ้งเตือนแบบรา�
 const AVAILABLE_SEND_HOUR = 8     // สรุปรถว่าง ส่งหลัง 8 โมงเช้า
 const REVENUE_SEND_HOUR = 21      // สรุปรายได้ ส่งหลัง 3 ทุ่ม
 const PHOTO_RETENTION_DAYS = 7    // เก็บรูปส่ง/รับรถไว้กี่วันหลังคืน ก่อนลบถาวร
-const CLOSESHOP_PLATE_RETENTION_DAYS = 3   // เก็บรูปป้ายทะเบียนตอนปิดร้านไว้กี่วัน ก่อนลบถาวร
+const STORAGE_ALERT_BYTES = 900 * 1e6      // ที่เก็บรูปเกินเท่านี้ → แจ้งเตือนทาง LINE (วันละครั้งจนกว่าจะลดลง)
+const CLOSESHOP_PLATE_RETENTION_DAYS = 3  // เก็บรูปป้ายทะเบียนตอนปิดร้านไว้กี่วัน ก่อนลบถาวร
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function extractRentalPhotoPath(url: string): string | null {
@@ -49,6 +50,32 @@ function photoUrls(photos: unknown): string[] {
     return Object.values(photos as Record<string, unknown>).filter((u): u is string => typeof u === 'string' && u.length > 0)
   }
   return []
+}
+
+// รวมขนาดไฟล์ทั้งบัคเก็ต แยกตามโฟลเดอร์ชั้นแรก — list ทีละโฟลเดอร์ (storage ไม่มีคำสั่งรวมขนาดให้)
+async function measureRentalPhotoBucket(
+  admin: ReturnType<typeof createAdminClient>
+): Promise<{ total: number; byFolder: Map<string, number> }> {
+  const byFolder = new Map<string, number>()
+  let total = 0
+  const walk = async (prefix: string): Promise<void> => {
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await admin.storage.from('rental-photo').list(prefix, { limit: 1000, offset })
+      if (error || !data?.length) return
+      const subs: string[] = []
+      for (const item of data) {
+        if (item.id === null) { subs.push(prefix ? `${prefix}/${item.name}` : item.name); continue }
+        const size = Number((item.metadata as { size?: number } | null)?.size ?? 0)
+        const top = (prefix || item.name).split('/')[0]
+        total += size
+        byFolder.set(top, (byFolder.get(top) ?? 0) + size)
+      }
+      for (let i = 0; i < subs.length; i += 8) await Promise.all(subs.slice(i, i + 8).map(walk))
+      if (data.length < 1000) return
+    }
+  }
+  await walk('')
+  return { total, byFolder }
 }
 
 async function deletePhotosFromStorage(
@@ -868,6 +895,25 @@ export async function GET(request: NextRequest) {
       const photos = (s.plate_photos ?? []) as any[]
       if (!photos.some(p => p?.url)) continue
       await supabase.from('staff_closeshops').update({ plate_photos: photos.map(p => ({ ...p, url: null })) }).eq('id', s.id)
+    }
+  }
+
+  // ═══ 10c) เตือนทาง LINE เมื่อที่เก็บรูปเกิน 900 MB — วัดหลังลบรูปเก่าแล้ว เตือนวันละครั้งจนกว่าจะต่ำกว่าเกณฑ์ ═══
+  if ((bkkHour >= DAILY_SEND_HOUR || testMode) && shop?.line_token && shop.line_target_id) {
+    const { total, byFolder } = await measureRentalPhotoBucket(supabase)
+    if (total > STORAGE_ALERT_BYTES) {
+      const claimId = await claim('storage_alert', '00000000-0000-0000-0000-000000000000', bkkToday)
+      if (claimId) {
+        const mb = (n: number) => `${(n / 1e6).toFixed(0)} MB`
+        const top = Array.from(byFolder.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4)
+        const ok = await linePush(shop.line_token, shop.line_target_id, [textMessage(
+          `⚠️ ที่เก็บรูปบน Supabase ใช้ไป ${mb(total)} (เกินเกณฑ์เตือน ${mb(STORAGE_ALERT_BYTES)})\n\n` +
+          `โฟลเดอร์ที่ใหญ่สุด:\n${top.map(([name, size]) => `• ${name}: ${mb(size)}`).join('\n')}\n\n` +
+          `ระบบลบรูปเก่าตามกำหนดให้อัตโนมัติอยู่แล้ว ถ้ายังเกินอยู่ให้ตรวจสอบ/ลดอายุการเก็บรูป`
+        )])
+        if (ok) sent++
+        else { failed++; await release(claimId) }
+      }
     }
   }
 
