@@ -29,6 +29,7 @@ const DAILY_SEND_HOUR = 9         // แจ้งเตือนแบบรา�
 const AVAILABLE_SEND_HOUR = 8     // สรุปรถว่าง ส่งหลัง 8 โมงเช้า
 const REVENUE_SEND_HOUR = 21      // สรุปรายได้ ส่งหลัง 3 ทุ่ม
 const PHOTO_RETENTION_DAYS = 30   // เก็บรูปส่ง/รับรถไว้กี่วันหลังคืน ก่อนลบถาวร
+const CLOSESHOP_PLATE_RETENTION_DAYS = 3   // เก็บรูปป้ายทะเบียนตอนปิดร้านไว้กี่วัน ก่อนลบถาวร
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function extractRentalPhotoPath(url: string): string | null {
@@ -817,6 +818,40 @@ export async function GET(request: NextRequest) {
         description: `ลบรูปพ้นกำหนดเก็บ ${PHOTO_RETENTION_DAYS} วัน ${count} ภาพ — rental รายเดือน ${plate}`,
         metadata: { rentalId: r.id, count },
       })
+    }
+  }
+
+  // ═══ 10b) ลบรูปป้ายทะเบียนตอนปิดร้านที่เก่าเกิน 3 วัน ═══
+  // ลบตามอายุไฟล์ในโฟลเดอร์ (ครอบคลุมรูปที่ถ่ายใหม่ทิ้งแล้วไม่ถูกบันทึกด้วย) แล้วค่อยเคลียร์ลิงก์ในรายการปิดร้าน
+  // ผลปิดร้าน (พบ/ไม่พบ/ยืนยันเอง) ยังเก็บไว้ครบ หายไปแค่รูป
+  if (bkkHour >= DAILY_SEND_HOUR || testMode) {
+    const plateCutoffMs = now - CLOSESHOP_PLATE_RETENTION_DAYS * DAY_MS
+    const stalePaths: string[] = []
+    for (let offset = 0; ; offset += 1000) {
+      const { data: plateFiles, error: listErr } = await supabase.storage.from('rental-photo').list('closeshop-plates', { limit: 1000, offset })
+      if (listErr) { console.error('[cron] list closeshop-plates failed:', listErr.message); break }
+      for (const f of plateFiles ?? []) {
+        if (f.id && f.created_at && new Date(f.created_at).getTime() < plateCutoffMs) stalePaths.push(`closeshop-plates/${f.name}`)
+      }
+      if ((plateFiles?.length ?? 0) < 1000) break
+    }
+    for (let i = 0; i < stalePaths.length; i += 100) {
+      const batch = stalePaths.slice(i, i + 100)
+      const { error: rmErr } = await supabase.storage.from('rental-photo').remove(batch)
+      if (rmErr) console.error('[cron] remove closeshop plates failed:', rmErr.message)
+      else photosDeleted += batch.length
+    }
+
+    const { data: staleSessions } = await supabase
+      .from('staff_closeshops')
+      .select('id, plate_photos')
+      .lt('closed_at', new Date(plateCutoffMs).toISOString())
+      .limit(1000)
+    for (const s of staleSessions ?? []) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const photos = (s.plate_photos ?? []) as any[]
+      if (!photos.some(p => p?.url)) continue
+      await supabase.from('staff_closeshops').update({ plate_photos: photos.map(p => ({ ...p, url: null })) }).eq('id', s.id)
     }
   }
 

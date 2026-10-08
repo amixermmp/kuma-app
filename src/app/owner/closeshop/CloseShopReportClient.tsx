@@ -9,7 +9,7 @@ export type CloseShopRow = {
   id: string
   closedAt: string
   selfiePhotoUrl: string
-  platePhotos: { url: string; detectedPlates: string[]; plate: string | null; botVerified: boolean | null }[]
+  platePhotos: { url: string | null; detectedPlates: string[]; plate: string | null; botVerified: boolean | null }[]
   expectedPlates: string[]
   foundPlates: string[]
   missingPlates: string[]
@@ -113,11 +113,12 @@ export default function CloseShopReportClient({ rows, branches, period, from, to
                     {(() => {
                       const hasPerPlateData = r.platePhotos.some(p => p.plate !== null)
                       if (!hasPerPlateData) {
-                        return r.platePhotos.length > 0 && (
+                        const withUrl = r.platePhotos.filter(p => p.url)
+                        return withUrl.length > 0 && (
                           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', padding: '0 14px 12px' }}>
-                            {r.platePhotos.map((p, i) => (
+                            {withUrl.map((p, i) => (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img key={i} src={p.url} alt="" onClick={() => setZoomed(p.url)}
+                              <img key={i} src={p.url!} alt="" onClick={() => setZoomed(p.url)}
                                 style={{ width: '52px', height: '52px', borderRadius: '8px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0 }} />
                             ))}
                           </div>
@@ -130,7 +131,7 @@ export default function CloseShopReportClient({ rows, branches, period, from, to
                             const photo = byPlate.get(plate)
                             return (
                               <div key={plate} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                {photo ? (
+                                {photo?.url ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img src={photo.url} alt="" onClick={() => setZoomed(photo.url)}
                                     style={{ width: '36px', height: '36px', borderRadius: '7px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0 }} />
@@ -143,8 +144,8 @@ export default function CloseShopReportClient({ rows, branches, period, from, to
                                     ✋ ยืนยันเอง — ควรตรวจสอบ
                                   </div>
                                 )}
-                                {!photo && (
-                                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>ไม่มีรูป</div>
+                                {!photo?.url && (
+                                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>{photo ? 'รูปหมดอายุ (เก็บ 3 วัน)' : 'ไม่มีรูป'}</div>
                                 )}
                               </div>
                             )
