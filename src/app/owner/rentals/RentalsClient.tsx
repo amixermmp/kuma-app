@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC } from '@/lib/time'
 import BranchBadge from '@/components/BranchBadge'
+import ExtensionSummary from '@/components/ExtensionSummary'
 
 type Photo = { url: string; label?: string }
 
 type DailyRental = {
   id: string
   branchName?: string
+  payments?: { id: string; kind: string; amount: number; paid_at: string }[]
   start_datetime: string
   expected_end_datetime: string
   status: string
@@ -458,6 +460,7 @@ export default function RentalsClient({
                       <Info label="ยอดรวม" value={formatMoney(r.total_amount)} />
                       <Info label="มัดจำ" value={formatMoney(r.deposit_amount)} />
                     </div>
+                    <ExtensionSummary payments={r.payments} />
 
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>

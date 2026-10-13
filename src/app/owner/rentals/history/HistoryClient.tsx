@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import BranchBadge from '@/components/BranchBadge'
+import ExtensionSummary from '@/components/ExtensionSummary'
 
 type Photo = { label: string; url: string }
 type DailyPayment = { id: string; kind: string; amount: number; paid_at: string }
@@ -296,6 +297,7 @@ export default function HistoryClient({
                       <Info label="วันคืน" value={r.actual_end_datetime ? formatDate(r.actual_end_datetime) : '—'} />
                       <Info label="ยอดรวม" value={formatMoney(r.total_amount)} />
                     </div>
+                    <ExtensionSummary payments={r.payments} />
                     <KmStats days={days} km={km} swapped={hasSwapped(r.swap_log)} />
                     <ReceiptSection payments={r.payments} type="daily" />
                     <PhotoSection sendPhotos={r.sendPhotos} returnPhotos={r.returnPhotos} />

@@ -42,5 +42,14 @@ export default async function OwnerRentalsPage() {
   const withBranch = <T extends { branch_id: string | null }>(rows: T[]) =>
     rows.map(r => ({ ...r, branchName: (r.branch_id && branchNameById.get(r.branch_id)) || '' }))
 
-  return <RentalsClient dailyRentals={withBranch(dailyRentals ?? [])} monthlyRentals={withBranch(monthlyRentals ?? [])} />
+  // ใบเสร็จของสัญญารายวันที่กำลังเช่า — ใช้โชว์สรุปการต่อเวลา (ดึงชุดเดียวแล้วจับกลุ่มเอง)
+  const dailyIds = (dailyRentals ?? []).map(r => r.id)
+  const { data: dailyPayments } = dailyIds.length
+    ? await admin.from('rental_payments').select('id, rental_id, kind, amount, paid_at').in('rental_id', dailyIds).is('voided_at', null).order('paid_at')
+    : { data: [] as { id: string; rental_id: string; kind: string; amount: number; paid_at: string }[] }
+  const dailyWithPayments = withBranch(dailyRentals ?? []).map(r => ({
+    ...r, payments: (dailyPayments ?? []).filter(p => p.rental_id === r.id),
+  }))
+
+  return <RentalsClient dailyRentals={dailyWithPayments} monthlyRentals={withBranch(monthlyRentals ?? [])} />
 }
