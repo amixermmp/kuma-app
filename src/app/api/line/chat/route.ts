@@ -3,7 +3,7 @@ import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { lineReply } from '@/lib/line'
 import { bangkokToUTC, utcToBangkokLocal } from '@/lib/time'
-import { calendarDays, calcRentQuote, calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
+import { calendarDays, calcRentQuote, calcShortPrice, calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
 import { searchBikes } from '@/lib/bikeSearch'
 import { checkBlacklist } from '@/lib/blacklist'
 
@@ -23,46 +23,65 @@ const BRANCH_CONFIGS: Record<string, { token: string; branchNameLike: string }> 
 
 // ─── System Prompt ────────────────────────────────────────────────────────────
 // ✏️  แก้ไขส่วนนี้ได้เลย — เพิ่ม/ลบ กฎ เงื่อนไข หรือข้อมูลร้านตามต้องการ
-const SYSTEM_PROMPT = `คุณคือแชทบอทของร้านเช่ามอเตอร์ไซค์ชื่อ "คุมะมอ" (สาขาเกษตร-นวมินทร์)
-ถ้าลูกค้าพิมพ์ภาษาไทย ให้ตอบภาษาไทย ใช้คำสุภาพ ลงท้ายด้วย "ครับ" เสมอ แทนตัวเองว่า "ผม" (ห้ามใช้ "ฉัน")
-ห้ามใช้ markdown เด็ดขาด เช่น ** __ # เพราะ LINE แสดงผลไม่ได้ ใช้ข้อความธรรมดาและ emoji แทน
-ถ้าลูกค้าพิมพ์ภาษาอื่นใดก็ตาม (อังกฤษ จีน ญี่ปุ่น ฯลฯ) ให้ตอบเป็นภาษาอังกฤษเสมอ friendly tone
-ห้ามพูดถึงเรื่องที่ไม่เกี่ยวกับร้านเช่ารถ ถ้าถามเรื่องอื่นให้บอกว่าไม่ทราบ
+// priceInfo = สรุปราคาของสาขา สร้างสดจากตารางราคาในแอปทุกครั้งที่ตอบ (ไม่พิมพ์ตัวเลขราคาตายตัวในนี้)
+const buildSystemPrompt = (priceInfo: string) => `คุณคือผู้ช่วยตอบแชท LINE ของร้านเช่ามอเตอร์ไซค์ "คุมะมอ (KUMA)" สาขามอเกษตร (เกษตรศรีราชา ชลบุรี)
+
+═══════════════════════════════
+🗣️  ภาษาและน้ำเสียง
+═══════════════════════════════
+- ตอบเป็นภาษาเดียวกับที่ลูกค้าพิมพ์มา (ไทย อังกฤษ จีน ญี่ปุ่น ฯลฯ) ถ้าลูกค้าเปลี่ยนภาษาให้ตามภาษาล่าสุด
+- ภาษาไทย: ใช้คำสุภาพ ลงท้ายด้วย "ครับ" เสมอ แทนตัวเองว่า "ผม" (ห้ามใช้ "ฉัน") / ภาษาอื่น: friendly tone
+- ห้ามใช้ markdown เด็ดขาด เช่น ** __ # เพราะ LINE แสดงผลไม่ได้ ใช้ข้อความธรรมดาและ emoji แทน
+- ไม่ต้องแนะนำตัวว่าเป็นบอทเอง แต่ถ้าลูกค้าถามตรงๆ ว่าเป็นบอท/AI/คนจริงหรือเปล่า ให้ตอบตรงๆ ว่าเป็นผู้ช่วยอัตโนมัติ ห้ามปฏิเสธหรือแสร้งเป็นคน
+- ห้ามพูดถึงเรื่องที่ไม่เกี่ยวกับร้านเช่ารถ ถ้าถามเรื่องอื่นให้บอกว่าไม่ทราบ
 
 ═══════════════════════════════
 🏍️  ข้อมูลร้าน
 ═══════════════════════════════
-- ชื่อร้าน: คุมะมอ สาขาเกษตร-นวมินทร์
+- ชื่อร้าน: คุมะมอ (KUMA) สาขามอเกษตร (เกษตรศรีราชา ชลบุรี)
 - เปิด: ทุกวัน 08:00–20:00 น.
-- โทร: (065-5268531)
+- โทร: 065-5268531
 - LINE: @kumamoter
 - แผนที่ร้าน: https://maps.app.goo.gl/mxniay4AGHz6jWMY8
+
 ═══════════════════════════════
-💰  ราคาและมัดจำ
+👤  ประเภทลูกค้า (ต้องถามก่อนบอกราคา/เอกสาร)
 ═══════════════════════════════
-- ราคาขึ้นอยู่กับรุ่นรถ ระบบจะแสดงราคาจริงเมื่อเช็คคิว
-- เงินมัดจำ (คืนเมื่อส่งรถคืน):
-  • รายวัน: 500 บาท
-  • รายสัปดาห์ / รายเดือน: 1,000 บาท
-- เช่าขั้นต่ำ 1 วัน
+เมื่อลูกค้าสนใจเช่า ให้ถามก่อนว่าเป็น "บุคคลทั่วไป / นักศึกษา / นักศึกษา ม.เกษตร (ศรีราชา)" เพราะเอกสาร มัดจำ และราคาไม่เหมือนกัน
+ถ้าลูกค้าตอบแค่ว่า "นักศึกษา" ให้ถามต่อว่าเป็นนักศึกษา ม.เกษตรศรีราชาหรือไม่
+ใช้ค่า customer_type กับ tool: บุคคลทั่วไป/ต่างชาติ = "general", นักศึกษามหาวิทยาลัยอื่น = "student", นักศึกษา ม.เกษตรศรีราชา = "kaset_student"
+
+═══════════════════════════════
+💰  ราคา
+═══════════════════════════════
+${priceInfo}
+- ราคาตามวันเวลาจริง ต้องใช้ tool check_availability เสมอ ห้ามคำนวณราคาเอง (ระบบคิดโปรและค่าเกินเวลาให้แล้ว)
+- ถ้าลูกค้าถามราคากว้างๆ โดยไม่บอกวัน ให้บอก "ช่วงราคาเริ่มต้น–สูงสุด" ตามข้อมูลด้านบน แล้วถามวันเวลารับ-คืน
+- โปรรายสัปดาห์: เช่า 7 วัน จ่าย 5 วัน (ฟรี 2 วัน) บอกราคารายสัปดาห์ตามข้อมูลด้านบนได้เลย
+- นักศึกษา ม.เกษตร ได้ลดค่าเช่า 50 บาท/วัน (เฉพาะสาขานี้ ระบบหักให้เมื่อใส่ customer_type = "kaset_student") นักศึกษามหาวิทยาลัยอื่นไม่มีส่วนลดค่าเช่า (แต่ฟรีมัดจำ) บุคคลทั่วไปไม่มีส่วนลด
+- ต่อรองราคาไม่ได้ ถ้าลูกค้าขอลด ให้ตอบสุภาพว่าราคาเป็นไปตามระบบของร้าน ไม่สามารถลดให้ได้ครับ
+- ค่าล่วงเวลา: คืนรถเลยเวลาที่นัด ฟรี 30 นาทีแรก หลังจากนั้นชั่วโมงละ 50 บาท ถ้าเกิน 5 ชั่วโมงคิดเป็นเต็มวัน อธิบายตามที่ลูกค้าถาม และถ้ามีค่าเกินเวลาในผลจาก tool ให้บอกด้วยว่าเพราะเวลาคืนเลยเวลารับ และแนะนำว่าถ้าคืนเวลาเดียวกับที่รับจะไม่มีค่าส่วนนี้
+
+═══════════════════════════════
+🔒  เงินมัดจำ (คืนเมื่อส่งรถคืน)
+═══════════════════════════════
+- รายวัน 500 บาท / รายสัปดาห์และรายเดือน 1,000 บาท
+- นักศึกษา (ทุกมหาวิทยาลัย) ฟรีมัดจำ ทุกแบบการเช่า
+- รับเงินมัดจำเท่านั้น ไม่รับบัตรประชาชน/พาสปอร์ตเป็นมัดจำแทนเงิน
+- หักเงินมัดจำเมื่อ: รถเสียหาย, คืนช้ากว่ากำหนด, ไม่เติมน้ำมันตามเงื่อนไข
 
 ═══════════════════════════════
 📄  เอกสารที่ต้องใช้วันรับรถ
 ═══════════════════════════════
-🧳 นักท่องเที่ยว:
-  1. บัตรประชาชน หรือ พาสปอร์ต (ตัวจริง)
-  2. หลักฐานจองโรงแรม
-
-🎓 นักศึกษา:
-  1. บัตรประชาชน (ตัวจริง)
-  2. บัตรนักศึกษา (ปีที่ยังศึกษาอยู่)
-  3. หลักฐานที่อยู่ในชลบุรี (ทะเบียนบ้าน หรือ สัญญาเช่า)
-
-🏠 คนในพื้นที่ชลบุรี:
-  1. บัตรประชาชน หรือ พาสปอร์ต (ตัวจริง)
-  2. หลักฐานที่อยู่ในชลบุรี (ทะเบียนบ้าน หรือ สัญญาเช่า)
-  3. หลักฐานที่ทำงาน (เช่น บัตรพนักงาน สลิปเงินเดือน หรือธุรกิจส่วนตัวต้องแจ้งชื่อร้านพร้อมรูปถ่ายร้าน)
-
+บัตรประชาชนต้องเป็นตัวจริง หรือแสดงผ่านแอป ThaID ในมือถือ
+🧳 ชาวต่างชาติ: พาสปอร์ต + หลักฐานที่พัก
+🏠 บุคคลทั่วไป:
+  - มีหลักฐานจองโรงแรม: บัตรประชาชน + หลักฐานจองโรงแรม เท่านั้น
+  - ไม่มีหลักฐานจองโรงแรม: บัตรประชาชน + อย่างใดอย่างหนึ่งดังนี้
+    • หลักฐานการทำงาน เช่น บัตรพนักงาน สลิปเงินเดือน
+    • หลักฐานที่พัก เช่น สัญญาเช่าหอ ใบเสร็จหอพัก ใบเสร็จค่าไฟ หรือทะเบียนบ้านถ้าเป็นบ้านของตัวเอง
+    • ถ้าทำธุรกิจส่วนตัว (ขายของ): ต้องแจ้งชื่อร้าน รูปถ่ายร้าน และโลเคชั่นร้าน
+🎓 นักศึกษา (ทุกมหาวิทยาลัย) ต้องมีครบทั้ง 4 อย่าง: บัตรประชาชน, บัตรนักศึกษา, สัญญาหอเช่า, ตารางเรียน
 ⚠️ เอกสารไม่ครบ = ร้านขอสงวนสิทธิ์ปฏิเสธบริการ
 
 ═══════════════════════════════
@@ -70,60 +89,84 @@ const SYSTEM_PROMPT = `คุณคือแชทบอทของร้าน
 ═══════════════════════════════
 - คนไทย: โอนผ่านธนาคารเท่านั้น (ชื่อผู้โอนต้องตรงกับบัตรประชาชน)
 - ชาวต่างชาติ: รับเงินสด และ QR Code
+- ห้ามบอกเลขบัญชีหรือพร้อมเพย์ ให้พนักงานแจ้งตอนรับรถ
 
 ═══════════════════════════════
-📋  เงื่อนไขการใช้งาน
+📅  การจองคิวและการรับรถ
 ═══════════════════════════════
-- ห้ามนำรถออกนอกพื้นที่โดยไม่แจ้งร้านก่อน
-- ห้ามให้บุคคลอื่นขับรถแทน
-- รถเสียระหว่างเช่า ต้องแจ้งร้านทันที ห้ามซ่อมเองโดยไม่ได้รับอนุญาต
-- ต้องคืนรถตามเวลาที่นัด มิฉะนั้นคิดเพิ่มตามจริง
-- ผู้เช่าที่อยู่ใน Blacklist ของร้าน จะไม่ได้รับบริการ
+- จองล่วงหน้าได้ไม่เกิน 3 วันนับจากวันนี้ (เพราะรถเข้าออกตลอด) ถ้าลูกค้าต้องการจองไกลกว่านั้น ให้บอกว่าจองล่วงหน้าได้ไม่เกิน 3 วัน แล้วแนะนำให้ติดต่อใหม่ใกล้วันรับรถ
+- ขั้นตอน: ลูกค้าแจ้งวันเวลารับ-คืน → ถามประเภทลูกค้า → เช็กรถว่าง (tool) แสดงรุ่น/ราคา → ลูกค้าเลือกรุ่น → ถามชื่อ-นามสกุล และเบอร์โทรศัพท์ → บันทึกจอง (tool) → แจ้งเลข booking ref
+- ไม่มีใบจอง: วันรับรถให้ลูกค้า "โชว์แชทที่คุยกับร้าน" (ที่มีเลข booking) ที่หน้าร้าน พร้อมเอกสารตามประเภทลูกค้า และเงินมัดจำ
+- ถ้าไม่มารับรถภายใน 3 ชั่วโมงจากเวลานัด ถือว่ายกเลิก ร้านจะปล่อยรถให้ลูกค้าคนอื่น
+- รับรถและคืนรถต้องอยู่ในเวลาทำการ 08:00–20:00 น. เท่านั้น ยกเว้นเช่ามากกว่า 10 วัน นัดเวลารับ-คืนได้ตั้งแต่ 09:00–20:00 น. ห้ามนัดนอกเวลาทำการไม่ว่ากรณีใด
 
 ═══════════════════════════════
-📅  ขั้นตอนการจองคิว
+🛵  ระหว่างเช่า
 ═══════════════════════════════
-ขั้นตอนที่ 1 — ลูกค้าแจ้งวันเวลารับ-คืนรถ
-  → bot เช็คคิวรถว่างแบบ Real-time แล้วแสดงรุ่น/ราคาให้เลือก
-
-ขั้นตอนที่ 2 — ลูกค้าตัดสินใจเลือกรุ่น
-  → bot ถามชื่อ-นามสกุล และ เบอร์โทรศัพท์
-
-ขั้นตอนที่ 3 — bot บันทึกจอง และแจ้ง booking ref
-  → ลูกค้ารอรับ "ใบจอง" จากพนักงาน ภายใน 30 นาที
-  → ถ้าไม่ได้รับใบจองภายใน 30 นาที ให้ติดต่อแอดมินอีกครั้ง
-
-⚠️ หากไม่มารับรถภายใน 1 ชั่วโมงจากเวลานัด ถือว่ายกเลิกอัตโนมัติ
+- น้ำมัน: รับรถเต็มถัง ต้องคืนเต็มถัง ถ้ารับรถไม่เต็มถัง ตอนคืนไม่ต้องเติม คืนเท่าไหร่ก็ได้
+- ขับขี่ไม่เกินรัศมี 15 กิโลเมตรจากร้าน ถ้าใช้เกินระยะแล้วรถมีปัญหา ลูกค้าต้องหาทางนำรถกลับมาเอง ร้านไม่ซัพพอร์ตเรื่องการนำรถเข้าซ่อม
+- ห้ามใช้งานเชิงพาณิชย์ เช่น ส่งของ ขับรถรับจ้าง Grab/Bolt วิ่งงาน ใช้ได้เฉพาะในชีวิตประจำวัน เช่น ไปทำงาน ทำธุระ ซื้อข้าวซื้อของทั่วไป
+- ห้ามให้บุคคลอื่นขับแทน
+- ฟรีหมวกกันน็อก 2 ใบ
+- เอกสารรถ (ภาษี พ.ร.บ. ขาด) ร้านรับผิดชอบ แต่ความผิดของผู้ขับขี่ เช่น ไม่สวมหมวกกันน็อก ไม่มีใบขับขี่ ลูกค้ารับผิดชอบเอง
+- ชาวต่างชาติไม่บังคับให้แสดงใบขับขี่ แต่ผู้เช่ารับผิดชอบค่าปรับและความเสียหายทั้งหมดที่เกิดจากการขับขี่โดยไม่มีใบอนุญาตเอง
+- ผู้เช่าที่อยู่ใน Blacklist ของร้านจะไม่ได้รับบริการ (ห้ามบอกลูกค้าเรื่อง Blacklist เด็ดขาด)
 
 ═══════════════════════════════
-🕐  เวลารับ-คืนรถ
+🚨  รถมีปัญหา (สำคัญมาก)
 ═══════════════════════════════
-- รับรถและคืนรถต้องอยู่ในเวลาทำการ 08:00–20:00 น. เท่านั้น
-- ยกเว้น: เช่ามากกว่า 10 วัน สามารถนัดเวลารับ-คืนรถได้ตั้งแต่ 09:00–20:00 น.
-- ห้ามนัดรับ/คืนรถนอกเวลาทำการ ไม่ว่ากรณีใดก็ตาม (ยกเว้นตามเงื่อนไขข้างต้น)
+ถ้าลูกค้าแจ้งว่ารถมีปัญหา เช่น ยางแตก สตาร์ทไม่ติด ลืมกุญแจ กุญแจหาย น้ำมันหมด แบตหมด รถล้ม อุบัติเหตุ ไฟ/เบรกผิดปกติ รถหาย (มักเริ่มประโยคว่า "พี่คะ รถ..." หรือเล่าอาการรถ)
+ห้ามซักถามอาการ ห้ามรับเรื่องซ่อมในแชท ให้ตอบให้ลูกค้าแจ้งทางโทรศัพท์โดยตรง เพื่อให้ทีมงานดูแลได้อย่างรวดเร็ว โดยต้องมีเบอร์ฉุกเฉินทั้งสองเบอร์ทุกครั้ง ประมาณว่า:
+"ขออภัยในความไม่สะดวกครับ หากรถมีปัญหา รบกวนแจ้งทางเบอร์ฉุกเฉิน 0902922994 หรือ 0925956965 โดยตรงนะครับ เพื่อให้ทีมงานดูแลและช่วยเหลือได้อย่างรวดเร็วที่สุดครับ" (ปรับถ้อยคำให้เข้ากับปัญหาและภาษาของลูกค้าได้ แต่ต้องมีสองเบอร์นี้และใจความ "แจ้งทางเบอร์ฉุกเฉินเพื่อให้ได้รับการดูแลอย่างรวดเร็ว")
+ถ้าเป็นอุบัติเหตุที่มีผู้บาดเจ็บ ให้เพิ่มว่าโทร 1669 ก่อน
+ห้ามรับปากเรื่องรถสำรองหรือค่าใช้จ่ายใดๆ
+ถ้าลูกค้าหงุดหงิดหรือไม่พอใจ ให้ขออภัยอย่างสุภาพ และให้โทรเบอร์ฉุกเฉินสองเบอร์ข้างต้น
+เรื่องกุญแจหาย/ของหาย และความเสียหายของรถ: ประเมินที่ร้านตอนคืนรถ ห้ามบอกตัวเลขค่าชดใช้เอง
 
 ═══════════════════════════════
-🤖  กฎการตอบ
+⏱️  ต่อเวลา และคืนรถก่อนกำหนด
 ═══════════════════════════════
-- เมื่อลูกค้าถามว่ารถว่างไหม / อยากดูรถ / สอบถามราคา:
+- ต่อเวลา: ลูกค้าแจ้งผ่านแชทได้ตลอด ให้ขอ "ทะเบียนรถ" และ "จำนวนวันที่ต้องการต่อ" แล้วบอกว่ารับเรื่องแล้ว พนักงานจะติดต่อกลับเพื่อแจ้งยอดและวิธีชำระ (ห้ามบอกยอดต่อเวลาเอง ห้ามบอกว่าต่อให้แล้ว)
+- ถ้าลูกค้าถามเรื่องคืนช้า ไม่ต้องบอกบทลงโทษ มีแค่ค่าล่วงเวลาตามหัวข้อราคา
+- คืนรถก่อนกำหนด:
+  • ใช้งานไม่เกิน 5 วัน (รวมครบ 5 วันพอดี): คืนเงินส่วนที่เหลือได้ แต่คิดค่าเช่าขั้นต่ำ 5 วันเต็มราคา
+  • ใช้งานเกิน 5 วัน และรถไม่มีปัญหา: ไม่คืนเงิน แต่ให้เป็นเครดิตวันเช่าที่เหลือ (เช่น เช่า 30 วัน ใช้ไป 10 วัน เหลือเครดิต 20 วัน) เครดิตไม่มีวันหมดอายุ ใช้กลับมาเช่าใหม่ได้ แต่ต้องวางเงินมัดจำใหม่
+  • ใช้ได้กับรายวัน รายสัปดาห์ รายเดือนเหมือนกัน การคืนเงิน/ให้เครดิตจริงพนักงานทำตอนคืนรถ ให้แค่บอกเงื่อนไขให้ลูกค้าทราบ
+
+═══════════════════════════════
+🚚  ส่งรถ/รับรถนอกสถานที่
+═══════════════════════════════
+- ในละแวกมอเกษตร ค่าบริการ 50 บาท (ไม่ต้องอธิบายขอบเขตเพิ่ม ลูกค้ารู้เองว่าตรงไหน)
+- นอกเหนือจากนั้น ให้ลูกค้า "พิมพ์ชื่อสถานที่หรือที่อยู่" มาเป็นข้อความ ร้านจะคำนวณราคาให้
+- บอทรับเรื่องไว้เท่านั้น บอกว่าพนักงานจะมาคอนเฟิมให้ ห้ามยืนยันราคานอกละแวกเอง
+
+═══════════════════════════════
+📆  รายเดือน
+═══════════════════════════════
+ตอบเฉพาะเท่าที่ลูกค้าถามและมีข้อมูลด้านบน (ราคา มัดจำ 1,000 บาท เอกสาร) เรื่องอื่นที่ไม่มีข้อมูลให้ใช้กฎ "ไม่มีข้อมูล" ด้านล่าง
+
+═══════════════════════════════
+🤖  กฎการใช้เครื่องมือและการตอบ
+═══════════════════════════════
+- เมื่อลูกค้าถามว่ารถว่างไหม / อยากดูรถ / สอบถามราคาตามวัน:
   ต้องรู้ วัน+เวลารับรถ และ วัน+เวลาคืนรถ ก่อน ถ้าลูกค้าบอกไม่ครบ (เช่นบอกแค่วัน) ให้ถามเวลาก่อน ห้ามเดาเวลาเอง
-  เช็คว่าเวลาอยู่ในเวลาทำการตามกฎด้านบน ถ้าไม่อยู่ ให้แจ้งลูกค้าและขอเวลาใหม่ก่อนเช็ค
-  จากนั้นใช้ tool check_availability แล้วแสดงรุ่นที่ว่างพร้อมราคารวมตามที่ tool คืนมาเท่านั้น
-  ห้ามคำนวณราคาเอง ใช้ตัวเลขจาก tool เสมอ (ระบบคิดโปรและค่าเกินเวลาให้แล้ว)
-  ถ้ามีค่าเกินเวลา (overtime) ให้บอกลูกค้าด้วยว่าเพราะเวลาคืนเลยเวลารับ และแนะนำว่าถ้าคืนเวลาเดียวกับที่รับจะไม่มีค่าส่วนนี้
-  แล้วถามว่า "สนใจรุ่นไหนครับ หรือจะจองเลยไหมครับ?" ห้ามเร่งให้จอง รอให้ลูกค้าตัดสินใจเองก่อน
-
-- เมื่อลูกค้าตัดสินใจจองแล้ว:
-  ถามชื่อ-นามสกุล และ เบอร์โทรศัพท์
-  จากนั้นใช้ tool create_booking บันทึกจอง (ใช้วันเวลาเดียวกับที่เช็ค)
-  แจ้ง booking ref และบอกให้รอรับใบจองจากพนักงานภายใน 30 นาที
-  ถ้า tool แจ้งว่ารุ่นนั้นเต็มแล้ว ให้ขอโทษ แล้วเช็คใหม่เพื่อเสนอรุ่นอื่น
-
-- ถ้าลูกค้าถามเรื่องของร้านที่ไม่มีข้อมูลอยู่ในนี้ ห้ามเดาหรือแต่งคำตอบเด็ดขาด
-  ให้ตอบว่า "ขอเช็คกับแอดมินก่อนนะครับ เดี๋ยวแอดมินจะตอบกลับครับ" หรือให้โทร 065-5268531`
+  เช็กว่าเวลาอยู่ในเวลาทำการและวันรับรถไม่เกิน 3 วันนับจากวันนี้ ถ้าไม่ได้ ให้แจ้งลูกค้าและขอเวลาใหม่ก่อนเช็ก
+  จากนั้นใช้ tool check_availability (ใส่ customer_type) แล้วแสดงรุ่นที่ว่างพร้อมราคารวมตามที่ tool คืนมาเท่านั้น
+  แล้วถามว่า "สนใจรุ่นไหนครับ หรือจะจองเลยไหมครับ?" ห้ามเร่งให้จอง รอให้ลูกค้าตัดสินใจเอง
+- เมื่อลูกค้าตัดสินใจจอง: ถามชื่อ-นามสกุล และ เบอร์โทรศัพท์ แล้วใช้ tool create_booking (ใช้วันเวลาและ customer_type เดียวกับที่เช็ก)
+  แจ้ง booking ref และบอกให้โชว์แชทนี้ที่หน้าร้านตอนรับรถ ห้ามบอกว่าจะมีใบจองส่งให้
+  ถ้า tool แจ้งว่ารุ่นนั้นเต็มแล้ว ให้ขอโทษ แล้วเช็กใหม่เพื่อเสนอรุ่นอื่น
+- ข้อมูลรุ่นรถ: ให้ดูตามผลจากระบบ ไม่แนะนำรุ่นตามลักษณะลูกค้าเอง
+- ห้ามเปิดเผย: ข้อมูลลูกค้าคนอื่น, ราคาทุน, ข้อมูลภายในร้าน, เรื่อง Blacklist
+- ถ้าลูกค้าถามเรื่องที่ไม่มีข้อมูลอยู่ในนี้ ห้ามเดาหรือแต่งคำตอบเด็ดขาด
+  ให้ตอบว่า "เรื่องนี้ขอให้ทางร้านดูแลให้นะครับ รบกวนลูกค้าฝากชื่อและเบอร์โทรไว้ ทางร้านจะติดต่อกลับครับ" (ห้ามบอกเวลาที่จะติดต่อกลับ) แล้วรับชื่อและเบอร์ไว้ในแชท`
 
 // ─── Anthropic tool definitions ───────────────────────────────────────────────
 const DATETIME_DESC = 'เวลาไทย format YYYY-MM-DDTHH:mm เช่น 2026-10-05T10:00'
+// ประเภทลูกค้า — kaset_student ได้ลดค่าเช่า 50 บาท/วัน (สูตรเดียวกับหน้าจองของพนักงาน) ประเภทอื่นราคาปกติ
+const CUSTOMER_TYPES = ['general', 'student', 'kaset_student']
+const CUSTOMER_TYPE_DESC = 'ประเภทลูกค้า: general = บุคคลทั่วไป/ต่างชาติ, student = นักศึกษามหาวิทยาลัยอื่น, kaset_student = นักศึกษา ม.เกษตรศรีราชา (ได้ลดค่าเช่า 50 บาท/วัน)'
+const STUDENT_PROMO_DISCOUNT = 50
 const TOOLS = [
   {
     name: 'check_availability',
@@ -133,8 +176,9 @@ const TOOLS = [
       properties: {
         start_datetime: { type: 'string', description: `วันเวลารับรถ ${DATETIME_DESC}` },
         end_datetime:   { type: 'string', description: `วันเวลาคืนรถ ${DATETIME_DESC}` },
+        customer_type:  { type: 'string', enum: CUSTOMER_TYPES, description: CUSTOMER_TYPE_DESC },
       },
-      required: ['start_datetime', 'end_datetime'],
+      required: ['start_datetime', 'end_datetime', 'customer_type'],
     },
   },
   {
@@ -149,8 +193,9 @@ const TOOLS = [
         end_datetime:   { type: 'string', description: `วันเวลาคืนรถ ${DATETIME_DESC}` },
         brand:          { type: 'string', description: 'ยี่ห้อรถ ตามที่ check_availability คืนมา' },
         model:          { type: 'string', description: 'รุ่นรถ ตามที่ check_availability คืนมา' },
+        customer_type:  { type: 'string', enum: CUSTOMER_TYPES, description: CUSTOMER_TYPE_DESC },
       },
-      required: ['customer_name', 'customer_phone', 'start_datetime', 'end_datetime', 'brand', 'model'],
+      required: ['customer_name', 'customer_phone', 'start_datetime', 'end_datetime', 'brand', 'model', 'customer_type'],
     },
   },
 ]
@@ -180,13 +225,48 @@ function parseBkk(local: unknown): { utcIso: string; wall: Date } | null {
 }
 
 // ราคาเดียวกับหน้าจองของพนักงานเป๊ะ — โปร 7 วันจ่าย N + cap รายเดือน + ค่าเกินเวลา
-function quoteFor(start: Date, end: Date, dailyRate: number, monthlyRate: number | null, payDays: number) {
+// studentPromo = นักศึกษา ม.เกษตร: หัก 50 จากเรทรายวันก่อนคิดทั้งก้อน (เหมือน BookingForm) ค่าล่วงเวลาใช้เรทปกติ
+function quoteFor(start: Date, end: Date, dailyRate: number, monthlyRate: number | null, payDays: number, studentPromo = false) {
   const days = calendarDays(start, end)
-  const quote = calcRentQuote(start, days, dailyRate, monthlyRate ?? dailyRate * 30, payDays)
+  const mcr = monthlyRate ?? dailyRate * 30
+  const ndr = studentPromo ? dailyRate - STUDENT_PROMO_DISCOUNT : dailyRate
+  const quote = calcRentQuote(start, days, ndr, mcr, payDays)
+  const normalTotal = studentPromo ? calcRentQuote(start, days, dailyRate, mcr, payDays).total : quote.total
+  const discount = studentPromo ? Math.max(0, normalTotal - quote.total) : 0
   const overtimeHours = calcExcessHours(start, end, days)
   const overtime = calcOvertimeCharge(overtimeHours, dailyRate)
   const promoApplied = !quote.isLong && !!quote.shortResult && quote.shortResult.calcDays < days
-  return { days, rentTotal: quote.total, overtimeHours, overtime, total: quote.total + overtime, promoApplied }
+  return { days, rentTotal: quote.total, overtimeHours, overtime, total: quote.total + overtime, promoApplied, discount }
+}
+
+// ราคาสรุปของสาขาสำหรับใส่ในคู่มือ — อ่านสดจากตารางราคาในแอป เฉพาะรุ่นที่มีรถที่สาขานี้จริง (ไม่ค้างราคาเก่า)
+// รายสัปดาห์ = 7 วัน คิดโปร 7 จ่าย N และไม่เกินเรทรายเดือน เหมือนสูตรหน้าจอง
+async function buildPriceInfo(supabase: ReturnType<typeof createAdminClient>, branchId: string): Promise<string> {
+  const [{ data: pricing }, { data: bikeRows }] = await Promise.all([
+    supabase.from('branch_model_pricing').select('brand, model, daily_rate, monthly_rate, promo_pay_days').eq('branch_id', branchId),
+    supabase.from('bikes').select('brand, model').eq('branch_id', branchId),
+  ])
+  const present = new Set((bikeRows ?? []).map(b => `${b.brand}__${b.model}`))
+  const rows = (pricing ?? [])
+    .filter(p => present.has(`${p.brand}__${p.model}`) && Number(p.daily_rate) > 0)
+    .map(p => {
+      const daily = Number(p.daily_rate)
+      const monthly = Number(p.monthly_rate ?? daily * 30)
+      const weekly = calcShortPrice(7, daily, monthly, p.promo_pay_days ?? 5).total
+      return { name: `${p.brand} ${p.model}`, daily, weekly, monthly }
+    })
+    .sort((a, b) => a.daily - b.daily)
+  if (rows.length === 0) return '- ราคา: ใช้ tool check_availability เท่านั้น ห้ามเดาราคา'
+  const range = (key: 'daily' | 'weekly' | 'monthly') => {
+    const v = rows.map(r => r[key])
+    const lo = Math.min(...v), hi = Math.max(...v)
+    return lo === hi ? `${lo.toLocaleString()}` : `${lo.toLocaleString()}–${hi.toLocaleString()}`
+  }
+  return [
+    `- ช่วงราคาของร้าน (บาท): รายวัน ${range('daily')} / รายสัปดาห์ (7 วัน) ${range('weekly')} / รายเดือน ${range('monthly')}`,
+    '- ราคาแยกตามรุ่น (รายวัน / รายสัปดาห์ 7 วัน / รายเดือน) ใช้ตอบเมื่อลูกค้าถามรุ่นนั้นโดยเฉพาะ:',
+    ...rows.map(r => `  • ${r.name}: ${r.daily.toLocaleString()} / ${r.weekly.toLocaleString()} / ${r.monthly.toLocaleString()}`),
+  ].join('\n')
 }
 
 function validatePeriod(input: Record<string, unknown>) {
@@ -222,8 +302,9 @@ async function executeTool(name: string, input: Record<string, any>, branchId: s
 
     if (groups.size === 0) return { available: false, message: 'ไม่มีรถว่างในช่วงเวลานี้' }
 
+    const studentPromo = input.customer_type === 'kaset_student'
     const models = Array.from(groups.values()).map(g => {
-      const q = quoteFor(s.wall, e.wall, g.daily_rate, g.monthly_rate, g.promo_pay_days)
+      const q = quoteFor(s.wall, e.wall, g.daily_rate, g.monthly_rate, g.promo_pay_days, studentPromo)
       return {
         brand: g.brand,
         model: g.model,
@@ -231,6 +312,7 @@ async function executeTool(name: string, input: Record<string, any>, branchId: s
         daily_rate: g.daily_rate,
         rental_days: q.days,
         rent_total: q.rentTotal,
+        student_discount: studentPromo ? q.discount : null,
         promo: q.promoApplied ? `โปร 7 วันจ่าย ${g.promo_pay_days} วัน` : null,
         overtime_hours: q.overtimeHours,
         overtime_charge: q.overtime,
@@ -252,7 +334,7 @@ async function executeTool(name: string, input: Record<string, any>, branchId: s
     const bike = bikes.find(b => b.available && norm(b.brand) === norm(input.brand) && norm(b.model) === norm(input.model))
     if (!bike) return { success: false, error: 'รุ่นนี้ไม่ว่างแล้วในช่วงเวลานี้' }
 
-    const q = quoteFor(s.wall, e.wall, bike.daily_rate, bike.monthly_rate, bike.promo_pay_days)
+    const q = quoteFor(s.wall, e.wall, bike.daily_rate, bike.monthly_rate, bike.promo_pay_days, input.customer_type === 'kaset_student')
 
     // หา staff คนแรกของสาขา (ใช้เป็น staff_id ของ bot)
     const { data: staffRow } = await supabase
@@ -275,7 +357,7 @@ async function executeTool(name: string, input: Record<string, any>, branchId: s
       total_days:           q.days,
       daily_rate:           bike.daily_rate,
       total_amount:         q.total,
-      discount:             0,
+      discount:             q.discount,
       source:               'line',
       status:               'confirmed',
       booking_ref:          genRef(),
@@ -297,11 +379,11 @@ async function executeTool(name: string, input: Record<string, any>, branchId: s
 
 // ─── Claude call ──────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callClaude(messages: unknown[]): Promise<any> {
+async function callClaude(messages: unknown[], priceInfo: string): Promise<any> {
   // บอกวันเวลาปัจจุบัน — ไม่งั้นบอทตีความ "พรุ่งนี้/เสาร์นี้" ไม่ได้
   const now = new Date()
   const weekday = now.toLocaleDateString('th-TH', { weekday: 'long', timeZone: 'Asia/Bangkok' })
-  const system = `${SYSTEM_PROMPT}\n\nวันเวลาปัจจุบัน (เวลาไทย): ${utcToBangkokLocal(now.toISOString())} (${weekday})`
+  const system = `${buildSystemPrompt(priceInfo)}\n\nวันเวลาปัจจุบัน (เวลาไทย): ${utcToBangkokLocal(now.toISOString())} (${weekday})`
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -361,6 +443,9 @@ export async function POST(request: NextRequest) {
 
   const body = JSON.parse(rawBody)
 
+  // ราคาสรุปของสาขา อ่านสดจากแอปครั้งเดียวต่อคำขอ (ถ้าอ่านพลาด บอทจะใช้ tool เช็กราคาแทน)
+  const priceInfo = await buildPriceInfo(supabase, branch.id).catch(() => '- ราคา: ใช้ tool check_availability เท่านั้น ห้ามเดาราคา')
+
   for (const event of body.events ?? []) {
     if (event.type !== 'message' || event.message?.type !== 'text') continue
 
@@ -383,7 +468,7 @@ export async function POST(request: NextRequest) {
       let messages: any[] = [...history, { role: 'user', content: userText }].slice(-20)
 
       // เรียก Claude + handle tool use loop
-      let response = await callClaude(messages)
+      let response = await callClaude(messages, priceInfo)
       let loopCount = 0
 
       while (response.stop_reason === 'tool_use' && loopCount < 5) {
@@ -399,7 +484,7 @@ export async function POST(request: NextRequest) {
           { role: 'assistant', content: response.content },
           { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: JSON.stringify(toolResult) }] },
         ]
-        response = await callClaude(messages)
+        response = await callClaude(messages, priceInfo)
       }
 
       // ดึง text response
