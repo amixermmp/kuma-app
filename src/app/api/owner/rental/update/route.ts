@@ -86,6 +86,7 @@ export async function POST(request: Request) {
         .from('rental_payments')
         .select('id, kind, amount')
         .eq('rental_id', id)
+        .is('voided_at', null) // ใบเสร็จที่ยกเลิกแล้วไม่นับ — ไม่งั้นหักเงินต่อเวลาที่ถูก void ซ้ำ แล้วแถวค่าเช่าแรกต่ำกว่าจริง
         .order('created_at', { ascending: true })
       const initial = (pays ?? []).find(p => p.kind === 'rental')
       const extendSum = (pays ?? []).filter(p => p.kind === 'extend').reduce((s, p) => s + Number(p.amount), 0)
