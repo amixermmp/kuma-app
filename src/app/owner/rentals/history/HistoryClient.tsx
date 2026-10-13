@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import BranchBadge from '@/components/BranchBadge'
 
 type Photo = { label: string; url: string }
 type DailyPayment = { id: string; kind: string; amount: number; paid_at: string }
@@ -171,16 +172,6 @@ function ReceiptSection({ payments, type }: { payments: (DailyPayment | MonthlyP
         </div>
       )}
     </div>
-  )
-}
-
-function BranchBadge({ name }: { name?: string }) {
-  if (!name) return null
-  return (
-    <span style={{
-      marginLeft: '8px', fontSize: '11px', fontWeight: 700, padding: '2px 8px',
-      borderRadius: '12px', background: '#eff6ff', color: '#1d4ed8', verticalAlign: 'middle',
-    }}>{name}</span>
   )
 }
 

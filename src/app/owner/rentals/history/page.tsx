@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { shortBranchName } from '@/lib/branchName'
 import HistoryClient from './HistoryClient'
 
 export const dynamic = 'force-dynamic'
@@ -64,11 +65,7 @@ export default async function OwnerRentalHistoryPage() {
     admin.from('branches').select('id, name'),
   ])
 
-  // ชื่อสั้นของสาขา: "KUMA สาขาบางแสน" → "บางแสน", "ZAME สาชาศรีราชา" → "ศรีราชา" (ตัดชื่อแบรนด์/คำว่าสาขา/วงเล็บออก)
-  const shortBranch = new Map((branchRows ?? []).map(b => [
-    b.id,
-    b.name.replace(/\(.*?\)/g, '').replace(/^\s*(KUMA|ZAME)\s*/i, '').replace(/^สาขา|^สาชา/, '').trim(),
-  ]))
+  const shortBranch = new Map((branchRows ?? []).map(b => [b.id, shortBranchName(b.name)]))
   const branchNameOf = (branchId: string | null) => (branchId ? shortBranch.get(branchId) ?? '' : '')
 
   const withPhotos = <T extends { send_photos: unknown; return_photos: unknown }>(rows: T[]) =>

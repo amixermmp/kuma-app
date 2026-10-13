@@ -4,11 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { bangkokToUTC } from '@/lib/time'
+import BranchBadge from '@/components/BranchBadge'
 
 type Photo = { url: string; label?: string }
 
 type DailyRental = {
   id: string
+  branchName?: string
   start_datetime: string
   expected_end_datetime: string
   status: string
@@ -27,6 +29,7 @@ type DailyRental = {
 
 type MonthlyRental = {
   id: string
+  branchName?: string
   start_date: string
   payment_day: number
   monthly_rate: number
@@ -430,6 +433,7 @@ export default function RentalsClient({
                   }}>
                     <div style={{ fontWeight: 800, fontSize: '15px', color: '#111827' }}>
                       {bike.license_plate ?? '—'}
+                      <BranchBadge name={r.branchName} />
                     </div>
                     {statusBadge(r.status)}
                   </div>
@@ -542,6 +546,7 @@ export default function RentalsClient({
                   }}>
                     <div style={{ fontWeight: 800, fontSize: '15px', color: '#111827' }}>
                       {bike.license_plate ?? '—'}
+                      <BranchBadge name={r.branchName} />
                     </div>
                     <span style={{
                       fontSize: '11px', fontWeight: 700, padding: '2px 8px',

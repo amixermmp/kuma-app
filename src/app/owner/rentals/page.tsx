@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { shortBranchName } from '@/lib/branchName'
 import RentalsClient from './RentalsClient'
 
 export const dynamic = 'force-dynamic'
@@ -12,11 +13,11 @@ export default async function OwnerRentalsPage() {
 
   const admin = createAdminClient()
 
-  const [{ data: dailyRentals }, { data: monthlyRentals }] = await Promise.all([
+  const [{ data: dailyRentals }, { data: monthlyRentals }, { data: branchRows }] = await Promise.all([
     admin
       .from('rentals')
       .select(`
-        id, start_datetime, expected_end_datetime, status,
+        id, branch_id, start_datetime, expected_end_datetime, status,
         daily_rate, total_days, total_amount, deposit_amount, payment_method,
         send_photos, notes,
         bikes(id, license_plate, brand, model, color),
@@ -27,14 +28,20 @@ export default async function OwnerRentalsPage() {
     admin
       .from('monthly_rentals')
       .select(`
-        id, start_date, payment_day, monthly_rate, deposit_amount, status,
+        id, branch_id, start_date, payment_day, monthly_rate, deposit_amount, status,
         send_photos,
         bikes(id, license_plate, brand, model, color),
         customers(name, phone)
       `)
       .eq('status', 'active')
       .order('created_at', { ascending: false }),
+    admin.from('branches').select('id, name'),
   ])
 
-  return <RentalsClient dailyRentals={dailyRentals ?? []} monthlyRentals={monthlyRentals ?? []} />
+  // ป้ายสาขาที่เปิดสัญญา (ไม่ใช่สาขาที่รถอยู่ตอนนี้)
+  const shortBranch = new Map((branchRows ?? []).map(b => [b.id, shortBranchName(b.name)]))
+  const withBranch = <T extends { branch_id: string | null }>(rows: T[]) =>
+    rows.map(r => ({ ...r, branchName: (r.branch_id && shortBranch.get(r.branch_id)) || '' }))
+
+  return <RentalsClient dailyRentals={withBranch(dailyRentals ?? [])} monthlyRentals={withBranch(monthlyRentals ?? [])} />
 }
