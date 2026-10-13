@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { shortBranchName } from '@/lib/branchName'
 import HistoryClient from './HistoryClient'
 
 export const dynamic = 'force-dynamic'
@@ -65,8 +64,8 @@ export default async function OwnerRentalHistoryPage() {
     admin.from('branches').select('id, name'),
   ])
 
-  const shortBranch = new Map((branchRows ?? []).map(b => [b.id, shortBranchName(b.name)]))
-  const branchNameOf = (branchId: string | null) => (branchId ? shortBranch.get(branchId) ?? '' : '')
+  const branchNameById = new Map((branchRows ?? []).map(b => [b.id, b.name]))
+  const branchNameOf = (branchId: string | null) => (branchId ? branchNameById.get(branchId) ?? '' : '')
 
   const withPhotos = <T extends { send_photos: unknown; return_photos: unknown }>(rows: T[]) =>
     rows.map(r => ({ ...r, sendPhotos: normalizePhotos(r.send_photos), returnPhotos: normalizePhotos(r.return_photos) }))

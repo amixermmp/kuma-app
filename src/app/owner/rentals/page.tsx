@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { shortBranchName } from '@/lib/branchName'
 import RentalsClient from './RentalsClient'
 
 export const dynamic = 'force-dynamic'
@@ -38,10 +37,10 @@ export default async function OwnerRentalsPage() {
     admin.from('branches').select('id, name'),
   ])
 
-  // ป้ายสาขาที่เปิดสัญญา (ไม่ใช่สาขาที่รถอยู่ตอนนี้)
-  const shortBranch = new Map((branchRows ?? []).map(b => [b.id, shortBranchName(b.name)]))
+  // ป้ายสาขาที่เปิดสัญญา (ชื่อเต็ม ไม่ใช่สาขาที่รถอยู่ตอนนี้)
+  const branchNameById = new Map((branchRows ?? []).map(b => [b.id, b.name]))
   const withBranch = <T extends { branch_id: string | null }>(rows: T[]) =>
-    rows.map(r => ({ ...r, branchName: (r.branch_id && shortBranch.get(r.branch_id)) || '' }))
+    rows.map(r => ({ ...r, branchName: (r.branch_id && branchNameById.get(r.branch_id)) || '' }))
 
   return <RentalsClient dailyRentals={withBranch(dailyRentals ?? [])} monthlyRentals={withBranch(monthlyRentals ?? [])} />
 }
