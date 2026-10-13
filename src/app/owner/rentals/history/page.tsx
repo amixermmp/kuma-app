@@ -38,11 +38,11 @@ export default async function OwnerRentalHistoryPage() {
 
   const admin = createAdminClient()
 
-  const [{ data: dailyRentals }, { data: monthlyRentals }] = await Promise.all([
+  const [{ data: dailyRentals }, { data: monthlyRentals }, { data: branchRows }] = await Promise.all([
     admin
       .from('rentals')
       .select(`
-        id, start_datetime, actual_end_datetime, total_amount,
+        id, branch_id, start_datetime, actual_end_datetime, total_amount,
         send_odometer, return_odometer, send_photos, return_photos, swap_log,
         bikes(id, license_plate, brand, model, color),
         customers(name, phone)
@@ -53,7 +53,7 @@ export default async function OwnerRentalHistoryPage() {
     admin
       .from('monthly_rentals')
       .select(`
-        id, start_date, end_date, monthly_rate,
+        id, branch_id, start_date, end_date, monthly_rate,
         send_odometer, return_odometer, send_photos, return_photos, swap_log,
         bikes(id, license_plate, brand, model, color),
         customers(name, phone)
@@ -61,7 +61,15 @@ export default async function OwnerRentalHistoryPage() {
       .eq('status', 'ended')
       .order('end_date', { ascending: false })
       .limit(300),
+    admin.from('branches').select('id, name'),
   ])
+
+  // ชื่อสั้นของสาขา: "KUMA สาขาบางแสน" → "บางแสน", "ZAME สาชาศรีราชา" → "ศรีราชา" (ตัดชื่อแบรนด์/คำว่าสาขา/วงเล็บออก)
+  const shortBranch = new Map((branchRows ?? []).map(b => [
+    b.id,
+    b.name.replace(/\(.*?\)/g, '').replace(/^\s*(KUMA|ZAME)\s*/i, '').replace(/^สาขา|^สาชา/, '').trim(),
+  ]))
+  const branchNameOf = (branchId: string | null) => (branchId ? shortBranch.get(branchId) ?? '' : '')
 
   const withPhotos = <T extends { send_photos: unknown; return_photos: unknown }>(rows: T[]) =>
     rows.map(r => ({ ...r, sendPhotos: normalizePhotos(r.send_photos), returnPhotos: normalizePhotos(r.return_photos) }))
@@ -79,10 +87,10 @@ export default async function OwnerRentalHistoryPage() {
   ])
 
   const dailyList = withPhotos(dailyRentals ?? []).map(r => ({
-    ...r, payments: (dailyPayments ?? []).filter(p => p.rental_id === r.id),
+    ...r, branchName: branchNameOf(r.branch_id), payments: (dailyPayments ?? []).filter(p => p.rental_id === r.id),
   }))
   const monthlyList = withPhotos(monthlyRentals ?? []).map(r => ({
-    ...r, payments: (monthlyPayments ?? []).filter(p => p.monthly_rental_id === r.id),
+    ...r, branchName: branchNameOf(r.branch_id), payments: (monthlyPayments ?? []).filter(p => p.monthly_rental_id === r.id),
   }))
 
   return <HistoryClient dailyRentals={dailyList} monthlyRentals={monthlyList} />

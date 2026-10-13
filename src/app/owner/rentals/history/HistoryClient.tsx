@@ -14,6 +14,7 @@ const PAYMENT_KIND_LABEL: Record<string, string> = {
 
 type DailyRental = {
   id: string
+  branchName?: string
   start_datetime: string
   actual_end_datetime: string | null
   total_amount: number | null
@@ -31,6 +32,7 @@ type DailyRental = {
 
 type MonthlyRental = {
   id: string
+  branchName?: string
   start_date: string
   end_date: string | null
   monthly_rate: number
@@ -172,6 +174,16 @@ function ReceiptSection({ payments, type }: { payments: (DailyPayment | MonthlyP
   )
 }
 
+function BranchBadge({ name }: { name?: string }) {
+  if (!name) return null
+  return (
+    <span style={{
+      marginLeft: '8px', fontSize: '11px', fontWeight: 700, padding: '2px 8px',
+      borderRadius: '12px', background: '#eff6ff', color: '#1d4ed8', verticalAlign: 'middle',
+    }}>{name}</span>
+  )
+}
+
 function EmptyState({ label }: { label: string }) {
   return (
     <div style={{ textAlign: 'center', padding: '48px 0', color: '#9ca3af', fontSize: '14px' }}>
@@ -273,6 +285,7 @@ export default function HistoryClient({
                   }}>
                     <div style={{ fontWeight: 800, fontSize: '15px', color: '#111827' }}>
                       {bike.license_plate ?? '—'}
+                      <BranchBadge name={r.branchName} />
                     </div>
                     <span style={{
                       fontSize: '11px', fontWeight: 700, padding: '2px 8px',
@@ -322,6 +335,7 @@ export default function HistoryClient({
                   }}>
                     <div style={{ fontWeight: 800, fontSize: '15px', color: '#111827' }}>
                       {bike.license_plate ?? '—'}
+                      <BranchBadge name={r.branchName} />
                     </div>
                     <span style={{
                       fontSize: '11px', fontWeight: 700, padding: '2px 8px',
