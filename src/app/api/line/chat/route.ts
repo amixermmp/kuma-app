@@ -6,6 +6,7 @@ import { bangkokToUTC, utcToBangkokLocal } from '@/lib/time'
 import { calendarDays, calcRentQuote, calcShortPrice, calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
 import { searchBikes } from '@/lib/bikeSearch'
 import { checkBlacklist } from '@/lib/blacklist'
+import { isBotActiveNow, type WeekSchedule, type TodayOverride } from '@/lib/botSchedule'
 
 // ─── Branch configs ───────────────────────────────────────────────────────────
 // เพิ่มสาขาใหม่ตรงนี้เมื่อต้องการขยาย
@@ -464,6 +465,18 @@ export async function POST(request: NextRequest) {
     .eq('branch_id', branch.id)
     .maybeSingle()
   if (botSetting?.line_bot_enabled === false) return NextResponse.json({ ok: true })
+
+  // ตั้งเวลาตอบ (สวิตช์เปิดแล้วค่อยดูตาราง) — ดึงแยกจากสวิตช์ เผื่อยังไม่ได้รัน migration เพิ่มคอลัมน์: ถ้าอ่านพลาดถือว่าไม่ได้ตั้งเวลา (ตอบทั้งวัน)
+  // ไม่รวมกับ query ด้านบน เพราะถ้า select คอลัมน์ที่ยังไม่มีจะพังทั้ง query แล้วสวิตช์ปิดจะถูกมองข้าม
+  const { data: scheduleRow } = await supabase
+    .from('branch_settings')
+    .select('line_bot_schedule, line_bot_today_override')
+    .eq('branch_id', branch.id)
+    .maybeSingle()
+  if (!isBotActiveNow(
+    scheduleRow?.line_bot_schedule as WeekSchedule | null | undefined,
+    scheduleRow?.line_bot_today_override as TodayOverride | null | undefined,
+  )) return NextResponse.json({ ok: true })
 
   const body = JSON.parse(rawBody)
 
