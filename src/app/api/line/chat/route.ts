@@ -7,6 +7,12 @@ import { calendarDays, calcRentQuote, calcShortPrice, calcExcessHours, calcOvert
 import { searchBikes } from '@/lib/bikeSearch'
 import { checkBlacklist } from '@/lib/blacklist'
 import { isBotActiveNow, type WeekSchedule, type TodayOverride } from '@/lib/botSchedule'
+import { isAckMessage } from '@/lib/botSilence'
+
+// บอทตอบคำเดียวนี้ = ไม่ส่งอะไรกลับลูกค้า (ใช้กับข้อความตอบรับ/ปิดบทสนทนาที่ไม่ต้องตอบ)
+const SILENT_TOKEN = '[[SILENT]]'
+// ข้อความตอบรับ ("ค่ะ" "ได้ค่ะ" "รับทราบ") จะข้ามไม่ตอบ ถ้าลูกค้าคนนี้ไม่ได้คุยกับบอทอยู่ — คือไม่มีประวัติ หรือเงียบไปเกินเท่านี้
+const ACK_ACTIVE_WINDOW_MS = 2 * 60 * 60 * 1000
 
 // ─── Branch configs ───────────────────────────────────────────────────────────
 // เพิ่มสาขาใหม่ตรงนี้เมื่อต้องการขยาย
@@ -32,6 +38,10 @@ const buildSystemPrompt = (priceInfo: string) => `คุณคือผู้ช
 - ห้ามตอบเป็นคำถามแยกข้อ เช่น "รับรถเวลาไหนครับ? คืนรถเวลาไหนครับ? เช่ากี่วันครับ?" เด็ดขาด
 - ห้ามถามว่า "เช่ากี่วัน" เด็ดขาด เพราะลูกค้านับวันไม่ตรงกับร้าน (ดูกฎการนับวันด้านล่าง) ให้ถามเป็นวัน-เวลารับและวัน-เวลาคืนแทนเสมอ
 - ถ้าลูกค้าบอกวันมาแล้ว (เช่น "พรุ่งนี้") ให้เติมวันที่นั้นลงในแบบฟอร์ม (เขียนวันที่จริงของวันนั้น) แล้วเว้นช่องที่เหลือให้ลูกค้ากรอก
+
+★ ข้อความที่ไม่ต้องตอบ (ตอบคำเดียวว่า [[SILENT]] เท่านั้น ห้ามเขียนอย่างอื่น) ★
+ถ้าข้อความล่าสุดของลูกค้าเป็นเพียง "การตอบรับ/ปิดบทสนทนา" เช่น ค่ะ ครับ ได้ค่ะ ได้ครับ โอเค รับทราบ ทราบแล้ว ขอบคุณ ขอบคุณค่ะ 👍 🙏 และข้อความก่อนหน้าของบอทไม่ได้ถามคำถามหรือรอคำตอบจากลูกค้า ให้ตอบว่า [[SILENT]] เท่านั้น (ระบบจะไม่ส่งอะไรให้ลูกค้า)
+ถ้าบอทเพิ่งถามคำถามไว้ เช่น "สนใจรุ่นไหนครับ หรือจะจองเลยไหมครับ?" แล้วลูกค้าตอบ "ได้ค่ะ" ถือเป็นคำตอบ ให้ดำเนินการต่อตามปกติ ไม่ใช่ [[SILENT]]
 
 ═══════════════════════════════
 🗣️  ภาษาและน้ำเสียง
@@ -494,10 +504,16 @@ export async function POST(request: NextRequest) {
       // โหลด conversation history
       const { data: session } = await supabase
         .from('line_chat_sessions')
-        .select('messages')
+        .select('messages, updated_at')
         .eq('line_user_id', userId)
         .eq('branch_id', branch.id)
         .maybeSingle()
+
+      // ข้อความตอบรับล้วนๆ ที่ไม่ได้ต่อจากบทสนทนากับบอท = ลูกค้ากำลังตอบคนจริง (เช่นที่ร้านทวงเงิน/นัดซ่อม) ห้ามตอบแทรก
+      if (isAckMessage(userText)) {
+        const lastTalk = session?.updated_at ? new Date(session.updated_at).getTime() : 0
+        if (Date.now() - lastTalk > ACK_ACTIVE_WINDOW_MS) continue
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const history: any[] = session?.messages ?? []
@@ -528,6 +544,9 @@ export async function POST(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const textBlock = response.content?.find((c: any) => c.type === 'text')
       const replyText: string = textBlock?.text ?? 'ขออภัยครับ เกิดข้อผิดพลาด กรุณาลองใหม่หรือโทรหาร้านโดยตรงครับ'
+
+      // AI ตัดสินว่าไม่ต้องตอบ (เช่น ตอบรับท้ายบทสนทนา) — ไม่ส่งอะไร และไม่เขียนทับประวัติ
+      if (replyText.trim() === SILENT_TOKEN) continue
 
       // ส่งกลับ LINE
       await lineReply(config.token, replyToken, [{ type: 'text', text: replyText }])
