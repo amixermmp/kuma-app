@@ -35,3 +35,8 @@ export function isAckMessage(text: string): boolean {
   // ลดตัวอักษรซ้ำท้ายคำ ("ค่าาา" → "ค่า", "okkk" → "ok")
   return ACK_SET.has(n.replace(/(.)\1+$/, '$1'))
 }
+
+// ข้อความที่เป็นการ "ขอบคุณ" โดยเฉพาะ (ตอบกลับว่า "ยินดีครับ") ส่วนข้อความตอบรับอื่น ตอบ "ขอบคุณครับ"
+export function isThanksMessage(text: string): boolean {
+  return isAckMessage(text) && /ขอบ|thank|thx/.test(normalize(text))
+}
