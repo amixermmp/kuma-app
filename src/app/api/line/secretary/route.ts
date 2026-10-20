@@ -61,7 +61,7 @@ function verifySignature(body: string, sig: string, secret: string): boolean {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function checkAvailability(db: any, start: string, end: string, branch?: string) {
-  const re = /^d{4}-d{2}-d{2}Td{2}:d{2}$/
+  const re = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
   if (!re.test(String(start)) || !re.test(String(end))) return { error: 'วัน-เวลาต้องเป็นรูปแบบ YYYY-MM-DDTHH:mm (เวลาไทย)' }
   if (new Date(end) <= new Date(start)) return { error: 'เวลาคืนต้องหลังเวลารับ' }
   const { data: branches } = await db.from('branches').select('id, name')
