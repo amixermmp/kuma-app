@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { lineReply, linePush, textMessage } from '@/lib/line'
-import { utcToBangkokLocal } from '@/lib/time'
+import { utcToBangkokLocal, bangkokToUTC } from '@/lib/time'
+import { searchBikes } from '@/lib/bikeSearch'
 import { findBike, findCustomer, revenue, listActiveRentals, queryTable, describeTable, todayBkk, clip, QUERYABLE_TABLES } from '@/lib/secretaryTools'
 
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,7 @@ const SYSTEM_PROMPT = (now: string, today: string) => `คุณคือ "${WAK
 - อ่านอย่างเดียว ไม่แก้ ไม่ลบ ไม่ส่งข้อความหาลูกค้า ถ้าถูกขอให้แก้ข้อมูล ให้บอกว่าทำไม่ได้ ให้ทำในแอป
 - ถ้าพิมพ์มาแค่ทะเบียน หรือเลขท้ายทะเบียน (เช่น "5กฆ 8525", "8525") ให้ใช้ find_bike แล้วตอบ: รถอะไร สถานะ ตอนนี้ใครเช่าอยู่ (รายวัน/รายสัปดาห์/รายเดือน) กำหนดคืนวันไหน เหลือกี่วันหรือเลยกำหนดแล้ว สาขา ถ้าไม่มีคนเช่าให้บอกว่าว่าง/ซ่อม/ล็อก ตามสถานะ
 - ถ้าตรงหลายคัน ให้ถามกลับว่าคันไหน
+- ถามว่ารถว่างไหม/คันไหนว่างให้จองในช่วงวันเวลา: ใช้ check_availability (แปลงวันเวลาจากที่พิมพ์เป็น YYYY-MM-DDTHH:mm เวลาไทย ปีใช้ปีปัจจุบันตามวันนี้ ถ้าไม่บอกเวลาให้ถามกลับ) แล้วสรุปรุ่น/จำนวน/ทะเบียนที่ว่าง และถ้าอยากรู้ว่าคันไหนไม่ว่างเพราะอะไร ก็บอกเหตุผลสั้นๆ
 - รายได้: ใช้ tool revenue เท่านั้น (นับใบเสร็จตามวันที่เก็บเงินจริง ไม่รวมยอดจอง/มัดจำ ไม่ใช้ยอดรวมของสัญญา)
 - คำถามอื่นที่ไม่มีเครื่องมือเฉพาะ: ใช้ describe_table ดูคอลัมน์ แล้ว query_table ค้นให้ตรงคำถาม
 - วันที่ที่แสดงใช้รูปแบบไทยสั้นๆ เช่น "20 ต.ค." และเวลาเป็นเวลาไทย
@@ -39,6 +41,8 @@ const TOOLS = [
     input_schema: { type: 'object' as const, properties: { from: { type: 'string', description: 'วันเริ่ม YYYY-MM-DD' }, to: { type: 'string', description: 'วันสุดท้าย YYYY-MM-DD (รวมวันนี้)' }, branch: { type: 'string', description: 'ชื่อสาขาบางส่วน เช่น "มอเกษตร" "บางแสน" "ศรีราชา" (ไม่ใส่ = ทุกสาขา)' } }, required: ['from', 'to'] } },
   { name: 'list_active_rentals', description: 'รายการสัญญาที่ใช้งานอยู่ตอนนี้ (รายวัน/สัปดาห์ + รายเดือน) เรียงตามกำหนดคืน ใช้ถามว่าใครเลยกำหนด/ใครใกล้คืน',
     input_schema: { type: 'object' as const, properties: { branch: { type: 'string', description: 'ชื่อสาขาบางส่วน (ไม่ใส่ = ทุกสาขา)' }, overdue_only: { type: 'boolean', description: 'true = เฉพาะที่เลยกำหนดคืนแล้ว' } } } },
+  { name: 'check_availability', description: 'เช็กรถว่างตามช่วงวันเวลารับ-คืนที่ต้องการ (ใช้ตัวค้นหาเดียวกับหน้าค้นหาของพนักงาน นับสัญญา รายเดือน คิวจอง งานซ่อม ล็อค ครบแล้ว) คืนรุ่นและทะเบียนที่ว่าง กับคันที่ไม่ว่างพร้อมเหตุผล ใช้เมื่อถามว่ารถว่างไหม/คันไหนว่างให้จอง',
+    input_schema: { type: 'object' as const, properties: { start: { type: 'string', description: 'วัน-เวลารับ เวลาไทย รูปแบบ YYYY-MM-DDTHH:mm เช่น 2026-10-21T10:00' }, end: { type: 'string', description: 'วัน-เวลาคืน เวลาไทย YYYY-MM-DDTHH:mm' }, branch: { type: 'string', description: 'ชื่อสาขาบางส่วน เช่น "บางแสน" "มอเกษตร" "ศรีราชา" (ไม่ใส่ = ทุกสาขา)' } }, required: ['start', 'end'] } },
   { name: 'describe_table', description: `ดูชื่อคอลัมน์ของตาราง (อนุญาต: ${QUERYABLE_TABLES.join(', ')})`,
     input_schema: { type: 'object' as const, properties: { table: { type: 'string' } }, required: ['table'] } },
   { name: 'query_table', description: 'ค้นตารางทั่วไป (อ่านอย่างเดียว) สำหรับคำถามที่ไม่มีเครื่องมือเฉพาะ ใช้ describe_table ดูคอลัมน์ก่อนถ้าไม่แน่ใจ',
@@ -56,12 +60,37 @@ function verifySignature(body: string, sig: string, secret: string): boolean {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function checkAvailability(db: any, start: string, end: string, branch?: string) {
+  const re = /^d{4}-d{2}-d{2}Td{2}:d{2}$/
+  if (!re.test(String(start)) || !re.test(String(end))) return { error: 'วัน-เวลาต้องเป็นรูปแบบ YYYY-MM-DDTHH:mm (เวลาไทย)' }
+  if (new Date(end) <= new Date(start)) return { error: 'เวลาคืนต้องหลังเวลารับ' }
+  const { data: branches } = await db.from('branches').select('id, name')
+  const picked = branch ? (branches ?? []).filter((b: { name: string }) => b.name.includes(branch)) : (branches ?? [])
+  if (branch && picked.length === 0) return { error: `ไม่พบสาขาที่ชื่อมีคำว่า "${branch}"`, branches: (branches ?? []).map((b: { name: string }) => b.name) }
+  const { bikes } = await searchBikes(db, picked.map((b: { id: string }) => b.id), bangkokToUTC(start), bangkokToUTC(end))
+  const byModel = new Map<string, { model: string; branch: string; plates: string[] }>()
+  const unavailable: { plate: string; model: string; reason: string }[] = []
+  for (const b of bikes as { brand: string; model: string; license_plate: string; branch_id: string; available: boolean; conflict_reason?: string }[]) {
+    const branchName = (branches ?? []).find((x: { id: string }) => x.id === b.branch_id)?.name ?? ''
+    if (b.available) {
+      const key = `${branchName}|${b.brand} ${b.model}`
+      const row = byModel.get(key) ?? { model: `${b.brand} ${b.model}`, branch: branchName, plates: [] as string[] }
+      row.plates.push(b.license_plate)
+      byModel.set(key, row)
+    } else unavailable.push({ plate: b.license_plate, model: `${b.brand} ${b.model}`, reason: b.conflict_reason ?? '' })
+  }
+  const available = Array.from(byModel.values()).map(r => ({ ...r, count: r.plates.length }))
+  return { period: `${start} ถึง ${end} (เวลาไทย)`, branch: branch ?? 'ทุกสาขา', available_total: available.reduce((n, r) => n + r.count, 0), available, unavailable_total: unavailable.length, unavailable: unavailable.slice(0, 40) }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function runTool(db: any, name: string, input: any) {
   switch (name) {
     case 'find_bike': return findBike(db, input.query)
     case 'find_customer': return findCustomer(db, input.query)
     case 'revenue': return revenue(db, input.from, input.to, input.branch)
     case 'list_active_rentals': return listActiveRentals(db, input.branch, !!input.overdue_only)
+    case 'check_availability': return checkAvailability(db, input.start, input.end, input.branch)
     case 'describe_table': return describeTable(db, input.table)
     case 'query_table': return queryTable(db, input)
     default: return { error: 'unknown tool' }
@@ -69,13 +98,13 @@ async function runTool(db: any, name: string, input: any) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callClaude(messages: unknown[], system: string): Promise<any> {
+async function callClaude(messages: unknown[], system: string, withTools = true): Promise<any> {
   let lastErr = ''
   for (const model of MODELS) {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY ?? '', 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model, max_tokens: 1500, system, tools: TOOLS, messages }),
+      body: JSON.stringify({ model, max_tokens: 1500, system, ...(withTools ? { tools: TOOLS } : {}), messages }),
     })
     if (res.ok) return res.json()
     lastErr = `${model} ${res.status}: ${(await res.text()).slice(0, 200)}`
@@ -146,6 +175,21 @@ export async function POST(request: NextRequest) {
         response = await callClaude(messages, system)
       }
 
+      // ค้นครบรอบแล้วยังไม่ได้คำตอบ (ยังขอเรียกเครื่องมือต่อ) — บังคับให้สรุปเท่าที่ได้ แทนที่จะตอบว่า "ตอบไม่ได้"
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (response.stop_reason === 'tool_use') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pending = response.content.filter((c: any) => c.type === 'tool_use')
+        messages = [
+          ...messages,
+          { role: 'assistant', content: response.content },
+          { role: 'user', content: [
+            ...pending.map((tu: { id: string }) => ({ type: 'tool_result', tool_use_id: tu.id, content: 'หมดรอบค้นหาแล้ว' })),
+            { type: 'text', text: 'สรุปคำตอบให้เจ้าของจากข้อมูลที่ค้นได้ตอนนี้ ถ้าข้อมูลไม่พอให้บอกตรงๆ ว่าขาดอะไร' },
+          ] },
+        ]
+        response = await callClaude(messages, system, false)
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const reply: string = response.content?.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n').trim() || 'ขอโทษครับ ตอบไม่ได้ในตอนนี้ ลองถามใหม่อีกครั้งครับ'
       await send(reply)
