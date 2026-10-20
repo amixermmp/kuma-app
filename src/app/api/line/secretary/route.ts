@@ -107,7 +107,7 @@ async function callClaude(messages: unknown[], system: string, withTools = true)
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY ?? '', 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({ model, max_tokens: 1500, system, ...(withTools ? { tools: TOOLS } : {}), messages }),
     })
-    if (res.ok) return res.json()
+    if (res.ok) { const j = await res.json(); j._model = model; return j }
     lastErr = `${model} ${res.status}: ${(await res.text()).slice(0, 200)}`
     console.error('[secretary] Claude error:', lastErr)
   }
@@ -163,7 +163,9 @@ export async function POST(request: NextRequest) {
 
       const system = SYSTEM_PROMPT(utcToBangkokLocal(new Date().toISOString()), todayBkk())
       let response = await callClaude(messages, system)
+      let rounds = 0
       for (let i = 0; response.stop_reason === 'tool_use' && i < MAX_TOOL_LOOPS; i++) {
+        rounds++
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const toolUses = response.content.filter((c: any) => c.type === 'tool_use')
         const results = []
@@ -192,10 +194,15 @@ export async function POST(request: NextRequest) {
         response = await callClaude(messages, system, false)
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const reply: string = response.content?.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n').trim() || 'ขอโทษครับ ตอบไม่ได้ในตอนนี้ ลองถามใหม่อีกครั้งครับ'
+      const aiText: string = response.content?.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n').trim() ?? ''
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const blockTypes = (response.content ?? []).map((c: any) => c.type).join(',') || 'none'
+      const failed = !aiText
+      if (failed) console.error('[secretary] empty reply', { model: response._model, stop: response.stop_reason, blocks: blockTypes, rounds, question })
+      const reply: string = aiText || `ขอโทษครับ ตอบไม่ได้ในตอนนี้ ลองถามใหม่อีกครั้งครับ (รหัสตรวจสอบ: ${response._model ?? '?'} / ${response.stop_reason ?? '?'} / ${blockTypes} / รอบค้น ${rounds})`
       await send(reply)
 
-      if (branch) {
+      if (branch && !failed) {
         await db.from('line_chat_sessions').upsert({
           line_user_id: sessionKey, branch_id: branch.id,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
