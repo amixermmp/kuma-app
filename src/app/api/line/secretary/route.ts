@@ -12,7 +12,13 @@ export const maxDuration = 60
 // "เลขา" ของเจ้าของ — บอท LINE ตัวที่ส่งรายงานเข้ากลุ่มเจ้าของ (คนละตัวกับบอทตอบลูกค้า)
 // รับเฉพาะข้อความที่ขึ้นต้นด้วยคำปลุก และมาจากกลุ่มเจ้าของ (shop_settings.line_target_id) เท่านั้น — อ่านข้อมูลอย่างเดียว ไม่มีคำสั่งเขียน
 const WAKE_WORD = 'ถุงเท้า'
-const MODELS = ['claude-sonnet-5-5', 'claude-haiku-4-5'] // ตัวแรกแม่นกว่า ถ้าเรียกไม่ได้ถอยไปตัวถัดไป
+// พิมพ์ "ถุงเท้า opus ..." / "ถุงเท้า haiku ..." เพื่อเลือกโมเดลที่ตอบ ไม่ระบุ = ใช้ haiku (เร็วและถูกที่สุด)
+const MODEL_IDS: Record<string, string> = { haiku: 'claude-haiku-4-5', sonnet: 'claude-sonnet-5-5', opus: 'claude-opus-5-5', fable: 'claude-fable-5-1' }
+const MODEL_LABEL: Record<string, string> = { haiku: 'Haiku', sonnet: 'Sonnet', opus: 'Opus', fable: 'Fable' }
+const DEFAULT_MODEL = 'haiku'
+// เรียกโมเดลที่เลือกก่อน ถ้าเรียกไม่ได้ถอยไปตัวอื่นตามลำดับ
+const FALLBACKS: Record<string, string[]> = { fable: ['opus', 'sonnet', 'haiku'], opus: ['sonnet', 'haiku'], sonnet: ['haiku'], haiku: ['sonnet'] }
+const modelChain = (key: string) => [key, ...(FALLBACKS[key] ?? [])].map(k => MODEL_IDS[k])
 const MAX_TOOL_LOOPS = 10
 
 const SYSTEM_PROMPT = (now: string, today: string) => `คุณคือ "${WAKE_WORD}" เลขาส่วนตัวของเจ้าของร้านเช่ามอเตอร์ไซค์ (3 สาขา: KUMA สาขามอเกษตร, KUMA สาขาบางแสน, ZAME สาขาศรีราชา)
@@ -99,9 +105,9 @@ async function runTool(db: any, name: string, input: any) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callClaude(messages: unknown[], system: string, withTools = true, maxTokens = 8000): Promise<any> {
+async function callClaude(messages: unknown[], system: string, withTools = true, maxTokens = 8000, models: string[] = modelChain(DEFAULT_MODEL)): Promise<any> {
   let lastErr = ''
-  for (const model of MODELS) {
+  for (const model of models) {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY ?? '', 'anthropic-version': '2023-06-01' },
@@ -136,7 +142,12 @@ export async function POST(request: NextRequest) {
     if (event.source?.type !== 'group' || event.source.groupId !== shop.line_target_id) continue
     const text = String(event.message.text ?? '').trim()
     if (!text.startsWith(WAKE_WORD)) continue
-    const question = text.slice(WAKE_WORD.length).replace(/^[\s,:;.!?-]+/, '')
+    const questionRaw = text.slice(WAKE_WORD.length).replace(/^[\s,:;.!?-]+/, '')
+    // คำแรกเป็นชื่อโมเดล (opus/sonnet/haiku/fable) = เลือกโมเดลนั้นตอบ ตัดคำนั้นออกจากคำถาม
+    const firstToken = questionRaw.split(' ')[0].toLowerCase().replace(/[,:.!]+$/, '')
+    const modelKey = MODEL_IDS[firstToken] ? firstToken : DEFAULT_MODEL
+    const question = MODEL_IDS[firstToken] ? questionRaw.slice(questionRaw.indexOf(' ') + 1).trim() : questionRaw
+    const models = modelChain(modelKey)
     const replyToken = event.replyToken as string
     const groupId = event.source.groupId as string
 
@@ -146,7 +157,7 @@ export async function POST(request: NextRequest) {
       if (!ok) await linePush(shop.line_token, groupId, [textMessage(out)]) // reply token หมดอายุ → ส่งเข้ากลุ่มแทน
     }
 
-    if (!question) { await send('ครับ มีอะไรให้ช่วยหาครับ (พิมพ์ ถุงเท้า ตามด้วยทะเบียนรถ ชื่อลูกค้า หรือคำถามได้เลยครับ)'); continue }
+    if (!question) { await send('ครับ มีอะไรให้ช่วยหาครับ (พิมพ์ ถุงเท้า ตามด้วยทะเบียนรถ ชื่อลูกค้า หรือคำถามได้เลยครับ เลือกโมเดลได้ เช่น ถุงเท้า opus ... / ถุงเท้า haiku ... ไม่ระบุใช้ haiku)'); continue }
 
     try {
       // ประวัติคุย (จำได้ถามต่อได้) เก็บในตารางเดิมของบอท ใช้คีย์แยก ไม่ปนกับลูกค้า
@@ -162,7 +173,7 @@ export async function POST(request: NextRequest) {
       let messages: any[] = [...history, { role: 'user', content: question }].slice(-12)
 
       const system = SYSTEM_PROMPT(utcToBangkokLocal(new Date().toISOString()), todayBkk())
-      let response = await callClaude(messages, system)
+      let response = await callClaude(messages, system, true, 8000, models)
       let rounds = 0
       for (let i = 0; response.stop_reason === 'tool_use' && i < MAX_TOOL_LOOPS; i++) {
         rounds++
@@ -175,7 +186,7 @@ export async function POST(request: NextRequest) {
           results.push({ type: 'tool_result', tool_use_id: tu.id, content: clip(result) })
         }
         messages = [...messages, { role: 'assistant', content: response.content }, { role: 'user', content: results }]
-        response = await callClaude(messages, system)
+        response = await callClaude(messages, system, true, 8000, models)
       }
 
       // ค้นครบรอบแล้วยังไม่ได้คำตอบ (ยังขอเรียกเครื่องมือต่อ) — บังคับให้สรุปเท่าที่ได้ แทนที่จะตอบว่า "ตอบไม่ได้"
@@ -191,11 +202,11 @@ export async function POST(request: NextRequest) {
             { type: 'text', text: 'สรุปคำตอบให้เจ้าของจากข้อมูลที่ค้นได้ตอนนี้ ถ้าข้อมูลไม่พอให้บอกตรงๆ ว่าขาดอะไร' },
           ] },
         ]
-        response = await callClaude(messages, system, false)
+        response = await callClaude(messages, system, false, 8000, models)
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (response.stop_reason === 'max_tokens' && !(response.content ?? []).some((c: { type: string }) => c.type === 'text')) {
-        response = await callClaude(messages, system, false, 16000)
+        response = await callClaude(messages, system, false, 16000, models)
       }
       const aiText: string = response.content?.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n').trim() ?? ''
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -203,7 +214,13 @@ export async function POST(request: NextRequest) {
       const failed = !aiText
       if (failed) console.error('[secretary] empty reply', { model: response._model, stop: response.stop_reason, blocks: blockTypes, rounds, question })
       const reply: string = aiText || `ขอโทษครับ ตอบไม่ได้ในตอนนี้ ลองถามใหม่อีกครั้งครับ (รหัสตรวจสอบ: ${response._model ?? '?'} / ${response.stop_reason ?? '?'} / ${blockTypes} / รอบค้น ${rounds})`
-      await send(reply)
+      // บอกโมเดลที่ตอบ เมื่อคุณเลือกเองหรือเมื่อตัวที่เลือกเรียกไม่ได้แล้วถอยไปตัวอื่น
+      const usedKey = Object.keys(MODEL_IDS).find(k => MODEL_IDS[k] === response._model)
+      const fellBack = !!usedKey && usedKey !== modelKey
+      const modelNote = failed ? '' : fellBack
+        ? `\n(ตอบโดย ${MODEL_LABEL[usedKey!]} แทน ${MODEL_LABEL[modelKey]} เพราะตัวที่เลือกเรียกไม่ได้)`
+        : MODEL_IDS[firstToken] ? `\n(ตอบโดย ${MODEL_LABEL[modelKey]})` : ''
+      await send(reply + modelNote)
 
       if (branch && !failed) {
         await db.from('line_chat_sessions').upsert({
