@@ -99,13 +99,13 @@ async function runTool(db: any, name: string, input: any) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callClaude(messages: unknown[], system: string, withTools = true): Promise<any> {
+async function callClaude(messages: unknown[], system: string, withTools = true, maxTokens = 8000): Promise<any> {
   let lastErr = ''
   for (const model of MODELS) {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY ?? '', 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model, max_tokens: 1500, system, ...(withTools ? { tools: TOOLS } : {}), messages }),
+      body: JSON.stringify({ model, max_tokens: maxTokens, system, tools: TOOLS, ...(withTools ? {} : { tool_choice: { type: 'none' } }), messages }),
     })
     if (res.ok) { const j = await res.json(); j._model = model; return j }
     lastErr = `${model} ${res.status}: ${(await res.text()).slice(0, 200)}`
@@ -194,6 +194,9 @@ export async function POST(request: NextRequest) {
         response = await callClaude(messages, system, false)
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (response.stop_reason === 'max_tokens' && !(response.content ?? []).some((c: { type: string }) => c.type === 'text')) {
+        response = await callClaude(messages, system, false, 16000)
+      }
       const aiText: string = response.content?.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n').trim() ?? ''
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const blockTypes = (response.content ?? []).map((c: any) => c.type).join(',') || 'none'
