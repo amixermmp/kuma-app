@@ -186,7 +186,9 @@ export async function POST(request: NextRequest) {
   }
 
   // คัดลอกรูปคู่รถเข้าคิวโปรโมท (best-effort ไม่ block การส่งรถ)
-  await queueMarketingPhoto(supabase, BRANCH_ID, rental.id, 'monthly', photos?.with_bike)
+  // ติดป้ายสาขาตามที่รถอยู่ตอนส่งรถ (ไม่ใช่สาขาประจำของพนักงาน) — รูปจะอยู่กับสถานที่ที่ถ่ายจริง และไม่ย้ายตามเมื่อรถถูกย้ายสาขาทีหลัง
+  const { data: bikeNow } = await supabase.from('bikes').select('branch_id').eq('id', bikeId).single()
+  await queueMarketingPhoto(supabase, bikeNow?.branch_id ?? BRANCH_ID, rental.id, 'monthly', photos?.with_bike)
 
   // Update bike status + odometer + fuel
   const { error: bikeUpdateErr } = await supabase.from('bikes').update({
