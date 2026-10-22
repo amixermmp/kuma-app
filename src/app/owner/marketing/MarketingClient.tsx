@@ -112,7 +112,8 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
   }
 
   return (
-    <div style={{ background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
+    // ตอนปรับตำแหน่งให้การ์ดกว้างเต็มแถว รูปใหญ่ขึ้นจะแตะโดนหน้าแม่นขึ้น โดยเฉพาะรูปแนวตั้ง
+    <div style={{ background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.07)', gridColumn: adjusting ? '1 / -1' : undefined }}>
       {adjusting ? (
         <div style={{ position: 'relative' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -129,12 +130,6 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
               background: 'rgba(225,29,72,.15)', color: '#e11d48', fontSize: '11px', fontWeight: 800,
             }}>{i + 1}</div>
           ))}
-          <div style={{ position: 'absolute', top: '8px', left: '8px', right: '8px', background: 'rgba(17,24,39,.8)', color: '#fff', fontSize: '11px', padding: '6px 10px', borderRadius: '8px', textAlign: 'center' }}>
-            {busy ? '⏳ กำลังบันทึก...'
-              : points.length === 0 ? 'แตะตำแหน่งใบหน้า (สูงสุด 2 จุด)'
-              : points.length === 1 ? 'แตะเพิ่มอีกจุดได้ (ถ้ามี) หรือกดบันทึก'
-              : 'ครบ 2 จุดแล้ว — แตะจุดเดิมเพื่อลบ หรือกดบันทึก'}
-          </div>
         </div>
       ) : photo.processedUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -150,6 +145,15 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
         )}
         <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '8px' }}>{fmtDate(photo.createdAt)}</div>
         {error && <div style={{ fontSize: '11px', color: '#dc2626', marginBottom: '8px' }}>{error}</div>}
+        {/* คำอธิบายอยู่ใต้รูป ไม่ซ้อนบนรูป — เคยวางทับด้านบนแล้วบังหน้าคนในรูปแนวตั้งจนแตะเลือกจุดไม่ได้ */}
+        {adjusting && (
+          <div style={{ background: '#111827', color: '#fff', fontSize: '12px', padding: '8px 10px', borderRadius: '8px', textAlign: 'center', marginBottom: '8px' }}>
+            {busy ? '⏳ กำลังบันทึก...'
+              : points.length === 0 ? 'แตะตำแหน่งใบหน้าบนรูป (สูงสุด 2 จุด)'
+              : points.length === 1 ? 'แตะเพิ่มอีกจุดได้ (ถ้ามี) หรือกดบันทึก'
+              : 'ครบ 2 จุดแล้ว — แตะจุดเดิมเพื่อลบ หรือกดบันทึก'}
+          </div>
+        )}
 
         {adjusting ? (
           <div style={{ display: 'flex', gap: '6px' }}>
@@ -187,11 +191,13 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
   )
 }
 
-export default function MarketingClient({ photos: initialPhotos, branches, branch, branchHasFrame }: {
+// staffMode = หน้าฝั่งพนักงาน: ไม่มีตัวเลือกสาขา (เห็นแค่สาขาตัวเอง — เซิร์ฟเวอร์กรองให้แล้ว) และกลับไปหน้าหลักพนักงาน
+export default function MarketingClient({ photos: initialPhotos, branches, branch, branchHasFrame, staffMode = false }: {
   photos: MarketingPhoto[]
   branches: { id: string; name: string }[]
   branch: string
   branchHasFrame: string[]
+  staffMode?: boolean
 }) {
   const [photos, setPhotos] = useState(initialPhotos)
 
@@ -202,19 +208,25 @@ export default function MarketingClient({ photos: initialPhotos, branches, branc
   return (
     <div className="app-wrap">
       <div className="app-header" style={{ background: '#111827', alignItems: 'center' }}>
-        <Link href="/owner/dashboard" className="app-header-back">←</Link>
+        <Link href={staffMode ? '/staff/home' : '/owner/dashboard'} className="app-header-back">←</Link>
         <div style={{ flex: 1 }}>
           <h1>🖼️ รูปโปรโมท</h1>
           <div className="sub">รูปคู่รถลูกค้า — ใส่กรอบ/ปิดหน้าให้พร้อมโพส</div>
         </div>
       </div>
 
-      <BranchFilter branches={branches} current={branch} basePath="/owner/marketing" theme="light" />
+      {!staffMode && <BranchFilter branches={branches} current={branch} basePath="/owner/marketing" theme="light" />}
 
       {branch && !branchHasFrame.includes(branch) && (
         <div style={{ margin: '12px 16px 0', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '10px 14px', fontSize: '12px', color: '#9a3412' }}>
-          สาขานี้ยังไม่ได้อัปโหลดกรอบ — ไปตั้งค่าที่{' '}
-          <Link href="/owner/settings" style={{ color: '#9a3412', fontWeight: 700 }}>Settings</Link>
+          {staffMode ? (
+            'สาขานี้ยังไม่ได้อัปโหลดกรอบ — แจ้งเจ้าของให้ตั้งค่ากรอบก่อน'
+          ) : (
+            <>
+              สาขานี้ยังไม่ได้อัปโหลดกรอบ — ไปตั้งค่าที่{' '}
+              <Link href="/owner/settings" style={{ color: '#9a3412', fontWeight: 700 }}>Settings</Link>
+            </>
+          )}
         </div>
       )}
 

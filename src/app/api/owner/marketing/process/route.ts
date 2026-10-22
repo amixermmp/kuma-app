@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { detectFacePositions, compositeMarketingPhoto } from '@/lib/marketingPhotos'
+import { getMarketingAccess, canTouchPhoto } from '@/lib/marketingAuth'
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const access = await getMarketingAccess()
+  if (!access.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { photoId } = await request.json()
   if (!photoId) return NextResponse.json({ error: 'Missing photoId' }, { status: 400 })
@@ -14,7 +13,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
 
   const { data: photo } = await admin.from('marketing_photos').select('id, branch_id, original_photo_url, processed_photo_url').eq('id', photoId).single()
-  if (!photo) return NextResponse.json({ error: 'ไม่พบรูป' }, { status: 404 })
+  if (!photo || !canTouchPhoto(access, photo.branch_id)) return NextResponse.json({ error: 'ไม่พบรูป' }, { status: 404 })
 
   const { data: settings } = await admin.from('branch_settings').select('frame_url, sticker_url').eq('branch_id', photo.branch_id).maybeSingle()
   if (!settings?.frame_url) {
