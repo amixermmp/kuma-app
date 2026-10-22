@@ -32,6 +32,10 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
   const [error, setError] = useState('')
   const [adjusting, setAdjusting] = useState(false)
   const [points, setPoints] = useState<Point[]>([])
+  // เลื่อนเลือกส่วนของรูปที่จะอยู่ในกรอบ (0-1) — ไม่จำค่าเดิม เริ่มที่กึ่งกลางทุกครั้งที่กดปรับ
+  const [cropPos, setCropPos] = useState(0.5)
+  const [frameAspect, setFrameAspect] = useState<number | null>(null)
+  const [imgAspect, setImgAspect] = useState<number | null>(null)
   const imgRef = useRef<HTMLImageElement>(null)
 
   // ใส่กรอบอัตโนมัติทันทีที่รูปเข้าคิว — ไม่ต้องกดเอง กดแค่ตอนอยากปรับตำแหน่งสติ๊กเกอร์
@@ -62,8 +66,23 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
     if (photo.stickerX != null && photo.stickerY != null) initial.push({ x: photo.stickerX, y: photo.stickerY })
     if (photo.stickerX2 != null && photo.stickerY2 != null) initial.push({ x: photo.stickerX2, y: photo.stickerY2 })
     setPoints(initial)
+    setCropPos(0.5)
+    // สัดส่วนกรอบอ่านจากรูปที่ใส่กรอบแล้ว (ปุ่มปรับมีให้กดเฉพาะตอนมีรูปผลลัพธ์แล้ว)
+    if (photo.processedUrl) {
+      const im = new window.Image()
+      im.onload = () => setFrameAspect(im.naturalWidth / im.naturalHeight)
+      im.src = photo.processedUrl
+    }
     setAdjusting(true)
   }
+
+  // ช่วงของรูปต้นฉบับที่จะโผล่ในกรอบ: รูปสูงกว่ากรอบ → ตัดบน/ล่าง, กว้างกว่ากรอบ → ตัดซ้าย/ขวา
+  const crop = (() => {
+    if (!frameAspect || !imgAspect || Math.abs(imgAspect - frameAspect) < 0.01) return null
+    return imgAspect < frameAspect
+      ? { axis: 'y' as const, visible: imgAspect / frameAspect }
+      : { axis: 'x' as const, visible: frameAspect / imgAspect }
+  })()
 
   // แตะเพิ่มจุด (สูงสุด 2) — แตะใกล้จุดเดิมคือลบจุดนั้นแทน, แตะตอนครบ 2 แล้วคือเริ่มใหม่จากจุดนี้
   const tapAt = (clientX: number, clientY: number) => {
@@ -88,7 +107,7 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
     try {
       const res = await fetch('/api/owner/marketing/adjust', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoId: photo.id, positions: points }),
+        body: JSON.stringify({ photoId: photo.id, positions: points, cropPos }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -119,8 +138,17 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             ref={imgRef} src={photo.originalUrl} alt="ต้นฉบับ" onClick={e => tapAt(e.clientX, e.clientY)}
+            onLoad={e => setImgAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
             style={{ width: '100%', display: 'block', cursor: busy ? 'wait' : 'crosshair', opacity: busy ? 0.6 : 1, pointerEvents: busy ? 'none' : 'auto' }}
           />
+          {/* ส่วนมืด = ส่วนที่จะถูกตัดออกตอนใส่กรอบ */}
+          {crop && (['before', 'after'] as const).map(side => {
+            const share = (1 - crop.visible) * (side === 'before' ? cropPos : 1 - cropPos) * 100
+            const style: React.CSSProperties = { position: 'absolute', background: 'rgba(0,0,0,.5)', pointerEvents: 'none' }
+            if (crop.axis === 'y') Object.assign(style, { left: 0, right: 0, height: `${share}%`, ...(side === 'before' ? { top: 0 } : { bottom: 0 }) })
+            else Object.assign(style, { top: 0, bottom: 0, width: `${share}%`, ...(side === 'before' ? { left: 0 } : { right: 0 }) })
+            return <div key={side} style={style} />
+          })}
           {points.map((p, i) => (
             <div key={i} style={{
               position: 'absolute', left: `${p.x * 100}%`, top: `${p.y * 100}%`,
@@ -152,6 +180,18 @@ function PhotoCard({ photo, hasFrame, onChanged }: {
               : points.length === 0 ? 'แตะตำแหน่งใบหน้าบนรูป (สูงสุด 2 จุด)'
               : points.length === 1 ? 'แตะเพิ่มอีกจุดได้ (ถ้ามี) หรือกดบันทึก'
               : 'ครบ 2 จุดแล้ว — แตะจุดเดิมเพื่อลบ หรือกดบันทึก'}
+          </div>
+        )}
+
+        {adjusting && crop && (
+          <div style={{ marginBottom: '8px' }}>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>
+              เลื่อนเลือกส่วนที่จะอยู่ในกรอบ ({crop.axis === 'y' ? 'ขึ้น-ลง' : 'ซ้าย-ขวา'}) — ส่วนที่มืดจะถูกตัดออก
+            </div>
+            <input
+              type="range" min={0} max={100} value={Math.round(cropPos * 100)} disabled={busy}
+              onChange={e => setCropPos(Number(e.target.value) / 100)} style={{ width: '100%' }}
+            />
           </div>
         )}
 

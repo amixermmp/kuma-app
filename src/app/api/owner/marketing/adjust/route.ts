@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   const access = await getMarketingAccess()
   if (!access.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { photoId, positions } = await request.json()
+  const { photoId, positions, cropPos } = await request.json()
   const valid = Array.isArray(positions) && positions.length <= 2
     && positions.every((p: unknown) => typeof (p as { x?: unknown })?.x === 'number' && typeof (p as { y?: unknown })?.y === 'number')
   if (!photoId || !valid) {
@@ -26,7 +26,10 @@ export async function POST(request: Request) {
 
   let outputBuf: Buffer
   try {
-    outputBuf = await compositeMarketingPhoto(photo.original_photo_url, settings.frame_url, settings.sticker_url, stickerPositions)
+    outputBuf = await compositeMarketingPhoto(
+      photo.original_photo_url, settings.frame_url, settings.sticker_url, stickerPositions,
+      typeof cropPos === 'number' ? cropPos : 0.5,
+    )
   } catch (e) {
     return NextResponse.json({ error: 'ประมวลผลรูปไม่สำเร็จ', detail: String(e) }, { status: 500 })
   }

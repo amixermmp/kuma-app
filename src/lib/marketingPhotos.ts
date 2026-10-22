@@ -88,11 +88,14 @@ export async function detectFacePositions(imageUrl: string): Promise<{ x: number
 }
 
 // ประกอบรูปสุดท้าย: รูปคู่รถ (ครอปให้เต็มขนาดกรอบ) + สติ๊กเกอร์ปิดหน้า (ถ้ามีตำแหน่ง สูงสุด 2 จุด) + กรอบสาขาทับบนสุด
+// stickerPositions เป็นสัดส่วน 0-1 ของ "รูปต้นฉบับ" (ไม่ใช่ของรูปที่ครอปแล้ว) — แปลงตามการครอปให้เอง
+// cropPos 0-1 เลือกว่าจะครอปเอาส่วนไหนของรูปที่ล้นกรอบ (0 = ชิดบน/ซ้าย, 0.5 = กึ่งกลาง, 1 = ชิดล่าง/ขวา)
 export async function compositeMarketingPhoto(
   originalUrl: string,
   frameUrl: string,
   stickerUrl: string | null,
   stickerPositions: { x: number; y: number }[],
+  cropPos = 0.5,
 ): Promise<Buffer> {
   const [originalBuf, frameBuf, stickerBuf] = await Promise.all([
     fetchBuffer(originalUrl),
@@ -104,7 +107,24 @@ export async function compositeMarketingPhoto(
   const W = frameMeta.width ?? 1080
   const H = frameMeta.height ?? 1080
 
-  const photoResized = await sharp(originalBuf).resize(W, H, { fit: 'cover' }).toBuffer()
+  // ย่อรูปให้ครอบเต็มกรอบ (เหมือน fit: 'cover') แล้วเลือกช่วงที่จะครอปเองตาม cropPos แทนการตัดกึ่งกลางเสมอ
+  // — รูปแนวตั้งที่คนกับรถยาวเต็มรูปจะได้เลื่อนเลือกส่วนที่อยากเก็บได้ (.rotate() = หมุนตาม EXIF ให้ตรงกับที่เห็นบนจอ)
+  const origMeta = await sharp(originalBuf).metadata()
+  const swapped = (origMeta.orientation ?? 1) >= 5
+  const origW = (swapped ? origMeta.height : origMeta.width) ?? W
+  const origH = (swapped ? origMeta.width : origMeta.height) ?? H
+  const scale = Math.max(W / origW, H / origH)
+  const scaledW = Math.max(W, Math.round(origW * scale))
+  const scaledH = Math.max(H, Math.round(origH * scale))
+  const pos = Math.min(1, Math.max(0, cropPos))
+  const cropLeft = Math.round((scaledW - W) * pos)
+  const cropTop = Math.round((scaledH - H) * pos)
+
+  const photoResized = await sharp(originalBuf)
+    .rotate()
+    .resize(scaledW, scaledH)
+    .extract({ left: cropLeft, top: cropTop, width: W, height: H })
+    .toBuffer()
 
   const composites: { input: Buffer; left: number; top: number }[] = []
 
@@ -114,11 +134,11 @@ export async function compositeMarketingPhoto(
     const ratio = (stickerMeta.height ?? 1) / (stickerMeta.width ?? 1)
     const stickerH = Math.round(stickerW * ratio)
     const stickerResized = await sharp(stickerBuf).resize(stickerW, stickerH).toBuffer()
-    for (const pos of stickerPositions) {
+    for (const p of stickerPositions) {
       composites.push({
         input: stickerResized,
-        left: Math.round(pos.x * W - stickerW / 2),
-        top: Math.round(pos.y * H - stickerH / 2),
+        left: Math.round(p.x * scaledW - cropLeft - stickerW / 2),
+        top: Math.round(p.y * scaledH - cropTop - stickerH / 2),
       })
     }
   }
