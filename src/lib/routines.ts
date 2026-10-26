@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { routineDueReasons } from '@/lib/routineStatus'
 
 export type RoutineUrgency = 'overdue' | 'warning' | 'ok'
 
@@ -10,29 +11,10 @@ export function calcRoutineUrgency(
   },
   odometer: number
 ): { urgency: RoutineUrgency; due_reason: string } {
-  const today = Date.now()
-
-  // km-based check
-  if (r.next_due_km != null) {
-    const diff = odometer - r.next_due_km
-    if (diff >= 0) return { urgency: 'overdue', due_reason: `ถึงกำหนดแล้ว! (${odometer.toLocaleString()} กม. / กำหนด ${r.next_due_km.toLocaleString()} กม.)` }
-    if (diff >= -500) return { urgency: 'warning', due_reason: `อีก ${Math.abs(diff)} กม. จะถึงกำหนด` }
-  }
-
-  // วันเช่าสะสม — เฉพาะรูทีนที่ตั้งค่านี้ไว้แล้ว (ผ่านการบำรุงรอบใหม่มาอย่างน้อย 1 ครั้งหลังฟีเจอร์นี้ออก)
-  if (r.interval_rented_days != null) {
-    const rented = r.rented_days_accumulated ?? 0
-    const diff = rented - r.interval_rented_days
-    if (diff >= 0) return { urgency: 'overdue', due_reason: `ถึงกำหนดตามวันเช่าสะสม! (เช่าไปแล้ว ${rented} วัน / กำหนด ${r.interval_rented_days} วัน)` }
-    if (diff >= -7) return { urgency: 'warning', due_reason: `อีก ${Math.abs(diff)} วันเช่า จะถึงกำหนด` }
-  }
-
-  // date-based check (เพดานปฏิทิน — กันของเสื่อมจากเวลาแม้ไม่ได้ใช้งาน)
-  if (r.next_due_date) {
-    const days = Math.ceil((new Date(r.next_due_date).getTime() - today) / 86_400_000)
-    if (days <= 0) return { urgency: 'overdue', due_reason: `ถึงกำหนดตามวันที่ (${new Date(r.next_due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })})` }
-    if (days <= 14) return { urgency: 'warning', due_reason: `อีก ${days} วันจะถึงกำหนด` }
-  }
+  // ตรวจครบทั้ง กม. / วันเช่าสะสม / ปฏิทิน — เงื่อนไขไหนเกินก็ถือว่าเกินกำหนด (อันที่แค่ "ใกล้ถึง" ไม่บังอันที่เกินแล้ว)
+  const { overdue, warning } = routineDueReasons(r, odometer)
+  if (overdue.length > 0) return { urgency: 'overdue', due_reason: overdue.map(x => x.text).join(' • ') }
+  if (warning.length > 0) return { urgency: 'warning', due_reason: warning.map(x => x.text).join(' • ') }
 
   if (r.next_due_km == null && !r.next_due_date && r.interval_rented_days == null) {
     return { urgency: 'ok', due_reason: 'ยังไม่ตั้งค่ากำหนด' }

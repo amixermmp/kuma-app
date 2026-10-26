@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import UnlockButton from './UnlockButton'
+import { routineDueReasons } from '@/lib/routineStatus'
 
 export const dynamic = 'force-dynamic'
 
@@ -385,6 +386,8 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
             // น้ำมันเครื่อง/เฟืองท้ายที่ยังไม่เคยเปลี่ยนหลังมีฟีเจอร์นี้ — ระบบจะตั้งเกณฑ์วันเช่าให้เองตอนกดทำรายการรอบหน้า (routine/complete)
             const rentedPending = r.interval_rented_days == null && RENTED_DAYS_AUTO_TASKS.includes(r.task_name)
             const isLast = i === (routines ?? []).length - 1
+            // ถึงกำหนดเพราะเงื่อนไขไหนก็ตาม (กม./วันเช่าสะสม/ปฏิทิน) — สรุปให้ชัดว่า "ถึงกำหนดแล้ว" ไม่ต้องให้พนักงานไล่ดูทีละป้าย
+            const { overdue: dueNow } = routineDueReasons(r, bike.odometer)
             return (
               <div key={r.id} style={{ borderBottom: isLast ? 'none' : '1px solid #f1f5f9', paddingBottom: isLast ? 0 : '12px', marginBottom: isLast ? 0 : '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
@@ -394,6 +397,11 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
                     border: '1px solid #fed7aa', borderRadius: '8px', padding: '6px 12px', textDecoration: 'none', whiteSpace: 'nowrap',
                   }}>✅ ทำรายการ</Link>
                 </div>
+                {dueNow.length > 0 && (
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#dc2626', background: '#fef2f2', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px' }}>
+                    🚨 ถึงกำหนดแล้ว — {dueNow.map(x => x.short).join(' • ')}
+                  </div>
+                )}
                 {(daysLeft != null || kmLeft != null || rentedDone != null || rentedPending) && (
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
                     {daysLeft != null && (
@@ -427,7 +435,8 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
                   {r.interval_days ? <span>ทุก {r.interval_days} วัน</span> : null}
                   {r.interval_rented_days ? <span>ทุก {r.interval_rented_days} วันเช่า</span> : null}
                   {r.last_done_date ? <span>ทำล่าสุด: {fmtDate(r.last_done_date)}</span> : null}
-                  {r.next_due_date ? <span>ครบกำหนด: {fmtDate(r.next_due_date)}</span> : null}
+                  {/* วันที่ปฏิทินที่ยังไม่ถึงไม่โชว์ตอนที่ถึงกำหนดไปแล้วด้วยเงื่อนไขอื่น กันอ่านแล้วนึกว่ายังไม่ถึงเวลา */}
+                  {r.next_due_date && (dueNow.length === 0 || dueNow.some(x => x.kind === 'date')) ? <span>ครบกำหนด: {fmtDate(r.next_due_date)}</span> : null}
                 </div>
               </div>
             )

@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import PhotoUpload from '@/components/PhotoUpload'
 import type { BikeModel } from '@/lib/bikeCatalog'
+import { routineDueReasons } from '@/lib/routineStatus'
 
 type Bike = {
   id: string
@@ -604,8 +605,11 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
             {routineList.map(r => {
               const daysLeft = r.next_due_date ? daysUntil(r.next_due_date) : null
               const kmLeft = r.next_due_km != null ? r.next_due_km - bike.odometer : null
-              const overdue = (daysLeft != null && daysLeft <= 0) || (kmLeft != null && kmLeft <= 0)
-              const warning = !overdue && ((daysLeft != null && daysLeft <= 14) || (kmLeft != null && kmLeft <= 500))
+              // รวมเงื่อนไขวันเช่าสะสมด้วย (เดิมดูแค่ กม./ปฏิทิน เลยไม่ขึ้นแดงตอนวันเช่าสะสมเกินกำหนดแล้ว)
+              const due = routineDueReasons(r, bike.odometer)
+              const rentedReason = [...due.overdue, ...due.warning].find(x => x.kind === 'rented')
+              const overdue = due.overdue.length > 0
+              const warning = !overdue && due.warning.length > 0
               const urgencyColor = overdue ? '#dc2626' : warning ? '#ca8a04' : '#16a34a'
               const urgencyBg = overdue ? '#fee2e2' : warning ? '#fef9c3' : '#dcfce7'
               const isEditing = editingRoutine === r.id
@@ -632,7 +636,12 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                         {kmLeft <= 0 ? `🚨 เลยกำหนด ${Math.abs(kmLeft).toLocaleString()} กม.` : `🛣️ อีก ${kmLeft.toLocaleString()} กม.`}
                       </span>
                     )}
-                    {daysLeft == null && kmLeft == null && (
+                    {rentedReason && (
+                      <span style={{ background: urgencyBg, color: urgencyColor, fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px' }}>
+                        {overdue ? '🚨 ' : '🛵 '}{rentedReason.short}
+                      </span>
+                    )}
+                    {daysLeft == null && kmLeft == null && !rentedReason && (
                       <span style={{ background: '#f3f4f6', color: '#9ca3af', fontSize: '11px', padding: '3px 8px', borderRadius: '20px' }}>— ยังไม่ตั้งค่า</span>
                     )}
                   </div>

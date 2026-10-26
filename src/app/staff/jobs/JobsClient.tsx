@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Pin } from 'lucide-react'
 import TabBar from '@/components/staff/TabBar'
 import { JobCard, fmtDate, fmtTime, hoursUntil, isTodayBkk, bikeColorHex } from '@/components/staff/JobCard'
+import { routineDueReasons } from '@/lib/routineStatus'
 
 // ── helpers ──────────────────────────────────────────────────
 function overdueHours(iso: string) {
@@ -691,13 +692,13 @@ export default function JobsClient({
             <SectionTitle>งานซ่อมบำรุงรูทีน 🔧🛢️</SectionTitle>
             {overdueRoutines.map((r: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
               const bike = r.bikes
-              const kmOver = r.next_due_km != null && bike?.odometer != null && bike.odometer >= r.next_due_km
-                ? bike.odometer - r.next_due_km
-                : null
-              const days = kmOver != null ? -1 : (r.next_due_date ? daysUntil(r.next_due_date) : 0)
+              // เกินได้ 3 แบบ (กม. / วันเช่าสะสม / ปฏิทิน) — โชว์ทุกอันที่เกิน ไม่ใช่แค่วันที่ในปฏิทิน
+              // ไม่งั้นรูทีนที่เกินเพราะวันเช่าสะสมจะขึ้นว่า "อีก 45 วัน" ทั้งที่ถึงกำหนดแล้ว
+              const { overdue: reasons } = routineDueReasons(r, bike?.odometer ?? 0)
+              const days = reasons.length > 0 ? -1 : (r.next_due_date ? daysUntil(r.next_due_date) : 0)
               const p = urgencyPalette(days)
-              const badgeText = kmOver != null
-                ? (kmOver === 0 ? '🔴 ถึงกำหนดแล้ว!' : `🔴 เกิน ${kmOver.toLocaleString()} กม.`)
+              const badgeText = reasons.length > 0
+                ? `🔴 ${reasons[0].short}`
                 : days < 0 ? '🚨 เกินกำหนด' : days === 0 ? '🔴 ครบกำหนดวันนี้!' : `📅 อีก ${days} วัน`
               return (
                 <JobCard
@@ -705,7 +706,7 @@ export default function JobsClient({
                   photoUrl={bike?.photo_url} bikeColor={bike?.color}
                   title={`${r.task_name ?? 'บำรุงรักษา'} — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                   badge={badgeText} badgeBg={p.bg} badgeColor={p.color}
-                  meta1={kmOver != null ? (kmOver === 0 ? '📍 ถึงกำหนดพอดี!' : `📍 เกินกำหนด ${kmOver.toLocaleString()} กม.`) : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
+                  meta1={reasons.length > 0 ? `📍 เกินกำหนด: ${reasons.map(x => x.short).join(' • ')}` : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
                   href={`/staff/routine?id=${r.id}`} btnColor={p.dot}
                   cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                 />
