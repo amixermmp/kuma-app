@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import PhotoUpload from '@/components/PhotoUpload'
 import { confirmOdometerClient } from '@/lib/odometerCheck'
 import type { RoutineItem } from './page'
+import { CYCLE_LENGTH, gearDueThisChange, nextEnginePosition } from '@/lib/routineCycle'
 
 function urgencyColor(u: RoutineItem['urgency']) {
   if (u === 'overdue') return '#dc2626'
@@ -30,8 +31,17 @@ function RoutineCard({ r }: { r: RoutineItem }) {
   const oilType = r.oil_type
   const shopOilOut = oilType != null && (r.shop_oil_qty ?? 0) <= 0
 
+  // น้ำมันเครื่องของรถที่เฟืองท้ายตามรอบ: รอบที่ 3 ขึ้นไป (หรือค้างจากรอบก่อน) ติ๊กเปลี่ยนเฟืองท้ายด้วยไว้ให้ ติ๊กออกได้ถ้าครั้งนี้ไม่ได้ทำ
+  const cycle = r.gear_cycle ?? null
+  const gearOffered = cycle != null && gearDueThisChange(cycle.count)
+  const [alsoGear, setAlsoGear] = useState(true)
+  const [gearUsedShopOil, setGearUsedShopOil] = useState<boolean | null>(null)
+  const gearShopOut = cycle != null && cycle.gearShopQty <= 0
+  const doingGear = gearOffered && alsoGear
+
   const handleSave = async () => {
     if (oilType && usedShopOil === null) { setError('กรุณาเลือกว่าใช้น้ำมันร้านหรือไม่'); return }
+    if (doingGear && gearUsedShopOil === null) { setError('กรุณาเลือกว่าใช้น้ำมันเฟืองท้ายร้านหรือไม่'); return }
     if (doneKm) {
       const odoCheck = confirmOdometerClient(parseInt(doneKm), r.bikes?.odometer)
       if (!odoCheck.ok) { setError(odoCheck.error); return }
@@ -53,6 +63,7 @@ function RoutineCard({ r }: { r: RoutineItem }) {
           intervalDays: r.interval_days,
           oilType,
           usedShopOil: oilType ? usedShopOil : null,
+          ...(cycle ? { alsoGear: doingGear, gearUsedShopOil: doingGear ? gearUsedShopOil : null } : {}),
         }),
       })
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
@@ -69,7 +80,7 @@ function RoutineCard({ r }: { r: RoutineItem }) {
       </div>
       <div className="info-row">
         <span className="info-key">งาน</span>
-        <span className="info-val">{r.task_name}</span>
+        <span className="info-val">{r.oil_type === 'engine' ? '🛢️ ' : r.oil_type === 'gear' ? '⚙️ ' : ''}{r.task_name}</span>
       </div>
       <div className="info-row">
         <span className="info-key">ทะเบียนรถ</span>
@@ -84,11 +95,24 @@ function RoutineCard({ r }: { r: RoutineItem }) {
       <div className="info-row">
         <span className="info-key">กำหนด</span>
         <span className="info-val" style={{ color }}>
-          {isKmBased
-            ? `ทุก ${r.interval_km?.toLocaleString()} กม.`
-            : `ทุก ${r.interval_days} วัน`}
+          {r.follows_engine
+            ? `ตามรอบน้ำมันเครื่อง (ทุกรอบที่ ${CYCLE_LENGTH}) — เตือนเองถ้าเกิน ${r.interval_days ?? 365} วัน`
+            : isKmBased
+              ? `ทุก ${r.interval_km?.toLocaleString()} กม.`
+              : `ทุก ${r.interval_days} วัน`}
         </span>
       </div>
+      {cycle && (
+        <div className="info-row">
+          <span className="info-key">รอบเฟืองท้าย</span>
+          <span className="info-val" style={{ fontWeight: 700, color: gearOffered ? '#dc2626' : '#374151' }}>
+            {gearOffered && cycle.count + 1 > CYCLE_LENGTH
+              ? `ค้างเปลี่ยนเฟืองท้าย (น้ำมันเครื่องเปลี่ยนมาแล้ว ${cycle.count} ครั้งตั้งแต่เฟืองท้ายล่าสุด)`
+              : `ครั้งนี้เป็นรอบที่ ${nextEnginePosition(cycle.count)}/${CYCLE_LENGTH}${gearOffered ? ' — เปลี่ยนเฟืองท้ายด้วย' : ''}`}
+            {cycle.gearLastDate ? ` • เฟืองท้ายล่าสุด ${new Date(cycle.gearLastDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+          </span>
+        </div>
+      )}
       {r.interval_rented_days != null && (
         <div className="info-row">
           <span className="info-key">หรือเช่าสะสม</span>
@@ -147,6 +171,51 @@ function RoutineCard({ r }: { r: RoutineItem }) {
               {usedShopOil === true && (
                 <div style={{ fontSize: '12px', color: '#b45309', marginTop: '6px' }}>
                   จะหักสต๊อกสาขา 1 ขวดอัตโนมัติ — ค่าใช้จ่ายด้านล่างกรอกแค่ค่าแรง/ค่าเปลี่ยน ไม่ต้องรวมค่าน้ำมัน
+                </div>
+              )}
+            </div>
+          )}
+          {gearOffered && (
+            <div className="field-row" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '12px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '14px', color: '#1d4ed8' }}>
+                <input type="checkbox" checked={alsoGear} onChange={e => setAlsoGear(e.target.checked)} style={{ width: '18px', height: '18px' }} />
+                ⚙️ เปลี่ยนน้ำมันเฟืองท้ายด้วย
+              </label>
+              {!alsoGear && (
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+                  ครั้งนี้ไม่ได้ทำเฟืองท้าย — ระบบจะค้างไว้ถามอีกในรอบหน้า
+                </div>
+              )}
+              {alsoGear && (
+                <div style={{ marginTop: '10px' }}>
+                  <div className="field-label" style={{ marginBottom: '6px' }}>ใช้น้ำมันเฟืองท้ายร้านไหม *</div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="button" disabled={gearShopOut} onClick={() => setGearUsedShopOil(true)} style={{
+                      flex: 1, padding: '10px', borderRadius: '10px',
+                      border: `2px solid ${gearUsedShopOil === true ? '#1d4ed8' : '#e5e7eb'}`,
+                      background: gearUsedShopOil === true ? '#dbeafe' : '#fff',
+                      color: gearUsedShopOil === true ? '#1d4ed8' : '#6b7280',
+                      fontWeight: 700, fontSize: '14px', cursor: gearShopOut ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                      opacity: gearShopOut ? 0.4 : 1,
+                    }}>⚙️ ใช้น้ำมันร้าน</button>
+                    <button type="button" onClick={() => setGearUsedShopOil(false)} style={{
+                      flex: 1, padding: '10px', borderRadius: '10px',
+                      border: `2px solid ${gearUsedShopOil === false ? '#374151' : '#e5e7eb'}`,
+                      background: gearUsedShopOil === false ? '#f1f5f9' : '#fff',
+                      color: gearUsedShopOil === false ? '#111827' : '#6b7280',
+                      fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                    }}>ไม่ใช่</button>
+                  </div>
+                  {gearShopOut && (
+                    <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '6px' }}>
+                      น้ำมันเฟืองท้ายร้านของสาขานี้หมด (สต๊อก 0) — เลือก &quot;ไม่ใช่&quot; หรือแจ้งเจ้าของให้เติมสต๊อกก่อน
+                    </div>
+                  )}
+                  {gearUsedShopOil === true && (
+                    <div style={{ fontSize: '12px', color: '#1d4ed8', marginTop: '6px' }}>
+                      จะหักสต๊อกเฟืองท้ายสาขา 1 ขวดอัตโนมัติ — ค่าใช้จ่ายด้านล่างกรอกค่าแรงรวมทั้งสองงาน ไม่ต้องรวมค่าน้ำมัน
+                    </div>
+                  )}
                 </div>
               )}
             </div>

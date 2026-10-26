@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
 import { calcRoutineUrgency, type RoutineUrgency } from '@/lib/routines'
+import { ENGINE_TASK, GEAR_TASK } from '@/lib/routineCycle'
 import RoutineClient from './RoutineClient'
 import BikeSelectClient from '@/components/staff/BikeSelectClient'
 
@@ -29,6 +30,10 @@ export type RoutineItem = {
   shop_oil_qty: number | null
   urgency: RoutineUrgency
   due_reason: string
+  // เฟืองท้ายตามรอบน้ำมันเครื่อง — แถวเฟืองท้ายของรถที่เปิดโหมดนี้
+  follows_engine?: boolean
+  // แถวน้ำมันเครื่องของรถที่เปิดโหมดนี้: ข้อมูลรอบ + เฟืองท้ายล่าสุด + สต๊อกน้ำมันเฟืองท้ายของสาขา (null = รถนี้ยังไม่ได้ใช้โหมด)
+  gear_cycle?: { count: number; gearLastDate: string | null; gearShopQty: number } | null
 }
 
 const OIL_TASK_TYPE: Record<string, 'engine' | 'gear'> = {
@@ -106,7 +111,17 @@ export default async function RoutinePage({ searchParams }: { searchParams: Prom
     const { urgency, due_reason } = calcRoutineUrgency(r as any, bike?.odometer ?? 0)
     const oil_type = OIL_TASK_TYPE[r.task_name] ?? null
     const shop_oil_qty = oil_type ? (stockQty.get(`${bike?.branch_id}__${oil_type}`) ?? 0) : null
-    return { ...r, bikes: bike, oil_type, shop_oil_qty, urgency, due_reason }
+    // งานน้ำมันเครื่องของรถที่เฟืองท้ายตามรอบ → แนบข้อมูลรอบให้หน้าทำรายการ
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const gearOfBike = r.task_name === ENGINE_TASK ? (raw ?? []).find((x: any) => x.bike_id === r.bike_id && x.task_name === GEAR_TASK && x.follows_engine === true) : null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const gear_cycle = gearOfBike ? {
+      count: Number((gearOfBike as any).engine_changes_since ?? 0),
+      gearLastDate: (gearOfBike as any).last_done_date ?? null, // eslint-disable-line @typescript-eslint/no-explicit-any
+      gearShopQty: stockQty.get(`${bike?.branch_id}__gear`) ?? 0,
+    } : null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return { ...r, bikes: bike, oil_type, shop_oil_qty, urgency, due_reason, follows_engine: (r as any).follows_engine === true, gear_cycle }
   })
 
   const filtered = filterRoutineId

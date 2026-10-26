@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import UnlockButton from './UnlockButton'
 import { routineDueReasons } from '@/lib/routineStatus'
+import { ENGINE_TASK, GEAR_TASK, CYCLE_LENGTH, gearDueThisChange, nextEnginePosition } from '@/lib/routineCycle'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,7 +43,7 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
       .in('doc_type', ['tax', 'pob', 'registration']),
     supabase
       .from('bike_routines')
-      .select('id, task_name, interval_km, interval_days, interval_rented_days, rented_days_accumulated, last_done_date, last_done_km, next_due_km, next_due_date')
+      .select('id, task_name, interval_km, interval_days, interval_rented_days, rented_days_accumulated, last_done_date, last_done_km, next_due_km, next_due_date, follows_engine, engine_changes_since')
       .eq('bike_id', params.bikeId),
     supabase
       .from('rentals')
@@ -388,6 +389,12 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
             const isLast = i === (routines ?? []).length - 1
             // ถึงกำหนดเพราะเงื่อนไขไหนก็ตาม (กม./วันเช่าสะสม/ปฏิทิน) — สรุปให้ชัดว่า "ถึงกำหนดแล้ว" ไม่ต้องให้พนักงานไล่ดูทีละป้าย
             const { overdue: dueNow } = routineDueReasons(r, bike.odometer)
+            // เฟืองท้ายตามรอบน้ำมันเครื่อง: แถวเฟืองท้ายที่เปิดโหมดนี้ → แถวน้ำมันเครื่องของรถคันเดียวกันโชว์รอบ
+            const gearFollowRow = (routines ?? []).find(x => x.task_name === GEAR_TASK && (x as { follows_engine?: boolean }).follows_engine === true)
+            const cycleCount = r.task_name === ENGINE_TASK && gearFollowRow
+              ? Number((gearFollowRow as { engine_changes_since?: number }).engine_changes_since ?? 0)
+              : null
+            const isGearFollowing = r.task_name === GEAR_TASK && (r as { follows_engine?: boolean }).follows_engine === true
             return (
               <div key={r.id} style={{ borderBottom: isLast ? 'none' : '1px solid #f1f5f9', paddingBottom: isLast ? 0 : '12px', marginBottom: isLast ? 0 : '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
@@ -397,6 +404,22 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
                     border: '1px solid #fed7aa', borderRadius: '8px', padding: '6px 12px', textDecoration: 'none', whiteSpace: 'nowrap',
                   }}>✅ ทำรายการ</Link>
                 </div>
+                {cycleCount != null && (
+                  <div style={{
+                    fontSize: '12px', fontWeight: 700, borderRadius: '8px', padding: '6px 10px', marginBottom: '8px',
+                    color: gearDueThisChange(cycleCount) ? '#1d4ed8' : '#374151',
+                    background: gearDueThisChange(cycleCount) ? '#eff6ff' : '#f3f4f6',
+                  }}>
+                    {cycleCount + 1 > CYCLE_LENGTH
+                      ? `⚙️ ค้างเปลี่ยนเฟืองท้าย — เปลี่ยนน้ำมันเครื่องครั้งหน้าให้เปลี่ยนเฟืองท้ายด้วย`
+                      : `🔁 ครั้งหน้าเป็นรอบที่ ${nextEnginePosition(cycleCount)}/${CYCLE_LENGTH}${gearDueThisChange(cycleCount) ? ' — เปลี่ยนเฟืองท้ายด้วย ⚙️' : ''}`}
+                  </div>
+                )}
+                {isGearFollowing && (
+                  <div style={{ fontSize: '12px', color: '#1d4ed8', background: '#eff6ff', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px' }}>
+                    ⚙️ ตามรอบน้ำมันเครื่อง (เปลี่ยนทุกรอบที่ {CYCLE_LENGTH})
+                  </div>
+                )}
                 {dueNow.length > 0 && (
                   <div style={{ fontSize: '12px', fontWeight: 700, color: '#dc2626', background: '#fef2f2', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px' }}>
                     🚨 ถึงกำหนดแล้ว — {dueNow.map(x => x.short).join(' • ')}
