@@ -88,10 +88,10 @@ export default async function JobsPage() {
       ? supabase.from('bike_routines')
           .select('id, task_name, next_due_km, next_due_date, interval_rented_days, rented_days_accumulated, bikes(id, license_plate, brand, model, odometer, color, photo_url)')
           .in('bike_id', allowedBikeIds)
-          .limit(200)
+          .limit(1000)
       : supabase.from('bike_routines')
           .select('id, task_name, next_due_km, next_due_date, interval_rented_days, rented_days_accumulated, bikes(id, license_plate, brand, model, odometer, color, photo_url)')
-          .limit(200)),
+          .limit(1000)),
 
     applyBike(supabase.from('bike_documents')
       .select('id, doc_type, expiry_date, bike_id, bikes(id, license_plate, brand, model, color, photo_url)')
