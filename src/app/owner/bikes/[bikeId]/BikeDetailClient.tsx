@@ -40,6 +40,8 @@ type Routine = {
   last_done_km: number | null
   next_due_km: number | null
   next_due_date: string | null
+  follows_engine?: boolean
+  engine_changes_since?: number
 }
 
 type RepairRecord = {
@@ -608,6 +610,8 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
               // รวมเงื่อนไขวันเช่าสะสมด้วย (เดิมดูแค่ กม./ปฏิทิน เลยไม่ขึ้นแดงตอนวันเช่าสะสมเกินกำหนดแล้ว)
               const due = routineDueReasons(r, bike.odometer)
               const rentedReason = [...due.overdue, ...due.warning].find(x => x.kind === 'rented')
+              // เฟืองท้ายที่ตามรอบน้ำมันเครื่อง: ไม่ตั้ง กม./วัน/วันเช่าแยก เหลือแค่วันที่ทำล่าสุด + เพดานปฏิทิน
+              const followsEngine = r.follows_engine === true
               const overdue = due.overdue.length > 0
               const warning = !overdue && due.warning.length > 0
               const urgencyColor = overdue ? '#dc2626' : warning ? '#ca8a04' : '#16a34a'
@@ -628,7 +632,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
                     {daysLeft != null && (
                       <span style={{ background: urgencyBg, color: urgencyColor, fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px' }}>
-                        {overdue && daysLeft != null && daysLeft <= 0 ? `🚨 เลยกำหนด ${Math.abs(daysLeft)} วัน` : `📅 ${daysLeft} วัน`}
+                        {overdue && daysLeft != null && daysLeft <= 0 ? `🚨 เลยกำหนด ${Math.abs(daysLeft)} วัน` : `📅 ${followsEngine ? 'เพดาน ' : ''}${daysLeft} วัน`}
                       </span>
                     )}
                     {kmLeft != null && (
@@ -649,18 +653,25 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                   {/* ข้อมูล */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', fontSize: '12px', color: '#64748b', marginBottom: '6px' }}>
                     {r.interval_km && <span>ทุก {r.interval_km.toLocaleString()} กม.</span>}
-                    {r.interval_days && <span>เพดานปฏิทินทุก {r.interval_days} วัน</span>}
+                    {followsEngine && <span>⚙️ ตามรอบน้ำมันเครื่อง (ทุกรอบที่ 3){r.engine_changes_since != null ? ` • นับแล้ว ${r.engine_changes_since}` : ''}</span>}
+                    {r.interval_days && <span>{followsEngine ? `เตือนเองถ้าเกิน ${r.interval_days} วัน` : `เพดานปฏิทินทุก ${r.interval_days} วัน`}</span>}
                     {r.interval_rented_days && <span>หรือเช่าสะสมครบ {r.interval_rented_days} วัน</span>}
                     {r.interval_rented_days != null && <span>เช่าสะสมแล้ว: {r.rented_days_accumulated ?? 0} วัน</span>}
                     {r.last_done_date && <span>ทำล่าสุด: {new Date(r.last_done_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                     {r.last_done_km && <span>ไมล์ล่าสุด: {r.last_done_km.toLocaleString()} กม.</span>}
-                    {r.next_due_date && <span>ครบกำหนด: {new Date(r.next_due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                    {r.next_due_date && <span>{followsEngine ? 'เพดานเตือน' : 'ครบกำหนด'}: {new Date(r.next_due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                     {r.next_due_km && <span>ครบที่: {r.next_due_km.toLocaleString()} กม.</span>}
                   </div>
 
                   {/* Form แก้ไข */}
                   {isEditing && (
                     <div style={{ background: '#fffbeb', borderRadius: '10px', padding: '12px', marginTop: '10px' }}>
+                      {followsEngine && (
+                        <div style={{ fontSize: '12px', color: '#1d4ed8', background: '#eff6ff', borderRadius: '8px', padding: '8px 10px', marginBottom: '10px' }}>
+                          ⚙️ เฟืองท้ายเปลี่ยนตามรอบน้ำมันเครื่อง ไม่ต้องตั้ง กม./วัน/วันเช่าแยก — แก้ได้เฉพาะวันที่ทำล่าสุด (เพดานเตือน {r.interval_days ?? 365} วันนับจากวันนั้น)
+                        </div>
+                      )}
+                      {!followsEngine && (<>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                         <div>
                           <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>ทุกกี่กิโลเมตร</div>
@@ -684,6 +695,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
                           onChange={e => setRoutineForm(f => ({ ...f, interval_rented_days: e.target.value }))}
                           style={{ fontSize: '13px', padding: '8px' }} />
                       </div>
+                      </>)}
                       <div style={{ marginBottom: '10px' }}>
                         <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>วันที่ทำล่าสุด</div>
                         <input className="field-input" type="date"

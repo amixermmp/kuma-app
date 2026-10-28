@@ -385,7 +385,9 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
             const kmLeft = r.next_due_km != null ? r.next_due_km - bike.odometer : null
             const rentedDone = r.interval_rented_days != null ? (r.rented_days_accumulated ?? 0) : null
             // น้ำมันเครื่อง/เฟืองท้ายที่ยังไม่เคยเปลี่ยนหลังมีฟีเจอร์นี้ — ระบบจะตั้งเกณฑ์วันเช่าให้เองตอนกดทำรายการรอบหน้า (routine/complete)
+            // เฟืองท้ายที่ตามรอบน้ำมันเครื่องไม่นับวันเช่าอีกแล้ว — ไม่ขึ้นป้าย "ยังไม่เริ่มนับ" (จะหลอกว่าเดี๋ยวจะเริ่มนับ)
             const rentedPending = r.interval_rented_days == null && RENTED_DAYS_AUTO_TASKS.includes(r.task_name)
+              && (r as { follows_engine?: boolean }).follows_engine !== true
             const isLast = i === (routines ?? []).length - 1
             // ถึงกำหนดเพราะเงื่อนไขไหนก็ตาม (กม./วันเช่าสะสม/ปฏิทิน) — สรุปให้ชัดว่า "ถึงกำหนดแล้ว" ไม่ต้องให้พนักงานไล่ดูทีละป้าย
             const { overdue: dueNow } = routineDueReasons(r, bike.odometer)
