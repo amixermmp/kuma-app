@@ -187,7 +187,7 @@ function RoutineCard({ r }: { r: RoutineItem }) {
               </div>
               {shopOilOut && (
                 <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '6px' }}>
-                  น้ำมันร้านของสาขานี้หมด (สต๊อก 0) — เลือก &quot;ไม่ใช่&quot; หรือแจ้งเจ้าของให้เติมสต๊อกก่อน
+                  น้ำมันร้านของสาขานี้หมด (สต๊อก 0) — เลือก &quot;ไม่ใช่&quot; หรือทักหาพี่เจ้าของร้านให้เติมสต๊อกก่อน
                 </div>
               )}
               {usedShopOil === true && (
@@ -275,7 +275,7 @@ function RoutineCard({ r }: { r: RoutineItem }) {
                   </div>
                   {gearShopOut && (
                     <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '6px' }}>
-                      น้ำมันเฟืองท้ายร้านของสาขานี้หมด (สต๊อก 0) — เลือก &quot;ไม่ใช่&quot; หรือแจ้งเจ้าของให้เติมสต๊อกก่อน
+                      น้ำมันเฟืองท้ายร้านของสาขานี้หมด (สต๊อก 0) — เลือก &quot;ไม่ใช่&quot; หรือทักหาพี่เจ้าของร้านให้เติมสต๊อกก่อน
                     </div>
                   )}
                   {gearUsedShopOil === true && (

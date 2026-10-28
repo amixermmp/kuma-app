@@ -13,7 +13,7 @@ export const FOLLOWUP_OUTCOMES = {
   postponed: 'ขอเลื่อน',
   refused: 'ปฏิเสธ',
   other: 'อื่นๆ',
-  notified: 'แจ้งเจ้าของแล้ว', // ใช้กับงานเอกสารที่ต้องแจ้งเจ้าของ (พ.ร.บ./ภาษีรถไม่ต้องนำเข้า)
+  notified: 'ทักหาพี่เจ้าของร้านแล้ว', // ใช้กับงานเอกสารที่ต้องทักหาเจ้าของ (พ.ร.บ./ภาษีรถไม่ต้องนำเข้า) — ใช้คำนี้คำเดียวทั้งระบบ พนักงานไม่สับสน
 } as const
 export type OutcomeKey = keyof typeof FOLLOWUP_OUTCOMES
 
@@ -298,7 +298,7 @@ export async function loadQuestBoard(
     const notifyOnly = doc.doc_type === 'pob' || (age != null && age < inspectYears)
     if (notifyOnly) {
       if (daysLeft > pobLead) continue
-      const label = doc.doc_type === 'pob' ? 'พ.ร.บ. — แจ้งเจ้าของให้ดำเนินการ' : `ภาษี (รถอายุ ${age} ปี ไม่ต้องนำเข้า) — แจ้งเจ้าของ`
+      const label = doc.doc_type === 'pob' ? 'พ.ร.บ. — ทักหาพี่เจ้าของร้าน' : `ภาษี (รถอายุ ${age} ปี ไม่ต้องนำเข้า) — ทักหาพี่เจ้าของร้าน`
       draftOf(bike.id).items.push(decorate(key, 'doc', label, dayLabel, expired ? 2 : 4, { notifyOwner: true }))
       continue
     }

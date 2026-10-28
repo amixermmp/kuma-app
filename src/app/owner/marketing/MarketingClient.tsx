@@ -260,7 +260,7 @@ export default function MarketingClient({ photos: initialPhotos, branches, branc
       {branch && !branchHasFrame.includes(branch) && (
         <div style={{ margin: '12px 16px 0', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '10px 14px', fontSize: '12px', color: '#9a3412' }}>
           {staffMode ? (
-            'สาขานี้ยังไม่ได้อัปโหลดกรอบ — แจ้งเจ้าของให้ตั้งค่ากรอบก่อน'
+            'สาขานี้ยังไม่ได้อัปโหลดกรอบ — ทักหาพี่เจ้าของร้านให้ตั้งค่ากรอบก่อน'
           ) : (
             <>
               สาขานี้ยังไม่ได้อัปโหลดกรอบ — ไปตั้งค่าที่{' '}

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   if (oilType && usedShopOil === true && bikeId) {
     const qty = await getShopStock(oilType)
     if (qty != null && qty <= 0) {
-      return NextResponse.json({ error: 'น้ำมันร้านของสาขานี้หมด (สต๊อก 0) — เลือก "ไม่ใช่" หรือแจ้งเจ้าของให้เติมสต๊อกก่อน' }, { status: 409 })
+      return NextResponse.json({ error: 'น้ำมันร้านของสาขานี้หมด (สต๊อก 0) — เลือก "ไม่ใช่" หรือทักหาพี่เจ้าของร้านให้เติมสต๊อกก่อน' }, { status: 409 })
     }
   }
 
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
   if (doGear && gearUsedShopOil === true) {
     const qty = await getShopStock('gear')
     if (qty != null && qty <= 0) {
-      return NextResponse.json({ error: 'น้ำมันเฟืองท้ายร้านของสาขานี้หมด (สต๊อก 0) — เลือก "ไม่ใช่" หรือแจ้งเจ้าของให้เติมสต๊อกก่อน' }, { status: 409 })
+      return NextResponse.json({ error: 'น้ำมันเฟืองท้ายร้านของสาขานี้หมด (สต๊อก 0) — เลือก "ไม่ใช่" หรือทักหาพี่เจ้าของร้านให้เติมสต๊อกก่อน' }, { status: 409 })
     }
   }
 
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
       .eq('id', gearRow.id)
     if (gearErr) {
       console.error('[routine/complete] gear cycle update failed:', JSON.stringify(gearErr))
-      return NextResponse.json({ error: 'บันทึกน้ำมันเครื่องแล้ว แต่ปรับรอบเฟืองท้ายไม่สำเร็จ — ห้ามกดซ้ำ แจ้งเจ้าของให้ตรวจสอบ' }, { status: 500 })
+      return NextResponse.json({ error: 'บันทึกน้ำมันเครื่องแล้ว แต่ปรับรอบเฟืองท้ายไม่สำเร็จ — ห้ามกดซ้ำ ทักหาพี่เจ้าของร้านให้ตรวจสอบ' }, { status: 500 })
     }
   }
 

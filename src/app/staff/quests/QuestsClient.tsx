@@ -118,7 +118,7 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
   const pickedNow = card.items.filter(i => selected.has(i.key) && !i.doneToday && !i.info)
   const ownerMode = pickedNow.length > 0 && pickedNow.every(i => i.notifyOwner === true)
   const outcomeChoices: { key: OutcomeKey; label: string }[] = ownerMode
-    ? [{ key: 'notified', label: FOLLOWUP_OUTCOMES.notified }, { key: 'appointed', label: 'เจ้าของนัดดำเนินการ' }, { key: 'other', label: FOLLOWUP_OUTCOMES.other }]
+    ? [{ key: 'notified', label: FOLLOWUP_OUTCOMES.notified }, { key: 'appointed', label: 'พี่เจ้าของร้านนัดวันแล้ว' }, { key: 'other', label: FOLLOWUP_OUTCOMES.other }]
     : (Object.keys(FOLLOWUP_OUTCOMES) as OutcomeKey[]).filter(k => k !== 'notified').map(k => ({ key: k, label: FOLLOWUP_OUTCOMES[k] }))
 
   const save = async () => {
@@ -215,7 +215,7 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
               <input className="field-input" type="date" value={appt} onChange={e => setAppt(e.target.value)} />
             </div>
           )}
-          <textarea className="field-input" rows={2} placeholder="ข้อความ * เช่น ทักแล้ว ลูกค้าบอกจะมาพรุ่งนี้" value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: '8px' }} />
+          <textarea className="field-input" rows={2} placeholder={ownerMode ? 'ข้อความ * เช่น ทักหาพี่เจ้าของร้านแล้วทางไลน์' : 'ข้อความ * เช่น ทักแล้ว ลูกค้าบอกจะมาพรุ่งนี้'} value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: '8px' }} />
           {error && <div style={{ color: '#dc2626', fontSize: '12px', marginBottom: '6px' }}>⚠️ {error}</div>}
           <button type="button" disabled={busy} onClick={save} className="btn btn-success" style={{ width: '100%', opacity: busy ? 0.6 : 1 }}>
             {busy ? '⏳ กำลังบันทึก...' : `💾 บันทึกการติดตาม (${selected.size} รายการ)`}
