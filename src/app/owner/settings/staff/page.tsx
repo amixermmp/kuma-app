@@ -13,7 +13,7 @@ export default async function StaffSettingsPage() {
   const admin = createAdminClient()
 
   const [staffRes, branchRes] = await Promise.all([
-    admin.from('staff').select('id, name, pin, branch_id, allowed_branch_ids, is_active, branches(name)').order('name'),
+    admin.from('staff').select('id, name, pin, role, branch_id, allowed_branch_ids, is_active, branches(name)').order('name'),
     admin.from('branches').select('id, name').order('name'),
   ])
 

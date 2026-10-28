@@ -12,6 +12,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const body = await request.json()
   const admin = createAdminClient()
 
+  if (body.role !== undefined && !['staff', 'owner'].includes(body.role)) return NextResponse.json({ error: 'สถานะบัญชีไม่ถูกต้อง' }, { status: 400 })
+
   // If updating PIN, check uniqueness
   if (body.pin) {
     const { data: existing } = await admin.from('staff').select('id').eq('pin', body.pin).neq('id', id).maybeSingle()

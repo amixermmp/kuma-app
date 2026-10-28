@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Section, Field, SaveBtn, SettingsHeader, type Branch } from '../_shared'
 
-type Staff = { id: string; name: string; pin: string; branch_id: string | null; allowed_branch_ids: string[] | null; is_active: boolean; branches?: { name: string } | null }
+type Staff = { id: string; name: string; pin: string; role?: string; branch_id: string | null; allowed_branch_ids: string[] | null; is_active: boolean; branches?: { name: string } | null }
 
 function StaffModal({ branches, onClose, onSaved, editing }: {
   branches: Branch[]
@@ -14,6 +14,7 @@ function StaffModal({ branches, onClose, onSaved, editing }: {
   const [name, setName] = useState(editing?.name ?? '')
   const [pin, setPin] = useState(editing?.pin ?? '')
   const [allowedBranchIds, setAllowedBranchIds] = useState<string[]>(editing?.allowed_branch_ids ?? [])
+  const [isOwner, setIsOwner] = useState(editing?.role === 'owner')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -25,7 +26,7 @@ function StaffModal({ branches, onClose, onSaved, editing }: {
     if (pin.length !== 6) { setError('PIN ต้องมี 6 หลัก'); return }
     setLoading(true); setError('')
     const url = editing ? `/api/owner/settings/staff/${editing.id}` : '/api/owner/settings/staff'
-    const payload = { name: name.trim(), pin, allowed_branch_ids: allowedBranchIds.length > 0 ? allowedBranchIds : null }
+    const payload = { name: name.trim(), pin, role: isOwner ? 'owner' : 'staff', allowed_branch_ids: allowedBranchIds.length > 0 ? allowedBranchIds : null }
     const res = await fetch(url, {
       method: editing ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -80,6 +81,13 @@ function StaffModal({ branches, onClose, onSaved, editing }: {
             </div>
           </Field>
         )}
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 12px', margin: '4px 0 12px', borderRadius: '10px', background: isOwner ? '#fef3c7' : '#f9fafb', border: `1.5px solid ${isOwner ? '#f59e0b' : '#e5e7eb'}`, cursor: 'pointer' }}>
+          <input type="checkbox" checked={isOwner} onChange={e => setIsOwner(e.target.checked)} style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: '#f59e0b' }} />
+          <span>
+            <span style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: '#111827' }}>👑 บัญชีเจ้าของ (ไม่ต้องเช็คอินเข้างาน)</span>
+            <span style={{ display: 'block', fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>ใส่ PIN แล้วเข้าหน้าพนักงานได้เลย ข้ามการถ่ายรูปเข้างาน และไม่อยู่ในรายงานการเข้างาน ใช้งานได้เท่าพนักงานปกติ (หลังบ้านการเงินยังใช้อีเมล+รหัสผ่านเหมือนเดิม) — PIN ควรเดายากและไม่ซ้ำกับใคร มีผลตอนล็อกอินครั้งถัดไป</span>
+          </span>
+        </label>
         {error && <div style={{ color: '#dc2626', fontSize: '13px', marginBottom: '12px' }}>⚠️ {error}</div>}
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={onClose} className="btn" style={{ flex: 1, background: '#f3f4f6', color: '#374151' }}>ยกเลิก</button>
@@ -129,7 +137,7 @@ export default function StaffClient({ staff: initialStaff, branches }: { staff: 
                   {s.name[0]}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600 }}>{s.name}</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600 }}>{s.role === 'owner' ? '👑 ' : ''}{s.name}</div>
                   <div style={{ fontSize: '11px', color: '#9ca3af' }}>PIN: {'•'.repeat(6)} {branchName ? `• ${branchName}` : ''}</div>
                 </div>
                 <button onClick={() => setStaffModal(s)} style={{ background: 'none', border: 'none', color: '#374151', fontSize: '13px', cursor: 'pointer' }}>แก้ไข</button>

@@ -8,7 +8,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { name, pin, allowed_branch_ids } = await request.json()
+  const { name, pin, allowed_branch_ids, role } = await request.json()
+  if (role !== undefined && !['staff', 'owner'].includes(role)) return NextResponse.json({ error: 'สถานะบัญชีไม่ถูกต้อง' }, { status: 400 })
   if (!name || !pin || pin.length !== 6) return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
 
   const admin = createAdminClient()
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await admin.from('staff').insert({
     name, pin,
+    role: role === 'owner' ? 'owner' : 'staff',
     branch_id: branchId,
     allowed_branch_ids: allowed_branch_ids ?? null,
     is_active: true,
