@@ -525,6 +525,7 @@ export default async function OwnerDashboardPage({
               { icon: '📋', label: 'ประวัติการเช่า',   sub: 'การเช่าที่ active อยู่ + คืนรถ',      href: '/owner/rentals',    color: '#22c55e' },
               { icon: '🧾', label: 'Statement บัญชี',  sub: 'รายรับรายจ่ายทุกสาขา + waive รายการผิด', href: '/owner/statement',  color: '#22c55e' },
               { icon: '📸', label: 'การเข้างาน',       sub: 'เวลาเข้างานพนักงานแต่ละสาขา',         href: '/owner/attendance', color: '#38bdf8' },
+              { icon: '✅', label: 'เควสประจำวัน',     sub: 'งานประจำ + ติดตามงานค้างของพนักงาน', href: '/owner/quests',     color: '#7c2d12' },
               { icon: '🔒', label: 'ปิดร้าน',          sub: 'สต็อกรถตอนปิดร้าน + รูปหลักฐาน',      href: '/owner/closeshop',  color: '#38bdf8' },
               { icon: '📜', label: 'Activity Log',    sub: 'ใครทำอะไร เมื่อไหร่ในระบบ',           href: '/owner/logs',       color: '#cbd5e1' },
             ],

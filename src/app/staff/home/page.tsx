@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ScanLine, Pin, Search, Bike, Send, Wrench, FileText, Droplet, Undo2, Phone, Store, Lock, Fuel, Image as ImageIcon } from 'lucide-react'
+import { ScanLine, Pin, Search, Bike, Send, Wrench, FileText, Droplet, Undo2, Phone, Store, Lock, Fuel, Image as ImageIcon, ListChecks } from 'lucide-react'
 import TabBar from '@/components/staff/TabBar'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
@@ -101,6 +101,7 @@ export default async function StaffHomePage() {
     { Icon: Droplet, label: 'งานรูทีน',   href: '/staff/routine' },
     { Icon: Fuel,    label: 'ภาพรวมน้ำมัน', href: '/staff/fuel' },
     { Icon: ImageIcon, label: 'รูปโปรโมท', href: '/staff/marketing' },
+    { Icon: ListChecks, label: 'เควสประจำวัน', href: '/staff/quests' },
     { Icon: Lock,    label: 'ปิดร้าน',    href: '/staff/closeshop' },
   ] as const
 
