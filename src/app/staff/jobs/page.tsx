@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
 import { findBrokenBookings } from '@/lib/bookingConflicts'
+import { ENGINE_TASK, GEAR_TASK } from '@/lib/routineCycle'
 import JobsClient from './JobsClient'
 
 export const dynamic = 'force-dynamic'
@@ -142,6 +143,22 @@ export default async function JobsPage() {
     return false
   }).sort(sortByDueDate)
 
+  // รถที่เฟืองท้ายตามรอบน้ำมันเครื่อง: แนบจำนวนรอบให้การ์ดน้ำมันเครื่อง เพื่อโชว์ "+ เฟืองท้าย" ตอนถึงรอบ (พนักงานจะได้หยิบน้ำมันไปครบตั้งแต่แรก)
+  const gearCountByBike = new Map<string, number>()
+  {
+    let gq = supabase.from('bike_routines').select('bike_id, engine_changes_since').eq('task_name', GEAR_TASK).eq('follows_engine', true)
+    if (allowedBikeIds) gq = gq.in('bike_id', allowedBikeIds)
+    const { data: gearRows } = await gq
+    for (const g of gearRows ?? []) gearCountByBike.set(g.bike_id, Number(g.engine_changes_since ?? 0))
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const withGearCount = (r: any) => {
+    const c = r.task_name === ENGINE_TASK ? gearCountByBike.get(r.bikes?.id) : undefined
+    return c == null ? r : { ...r, gear_count: c }
+  }
+  const overdueRoutinesOut = overdueRoutines.map(withGearCount)
+  const upcomingRoutinesOut = upcomingRoutines.map(withGearCount)
+
   // Attach nextDueDate to all active monthly rentals
   const todayDate = new Date()
   todayDate.setHours(0, 0, 0, 0)
@@ -217,8 +234,8 @@ export default async function JobsPage() {
       dueSoonRentals={dueSoonRentals ?? []}
       activeRentals={activeRentals ?? []}
       repairs={repairs ?? []}
-      overdueRoutines={overdueRoutines}
-      upcomingRoutines={upcomingRoutines}
+      overdueRoutines={overdueRoutinesOut}
+      upcomingRoutines={upcomingRoutinesOut}
       docsDue={docsDue ?? []}
       monthlyContactAlerts={monthlyContactAlerts}
       allMonthlyRentals={allMonthlyRentals}

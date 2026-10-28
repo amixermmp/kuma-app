@@ -34,10 +34,14 @@ function RoutineCard({ r }: { r: RoutineItem }) {
   // น้ำมันเครื่องของรถที่เฟืองท้ายตามรอบ: รอบที่ 3 ขึ้นไป (หรือค้างจากรอบก่อน) ติ๊กเปลี่ยนเฟืองท้ายด้วยไว้ให้ ติ๊กออกได้ถ้าครั้งนี้ไม่ได้ทำ
   const cycle = r.gear_cycle ?? null
   const gearOffered = cycle != null && gearDueThisChange(cycle.count)
-  const [alsoGear, setAlsoGear] = useState(true)
+  const gearBacklog = cycle != null && cycle.count + 1 > CYCLE_LENGTH
+  // ถึงรอบแล้ว → ติ๊กไว้ให้เลย / ยังไม่ถึงรอบ → ซ่อนเป็นบรรทัดเทา แตะแล้วค่อยขยาย (เปลี่ยนพร้อมนอกรอบ ไม่ติ๊กไว้ให้)
+  const [alsoGear, setAlsoGear] = useState(gearOffered)
+  const [gearExpanded, setGearExpanded] = useState(false)
   const [gearUsedShopOil, setGearUsedShopOil] = useState<boolean | null>(null)
   const gearShopOut = cycle != null && cycle.gearShopQty <= 0
-  const doingGear = gearOffered && alsoGear
+  const showGearBox = cycle != null && (gearOffered || gearExpanded)
+  const doingGear = showGearBox && alsoGear
 
   const handleSave = async () => {
     if (oilType && usedShopOil === null) { setError('กรุณาเลือกว่าใช้น้ำมันร้านหรือไม่'); return }
@@ -175,13 +179,29 @@ function RoutineCard({ r }: { r: RoutineItem }) {
               )}
             </div>
           )}
-          {gearOffered && (
-            <div className="field-row" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '12px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '14px', color: '#1d4ed8' }}>
+          {cycle && !showGearBox && (
+            <button type="button" onClick={() => { setGearExpanded(true); setAlsoGear(true) }} style={{
+              width: '100%', textAlign: 'left', background: '#f3f4f6', border: 'none', borderRadius: '10px',
+              padding: '10px 12px', marginBottom: '14px', fontSize: '12px', color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              ⚙️ ยังไม่ถึงรอบเฟืองท้าย (รอบนี้ {nextEnginePosition(cycle.count)}/{CYCLE_LENGTH}) — ถ้าเปลี่ยนพร้อมนี้ด้วย แตะที่นี่
+            </button>
+          )}
+          {showGearBox && (
+            <div className="field-row" style={{
+              background: gearBacklog ? '#fef2f2' : gearOffered ? '#eff6ff' : '#f3f4f6',
+              border: `1px solid ${gearBacklog ? '#fecaca' : gearOffered ? '#bfdbfe' : '#e5e7eb'}`,
+              borderRadius: '12px', padding: '12px',
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '14px', color: gearBacklog ? '#dc2626' : gearOffered ? '#1d4ed8' : '#374151' }}>
                 <input type="checkbox" checked={alsoGear} onChange={e => setAlsoGear(e.target.checked)} style={{ width: '18px', height: '18px' }} />
-                ⚙️ เปลี่ยนน้ำมันเฟืองท้ายด้วย
+                {gearBacklog
+                  ? '🚨 ⚙️ ค้างเปลี่ยนเฟืองท้าย — เปลี่ยนพร้อมกันด้วย'
+                  : gearOffered
+                    ? '✅ ⚙️ ถึงรอบเปลี่ยนเฟืองท้ายแล้ว — เปลี่ยนพร้อมกันด้วย'
+                    : '⚙️ เปลี่ยนเฟืองท้ายพร้อมกันด้วย (นอกรอบ)'}
               </label>
-              {!alsoGear && (
+              {!alsoGear && gearOffered && (
                 <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
                   ครั้งนี้ไม่ได้ทำเฟืองท้าย — ระบบจะค้างไว้ถามอีกในรอบหน้า
                 </div>

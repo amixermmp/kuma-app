@@ -70,11 +70,11 @@ export async function POST(request: NextRequest) {
 
   // ── โหมดเฟืองท้ายตามรอบน้ำมันเครื่อง (เฉพาะรถที่เปิดโหมดนี้ — รถอื่นไม่เข้าเงื่อนไขเหล่านี้เลย ทำงานเหมือนเดิมทุกอย่าง) ──
   // gearRow = แถวเฟืองท้ายของรถคันนี้ ถ้าเปิดโหมดตามรอบ (ใช้ตอนทำน้ำมันเครื่อง)
-  let gearRow: { id: string; engine_changes_since: number; interval_days: number | null } | null = null
+  let gearRow: { id: string; engine_changes_since: number; interval_days: number | null; last_done_date: string | null } | null = null
   if (taskNameNow === ENGINE_TASK && routineBikeId) {
     const { data } = await supabase
       .from('bike_routines')
-      .select('id, engine_changes_since, interval_days')
+      .select('id, engine_changes_since, interval_days, last_done_date')
       .eq('bike_id', routineBikeId)
       .eq('task_name', GEAR_TASK)
       .eq('follows_engine', true)
@@ -166,7 +166,8 @@ export async function POST(request: NextRequest) {
             receipt_url: receiptUrl ?? null,
             updated_at: new Date().toISOString(),
           }
-        : { engine_changes_since: gearRow.engine_changes_since + 1 })
+        // เฟืองท้ายเพิ่งทำวันนี้ (พนักงานมักกดเฟืองท้ายก่อนแล้วบันทึกน้ำมันเครื่องตามมา) = รอบเดียวกัน นับ 0 ไม่ใช่ +1
+        : { engine_changes_since: gearRow.last_done_date === today ? 0 : gearRow.engine_changes_since + 1 })
       .eq('id', gearRow.id)
     if (gearErr) {
       console.error('[routine/complete] gear cycle update failed:', JSON.stringify(gearErr))

@@ -6,6 +6,18 @@ import { ArrowLeft, Pin } from 'lucide-react'
 import TabBar from '@/components/staff/TabBar'
 import { JobCard, fmtDate, fmtTime, hoursUntil, isTodayBkk, bikeColorHex } from '@/components/staff/JobCard'
 import { routineDueReasons } from '@/lib/routineStatus'
+import { CYCLE_LENGTH, gearDueThisChange } from '@/lib/routineCycle'
+
+// รถที่เฟืองท้ายตามรอบน้ำมันเครื่อง: ถึงรอบ 3 (หรือค้าง) แล้ว การ์ดน้ำมันเครื่องต้องบอกว่าทำเฟืองท้ายด้วย เพื่อให้หยิบน้ำมันไปครบ
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function gearDueNote(r: any): { title: string; meta: string } | null {
+  if (r.gear_count == null || !gearDueThisChange(r.gear_count)) return null
+  const backlog = r.gear_count + 1 > CYCLE_LENGTH
+  return {
+    title: ' + เฟืองท้าย ⚙️',
+    meta: backlog ? '⚙️ ค้างเฟืองท้าย — เตรียมน้ำมันเครื่อง 1 + เฟืองท้าย 1 ขวด' : `⚙️ รอบที่ ${CYCLE_LENGTH}/${CYCLE_LENGTH} — เตรียมน้ำมันเครื่อง 1 + เฟืองท้าย 1 ขวด`,
+  }
+}
 
 // ── helpers ──────────────────────────────────────────────────
 function overdueHours(iso: string) {
@@ -700,13 +712,14 @@ export default function JobsClient({
               const badgeText = reasons.length > 0
                 ? `🔴 ${reasons[0].short}`
                 : days < 0 ? '🚨 เกินกำหนด' : days === 0 ? '🔴 ครบกำหนดวันนี้!' : `📅 อีก ${days} วัน`
+              const gearNote = gearDueNote(r)
               return (
                 <JobCard
                   key={r.id} dotColor={p.dot}
                   photoUrl={bike?.photo_url} bikeColor={bike?.color}
-                  title={`${r.task_name ?? 'บำรุงรักษา'} — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
+                  title={`${r.task_name ?? 'บำรุงรักษา'}${gearNote?.title ?? ''} — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                   badge={badgeText} badgeBg={p.bg} badgeColor={p.color}
-                  meta1={reasons.length > 0 ? `📍 เกินกำหนด: ${reasons.map(x => x.short).join(' • ')}` : `📅 กำหนด ${fmtDate(r.next_due_date)}`}
+                  meta1={(reasons.length > 0 ? `📍 เกินกำหนด: ${reasons.map(x => x.short).join(' • ')}` : `📅 กำหนด ${fmtDate(r.next_due_date)}`) + (gearNote ? ` • ${gearNote.meta}` : '')}
                   href={`/staff/routine?id=${r.id}`} btnColor={p.dot}
                   cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                 />
@@ -716,13 +729,14 @@ export default function JobsClient({
               {upcomingRoutines.map((r: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
                 const bike = r.bikes
                 const days = r.next_due_date ? daysUntil(r.next_due_date) : 0
+                const gearNote = gearDueNote(r)
                 return (
                   <JobCard
                     key={r.id} dotColor="#9ca3af"
                     photoUrl={bike?.photo_url} bikeColor={bike?.color}
-                    title={`${r.task_name ?? 'บำรุงรักษา'} — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
+                    title={`${r.task_name ?? 'บำรุงรักษา'}${gearNote?.title ?? ''} — ${bike?.license_plate ?? ''} ${bike?.brand ?? ''} ${bike?.model ?? ''}`}
                     badge={`📅 อีก ${days} วัน`} badgeBg="#f1f5f9" badgeColor="#374151"
-                    meta1={`📅 กำหนด ${fmtDate(r.next_due_date)}`}
+                    meta1={`📅 กำหนด ${fmtDate(r.next_due_date)}${gearNote ? ` • ${gearNote.meta}` : ''}`}
                     href={`/staff/routine?id=${r.id}`} btnColor="#374151"
                     cardHref={bike?.id ? `/staff/bikes/${bike.id}/menu` : undefined}
                   />

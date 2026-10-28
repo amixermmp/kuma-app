@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { linePush, textMessage, imageMessage, LineMessage } from '@/lib/line'
 import { findBrokenBookings } from '@/lib/bookingConflicts'
 import { writeLog } from '@/lib/log'
+import { ENGINE_TASK, GEAR_TASK, gearDueThisChange } from '@/lib/routineCycle'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -174,7 +175,7 @@ export async function GET(request: NextRequest) {
       .eq('status', 'active'),
     supabase
       .from('bike_routines')
-      .select('id, bike_id, task_name, next_due_date, next_due_km, interval_rented_days, rented_days_accumulated, bikes(license_plate, odometer, branch_id)'),
+      .select('id, bike_id, task_name, next_due_date, next_due_km, interval_rented_days, rented_days_accumulated, follows_engine, engine_changes_since, bikes(license_plate, odometer, branch_id)'),
     supabase
       .from('bike_documents')
       .select('id, doc_type, expiry_date, bikes(license_plate, branch_id)')
@@ -355,6 +356,13 @@ export async function GET(request: NextRequest) {
     const routineDueKey = (r: { next_due_date: string | null; next_due_km: number | null }) =>
       r.next_due_date ?? new Date(Number(r.next_due_km) * 1000).toISOString()
 
+    // ชื่องานที่ใช้แสดง: น้ำมันเครื่องของรถที่เฟืองท้ายตามรอบ และถึงรอบเปลี่ยนเฟืองท้ายด้วยแล้ว → "+ เฟืองท้าย"
+    const routineLabel = (r: { bike_id: string; task_name: string }) => {
+      if (r.task_name !== ENGINE_TASK) return r.task_name
+      const gear = (routines ?? []).find(x => x.bike_id === r.bike_id && x.task_name === GEAR_TASK && x.follows_engine === true)
+      return gear && gearDueThisChange(Number(gear.engine_changes_since ?? 0)) ? `${r.task_name} + เฟืองท้าย` : r.task_name
+    }
+
     // 5a) แจ้งลูกค้ารายเดือนที่ถือรถอยู่ ให้นัดเข้าเซอร์วิส
     const monthlyByBike = new Map((monthlies ?? []).map(m => [m.bike_id, m]))
     for (const routine of dueRoutines) {
@@ -373,7 +381,7 @@ export async function GET(request: NextRequest) {
 
       const ok = await sendToCustomer(monthly.branch_id, monthly.customer_id, [textMessage(
         `🔧 เรียนคุณ${customer?.name ?? 'ลูกค้า'}\n` +
-        `รถทะเบียน ${bike?.license_plate ?? ''} ถึงกำหนด "${routine.task_name}" แล้วครับ\n\n` +
+        `รถทะเบียน ${bike?.license_plate ?? ''} ถึงกำหนด "${routineLabel(routine)}" แล้วครับ\n\n` +
         `รบกวนติดต่อพนักงานเพื่อนัดหมายนำรถเข้ามาเซอร์วิส หรือแจ้งในแชทนี้ได้เลยครับ 🙏` +
         contactLine(monthly.branch_id)
       )])
@@ -415,7 +423,7 @@ export async function GET(request: NextRequest) {
           items.push({
             branchId: bike?.branch_id ?? '',
             section: 'routine',
-            line: `• ${bike?.license_plate ?? '?'} — ${routine.task_name} (${detail})`,
+            line: `• ${bike?.license_plate ?? '?'} — ${routineLabel(routine)} (${detail})`,
           })
         }
       }
