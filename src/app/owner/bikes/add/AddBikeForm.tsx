@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import PhotoUpload from '@/components/PhotoUpload'
 import type { BikeModel } from '@/lib/bikeCatalog'
+import { GEAR_TASK, CYCLE_LENGTH, type GearChoice } from '@/lib/routineCycle'
 
 
 type Branch = { id: string; name: string }
@@ -13,7 +14,6 @@ type Routine = { task_name: string; interval_km: string; interval_days: string; 
 
 const DEFAULT_ROUTINES: Routine[] = [
   { task_name: 'เปลี่ยนน้ำมันเครื่อง', interval_km: '1000', interval_days: '30', last_done_date: '' },
-  { task_name: 'เปลี่ยนน้ำมันเฟืองท้าย', interval_km: '3000', interval_days: '120', last_done_date: '' },
 ]
 
 export default function AddBikeForm({ ownerId, branches, brands, models, lessors }: { ownerId: string; branches: Branch[]; brands: string[]; models: BikeModel[]; lessors: Lessor[] }) {
@@ -38,6 +38,9 @@ export default function AddBikeForm({ ownerId, branches, brands, models, lessors
   const [pobPhotoUrl, setPobPhotoUrl] = useState('')
   const [pobExpiry, setPobExpiry] = useState('')
   const [routines, setRoutines] = useState<Routine[]>(DEFAULT_ROUTINES)
+  // เฟืองท้ายเปลี่ยนตามรอบน้ำมันเครื่อง (ทุกรอบที่ 3) — ไม่ตั้ง กม./วัน แยก เลือกแค่สถานะปัจจุบันของรถ
+  const [gearMode, setGearMode] = useState<GearChoice['mode']>('unknown')
+  const [gearDate, setGearDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -53,6 +56,8 @@ export default function AddBikeForm({ ownerId, branches, brands, models, lessors
     if (!model.trim()) { setError('กรุณาระบุรุ่นรถ'); return }
     if (dailyRate && isNaN(Number(dailyRate))) { setError('ราคาเช่า/วัน ไม่ถูกต้อง'); return }
     if (odometer.trim() === '') { setError('กรุณากรอกเลขไมล์เริ่มต้น (ถ้ารถใหม่ป้ายแดงให้ใส่ 0)'); return }
+    if (gearMode === 'same' && !routines[0]?.last_done_date) { setError('เปลี่ยนเฟืองท้ายพร้อมน้ำมันเครื่อง — กรุณากรอกวันที่เปลี่ยนน้ำมันเครื่องล่าสุดด้วย'); return }
+    if (gearMode === 'other' && !gearDate) { setError('กรุณากรอกวันที่เปลี่ยนเฟืองท้ายล่าสุด'); return }
 
     setLoading(true)
     setError('')
@@ -80,13 +85,14 @@ export default function AddBikeForm({ ownerId, branches, brands, models, lessors
             pob: { photo_url: pobPhotoUrl || null, expiry_date: pobExpiry || null },
           },
           routines: routines
-            .filter(r => r.task_name.trim())
+            .filter(r => r.task_name.trim() && r.task_name.trim() !== GEAR_TASK)
             .map(r => ({
               task_name: r.task_name.trim(),
               interval_km: r.interval_km ? parseInt(r.interval_km) : null,
               interval_days: r.interval_days ? parseInt(r.interval_days) : null,
               last_done_date: r.last_done_date || null,
             })),
+          gear: { mode: gearMode, date: gearMode === 'other' ? gearDate : null },
         }),
       })
 
@@ -260,7 +266,7 @@ export default function AddBikeForm({ ownerId, branches, brands, models, lessors
               <input className="field-input" type="text" placeholder="ชื่องาน เช่น เปลี่ยนน้ำมันเครื่อง"
                 value={r.task_name} onChange={e => updateRoutine(i, 'task_name', e.target.value)}
                 style={{ flex: 1, fontWeight: 600 }} />
-              {i >= 2 && (
+              {i >= 1 && (
                 <button onClick={() => removeRoutine(i)}
                   style={{ color: '#dc2626', background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', padding: '0 4px' }}>×</button>
               )}
@@ -284,6 +290,41 @@ export default function AddBikeForm({ ownerId, branches, brands, models, lessors
             </div>
           </div>
         ))}
+
+        {/* เฟืองท้าย — เปลี่ยนตามรอบน้ำมันเครื่อง ไม่ตั้ง กม./วัน แยก */}
+        <div className="card" style={{ marginBottom: '8px' }}>
+          <div style={{ padding: '10px 14px 4px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>⚙️ เปลี่ยนน้ำมันเฟืองท้าย</div>
+          <div style={{ padding: '0 14px 4px', fontSize: '11px', color: '#6b7280' }}>
+            เปลี่ยนตามรอบน้ำมันเครื่อง (ทุกรอบที่ {CYCLE_LENGTH}) ไม่ต้องตั้ง กม./วัน แยก — เลือกสถานะเฟืองท้ายของรถคันนี้ตอนนี้
+          </div>
+          <div style={{ padding: '4px 14px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {([
+              ['same', 'เปลี่ยนพร้อมน้ำมันเครื่อง (วันเดียวกัน)', 'น้ำมันเครื่องครั้งหน้าเป็นรอบที่ 1'],
+              ['other', 'เปลี่ยนแล้ว แต่คนละวันกับน้ำมันเครื่อง', 'น้ำมันเครื่องครั้งหน้าเป็นรอบที่ 2 (ถ้าเปลี่ยนมานานเกิน 120 วัน จะเปลี่ยนเฟืองท้ายในครั้งหน้าเลย)'],
+              ['unknown', 'ยังไม่เปลี่ยน / ไม่แน่ใจ', 'น้ำมันเครื่องครั้งหน้าเป็นรอบที่ 3 — เปลี่ยนเฟืองท้ายพร้อมกัน'],
+            ] as const).map(([value, label, hint]) => (
+              <label key={value} style={{
+                display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
+                border: `2px solid ${gearMode === value ? '#1d4ed8' : '#e5e7eb'}`, background: gearMode === value ? '#eff6ff' : '#fff',
+              }}>
+                <input type="radio" name="gearMode" checked={gearMode === value} onChange={() => setGearMode(value)} style={{ marginTop: '3px' }} />
+                <span>
+                  <span style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#111827' }}>{label}</span>
+                  <span style={{ display: 'block', fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{hint}</span>
+                </span>
+              </label>
+            ))}
+            {gearMode === 'same' && (
+              <div style={{ fontSize: '12px', color: '#1d4ed8' }}>ใช้วันที่เดียวกับ "เปลี่ยนน้ำมันเครื่อง ทำล่าสุดเมื่อ" ด้านบน (ต้องกรอกวันที่นั้น)</div>
+            )}
+            {gearMode === 'other' && (
+              <div>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>เปลี่ยนเฟืองท้ายล่าสุดเมื่อ (วันที่) *</div>
+                <input className="field-input" type="date" value={gearDate} onChange={e => setGearDate(e.target.value)} />
+              </div>
+            )}
+          </div>
+        </div>
 
         <button onClick={addRoutine} style={{
           width: '100%', padding: '12px', marginBottom: '16px',

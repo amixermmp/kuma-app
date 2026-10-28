@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { writeLog } from '@/lib/log'
+import { ENGINE_TASK, GEAR_TASK, GEAR_CEILING_DAYS, planGearForNewBike, type GearChoice } from '@/lib/routineCycle'
 
 export async function POST(request: NextRequest) {
   const supabaseAuth = await createClient()
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
     license_plate, brand, model, year, color,
     odometer, notes, photo_url,
     daily_rate, monthly_rate, deposit_amount, lessor_profile_id,
-    docs, routines,
+    docs, routines, gear,
   } = body
 
   if (!BRANCH_ID) return NextResponse.json({ error: 'Missing branch' }, { status: 400 })
@@ -26,6 +27,14 @@ export async function POST(request: NextRequest) {
   if (odometer === undefined || odometer === null || odometer === '') {
     return NextResponse.json({ error: 'กรุณากรอกเลขไมล์เริ่มต้น' }, { status: 400 })
   }
+
+  // เฟืองท้ายตามรอบน้ำมันเครื่อง — ตรวจก่อนสร้างรถ กันสร้างรถไปแล้วเฟืองท้ายไม่ครบ (ฟอร์มเก่าที่ไม่ส่ง gear มา ทำงานแบบเดิม)
+  const today = new Date().toISOString().split('T')[0]
+  const engineLastDone: string | null = Array.isArray(routines)
+    ? (routines.find((r: { task_name?: string }) => r.task_name === ENGINE_TASK)?.last_done_date ?? null)
+    : null
+  const gearPlan = gear ? planGearForNewBike(gear as GearChoice, engineLastDone, today) : null
+  if (gearPlan && !gearPlan.ok) return NextResponse.json({ error: gearPlan.error }, { status: 400 })
 
   const supabase = createAdminClient()
 
@@ -93,9 +102,12 @@ export async function POST(request: NextRequest) {
     await supabase.from('bike_documents').insert(docInserts)
   }
 
-  // Create routines
-  if (Array.isArray(routines) && routines.length > 0) {
-    const routineInserts = routines.map((r: {
+  // Create routines (โหมดเฟืองท้ายตามรอบ: ไม่รับงานเฟืองท้ายจากรายการ — สร้างจากตัวเลือก gear ด้านล่างแทน)
+  const routinesToCreate = Array.isArray(routines)
+    ? routines.filter((r: { task_name?: string }) => !(gearPlan && r.task_name === GEAR_TASK))
+    : []
+  if (routinesToCreate.length > 0) {
+    const routineInserts = routinesToCreate.map((r: {
       task_name: string; interval_km: number | null; interval_days: number | null; last_done_date: string | null
     }) => {
       const nextDueKm = r.interval_km ? (odometer ?? 0) + r.interval_km : null
@@ -116,6 +128,22 @@ export async function POST(request: NextRequest) {
       }
     })
     await supabase.from('bike_routines').insert(routineInserts)
+  }
+
+  if (gearPlan?.ok) {
+    const { error: gearErr } = await supabase.from('bike_routines').insert({
+      bike_id: bikeId,
+      task_name: GEAR_TASK,
+      interval_km: null,
+      interval_days: GEAR_CEILING_DAYS,
+      interval_rented_days: null,
+      last_done_date: gearPlan.lastDoneDate,
+      next_due_km: null,
+      next_due_date: gearPlan.ceilingDate,
+      follows_engine: true,
+      engine_changes_since: gearPlan.count,
+    })
+    if (gearErr) console.error('[bikes/create] gear routine insert failed:', bikeId, JSON.stringify(gearErr))
   }
 
   return NextResponse.json({ bikeId })

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { GEAR_TASK, GEAR_CEILING_DAYS, planGearForNewBike } from '@/lib/routineCycle'
 
 type CsvRow = {
   branch_name: string
@@ -111,7 +112,6 @@ export async function POST(request: NextRequest) {
     if (isNew) {
       const routineInserts = []
       const oilKm = parseInt(row.oil_interval_km)
-      const gearKm = parseInt(row.gear_oil_interval_km)
       if (!isNaN(oilKm) && oilKm > 0) {
         const lastOilDate = row.last_oil_change_date?.trim() || null
         routineInserts.push({
@@ -124,14 +124,20 @@ export async function POST(request: NextRequest) {
           next_due_date: null,
         })
       }
-      if (!isNaN(gearKm) && gearKm > 0) {
+      // เฟืองท้ายเข้าระบบตามรอบน้ำมันเครื่องเลย (ไม่ใช้ช่อง gear_oil_interval_km ในไฟล์แล้ว) — ไฟล์ไม่มีวันที่เปลี่ยนเฟืองท้าย
+      // จึงถือว่าไม่แน่ใจ: ตัวนับ 2 = น้ำมันเครื่องครั้งหน้าเป็นรอบ 3 เปลี่ยนเฟืองท้ายพร้อมกัน
+      const gearPlan = planGearForNewBike({ mode: 'unknown' }, null, new Date().toISOString().split('T')[0])
+      if (gearPlan.ok) {
         routineInserts.push({
           bike_id: bikeId,
-          task_name: 'เปลี่ยนน้ำมันเฟืองท้าย',
-          interval_km: gearKm,
-          interval_days: null,
-          next_due_km: gearKm,
-          next_due_date: null,
+          task_name: GEAR_TASK,
+          interval_km: null,
+          interval_days: GEAR_CEILING_DAYS,
+          last_done_date: gearPlan.lastDoneDate,
+          next_due_km: null,
+          next_due_date: gearPlan.ceilingDate,
+          follows_engine: true,
+          engine_changes_since: gearPlan.count,
         })
       }
       if (routineInserts.length > 0) {

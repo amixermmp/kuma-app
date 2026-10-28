@@ -32,3 +32,36 @@ export function addDaysIso(fromIso: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days)
   return d.toISOString().split('T')[0]
 }
+
+// เฟืองท้ายเก่าเกินกี่วันถือว่าควรเปลี่ยนในน้ำมันเครื่องครั้งถัดไป (ตัวนับ 2) แทนที่จะรอรอบ 3 ตามปกติ
+export const GEAR_STALE_DAYS = 120
+// รถที่ไม่รู้วันที่เปลี่ยนเฟืองท้าย — ตั้งเพดานเตือนกี่วันจากวันนี้ (ตาข่ายกันลืมถ้าน้ำมันเครื่องไม่ถึงรอบนาน)
+export const GEAR_UNKNOWN_CEILING_DAYS = 60
+
+export type GearChoice = { mode: 'same' | 'other' | 'unknown'; date?: string | null }
+
+// เฟืองท้ายของรถที่เพิ่งลงทะเบียนใหม่ (เข้าระบบตามรอบน้ำมันเครื่องเลย)
+//   same    = เปลี่ยนพร้อมน้ำมันเครื่อง (วันเดียวกัน) → ตัวนับ 0
+//   other   = เปลี่ยนคนละวัน (ต้องมีวันที่)        → ตัวนับ 1 (ถ้าเก่าเกิน GEAR_STALE_DAYS → 2)
+//   unknown = ยังไม่เปลี่ยน/ไม่แน่ใจ                → ตัวนับ 2 (น้ำมันเครื่องครั้งหน้าเป็นรอบ 3 เปลี่ยนเฟืองท้ายพร้อม)
+export function planGearForNewBike(
+  choice: GearChoice,
+  engineLastDone: string | null,
+  today: string,
+): { ok: true; lastDoneDate: string | null; count: number; ceilingDate: string } | { ok: false; error: string } {
+  let lastDoneDate: string | null = null
+  let count = 2
+  if (choice.mode === 'same') {
+    if (!engineLastDone) return { ok: false, error: 'เปลี่ยนเฟืองท้ายพร้อมน้ำมันเครื่อง — กรุณากรอกวันที่เปลี่ยนน้ำมันเครื่องล่าสุดด้วย' }
+    lastDoneDate = engineLastDone
+    count = 0
+  } else if (choice.mode === 'other') {
+    if (!choice.date) return { ok: false, error: 'กรุณากรอกวันที่เปลี่ยนเฟืองท้ายล่าสุด' }
+    lastDoneDate = choice.date
+    const age = Math.floor((new Date(today).getTime() - new Date(choice.date).getTime()) / 86_400_000)
+    count = choice.date === engineLastDone ? 0 : age > GEAR_STALE_DAYS ? 2 : 1
+  }
+  let ceilingDate = lastDoneDate ? addDaysIso(lastDoneDate, GEAR_CEILING_DAYS) : addDaysIso(today, GEAR_UNKNOWN_CEILING_DAYS)
+  if (ceilingDate < today) ceilingDate = addDaysIso(today, GEAR_UNKNOWN_CEILING_DAYS)
+  return { ok: true, lastDoneDate, count, ceilingDate }
+}
