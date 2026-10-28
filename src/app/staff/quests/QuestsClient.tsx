@@ -102,7 +102,7 @@ function FixedQuestCard({ q, onChanged }: { q: FixedQuest; onChanged: () => void
   )
 }
 
-function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => void }) {
+function ChaseCardView({ card, onChanged, minDate, maxDate, snoozeLimit }: { card: QuestCard; onChanged: () => void; minDate: string; maxDate: string; snoozeLimit: number }) {
   const open = card.items.filter(i => !i.doneToday && !i.info)
   const [selected, setSelected] = useState<Set<string>>(new Set(open.map(i => i.key)))
   const [outcome, setOutcome] = useState<OutcomeKey | ''>('')
@@ -114,6 +114,10 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
 
   const toggle = (key: string) => setSelected(prev => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n })
   const needsAppt = outcome === 'appointed' || outcome === 'postponed'
+  // ทักมาแล้วถึงลิมิต → นัดวันที่ซ่อนรายการไม่ได้แล้ว (ต้องทักหาพี่เจ้าของร้านแทน)
+  const snoozeBlocked = card.items.some(i => selected.has(i.key) && !i.doneToday && !i.info && i.followCount >= snoozeLimit)
+  const escalated = card.items.some(i => !i.info && i.escalate && !i.doneToday)
+  const maxFollowNow = Math.max(0, ...card.items.filter(i => !i.info).map(i => i.followCount))
   // เลือกแต่รายการที่ต้องแจ้งเจ้าของ (พ.ร.บ./ภาษีรถใหม่) → ตัวเลือกผลเป็นชุดของเจ้าของ ไม่ใช่ชุดทักลูกค้า
   const pickedNow = card.items.filter(i => selected.has(i.key) && !i.doneToday && !i.info)
   const ownerMode = pickedNow.length > 0 && pickedNow.every(i => i.notifyOwner === true)
@@ -130,7 +134,7 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
     setBusy(true); setError('')
     const err = await post('/api/staff/quests/followup', {
       items: picked.map(i => ({ key: i.key, type: i.type, bikeId: card.bikeId })),
-      outcome, appointmentDate: needsAppt && appt ? appt : null, note,
+      outcome, appointmentDate: needsAppt && appt && !snoozeBlocked ? appt : null, note,
     })
     setBusy(false)
     if (err) { setError(err); return }
@@ -159,6 +163,12 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
         )}
       </div>
 
+      {escalated && (
+        <div style={{ marginTop: '10px', fontSize: '12px', fontWeight: 700, color: '#fff', background: '#dc2626', borderRadius: '10px', padding: '8px 10px' }}>
+          🚨 ทักมาแล้ว {maxFollowNow} ครั้งยังไม่จบ — ทักหาพี่เจ้าของร้าน
+        </div>
+      )}
+
       <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {card.items.map(i => i.info ? (
           <div key={i.key} style={{ padding: '8px 10px', borderRadius: '10px', background: '#eff6ff', border: '1px dashed #bfdbfe' }}>
@@ -176,6 +186,9 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
             <span style={{ flex: 1 }}>
               <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{i.notifyOwner ? '📣 ' : i.type === 'doc' ? '📄 ' : ''}{i.label}</span>
               <span style={{ display: 'block', fontSize: '12px', color: URGENCY_COLOR(i.urgency), fontWeight: 600 }}>{i.detail}{i.doneToday ? ' • ทักวันนี้แล้ว' : ''}</span>
+              {i.confirmDate && !i.doneToday && (
+                <span style={{ display: 'inline-block', marginTop: '3px', fontSize: '12px', fontWeight: 700, color: '#1d4ed8', background: '#dbeafe', borderRadius: '6px', padding: '2px 8px' }}>📅 นัด {dateTh(i.confirmDate + 'T00:00:00+07:00')} — โทรยืนยัน</span>
+              )}
             </span>
           </label>
         ))}
@@ -209,10 +222,15 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
               }}>{c.label}</button>
             ))}
           </div>
-          {needsAppt && (
+          {needsAppt && !snoozeBlocked && (
             <div style={{ marginBottom: '8px' }}>
-              <div className="field-label" style={{ marginBottom: '4px' }}>นัดวันที่ (รายการจะหายจนถึงวันนัด)</div>
-              <input className="field-input" type="date" value={appt} onChange={e => setAppt(e.target.value)} />
+              <div className="field-label" style={{ marginBottom: '4px' }}>นัดวันที่ (รายการจะหายจนถึง 1 วันก่อนวันนัด — นัดไกลสุดถึง {dateTh(maxDate + 'T00:00:00+07:00')})</div>
+              <input className="field-input" type="date" min={minDate} max={maxDate} value={appt} onChange={e => setAppt(e.target.value)} />
+            </div>
+          )}
+          {needsAppt && snoozeBlocked && (
+            <div style={{ marginBottom: '8px', fontSize: '12px', color: '#dc2626', background: '#fef2f2', borderRadius: '8px', padding: '8px 10px' }}>
+              ทักมาแล้วครบ {snoozeLimit} ครั้ง นัดวันที่ซ่อนรายการไม่ได้แล้ว — ให้ทักหาพี่เจ้าของร้าน (รายการจะขึ้นให้เห็นทุกวันจนกว่างานจะจบ)
             </div>
           )}
           <textarea className="field-input" rows={2} placeholder={ownerMode ? 'ข้อความ * เช่น ทักหาพี่เจ้าของร้านแล้วทางไลน์' : 'ข้อความ * เช่น ทักแล้ว ลูกค้าบอกจะมาพรุ่งนี้'} value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: '8px' }} />
@@ -294,6 +312,7 @@ export default function QuestsClient({ board }: { board: QuestBoard }) {
   const b: Board = board
   const pct = b.progress.total > 0 ? Math.round((b.progress.done / b.progress.total) * 100) : 100
   const fixedBySlot = (slot: QuestSlot) => b.fixed.filter(f => f.slot === slot)
+  const maxApptDate = new Date(Date.parse(`${b.date}T00:00:00Z`) + b.limits.appointmentDays * 86_400_000).toISOString().split('T')[0]
 
   return (
     <div className="app-wrap">
@@ -323,7 +342,7 @@ export default function QuestsClient({ board }: { board: QuestBoard }) {
 
             {b.chase.length > 0 && (
               <Section title="📞 ต้องทัก" count={b.chase.length} color="#dc2626">
-                {b.chase.map(c => <ChaseCardView key={c.bikeId} card={c} onChanged={refresh} />)}
+                {b.chase.map(c => <ChaseCardView key={c.bikeId} card={c} onChanged={refresh} minDate={b.date} maxDate={maxApptDate} snoozeLimit={b.limits.snoozeLimit} />)}
               </Section>
             )}
 

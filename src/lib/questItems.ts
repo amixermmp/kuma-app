@@ -31,6 +31,8 @@ export type QuestSubItem = {
   doneToday: boolean
   followCount: number
   notes: FollowupNote[]
+  escalate?: boolean      // ทักมาแล้วถึงลิมิต (ค่าเริ่ม 2 ครั้ง) ยังไม่จบ → ให้ทักหาพี่เจ้าของร้าน นัดซ่อนไม่ได้แล้ว
+  confirmDate?: string | null // วันนัดล่าสุดที่เป็นวันนี้/พรุ่งนี้ → ให้โทรยืนยันนัด
   info?: boolean          // บรรทัดข้อมูลเฉยๆ (เช่น น้ำมันเครื่องคาดครบเมื่อไหร่) ไม่ต้องติ๊ก
   notifyOwner?: boolean   // งานที่ต้องแจ้งเจ้าของ ไม่ใช่ทักลูกค้า
   href?: string           // ปุ่ม "ทำรายการ" ของกลุ่มทำเอง
@@ -82,6 +84,7 @@ export type QuestBoard =
       snoozed: QuestCard[]
       queue: { returns: QueueRow[]; sends: QueueRow[]; returnsDone: number; sendsDone: number }
       progress: { done: number; total: number }
+      limits: { appointmentDays: number; snoozeLimit: number }
     }
 
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null))
@@ -125,6 +128,7 @@ export async function loadQuestBoard(
   const dayStartMs = Date.parse(`${today}T00:00:00+07:00`)
   const dayEndMs = dayStartMs + 86_400_000
   const dow = new Date(todayMs).getUTCDay()
+  const tomorrow = bangkokDate(nowMs + 86_400_000)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const byBike = (q: any) => (allowedBikeIds ? q.in('bike_id', allowedBikeIds) : q)
@@ -139,6 +143,9 @@ export async function loadQuestBoard(
   const taxLead = Number(settings?.tax_lead_days ?? 30)
   const taxExpiredWait = Number(settings?.tax_expired_wait_days ?? 7)
   const inspectYears = Number(settings?.inspect_years ?? 5)
+  // ลิมิตการซ่อนรายการด้วยนัดวันที่: นัดไกลสุดกี่วัน / ทักกี่ครั้งแล้วเลิกให้นัดซ่อน
+  const appointmentDays = Number(settings?.max_appointment_days ?? 7)
+  const snoozeLimit = Number(settings?.max_snooze_followups ?? 2)
   if ((settings?.disabled_branch_ids ?? []).includes(ownBranchId)) return { enabled: false, reason: 'เควสยังไม่เปิดใช้สำหรับสาขานี้' }
 
   const since = bangkokDate(nowMs - 90 * 86_400_000)
@@ -202,10 +209,13 @@ export async function loadQuestBoard(
   for (const f of (followupsRaw ?? []) as Row[]) (followByKey.get(f.item_key) ?? followByKey.set(f.item_key, []).get(f.item_key)!).push(f)
   const decorate = (key: string, type: QuestItemType, label: string, detail: string, urgency: number, extra?: Partial<QuestSubItem>): QuestSubItem => {
     const fs = followByKey.get(key) ?? []
+    const lastAppt = (fs.find(f => f.appointment_date)?.appointment_date as string | undefined) ?? null
     return {
       key, type, label, detail, urgency,
       doneToday: fs.some(f => f.quest_date === today),
       followCount: fs.length,
+      escalate: fs.length >= snoozeLimit,
+      confirmDate: lastAppt && lastAppt >= today && lastAppt <= tomorrow ? lastAppt : null,
       notes: fs.slice(0, 3).map(f => ({
         staff: f.staff_name ?? '', at: f.created_at, outcome: (FOLLOWUP_OUTCOMES as Record<string, string>)[f.outcome] ?? f.outcome,
         note: f.note, appointment: f.appointment_date ?? null,
@@ -213,8 +223,8 @@ export async function loadQuestBoard(
       ...extra,
     }
   }
-  // นัดวันที่ไว้ในอนาคต → ซ่อนจนถึงวันนัด
-  const snoozedKey = (key: string) => (followByKey.get(key) ?? []).some(f => f.appointment_date && f.appointment_date > today)
+  // นัดวันที่ไว้ในอนาคต → ซ่อนจนถึง 1 วันก่อนวันนัด (ขึ้นมาให้โทรยืนยันนัด)
+  const snoozedKey = (key: string) => (followByKey.get(key) ?? []).some(f => f.appointment_date && f.appointment_date > tomorrow)
 
   // ── สร้างรายการย่อยต่อคัน ──
   type Draft = { bikeId: string; items: QuestSubItem[]; hasRetOverdue: boolean }
@@ -425,6 +435,6 @@ export async function loadQuestBoard(
     enabled: true, date: today, branchId: ownBranchId, waitDays,
     fixed, chase, self, wait, snoozed: snoozedCards,
     queue: { returns, sends, returnsDone: (returnedTodayRaw ?? []).length, sendsDone: (startedTodayRaw ?? []).length },
-    progress,
+    progress, limits: { appointmentDays, snoozeLimit },
   }
 }

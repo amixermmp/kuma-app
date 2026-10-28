@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
       id: 1, wait_days: waitDays, disabled_branch_ids: disabled,
       pob_lead_days: clamp(body.pobLeadDays, 7, 90), tax_lead_days: clamp(body.taxLeadDays, 30, 90),
       tax_expired_wait_days: clamp(body.taxExpiredWaitDays, 7, 60), inspect_years: clamp(body.inspectYears, 5, 30),
+      max_appointment_days: clamp(body.maxAppointmentDays, 7, 60), max_snooze_followups: clamp(body.maxSnoozeFollowups, 2, 10),
     })
     if (error) return NextResponse.json({ error: 'บันทึกไม่สำเร็จ' }, { status: 500 })
     return NextResponse.json({ success: true })

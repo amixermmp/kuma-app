@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { bangkokDate, FOLLOWUP_OUTCOMES } from '@/lib/questItems'
+import { bangkokDate, FOLLOWUP_OUTCOMES, loadQuestBoard } from '@/lib/questItems'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +33,11 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
   const { data: bikes } = bikeIds.length ? await admin.from('bikes').select('id, license_plate').in('id', bikeIds) : { data: [] as { id: string; license_plate: string }[] }
   const plateOf = new Map((bikes ?? []).map(b => [b.id, b.license_plate]))
   const disabled = settings?.disabled_branch_ids ?? []
+
+  // รายการติดตามที่ทักมาแล้วถึงลิมิต (ค่าเริ่ม 2 ครั้ง) แต่ยังไม่จบ — ดึงจากตัวคัดงานตัวเดียวกับหน้าพนักงาน ทุกสาขา
+  const anyBranch = (branches ?? []).find(b => !disabled.includes(b.id))
+  const board = anyBranch ? await loadQuestBoard(admin, { allowedBranchIds: null, allowedBikeIds: null, ownBranchId: anyBranch.id }) : null
+  const escalated = board && board.enabled ? board.chase.filter(c => c.items.some(i => !i.info && i.escalate)) : []
 
   const filtered = (followups ?? []).filter(f => !plate || (plateOf.get(f.bike_id) ?? '').replace(/\s/g, '').includes(plate.replace(/\s/g, '')))
   const todayFollowups = (followups ?? []).filter(f => f.quest_date === today)
@@ -91,6 +96,22 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
             </div>
           )
         })}
+
+        <div style={{ fontWeight: 800, fontSize: '13px', padding: '8px 2px', color: '#dc2626' }}>🚨 ติดตามเกินลิมิตยังไม่จบ ({escalated.length} คัน)</div>
+        {escalated.length === 0 && <div style={{ color: '#9ca3af', fontSize: '13px', padding: '4px 0 14px' }}>ไม่มีรายการที่ติดตามเกินลิมิต</div>}
+        {escalated.map(c => (
+          <div key={c.bikeId} className="card" style={{ marginBottom: '8px', borderLeft: '4px solid #dc2626' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+              <b>{c.plate}</b><span style={{ color: '#6b7280', fontSize: '12px' }}>{c.holder === 'monthly' ? 'รายเดือน' : c.holder === 'daily' ? 'รายวัน' : 'ในร้าน'}{c.customer ? ` • ${c.customer}` : ''}</span>
+            </div>
+            {c.items.filter(i => !i.info && i.escalate).map(i => (
+              <div key={i.key} style={{ fontSize: '12px', marginTop: '4px' }}>
+                <b>{i.label}</b> <span style={{ color: '#dc2626' }}>— {i.detail} • ทักมาแล้ว {i.followCount} ครั้ง</span>
+                {i.notes[0] && <div style={{ color: '#6b7280' }}>ล่าสุด {date(i.notes[0].at)} {i.notes[0].staff}: {i.notes[0].outcome} — {i.notes[0].note}</div>}
+              </div>
+            ))}
+          </div>
+        ))}
 
         <div style={{ fontWeight: 800, fontSize: '13px', padding: '8px 2px' }}>📞 ประวัติการติดตาม (30 วันล่าสุด)</div>
         <form style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>

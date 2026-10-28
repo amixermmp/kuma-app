@@ -36,6 +36,22 @@ export async function POST(request: NextRequest) {
     if (!prefix || typeof i.key !== 'string' || !i.key.startsWith(prefix) || i.key.length > 120) return NextResponse.json({ error: 'รายการไม่ถูกต้อง' }, { status: 400 })
   }
 
+  // ลิมิตการซ่อนรายการด้วยนัดวันที่: นัดไกลสุดกี่วัน + ทักมาแล้วถึงกี่ครั้งแล้วนัดซ่อนไม่ได้ (กันเลื่อนไปเรื่อยๆ)
+  if (appt) {
+    const { data: settings } = await supabase.from('quest_settings').select('*').eq('id', 1).maybeSingle()
+    const maxDays = Number(settings?.max_appointment_days ?? 7)
+    const snoozeLimit = Number(settings?.max_snooze_followups ?? 2)
+    const maxDate = bangkokDate(Date.now() + maxDays * 86_400_000)
+    if (appt > maxDate) return NextResponse.json({ error: `นัดไกลสุดได้ ${maxDays} วันนับจากวันนี้` }, { status: 400 })
+    const keys = (items as { key: string }[]).map(i => i.key)
+    const { data: prev } = await supabase.from('quest_followups').select('item_key').in('item_key', keys)
+    const counts = new Map<string, number>()
+    for (const p of prev ?? []) counts.set(p.item_key, (counts.get(p.item_key) ?? 0) + 1)
+    if (keys.some(k => (counts.get(k) ?? 0) >= snoozeLimit)) {
+      return NextResponse.json({ error: `รายการนี้ทักมาแล้วครบ ${snoozeLimit} ครั้ง นัดวันที่ซ่อนไม่ได้แล้ว — ให้ทักหาพี่เจ้าของร้าน (ไม่ต้องใส่วันนัด)` }, { status: 400 })
+    }
+  }
+
   const { data: staff } = await supabase.from('staff').select('name').eq('id', staffId).maybeSingle()
   const rows = (items as { key: string; type: string }[]).map(i => ({
     item_key: i.key, item_type: i.type, bike_id: bike.id, branch_id: bike.branch_id, quest_date: today,

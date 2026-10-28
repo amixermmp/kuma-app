@@ -24,7 +24,7 @@ export default async function QuestSettingsPage() {
         templates={templates ?? []}
         waitDays={settings?.wait_days ?? 7}
         disabledBranchIds={settings?.disabled_branch_ids ?? []}
-        docSettings={{ pobLeadDays: settings?.pob_lead_days ?? 7, taxLeadDays: settings?.tax_lead_days ?? 30, taxExpiredWaitDays: settings?.tax_expired_wait_days ?? 7, inspectYears: settings?.inspect_years ?? 5 }}
+        docSettings={{ pobLeadDays: settings?.pob_lead_days ?? 7, taxLeadDays: settings?.tax_lead_days ?? 30, taxExpiredWaitDays: settings?.tax_expired_wait_days ?? 7, inspectYears: settings?.inspect_years ?? 5, maxAppointmentDays: settings?.max_appointment_days ?? 7, maxSnoozeFollowups: settings?.max_snooze_followups ?? 2 }}
       />
     </div>
   )
