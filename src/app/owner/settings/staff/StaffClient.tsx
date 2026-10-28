@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Section, Field, SaveBtn, SettingsHeader, type Branch } from '../_shared'
+import { isResignedName } from '@/lib/staffResign'
 
 type Staff = { id: string; name: string; pin: string; role?: string; branch_id: string | null; allowed_branch_ids: string[] | null; is_active: boolean; branches?: { name: string } | null }
 
@@ -116,11 +117,12 @@ export default function StaffClient({ staff: initialStaff, branches }: { staff: 
     })
   }
 
-  const deleteStaff = async (s: Staff) => {
-    if (!confirm(`ลบ ${s.name} ถาวร?\n\nพนักงานคนนี้จะเข้าระบบด้วย PIN ไม่ได้อีก\nแต่ประวัติงานที่เคยทำ (เช่า/ซ่อม/น้ำมันเครื่อง ฯลฯ) ยังอยู่ครบทุกอย่าง`)) return
-    const res = await fetch(`/api/owner/settings/staff/${s.id}`, { method: 'DELETE' })
-    if (res.ok) setStaff(prev => prev.filter(x => x.id !== s.id))
-    else alert('ลบไม่สำเร็จ ลองใหม่อีกครั้ง')
+  const resignStaff = async (s: Staff) => {
+    if (!confirm(`${s.name} ลาออก?\n\n• ประวัติทุกอย่างที่เคยทำยังอยู่ครบ และขึ้นชื่อ "${s.name} (ลาออกแล้ว)"\n• เข้าระบบไม่ได้ และ PIN เดิมจะถูกเปลี่ยน (คืน PIN เดิมให้คนใหม่ใช้ได้)\n• เปิดกลับมาไม่ได้ ถ้ากลับมาทำงานให้เพิ่มเป็นพนักงานใหม่`)) return
+    const res = await fetch(`/api/owner/settings/staff/${s.id}/resign`, { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) setStaff(prev => prev.map(x => x.id === s.id ? { ...x, name: data.name ?? x.name, is_active: false } : x))
+    else alert(data.error ?? 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง')
   }
 
   return (
@@ -129,7 +131,7 @@ export default function StaffClient({ staff: initialStaff, branches }: { staff: 
 
       <div style={{ paddingBottom: '40px' }}>
         <Section title="รายชื่อพนักงาน">
-          {staff.filter(s => s.is_active).map(s => {
+          {staff.filter(s => s.is_active && !isResignedName(s.name)).map(s => {
             const branchName = s.branches?.name
             return (
               <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
@@ -145,12 +147,12 @@ export default function StaffClient({ staff: initialStaff, branches }: { staff: 
             )
           })}
 
-          {staff.some(s => !s.is_active) && (
+          {staff.some(s => !s.is_active && !isResignedName(s.name)) && (
             <>
               <div style={{ padding: '12px 16px 4px', fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px' }}>
                 ปิดใช้งานอยู่
               </div>
-              {staff.filter(s => !s.is_active).map(s => (
+              {staff.filter(s => !s.is_active && !isResignedName(s.name)).map(s => (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #f3f4f6', opacity: 0.65 }}>
                   <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#9ca3af', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0 }}>
                     {s.name[0]}
@@ -162,10 +164,21 @@ export default function StaffClient({ staff: initialStaff, branches }: { staff: 
                   <button onClick={() => reactivateStaff(s)} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: '13px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
                     เปิดใช้งาน
                   </button>
-                  <button onClick={() => deleteStaff(s)} style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '12px', cursor: 'pointer', padding: '4px' }}>
-                    ลบถาวร
+                  <button onClick={() => resignStaff(s)} style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '12px', cursor: 'pointer', padding: '4px' }}>
+                    ลาออก
                   </button>
                 </div>
+              ))}
+            </>
+          )}
+
+          {staff.some(s => isResignedName(s.name)) && (
+            <>
+              <div style={{ padding: '12px 16px 4px', fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+                ลาออกแล้ว (เก็บประวัติไว้ครบ)
+              </div>
+              {staff.filter(s => isResignedName(s.name)).map(s => (
+                <div key={s.id} style={{ padding: '8px 16px', fontSize: '13px', color: '#9ca3af', borderBottom: '1px solid #f3f4f6' }}>{s.name}</div>
               ))}
             </>
           )}
