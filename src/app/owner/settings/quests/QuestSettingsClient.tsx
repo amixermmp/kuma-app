@@ -32,11 +32,17 @@ const blank = (): Draft => ({
   requirePhoto: false, requireNote: false, daysOfWeek: [], branchIds: [], sortOrder: '100', active: true,
 })
 
-export default function QuestSettingsClient({ branches, templates, waitDays: initWait, disabledBranchIds: initDisabled }: {
-  branches: Branch[]; templates: Template[]; waitDays: number; disabledBranchIds: string[]
+type DocSettings = { pobLeadDays: number; taxLeadDays: number; taxExpiredWaitDays: number; inspectYears: number }
+
+export default function QuestSettingsClient({ branches, templates, waitDays: initWait, disabledBranchIds: initDisabled, docSettings }: {
+  branches: Branch[]; templates: Template[]; waitDays: number; disabledBranchIds: string[]; docSettings: DocSettings
 }) {
   const router = useRouter()
   const [waitDays, setWaitDays] = useState(String(initWait))
+  const [pobLead, setPobLead] = useState(String(docSettings.pobLeadDays))
+  const [taxLead, setTaxLead] = useState(String(docSettings.taxLeadDays))
+  const [taxExpiredWait, setTaxExpiredWait] = useState(String(docSettings.taxExpiredWaitDays))
+  const [inspectYears, setInspectYears] = useState(String(docSettings.inspectYears))
   const [disabled, setDisabled] = useState<string[]>(initDisabled)
   const [savingSettings, setSavingSettings] = useState(false)
   const [msg, setMsg] = useState('')
@@ -52,7 +58,10 @@ export default function QuestSettingsClient({ branches, templates, waitDays: ini
 
   const saveSettings = async () => {
     setSavingSettings(true)
-    const err = await call({ action: 'settings', waitDays: Number(waitDays), disabledBranchIds: disabled })
+    const err = await call({
+      action: 'settings', waitDays: Number(waitDays), disabledBranchIds: disabled,
+      pobLeadDays: Number(pobLead), taxLeadDays: Number(taxLead), taxExpiredWaitDays: Number(taxExpiredWait), inspectYears: Number(inspectYears),
+    })
     setSavingSettings(false)
     flash(err ? '❌ ' + err : '✅ บันทึกการตั้งค่าแล้ว')
     if (!err) router.refresh()
@@ -95,7 +104,20 @@ export default function QuestSettingsClient({ branches, templates, waitDays: ini
           <Field label="รถเช่ารายวันที่รูทีนถึงรอบ — รอทำตอนรถคืนถ้าคืนภายในกี่วัน" hint="คืนช้ากว่านี้จะขึ้นเป็นงานที่ต้องทักให้เข้ามา (รายเดือนทักทันทีเสมอ)">
             <input className="field-input" type="number" min={0} max={60} value={waitDays} onChange={e => setWaitDays(e.target.value)} />
           </Field>
-          <div className="field-label" style={{ margin: '8px 0 6px' }}>เปิดใช้เควสรายสาขา</div>
+          <div className="field-label" style={{ margin: '12px 0 6px', fontWeight: 800 }}>📄 เอกสารรถ (ภาษี / พ.ร.บ.)</div>
+          <Field label="พ.ร.บ. (และภาษีรถอายุน้อย) — เริ่มแจ้งเจ้าของก่อนหมดกี่วัน" hint="หลังหมดแล้วจะแจ้งเตือนต่อไปเรื่อยๆ จนกว่าจะต่อ">
+            <input className="field-input" type="number" min={0} max={90} value={pobLead} onChange={e => setPobLead(e.target.value)} />
+          </Field>
+          <Field label="ภาษีรถที่ต้องนำเข้าตรวจ — เริ่มเตือนล่วงหน้ากี่วัน" hint="ต่อล่วงหน้าได้ ระบบจะนัดรวมกับน้ำมันเครื่องถ้าคาดว่าจะครบก่อนภาษีหมด">
+            <input className="field-input" type="number" min={0} max={90} value={taxLead} onChange={e => setTaxLead(e.target.value)} />
+          </Field>
+          <Field label="ภาษีหมดแล้ว — รอรวมกับน้ำมันเครื่องได้ไม่เกินกี่วัน" hint="เกินกว่านี้ให้ต่อภาษีทันที ไม่รอ">
+            <input className="field-input" type="number" min={0} max={60} value={taxExpiredWait} onChange={e => setTaxExpiredWait(e.target.value)} />
+          </Field>
+          <Field label="รถอายุกี่ปีขึ้นไปต้องนำเข้าตรวจสภาพ" hint="อายุนับจากช่อง 'ปี' ของรถ ปีนี้ − ปีรถ (ไม่มีค่าปี = ถือว่าต้องนำเข้า) รถอายุน้อยกว่านี้แจ้งเจ้าของอย่างเดียว">
+            <input className="field-input" type="number" min={0} max={30} value={inspectYears} onChange={e => setInspectYears(e.target.value)} />
+          </Field>
+          <div className="field-label" style={{ margin: '12px 0 6px' }}>เปิดใช้เควสรายสาขา</div>
           {branches.map(b => {
             const on = !disabled.includes(b.id)
             return (

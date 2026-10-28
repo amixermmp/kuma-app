@@ -15,7 +15,12 @@ export async function POST(request: NextRequest) {
     const waitDays = Math.min(60, Math.max(0, Math.round(Number(body.waitDays))))
     const disabled = Array.isArray(body.disabledBranchIds) ? body.disabledBranchIds.filter((x: unknown) => typeof x === 'string') : []
     if (!Number.isFinite(waitDays)) return NextResponse.json({ error: 'จำนวนวันไม่ถูกต้อง' }, { status: 400 })
-    const { error } = await admin.from('quest_settings').upsert({ id: 1, wait_days: waitDays, disabled_branch_ids: disabled })
+    const clamp = (v: unknown, def: number, max: number) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(0, n)) : def }
+    const { error } = await admin.from('quest_settings').upsert({
+      id: 1, wait_days: waitDays, disabled_branch_ids: disabled,
+      pob_lead_days: clamp(body.pobLeadDays, 7, 90), tax_lead_days: clamp(body.taxLeadDays, 30, 90),
+      tax_expired_wait_days: clamp(body.taxExpiredWaitDays, 7, 60), inspect_years: clamp(body.inspectYears, 5, 30),
+    })
     if (error) return NextResponse.json({ error: 'บันทึกไม่สำเร็จ' }, { status: 500 })
     return NextResponse.json({ success: true })
   }

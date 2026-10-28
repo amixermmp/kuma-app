@@ -14,7 +14,7 @@ export default async function QuestSettingsPage() {
   const [{ data: branches }, { data: templates }, { data: settings }] = await Promise.all([
     admin.from('branches').select('id, name').order('name'),
     admin.from('daily_quest_templates').select('*').order('sort_order', { ascending: true }),
-    admin.from('quest_settings').select('wait_days, disabled_branch_ids').eq('id', 1).maybeSingle(),
+    admin.from('quest_settings').select('*').eq('id', 1).maybeSingle(),
   ])
 
   return (
@@ -24,6 +24,7 @@ export default async function QuestSettingsPage() {
         templates={templates ?? []}
         waitDays={settings?.wait_days ?? 7}
         disabledBranchIds={settings?.disabled_branch_ids ?? []}
+        docSettings={{ pobLeadDays: settings?.pob_lead_days ?? 7, taxLeadDays: settings?.tax_lead_days ?? 30, taxExpiredWaitDays: settings?.tax_expired_wait_days ?? 7, inspectYears: settings?.inspect_years ?? 5 }}
       />
     </div>
   )

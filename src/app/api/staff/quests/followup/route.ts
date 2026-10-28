@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds } from '@/lib/staffBranch'
 import { bangkokDate, FOLLOWUP_OUTCOMES } from '@/lib/questItems'
 
-const KEY_PREFIX: Record<string, string> = { return: 'ret:', pay: 'pay:', routine: 'rtn:' }
+const KEY_PREFIX: Record<string, string> = { return: 'ret:', pay: 'pay:', routine: 'rtn:', doc: 'doc:' }
 
 // บันทึกการติดตามงานค้าง (ทักลูกค้า) — ข้อความ 1 ครั้งครอบหลายรายการของคันเดียวกันได้ เก็บแนบทุกรายการ
 // ข้อความ/ผลการทักบังคับ สาขาของรถต้องอยู่ในสาขาที่พนักงานเข้าถึงได้ (ตรวจฝั่งเซิร์ฟเวอร์)

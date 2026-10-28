@@ -103,7 +103,7 @@ function FixedQuestCard({ q, onChanged }: { q: FixedQuest; onChanged: () => void
 }
 
 function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => void }) {
-  const open = card.items.filter(i => !i.doneToday)
+  const open = card.items.filter(i => !i.doneToday && !i.info)
   const [selected, setSelected] = useState<Set<string>>(new Set(open.map(i => i.key)))
   const [outcome, setOutcome] = useState<OutcomeKey | ''>('')
   const [appt, setAppt] = useState('')
@@ -114,11 +114,18 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
 
   const toggle = (key: string) => setSelected(prev => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n })
   const needsAppt = outcome === 'appointed' || outcome === 'postponed'
+  // เลือกแต่รายการที่ต้องแจ้งเจ้าของ (พ.ร.บ./ภาษีรถใหม่) → ตัวเลือกผลเป็นชุดของเจ้าของ ไม่ใช่ชุดทักลูกค้า
+  const pickedNow = card.items.filter(i => selected.has(i.key) && !i.doneToday && !i.info)
+  const ownerMode = pickedNow.length > 0 && pickedNow.every(i => i.notifyOwner === true)
+  const outcomeChoices: { key: OutcomeKey; label: string }[] = ownerMode
+    ? [{ key: 'notified', label: FOLLOWUP_OUTCOMES.notified }, { key: 'appointed', label: 'เจ้าของนัดดำเนินการ' }, { key: 'other', label: FOLLOWUP_OUTCOMES.other }]
+    : (Object.keys(FOLLOWUP_OUTCOMES) as OutcomeKey[]).filter(k => k !== 'notified').map(k => ({ key: k, label: FOLLOWUP_OUTCOMES[k] }))
 
   const save = async () => {
-    const picked = card.items.filter(i => selected.has(i.key) && !i.doneToday)
+    const picked = card.items.filter(i => selected.has(i.key) && !i.doneToday && !i.info)
     if (picked.length === 0) { setError('กรุณาติ๊กรายการที่ทักแล้วอย่างน้อย 1 รายการ'); return }
     if (!outcome) { setError('กรุณาเลือกผลการทัก'); return }
+    if (!outcomeChoices.some(c => c.key === outcome)) { setError('ผลการทักไม่ตรงกับรายการที่เลือก กรุณาเลือกใหม่'); setOutcome(''); return }
     if (!note.trim()) { setError('กรุณาเขียนข้อความ (ทักแล้วเป็นยังไง)'); return }
     setBusy(true); setError('')
     const err = await post('/api/staff/quests/followup', {
@@ -145,7 +152,7 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
             {card.expectedEnd ? ` • คืน ${dateTh(card.expectedEnd)} ${timeTh(card.expectedEnd)}` : ''}
           </div>
         </div>
-        {card.phone && (
+        {card.phone && !card.ownerOnly && (
           <a href={`tel:${card.phone}`} style={{ fontSize: '12px', fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '6px 10px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
             📞 โทร
           </a>
@@ -153,7 +160,12 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
       </div>
 
       <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {card.items.map(i => (
+        {card.items.map(i => i.info ? (
+          <div key={i.key} style={{ padding: '8px 10px', borderRadius: '10px', background: '#eff6ff', border: '1px dashed #bfdbfe' }}>
+            <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#1d4ed8' }}>🛢️ {i.label}</span>
+            <span style={{ display: 'block', fontSize: '12px', color: '#1d4ed8' }}>{i.detail}</span>
+          </div>
+        ) : (
           <label key={i.key} style={{
             display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 10px', borderRadius: '10px',
             background: i.doneToday ? '#f0fdf4' : selected.has(i.key) ? '#fff7ed' : '#f9fafb', cursor: i.doneToday ? 'default' : 'pointer',
@@ -162,7 +174,7 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
               <input type="checkbox" checked={selected.has(i.key)} onChange={() => toggle(i.key)} style={{ width: '18px', height: '18px', marginTop: '1px' }} />
             )}
             <span style={{ flex: 1 }}>
-              <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{i.label}</span>
+              <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{i.notifyOwner ? '📣 ' : i.type === 'doc' ? '📄 ' : ''}{i.label}</span>
               <span style={{ display: 'block', fontSize: '12px', color: URGENCY_COLOR(i.urgency), fontWeight: 600 }}>{i.detail}{i.doneToday ? ' • ทักวันนี้แล้ว' : ''}</span>
             </span>
           </label>
@@ -190,11 +202,11 @@ function ChaseCardView({ card, onChanged }: { card: QuestCard; onChanged: () => 
         <div style={{ marginTop: '12px', borderTop: '1px dashed #e5e7eb', paddingTop: '12px' }}>
           <div className="field-label" style={{ marginBottom: '6px' }}>ผลการทัก *</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-            {(Object.keys(FOLLOWUP_OUTCOMES) as OutcomeKey[]).map(k => (
-              <button key={k} type="button" onClick={() => setOutcome(k)} style={{
+            {outcomeChoices.map(c => (
+              <button key={c.key} type="button" onClick={() => setOutcome(c.key)} style={{
                 padding: '7px 12px', borderRadius: '999px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                border: `2px solid ${outcome === k ? '#1d4ed8' : '#e5e7eb'}`, background: outcome === k ? '#dbeafe' : '#fff', color: outcome === k ? '#1d4ed8' : '#4b5563',
-              }}>{FOLLOWUP_OUTCOMES[k]}</button>
+                border: `2px solid ${outcome === c.key ? '#1d4ed8' : '#e5e7eb'}`, background: outcome === c.key ? '#dbeafe' : '#fff', color: outcome === c.key ? '#1d4ed8' : '#4b5563',
+              }}>{c.label}</button>
             ))}
           </div>
           {needsAppt && (
@@ -221,14 +233,14 @@ function SelfCardView({ card }: { card: QuestCard }) {
         <div>
           <div style={{ fontWeight: 800, fontSize: '15px' }}>{card.plate} <span style={{ fontWeight: 500, fontSize: '12px', color: '#6b7280' }}>{card.bikeName}</span></div>
           {card.items.map(i => (
-            <div key={i.key} style={{ fontSize: '13px', marginTop: '3px' }}>
-              <b>{i.label}</b> <span style={{ color: '#6b7280' }}>— {i.detail}</span>
+            <div key={i.key} style={{ fontSize: '13px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+              <span><b>{i.type === 'doc' ? '📄 ' : ''}{i.label}</b> <span style={{ color: '#6b7280' }}>— {i.detail}</span></span>
+              <Link href={i.href ?? `/staff/routine?bikeId=${card.bikeId}`} style={{ fontSize: '12px', fontWeight: 700, color: '#c2410c', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '6px 10px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                ✅ ทำรายการ
+              </Link>
             </div>
           ))}
         </div>
-        <Link href={`/staff/routine?bikeId=${card.bikeId}`} style={{ fontSize: '12px', fontWeight: 700, color: '#c2410c', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '8px 12px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-          ✅ ทำรายการ
-        </Link>
       </div>
     </div>
   )

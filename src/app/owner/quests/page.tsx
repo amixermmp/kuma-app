@@ -105,7 +105,7 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
               <span style={{ color: '#6b7280', fontSize: '12px' }}>{date(f.created_at)} {time(f.created_at)} • {f.staff_name ?? ''}</span>
             </div>
             <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-              {f.item_type === 'return' ? 'ทวงคืนรถ' : f.item_type === 'pay' ? 'ค่าเช่ารายเดือน' : 'รูทีน'} • <b style={{ color: '#111827' }}>{(FOLLOWUP_OUTCOMES as Record<string, string>)[f.outcome] ?? f.outcome}</b>
+              {f.item_type === 'return' ? 'ทวงคืนรถ' : f.item_type === 'pay' ? 'ค่าเช่ารายเดือน' : f.item_type === 'doc' ? 'เอกสาร (ภาษี/พ.ร.บ.)' : 'รูทีน'} • <b style={{ color: '#111827' }}>{(FOLLOWUP_OUTCOMES as Record<string, string>)[f.outcome] ?? f.outcome}</b>
               {f.appointment_date ? ` • นัด ${date(f.appointment_date)}` : ''}
             </div>
             <div style={{ fontSize: '13px', marginTop: '4px' }}>{f.note}</div>

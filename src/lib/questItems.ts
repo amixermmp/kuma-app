@@ -13,10 +13,11 @@ export const FOLLOWUP_OUTCOMES = {
   postponed: 'ขอเลื่อน',
   refused: 'ปฏิเสธ',
   other: 'อื่นๆ',
+  notified: 'แจ้งเจ้าของแล้ว', // ใช้กับงานเอกสารที่ต้องแจ้งเจ้าของ (พ.ร.บ./ภาษีรถไม่ต้องนำเข้า)
 } as const
 export type OutcomeKey = keyof typeof FOLLOWUP_OUTCOMES
 
-export type QuestItemType = 'return' | 'pay' | 'routine'
+export type QuestItemType = 'return' | 'pay' | 'routine' | 'doc'
 export type QuestGroup = 'chase' | 'self' | 'wait'
 export type QuestSlot = 'open' | 'day' | 'close'
 
@@ -30,6 +31,9 @@ export type QuestSubItem = {
   doneToday: boolean
   followCount: number
   notes: FollowupNote[]
+  info?: boolean          // บรรทัดข้อมูลเฉยๆ (เช่น น้ำมันเครื่องคาดครบเมื่อไหร่) ไม่ต้องติ๊ก
+  notifyOwner?: boolean   // งานที่ต้องแจ้งเจ้าของ ไม่ใช่ทักลูกค้า
+  href?: string           // ปุ่ม "ทำรายการ" ของกลุ่มทำเอง
 }
 export type QuestCard = {
   bikeId: string
@@ -41,6 +45,7 @@ export type QuestCard = {
   expectedEnd: string | null
   group: QuestGroup
   urgency: number
+  ownerOnly: boolean      // การ์ดนี้มีแต่งานที่ต้องแจ้งเจ้าของ (ไม่ต้องทักลูกค้า)
   items: QuestSubItem[]
 }
 export type FixedQuest = {
@@ -126,8 +131,14 @@ export async function loadQuestBoard(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const byBranch = (q: any) => (allowedBranchIds ? q.in('branch_id', allowedBranchIds) : q)
 
-  const { data: settings } = await supabase.from('quest_settings').select('wait_days, disabled_branch_ids').eq('id', 1).maybeSingle()
+  const { data: settings } = await supabase.from('quest_settings').select('*').eq('id', 1).maybeSingle()
   const waitDays = Number(settings?.wait_days ?? 7)
+  // ค่าเอกสาร (เจ้าของปรับได้): พ.ร.บ./ภาษีรถไม่ต้องนำเข้า เตือนก่อนหมดกี่วัน, ภาษีรถที่ต้องนำเข้าเตือนล่วงหน้ากี่วัน,
+  // ภาษีหมดแล้วรอรวมกับน้ำมันเครื่องได้กี่วัน, รถอายุเท่าไหร่ขึ้นไปต้องนำเข้าตรวจ
+  const pobLead = Number(settings?.pob_lead_days ?? 7)
+  const taxLead = Number(settings?.tax_lead_days ?? 30)
+  const taxExpiredWait = Number(settings?.tax_expired_wait_days ?? 7)
+  const inspectYears = Number(settings?.inspect_years ?? 5)
   if ((settings?.disabled_branch_ids ?? []).includes(ownBranchId)) return { enabled: false, reason: 'เควสยังไม่เปิดใช้สำหรับสาขานี้' }
 
   const since = bangkokDate(nowMs - 90 * 86_400_000)
@@ -144,8 +155,9 @@ export async function loadQuestBoard(
     { data: returnedTodayRaw },
     { data: startedTodayRaw },
     { data: bookingsRaw },
+    { data: docsRaw },
   ] = await Promise.all([
-    byBranch(supabase.from('bikes').select('id, license_plate, brand, model, status, branch_id, odometer, fuel_level').neq('status', 'retired')),
+    byBranch(supabase.from('bikes').select('id, license_plate, brand, model, status, branch_id, odometer, fuel_level, year').neq('status', 'retired')),
     byBike(supabase.from('rentals').select('id, bike_id, expected_end_datetime, customers(name, phone)').in('status', ['active', 'extended'])),
     byBike(supabase.from('monthly_rentals').select('id, bike_id, start_date, payment_day, monthly_rate, customers(name, phone)').eq('status', 'active')),
     byBike(supabase.from('bike_routines').select('id, bike_id, task_name, next_due_km, next_due_date, interval_rented_days, rented_days_accumulated, last_done_date, follows_engine, engine_changes_since').limit(2000)),
@@ -157,6 +169,7 @@ export async function loadQuestBoard(
     byBike(supabase.from('rentals').select('id').eq('status', 'returned').gte('actual_end_datetime', new Date(dayStartMs).toISOString()).lt('actual_end_datetime', new Date(dayEndMs).toISOString())),
     byBike(supabase.from('rentals').select('id').gte('start_datetime', new Date(dayStartMs).toISOString()).lt('start_datetime', new Date(dayEndMs).toISOString())),
     byBranch(supabase.from('bookings').select('id, booking_ref, start_datetime, customer_name, requested_brand, requested_model, bikes(license_plate)').eq('status', 'confirmed').gte('start_datetime', new Date(dayStartMs).toISOString()).lt('start_datetime', new Date(dayEndMs).toISOString())),
+    byBike(supabase.from('bike_documents').select('id, bike_id, doc_type, expiry_date').in('doc_type', ['tax', 'pob']).not('expiry_date', 'is', null)),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -187,7 +200,7 @@ export async function loadQuestBoard(
   // ── ประวัติการติดตามตาม item_key ──
   const followByKey = new Map<string, Row[]>()
   for (const f of (followupsRaw ?? []) as Row[]) (followByKey.get(f.item_key) ?? followByKey.set(f.item_key, []).get(f.item_key)!).push(f)
-  const decorate = (key: string, type: QuestItemType, label: string, detail: string, urgency: number): QuestSubItem => {
+  const decorate = (key: string, type: QuestItemType, label: string, detail: string, urgency: number, extra?: Partial<QuestSubItem>): QuestSubItem => {
     const fs = followByKey.get(key) ?? []
     return {
       key, type, label, detail, urgency,
@@ -197,6 +210,7 @@ export async function loadQuestBoard(
         staff: f.staff_name ?? '', at: f.created_at, outcome: (FOLLOWUP_OUTCOMES as Record<string, string>)[f.outcome] ?? f.outcome,
         note: f.note, appointment: f.appointment_date ?? null,
       })),
+      ...extra,
     }
   }
   // นัดวันที่ไว้ในอนาคต → ซ่อนจนถึงวันนัด
@@ -255,9 +269,67 @@ export async function loadQuestBoard(
     }
   }
 
-  // ── จัดเป็นการ์ดต่อคัน ──
+  // 7) เอกสาร พ.ร.บ./ภาษี
+  //  - พ.ร.บ. (และภาษีรถอายุไม่ถึง inspectYears ปี ที่ไม่ต้องนำเข้าตรวจ): ซื้อ/ต่อเองไม่ได้ → แจ้งเจ้าของ ตั้งแต่ก่อนหมด pobLead วัน และหลังหมดตลอดไปจนกว่าจะต่อ
+  //  - ภาษีรถที่ต้องนำเข้า: เตือนล่วงหน้า taxLead วัน (ต่อล่วงหน้าได้) จัดตามที่รถอยู่เหมือนรูทีน และนัดรวมกับน้ำมันเครื่องถ้าคาดว่าจะครบก่อนภาษีหมด
+  //    ภาษีหมดแล้วรอรวมกับน้ำมันเครื่องได้ไม่เกิน taxExpiredWait วัน
+  const daysTo = (dateStr: string) => {
+    const [y, m, d] = String(dateStr).split('-').map(Number)
+    return Math.round((Date.UTC(y, m - 1, d) - todayMs) / 86_400_000)
+  }
+  const engineByBike = new Map<string, Row>()
+  for (const r of routines) if (r.task_name === ENGINE_TASK) engineByBike.set(r.bike_id, r)
+  // ประมาณการวันที่น้ำมันเครื่องจะครบ (ใช้กับรายเดือนที่เช่าต่อเนื่อง): วันเช่าสะสมที่เหลือ / เพดานปฏิทิน อันไหนก่อน — กม. ประมาณไม่ได้ (ระบบรู้เลขไมล์เฉพาะตอนมีรายการ)
+  const forecastDaysOf = (r: Row | undefined): number | null => {
+    if (!r) return null
+    const c: number[] = []
+    if (r.interval_rented_days != null) c.push(Math.max(0, Number(r.interval_rented_days) - Number(r.rented_days_accumulated ?? 0)))
+    if (r.next_due_date) c.push(Math.max(0, daysTo(r.next_due_date)))
+    return c.length ? Math.min(...c) : null
+  }
+  for (const doc of (docsRaw ?? []) as Row[]) {
+    const bike = bikeById.get(doc.bike_id)
+    if (!bike || !doc.expiry_date) continue
+    const daysLeft = daysTo(doc.expiry_date)
+    const expired = daysLeft < 0
+    const dayLabel = expired ? `หมดอายุแล้ว ${-daysLeft} วัน` : daysLeft === 0 ? 'หมดอายุวันนี้' : `หมดอายุอีก ${daysLeft} วัน`
+    const key = `doc:${doc.id}:${doc.expiry_date}`
+    const age = bike.year ? ty - Number(bike.year) : null
+    const notifyOnly = doc.doc_type === 'pob' || (age != null && age < inspectYears)
+    if (notifyOnly) {
+      if (daysLeft > pobLead) continue
+      const label = doc.doc_type === 'pob' ? 'พ.ร.บ. — แจ้งเจ้าของให้ดำเนินการ' : `ภาษี (รถอายุ ${age} ปี ไม่ต้องนำเข้า) — แจ้งเจ้าของ`
+      draftOf(bike.id).items.push(decorate(key, 'doc', label, dayLabel, expired ? 2 : 4, { notifyOwner: true }))
+      continue
+    }
+    if (daysLeft > taxLead) continue
+    const monthly = monthlyByBike.get(bike.id)
+    const rental = rentalByBike.get(bike.id)
+    const label = 'ต่อภาษี (ต้องนำรถเข้ามา)'
+    const href = `/staff/docs?bikeId=${bike.id}`
+    const d = draftOf(bike.id)
+    if (monthly) {
+      d.items.push(decorate(key, 'doc', label, dayLabel, expired ? 2 : 4))
+      // นัดรวมกับน้ำมันเครื่อง: ยังไม่ถึงรอบแต่คาดว่าจะครบก่อนภาษีหมด (หรือภาษีหมดแล้วและครบภายใน taxExpiredWait วัน)
+      const fc = forecastDaysOf(engineByBike.get(bike.id))
+      const alreadyDue = d.items.some(i => i.type === 'routine' && i.label.startsWith(ENGINE_TASK))
+      if (!alreadyDue && fc != null && fc > 0 && (expired ? fc <= taxExpiredWait : fc <= daysLeft)) {
+        d.items.push(decorate(`info:${key}`, 'routine', 'น้ำมันเครื่อง — นัดทำพร้อมกัน', `คาดว่าครบอีก ~${fc} วัน (ประมาณจากวันเช่าสะสม)`, 5, { info: true }))
+      }
+    } else if (rental) {
+      const endMs = new Date(rental.expected_end_datetime).getTime()
+      if (endMs < nowMs) d.items.push(decorate(key, 'doc', label, dayLabel, 1))
+      else if (endMs - nowMs <= waitDays * 86_400_000) d.items.push(decorate(key, 'doc', label, dayLabel, 7))
+      else d.items.push(decorate(key, 'doc', label, dayLabel, expired ? 3 : 5))
+    } else {
+      d.items.push(decorate(key, 'doc', label, dayLabel, 6, { href }))
+    }
+  }
+
+  // ── จัดเป็นการ์ดต่อคัน (คันเดียวแยกการ์ดตามกลุ่ม: ต้องทัก/แจ้ง · ทำเอง · รอรถกลับ) ──
   const cards: QuestCard[] = []
   const snoozedCards: QuestCard[] = []
+  const groupOfUrgency = (u: number): QuestGroup => (u <= 5 ? 'chase' : u === 6 ? 'self' : 'wait')
   for (const d of Array.from(drafts.values())) {
     const bike = bikeById.get(d.bikeId)!
     const monthly = monthlyByBike.get(d.bikeId)
@@ -268,12 +340,20 @@ export async function loadQuestBoard(
       bikeId: d.bikeId, plate: bike.license_plate, bikeName: `${bike.brand ?? ''} ${bike.model ?? ''}`.trim(),
       holder, customer: cust?.name ?? null, phone: cust?.phone ?? null, expectedEnd: rental?.expected_end_datetime ?? null,
     }
-    const visible = d.items.filter(i => !(i.urgency <= 5 && snoozedKey(i.key)))
-    const hidden = d.items.filter(i => i.urgency <= 5 && snoozedKey(i.key))
-    const minUrgency = visible.length ? Math.min(...visible.map(i => i.urgency)) : 99
-    if (visible.length === 0) { if (hidden.length) snoozedCards.push({ ...base, group: 'chase', urgency: 5, items: hidden }); continue }
-    const group: QuestGroup = minUrgency <= 5 ? 'chase' : minUrgency === 6 ? 'self' : 'wait'
-    cards.push({ ...base, group, urgency: minUrgency, items: visible.sort((a, b) => a.urgency - b.urgency) })
+    for (const group of ['chase', 'self', 'wait'] as QuestGroup[]) {
+      const inGroup = d.items.filter(i => groupOfUrgency(i.urgency) === group)
+      if (inGroup.length === 0) continue
+      const real = inGroup.filter(i => !i.info)
+      const visible = inGroup.filter(i => !(i.urgency <= 5 && !i.info && snoozedKey(i.key)))
+      const hidden = real.filter(i => i.urgency <= 5 && snoozedKey(i.key))
+      const visibleReal = visible.filter(i => !i.info)
+      if (visibleReal.length === 0) { if (hidden.length) snoozedCards.push({ ...base, group, urgency: 5, ownerOnly: false, items: hidden }); continue }
+      const items = visible.map(i => (group === 'self' && !i.href ? { ...i, href: `/staff/routine?bikeId=${d.bikeId}` } : i)).sort((a, b) => a.urgency - b.urgency)
+      cards.push({
+        ...base, group, urgency: Math.min(...visibleReal.map(i => i.urgency)),
+        ownerOnly: group === 'chase' && visibleReal.every(i => i.notifyOwner === true), items,
+      })
+    }
   }
   const sortCards = (a: QuestCard, b: QuestCard) => a.urgency - b.urgency || a.plate.localeCompare(b.plate)
   const chase = cards.filter(c => c.group === 'chase').sort(sortCards)
@@ -332,11 +412,11 @@ export async function loadQuestBoard(
 
   // ── ความคืบหน้า: งานติดตาม (ที่ยังอยู่ + ที่ทักวันนี้ไปแล้วแม้งานจบ) + เควสประจำ ──
   const scopeBikeIds = new Set(bikes.map(b => b.id as string))
-  const chaseTypes = new Set(['return', 'pay', 'routine'])
+  const chaseTypes = new Set(['return', 'pay', 'routine', 'doc'])
   const doneKeys = new Set<string>()
   for (const f of (followupsRaw ?? []) as Row[]) if (f.quest_date === today && chaseTypes.has(f.item_type) && (!f.bike_id || scopeBikeIds.has(f.bike_id))) doneKeys.add(f.item_key)
   const chaseKeys = new Set<string>()
-  for (const c of chase) for (const i of c.items) chaseKeys.add(i.key)
+  for (const c of chase) for (const i of c.items) if (!i.info) chaseKeys.add(i.key)
   const totalKeys = new Set(Array.from(chaseKeys).concat(Array.from(doneKeys)))
   const fixedDone = fixed.filter(f => f.done).length
   const progress = { done: fixedDone + doneKeys.size, total: fixed.length + totalKeys.size }
