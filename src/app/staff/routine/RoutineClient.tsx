@@ -35,13 +35,28 @@ function RoutineCard({ r }: { r: RoutineItem }) {
   const cycle = r.gear_cycle ?? null
   const gearOffered = cycle != null && gearDueThisChange(cycle.count)
   const gearBacklog = cycle != null && cycle.count + 1 > CYCLE_LENGTH
-  // ถึงรอบแล้ว → ติ๊กไว้ให้เลย / ยังไม่ถึงรอบ → ซ่อนเป็นบรรทัดเทา แตะแล้วค่อยขยาย (เปลี่ยนพร้อมนอกรอบ ไม่ติ๊กไว้ให้)
-  const [alsoGear, setAlsoGear] = useState(gearOffered)
+  const skippedTimes = cycle ? Math.max(0, cycle.count - (CYCLE_LENGTH - 1)) : 0
+  // ถึงรอบ/ค้าง → ต้องเลือก "เปลี่ยนด้วย" หรือ "ยังไม่ได้ทำ" ไม่มีค่าเริ่มต้น (กันพนักงานกดผ่านไวๆ จนบันทึกว่าเปลี่ยนเฟืองท้ายทั้งที่ไม่ได้ทำ)
+  // ยังไม่ถึงรอบ → ซ่อนเป็นบรรทัดเทา แตะแล้วขยายเป็นตัวเลือก "ทำก่อนรอบ" ไม่บังคับ
+  const [gearChoice, setGearChoice] = useState<'do' | 'skip' | null>(null)
   const [gearExpanded, setGearExpanded] = useState(false)
   const [gearUsedShopOil, setGearUsedShopOil] = useState<boolean | null>(null)
   const gearShopOut = cycle != null && cycle.gearShopQty <= 0
   const showGearBox = cycle != null && (gearOffered || gearExpanded)
-  const doingGear = showGearBox && alsoGear
+  const doingGear = showGearBox && gearChoice === 'do'
+
+  // ข้อที่ยังไม่ได้ตอบ (เฉพาะรถที่ใช้โหมดตามรอบ — ปุ่มบันทึกกดไม่ได้จนกว่าจะตอบครบ)
+  const missing: string[] = []
+  if (cycle) {
+    if (oilType && usedShopOil === null) missing.push('น้ำมันเครื่อง: ใช้น้ำมันร้านไหม')
+    if (gearOffered && gearChoice === null) missing.push('เฟืองท้าย: เปลี่ยนด้วยหรือยังไม่ได้ทำ')
+    if (doingGear && gearUsedShopOil === null) missing.push('เฟืองท้าย: ใช้น้ำมันร้านไหม')
+  }
+  const blocked = missing.length > 0
+  const stockCount = (usedShopOil === true ? 1 : 0) + (doingGear && gearUsedShopOil === true ? 1 : 0)
+  const saveSummary = gearOffered && gearChoice === null
+    ? 'ยังไม่ได้เลือกว่าครั้งนี้เปลี่ยนเฟืองท้ายด้วยหรือไม่'
+    : `${doingGear ? 'เปลี่ยนน้ำมันเครื่อง + เฟืองท้าย' : 'เปลี่ยนน้ำมันเครื่องอย่างเดียว'}${gearOffered && !doingGear ? ' (เฟืองท้ายค้างไว้ถามรอบหน้า)' : ''} — ${stockCount > 0 ? `หักสต๊อก ${stockCount} ขวด` : 'ไม่หักสต๊อก'}`
 
   const handleSave = async () => {
     if (oilType && usedShopOil === null) { setError('กรุณาเลือกว่าใช้น้ำมันร้านหรือไม่'); return }
@@ -140,6 +155,9 @@ function RoutineCard({ r }: { r: RoutineItem }) {
 
       {isActionable && !saved && (
         <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px dashed #e5e7eb' }}>
+          {/* โหมดตามรอบ: แยกส่วน 🛢️ น้ำมันเครื่อง กับ ⚙️ เฟืองท้ายเป็นกรอบสีคนละสี (รถอื่นไม่มีกรอบ หน้าตาเหมือนเดิม) */}
+          <div style={cycle ? { border: '2px solid #fdba74', background: '#fffaf0', borderRadius: '12px', padding: '12px', marginBottom: '12px' } : undefined}>
+          {cycle && <div style={{ fontWeight: 800, color: '#c2410c', fontSize: '14px', marginBottom: '10px' }}>🛢️ น้ำมันเครื่อง</div>}
           {isKmBased && (
             <div className="field-row">
               <label className="field-label">เลขไมล์ที่ทำ</label>
@@ -179,35 +197,64 @@ function RoutineCard({ r }: { r: RoutineItem }) {
               )}
             </div>
           )}
+          </div>
           {cycle && !showGearBox && (
-            <button type="button" onClick={() => { setGearExpanded(true); setAlsoGear(true) }} style={{
+            <button type="button" onClick={() => setGearExpanded(true)} style={{
               width: '100%', textAlign: 'left', background: '#f3f4f6', border: 'none', borderRadius: '10px',
               padding: '10px 12px', marginBottom: '14px', fontSize: '12px', color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit',
             }}>
-              ⚙️ ยังไม่ถึงรอบเฟืองท้าย (รอบนี้ {nextEnginePosition(cycle.count)}/{CYCLE_LENGTH}) — ถ้าเปลี่ยนพร้อมนี้ด้วย แตะที่นี่
+              ⚙️ ยังไม่ถึงรอบเฟืองท้าย (รอบนี้ {nextEnginePosition(cycle.count)}/{CYCLE_LENGTH}) — ถ้าจะทำก่อนรอบ แตะที่นี่ (ไม่บังคับ)
             </button>
           )}
           {showGearBox && (
-            <div className="field-row" style={{
-              background: gearBacklog ? '#fef2f2' : gearOffered ? '#eff6ff' : '#f3f4f6',
-              border: `1px solid ${gearBacklog ? '#fecaca' : gearOffered ? '#bfdbfe' : '#e5e7eb'}`,
-              borderRadius: '12px', padding: '12px',
+            <div style={{
+              border: `2px solid ${gearBacklog ? '#fca5a5' : gearOffered ? '#93c5fd' : '#d1d5db'}`,
+              background: gearBacklog ? '#fef2f2' : gearOffered ? '#eff6ff' : '#f9fafb',
+              borderRadius: '12px', padding: '12px', marginBottom: '12px',
             }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '14px', color: gearBacklog ? '#dc2626' : gearOffered ? '#1d4ed8' : '#374151' }}>
-                <input type="checkbox" checked={alsoGear} onChange={e => setAlsoGear(e.target.checked)} style={{ width: '18px', height: '18px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <span style={{ fontWeight: 800, fontSize: '14px', color: gearBacklog ? '#dc2626' : gearOffered ? '#1d4ed8' : '#4b5563' }}>⚙️ น้ำมันเฟืองท้าย</span>
+                <span style={{
+                  fontSize: '11px', fontWeight: 700, borderRadius: '999px', padding: '2px 8px',
+                  background: gearBacklog ? '#dc2626' : gearOffered ? '#1d4ed8' : '#9ca3af', color: '#fff',
+                }}>{gearBacklog ? `🚨 ค้าง — ข้ามมา ${skippedTimes} ครั้ง` : gearOffered ? 'ถึงรอบ — ต้องตอบ' : 'ไม่บังคับ'}</span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#4b5563', marginBottom: '10px' }}>
                 {gearBacklog
-                  ? '🚨 ⚙️ ค้างเปลี่ยนเฟืองท้าย — เปลี่ยนพร้อมกันด้วย'
+                  ? `ข้ามเฟืองท้ายมาแล้ว ${skippedTimes} ครั้ง ควรเปลี่ยนเลยครั้งนี้`
                   : gearOffered
-                    ? '✅ ⚙️ ถึงรอบเปลี่ยนเฟืองท้ายแล้ว — เปลี่ยนพร้อมกันด้วย'
-                    : '⚙️ เปลี่ยนเฟืองท้ายพร้อมกันด้วย (นอกรอบ)'}
-              </label>
-              {!alsoGear && gearOffered && (
+                    ? `ถึงรอบเปลี่ยนเฟืองท้ายแล้ว (รอบ ${CYCLE_LENGTH}/${CYCLE_LENGTH})`
+                    : 'เปลี่ยนเฟืองท้ายก่อนถึงรอบ — ถ้าเปลี่ยนจริง ระบบจะนับรอบใหม่ทันที'}
+              </div>
+              <div className="field-label" style={{ marginBottom: '6px' }}>
+                {gearOffered ? 'ครั้งนี้ได้เปลี่ยนเฟืองท้ายด้วยไหม *' : 'เปลี่ยนเฟืองท้ายพร้อมนี้ด้วย'}
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => setGearChoice('do')} style={{
+                  flex: 1, padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                  border: `2px solid ${gearChoice === 'do' ? '#16a34a' : '#e5e7eb'}`,
+                  background: gearChoice === 'do' ? '#dcfce7' : '#fff', color: gearChoice === 'do' ? '#166534' : '#6b7280',
+                }}>✅ เปลี่ยนด้วย</button>
+                {gearOffered ? (
+                  <button type="button" onClick={() => setGearChoice('skip')} style={{
+                    flex: 1, padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                    border: `2px solid ${gearChoice === 'skip' ? '#374151' : '#e5e7eb'}`,
+                    background: gearChoice === 'skip' ? '#f1f5f9' : '#fff', color: gearChoice === 'skip' ? '#111827' : '#6b7280',
+                  }}>❌ ยังไม่ได้ทำ</button>
+                ) : (
+                  <button type="button" onClick={() => { setGearChoice(null); setGearExpanded(false) }} style={{
+                    flex: 1, padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                    border: '2px solid #e5e7eb', background: '#fff', color: '#6b7280',
+                  }}>ยกเลิก</button>
+                )}
+              </div>
+              {gearChoice === 'skip' && (
                 <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
                   ครั้งนี้ไม่ได้ทำเฟืองท้าย — ระบบจะค้างไว้ถามอีกในรอบหน้า
                 </div>
               )}
-              {alsoGear && (
-                <div style={{ marginTop: '10px' }}>
+              {doingGear && (
+                <div style={{ marginTop: '12px' }}>
                   <div className="field-label" style={{ marginBottom: '6px' }}>ใช้น้ำมันเฟืองท้ายร้านไหม *</div>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button type="button" disabled={gearShopOut} onClick={() => setGearUsedShopOil(true)} style={{
@@ -261,9 +308,19 @@ function RoutineCard({ r }: { r: RoutineItem }) {
             />
           </div>
           {error && <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '8px' }}>⚠️ {error}</div>}
+          {cycle && (
+            <div style={{ marginTop: '14px', fontSize: '13px', background: '#f1f5f9', borderRadius: '10px', padding: '10px 12px', color: '#111827' }}>
+              📝 จะบันทึก: {saveSummary}
+            </div>
+          )}
+          {blocked && (
+            <div style={{ marginTop: '8px', fontSize: '12px', color: '#dc2626', fontWeight: 600 }}>
+              ยังขาด: {missing.join(' • ')}
+            </div>
+          )}
           <button className="btn btn-success"
-            style={{ marginTop: '14px', width: '100%', opacity: loading ? 0.7 : 1 }}
-            onClick={handleSave} disabled={loading}>
+            style={{ marginTop: '14px', width: '100%', opacity: loading || blocked ? 0.5 : 1 }}
+            onClick={handleSave} disabled={loading || blocked}>
             {loading ? '⏳ กำลังบันทึก...' : '✅ บันทึกว่าเสร็จแล้ว'}
           </button>
         </div>
