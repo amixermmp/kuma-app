@@ -19,7 +19,7 @@ type Draft = {
 
 const SLOT = { open: '🌅 ตอนเปิดร้าน', day: '☀️ ระหว่างวัน', close: '🌙 ตอนปิดร้าน' } as const
 const KIND = { simple: 'ติ๊กธรรมดา', checklist: 'มีรายการย่อย (เช่น ช่องทางโพสต์)', auto: 'ดึงจากข้อมูล (ระบบติ๊กให้เอง)' } as const
-const AUTO = { fuel: 'รถในร้านน้ำมันไม่เต็ม', closeshop: 'ทำรายการปิดร้านในแอปแล้ว' } as const
+const AUTO = { fuel: 'รถในร้านน้ำมันไม่เต็ม', closeshop: 'ทำรายการปิดร้านในแอปแล้ว', followups: 'บันทึกผลรายการต้องทักครบแล้ววันนี้' } as const
 const DAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
 const toDraft = (t: Template): Draft => ({
@@ -32,7 +32,7 @@ const blank = (): Draft => ({
   requirePhoto: false, requireNote: false, daysOfWeek: [], branchIds: [], sortOrder: '100', active: true,
 })
 
-type DocSettings = { pobLeadDays: number; taxLeadDays: number; taxExpiredWaitDays: number; inspectYears: number; maxAppointmentDays: number; maxSnoozeFollowups: number }
+type DocSettings = { pobLeadDays: number; taxLeadDays: number; taxExpiredWaitDays: number; inspectYears: number; maxAppointmentDays: number; maxSnoozeFollowups: number; escalateUnreachableDays: number; escalateUnreachableDaysReturn: number }
 
 export default function QuestSettingsClient({ branches, templates, waitDays: initWait, disabledBranchIds: initDisabled, docSettings }: {
   branches: Branch[]; templates: Template[]; waitDays: number; disabledBranchIds: string[]; docSettings: DocSettings
@@ -45,6 +45,8 @@ export default function QuestSettingsClient({ branches, templates, waitDays: ini
   const [inspectYears, setInspectYears] = useState(String(docSettings.inspectYears))
   const [maxApptDays, setMaxApptDays] = useState(String(docSettings.maxAppointmentDays))
   const [maxSnooze, setMaxSnooze] = useState(String(docSettings.maxSnoozeFollowups))
+  const [escDays, setEscDays] = useState(String(docSettings.escalateUnreachableDays))
+  const [escDaysReturn, setEscDaysReturn] = useState(String(docSettings.escalateUnreachableDaysReturn))
   const [disabled, setDisabled] = useState<string[]>(initDisabled)
   const [savingSettings, setSavingSettings] = useState(false)
   const [msg, setMsg] = useState('')
@@ -64,6 +66,7 @@ export default function QuestSettingsClient({ branches, templates, waitDays: ini
       action: 'settings', waitDays: Number(waitDays), disabledBranchIds: disabled,
       pobLeadDays: Number(pobLead), taxLeadDays: Number(taxLead), taxExpiredWaitDays: Number(taxExpiredWait), inspectYears: Number(inspectYears),
       maxAppointmentDays: Number(maxApptDays), maxSnoozeFollowups: Number(maxSnooze),
+      escalateUnreachableDays: Number(escDays), escalateUnreachableDaysReturn: Number(escDaysReturn),
     })
     setSavingSettings(false)
     flash(err ? '❌ ' + err : '✅ บันทึกการตั้งค่าแล้ว')
@@ -113,6 +116,13 @@ export default function QuestSettingsClient({ branches, templates, waitDays: ini
           </Field>
           <Field label="ทักมาแล้วกี่ครั้งถึงเลิกให้นัดซ่อนรายการ" hint="ตั้ง 2 = ทักครั้งที่ 1-2 นัดซ่อนได้ ครั้งที่ 3 ขึ้นไปซ่อนไม่ได้ รายการขึ้นทุกวันพร้อมธงแดง">
             <input className="field-input" type="number" min={0} max={10} value={maxSnooze} onChange={e => setMaxSnooze(e.target.value)} />
+          </Field>
+          <div className="field-label" style={{ margin: '12px 0 6px', fontWeight: 800 }}>🚨 ติดต่อลูกค้าไม่ได้ → ให้ทักหาพี่เจ้าของร้าน</div>
+          <Field label="ติดต่อไม่ได้ (คนละวัน) กี่วันแล้วขึ้นธงแดง" hint="พนักงานกด 'ติดต่อไม่ได้วันนี้' ตอนสิ้นวัน นับเป็น 1 วัน — ใช้กับค่าเช่า รูทีน เอกสาร">
+            <input className="field-input" type="number" min={0} max={14} value={escDays} onChange={e => setEscDays(e.target.value)} />
+          </Field>
+          <Field label="เกินกำหนดคืนรถรายวัน ติดต่อไม่ได้กี่วันแล้วขึ้นธงแดง" hint="เร่งกว่าปกติ เพราะเสี่ยงรถหายหรือลูกค้าหนี">
+            <input className="field-input" type="number" min={0} max={14} value={escDaysReturn} onChange={e => setEscDaysReturn(e.target.value)} />
           </Field>
           <div className="field-label" style={{ margin: '12px 0 6px', fontWeight: 800 }}>📄 เอกสารรถ (ภาษี / พ.ร.บ.)</div>
           <Field label="พ.ร.บ. (และภาษีรถอายุน้อย) — เริ่มแจ้งเจ้าของก่อนหมดกี่วัน" hint="หลังหมดแล้วจะแจ้งเตือนต่อไปเรื่อยๆ จนกว่าจะต่อ">

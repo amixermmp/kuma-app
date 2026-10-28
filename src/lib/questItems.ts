@@ -9,7 +9,7 @@ type Admin = ReturnType<typeof createAdminClient>
 
 export const FOLLOWUP_OUTCOMES = {
   appointed: 'นัดแล้ว',
-  no_answer: 'ไม่รับสาย',
+  no_answer: 'ติดต่อไม่ได้วันนี้', // สรุปปลายวันว่าทัก/โทรแล้วยังไม่ได้คำตอบ (นับเป็น 1 วันที่ติดต่อไม่ได้)
   postponed: 'ขอเลื่อน',
   refused: 'ปฏิเสธ',
   other: 'อื่นๆ',
@@ -31,7 +31,8 @@ export type QuestSubItem = {
   doneToday: boolean
   followCount: number
   notes: FollowupNote[]
-  escalate?: boolean      // ทักมาแล้วถึงลิมิต (ค่าเริ่ม 2 ครั้ง) ยังไม่จบ → ให้ทักหาพี่เจ้าของร้าน นัดซ่อนไม่ได้แล้ว
+  escalate?: boolean      // ติดต่อไม่ได้เกินกำหนด (คนละวัน) → ธงแดง ให้ทักหาพี่เจ้าของร้าน
+  unreachableDays?: number // จำนวนวันที่บันทึก "ติดต่อไม่ได้"ของรายการนี้
   confirmDate?: string | null // วันนัดล่าสุดที่เป็นวันนี้/พรุ่งนี้ → ให้โทรยืนยันนัด
   info?: boolean          // บรรทัดข้อมูลเฉยๆ (เช่น น้ำมันเครื่องคาดครบเมื่อไหร่) ไม่ต้องติ๊ก
   notifyOwner?: boolean   // งานที่ต้องแจ้งเจ้าของ ไม่ใช่ทักลูกค้า
@@ -146,6 +147,9 @@ export async function loadQuestBoard(
   // ลิมิตการซ่อนรายการด้วยนัดวันที่: นัดไกลสุดกี่วัน / ทักกี่ครั้งแล้วเลิกให้นัดซ่อน
   const appointmentDays = Number(settings?.max_appointment_days ?? 7)
   const snoozeLimit = Number(settings?.max_snooze_followups ?? 2)
+  // ติดต่อไม่ได้คนละวันกี่วันแล้วขึ้นธงแดง (เกินกำหนดคืนรถรายวันเร่งกว่า)
+  const escDays = Number(settings?.escalate_unreachable_days ?? 2)
+  const escDaysReturn = Number(settings?.escalate_unreachable_days_return ?? 1)
   if ((settings?.disabled_branch_ids ?? []).includes(ownBranchId)) return { enabled: false, reason: 'เควสยังไม่เปิดใช้สำหรับสาขานี้' }
 
   const since = bangkokDate(nowMs - 90 * 86_400_000)
@@ -210,11 +214,13 @@ export async function loadQuestBoard(
   const decorate = (key: string, type: QuestItemType, label: string, detail: string, urgency: number, extra?: Partial<QuestSubItem>): QuestSubItem => {
     const fs = followByKey.get(key) ?? []
     const lastAppt = (fs.find(f => f.appointment_date)?.appointment_date as string | undefined) ?? null
+    const unreachableDays = new Set(fs.filter(f => f.outcome === 'no_answer').map(f => f.quest_date)).size
     return {
       key, type, label, detail, urgency,
       doneToday: fs.some(f => f.quest_date === today),
       followCount: fs.length,
-      escalate: fs.length >= snoozeLimit,
+      unreachableDays,
+      escalate: unreachableDays >= (type === 'return' ? escDaysReturn : escDays),
       confirmDate: lastAppt && lastAppt >= today && lastAppt <= tomorrow ? lastAppt : null,
       notes: fs.slice(0, 3).map(f => ({
         staff: f.staff_name ?? '', at: f.created_at, outcome: (FOLLOWUP_OUTCOMES as Record<string, string>)[f.outcome] ?? f.outcome,
@@ -395,6 +401,11 @@ export async function loadQuestBoard(
         autoItems = fuelBikes.map(b => ({ id: b.id, plate: b.license_plate, detail: 'น้ำมันไม่เต็ม' }))
         done = autoItems.length === 0
       } else if (t.auto_source === 'closeshop') done = closeDone
+      else if (t.auto_source === 'followups') {
+        // บันทึกผลรายการต้องทักให้ครบ: ทุกรายการในการ์ดต้องทักมีบันทึกผลของวันนี้แล้ว (รายการที่นัดซ่อนไว้ไม่อยู่ในลิสต์นี้อยู่แล้ว)
+        for (const c of chase) for (const i of c.items) if (!i.info && !i.doneToday) autoItems.push({ id: i.key, plate: c.plate, detail: i.label })
+        done = autoItems.length === 0
+      }
       return {
         id: t.id, title: t.title, slot: t.slot, kind: t.kind,
         requirePhoto: !!t.require_photo, requireNote: !!t.require_note,

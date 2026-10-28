@@ -97,8 +97,8 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
           )
         })}
 
-        <div style={{ fontWeight: 800, fontSize: '13px', padding: '8px 2px', color: '#dc2626' }}>🚨 ติดตามเกินลิมิตยังไม่จบ ({escalated.length} คัน)</div>
-        {escalated.length === 0 && <div style={{ color: '#9ca3af', fontSize: '13px', padding: '4px 0 14px' }}>ไม่มีรายการที่ติดตามเกินลิมิต</div>}
+        <div style={{ fontWeight: 800, fontSize: '13px', padding: '8px 2px', color: '#dc2626' }}>🚨 ติดต่อลูกค้าไม่ได้เกินกำหนด — รอพี่เจ้าของร้านจัดการ ({escalated.length} คัน)</div>
+        {escalated.length === 0 && <div style={{ color: '#9ca3af', fontSize: '13px', padding: '4px 0 14px' }}>ไม่มีรายการที่ติดต่อไม่ได้เกินกำหนด</div>}
         {escalated.map(c => (
           <div key={c.bikeId} className="card" style={{ marginBottom: '8px', borderLeft: '4px solid #dc2626' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
@@ -106,7 +106,7 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
             </div>
             {c.items.filter(i => !i.info && i.escalate).map(i => (
               <div key={i.key} style={{ fontSize: '12px', marginTop: '4px' }}>
-                <b>{i.label}</b> <span style={{ color: '#dc2626' }}>— {i.detail} • ทักมาแล้ว {i.followCount} ครั้ง</span>
+                <b>{i.label}</b> <span style={{ color: '#dc2626' }}>— {i.detail} • ติดต่อไม่ได้ {i.unreachableDays} วัน (ทักมาแล้ว {i.followCount} ครั้ง)</span>
                 {i.notes[0] && <div style={{ color: '#6b7280' }}>ล่าสุด {date(i.notes[0].at)} {i.notes[0].staff}: {i.notes[0].outcome} — {i.notes[0].note}</div>}
               </div>
             ))}

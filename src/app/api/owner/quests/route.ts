@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
       pob_lead_days: clamp(body.pobLeadDays, 7, 90), tax_lead_days: clamp(body.taxLeadDays, 30, 90),
       tax_expired_wait_days: clamp(body.taxExpiredWaitDays, 7, 60), inspect_years: clamp(body.inspectYears, 5, 30),
       max_appointment_days: clamp(body.maxAppointmentDays, 7, 60), max_snooze_followups: clamp(body.maxSnoozeFollowups, 2, 10),
+      escalate_unreachable_days: clamp(body.escalateUnreachableDays, 2, 14), escalate_unreachable_days_return: clamp(body.escalateUnreachableDaysReturn, 1, 14),
     })
     if (error) return NextResponse.json({ error: 'บันทึกไม่สำเร็จ' }, { status: 500 })
     return NextResponse.json({ success: true })
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
       ? (Array.isArray(t.subItems) ? t.subItems : []).map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 12)
       : []
     if (kind === 'checklist' && subItems.length === 0) return NextResponse.json({ error: 'เควสแบบมีรายการย่อยต้องมีอย่างน้อย 1 รายการ' }, { status: 400 })
-    const autoSource = kind === 'auto' ? (['fuel', 'closeshop'].includes(t.autoSource) ? t.autoSource : null) : null
+    const autoSource = kind === 'auto' ? (['fuel', 'closeshop', 'followups'].includes(t.autoSource) ? t.autoSource : null) : null
     if (kind === 'auto' && !autoSource) return NextResponse.json({ error: 'กรุณาเลือกแหล่งข้อมูลของเควสแบบดึงข้อมูล' }, { status: 400 })
     const days = Array.isArray(t.daysOfWeek) ? t.daysOfWeek.map(Number).filter((n: number) => n >= 0 && n <= 6) : []
     const branches = Array.isArray(t.branchIds) ? t.branchIds.filter((x: unknown) => typeof x === 'string') : []

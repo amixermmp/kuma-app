@@ -54,6 +54,11 @@ function FixedQuestCard({ q, onChanged }: { q: FixedQuest; onChanged: () => void
               {q.done ? 'รถในร้านน้ำมันเต็มทุกคัน (ติ๊กให้อัตโนมัติ)' : `ต้องเติมน้ำมัน ${q.autoItems.length} คัน: ${q.autoItems.map(a => a.plate).join(', ')}`}
             </div>
           )}
+          {q.kind === 'auto' && q.autoSource === 'followups' && (
+            <div style={{ fontSize: '12px', color: q.done ? '#16a34a' : '#dc2626', marginTop: '4px' }}>
+              {q.done ? 'บันทึกผลรายการต้องทักครบแล้ว (ติ๊กให้อัตโนมัติ)' : `ยังไม่ได้บันทึกผลวันนี้ ${q.autoItems.length} รายการ: ${Array.from(new Set(q.autoItems.map(a => a.plate))).slice(0, 8).join(', ')}${new Set(q.autoItems.map(a => a.plate)).size > 8 ? ' ...' : ''}`}
+            </div>
+          )}
           {q.meta && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>📷 {q.meta}</div>}
           {q.done && q.kind === 'simple' && q.doneBy && (
             <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>{q.doneBy}{q.doneAt ? ` • ${timeTh(q.doneAt)}` : ''}</div>
@@ -116,7 +121,8 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, snoozeLimit }: { car
   const needsAppt = outcome === 'appointed' || outcome === 'postponed'
   // ทักมาแล้วถึงลิมิต → นัดวันที่ซ่อนรายการไม่ได้แล้ว (ต้องทักหาพี่เจ้าของร้านแทน)
   const snoozeBlocked = card.items.some(i => selected.has(i.key) && !i.doneToday && !i.info && i.followCount >= snoozeLimit)
-  const escalated = card.items.some(i => !i.info && i.escalate && !i.doneToday)
+  const escalated = card.items.some(i => !i.info && i.escalate)
+  const maxUnreachable = Math.max(0, ...card.items.filter(i => !i.info && i.escalate).map(i => i.unreachableDays ?? 0))
   const maxFollowNow = Math.max(0, ...card.items.filter(i => !i.info).map(i => i.followCount))
   // เลือกแต่รายการที่ต้องแจ้งเจ้าของ (พ.ร.บ./ภาษีรถใหม่) → ตัวเลือกผลเป็นชุดของเจ้าของ ไม่ใช่ชุดทักลูกค้า
   const pickedNow = card.items.filter(i => selected.has(i.key) && !i.doneToday && !i.info)
@@ -165,7 +171,7 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, snoozeLimit }: { car
 
       {escalated && (
         <div style={{ marginTop: '10px', fontSize: '12px', fontWeight: 700, color: '#fff', background: '#dc2626', borderRadius: '10px', padding: '8px 10px' }}>
-          🚨 ทักมาแล้ว {maxFollowNow} ครั้งยังไม่จบ — ทักหาพี่เจ้าของร้าน
+          🚨 ติดต่อไม่ได้มาแล้ว {maxUnreachable} วัน — ทักหาพี่เจ้าของร้าน
         </div>
       )}
 
@@ -213,7 +219,8 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, snoozeLimit }: { car
 
       {open.length > 0 && (
         <div style={{ marginTop: '12px', borderTop: '1px dashed #e5e7eb', paddingTop: '12px' }}>
-          <div className="field-label" style={{ marginBottom: '6px' }}>ผลการทัก *</div>
+          <div className="field-label" style={{ marginBottom: '2px' }}>ผลการทัก *</div>
+          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>ได้คำตอบแล้วกดผลนั้นได้เลย / ถ้าสิ้นวันยังไม่ได้คำตอบ กด "ติดต่อไม่ได้วันนี้" พร้อมเขียนว่าทักไปกี่ครั้ง</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
             {outcomeChoices.map(c => (
               <button key={c.key} type="button" onClick={() => setOutcome(c.key)} style={{
