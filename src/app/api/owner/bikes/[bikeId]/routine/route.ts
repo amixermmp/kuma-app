@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { countRentedDaysSince } from '@/lib/routines'
+import { ENGINE_TASK, DEFAULT_ENGINE_RENTED_DAYS } from '@/lib/routineCycle'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ bikeId: string }> }) {
   const supabase = await createClient()
@@ -41,6 +42,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .eq('task_name', task_name)
     .maybeSingle()
 
+  // น้ำมันเครื่องที่เว้นช่องวันเช่าสะสมไว้ → ใส่ค่าเริ่มต้นให้ (เจ้าของอยากได้ค่าอื่นก็กรอกเอง) เฟืองท้ายตามรอบไม่นับวันเช่าของตัวเอง
+  if (task_name === ENGINE_TASK && payload.interval_rented_days == null && !existing?.follows_engine) {
+    payload.interval_rented_days = DEFAULT_ENGINE_RENTED_DAYS
+  }
+
   // ลงวันที่ทำรูทีนย้อนหลัง (หรือเพิ่งเปิดนับวันเช่า) → นับวันเช่าสะสมใหม่ตั้งแต่วันที่นั้น ไม่ให้ตัวนับค้างรอบเก่า/ตกหล่น
   // แก้แค่ช่วงเวลาอื่นของรูทีนโดยวันที่ไม่เปลี่ยน ไม่แตะตัวนับ; เฟืองท้ายตามรอบน้ำมันเครื่องไม่นับวันเช่าของตัวเอง
   let rentedDaysAccumulated: number | null = null
@@ -62,5 +68,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ success: true, next_due_date, rented_days_accumulated: rentedDaysAccumulated })
+  return NextResponse.json({
+    success: true, next_due_date, rented_days_accumulated: rentedDaysAccumulated, interval_rented_days: payload.interval_rented_days,
+  })
 }

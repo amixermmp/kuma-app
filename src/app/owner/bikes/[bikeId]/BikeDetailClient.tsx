@@ -237,7 +237,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
         last_done_date: routineForm.last_done_date || null,
         interval_days: routineForm.interval_days ? parseInt(routineForm.interval_days) : null,
         interval_km: routineForm.interval_km ? parseInt(routineForm.interval_km) : null,
-        interval_rented_days: routineForm.interval_rented_days ? parseInt(routineForm.interval_rented_days) : null,
+        interval_rented_days: data.interval_rented_days ?? null,
         next_due_date: data.next_due_date ?? x.next_due_date,
         rented_days_accumulated: data.rented_days_accumulated ?? x.rented_days_accumulated,
       } : x))

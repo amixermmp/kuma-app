@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { writeLog } from '@/lib/log'
-import { ENGINE_TASK, GEAR_TASK, GEAR_CEILING_DAYS, planGearForNewBike, type GearChoice } from '@/lib/routineCycle'
+import { ENGINE_TASK, GEAR_TASK, GEAR_CEILING_DAYS, DEFAULT_ENGINE_RENTED_DAYS, planGearForNewBike, type GearChoice } from '@/lib/routineCycle'
 
 export async function POST(request: NextRequest) {
   const supabaseAuth = await createClient()
@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
         last_done_date: r.last_done_date ?? null,
         next_due_km: nextDueKm,
         next_due_date: nextDueDate,
+        ...(r.task_name === ENGINE_TASK ? { interval_rented_days: DEFAULT_ENGINE_RENTED_DAYS } : {}),
       }
     })
     await supabase.from('bike_routines').insert(routineInserts)

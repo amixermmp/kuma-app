@@ -10,6 +10,8 @@ export const GEAR_TASK = 'เปลี่ยนน้ำมันเฟือง
 export const CYCLE_LENGTH = 3
 // เพดานปฏิทินของเฟืองท้าย — ไม่ได้เปลี่ยนเกินกี่วันก็เตือนเอง กันตัวนับรอบเพี้ยนหรือรถถูกใช้น้อย
 export const GEAR_CEILING_DAYS = 365
+// กำหนดวันเช่าสะสมของน้ำมันเครื่อง — รถเข้าระบบ/เจ้าของเว้นช่องไว้ ใส่ค่านี้ให้ กันรถที่ไม่มีตัวนับวันเช่าตกหล่น
+export const DEFAULT_ENGINE_RENTED_DAYS = 30
 
 // true = ครั้งนี้ที่เปลี่ยนน้ำมันเครื่องคือรอบที่ 3 ขึ้นไป (หรือค้างจากรอบก่อน) ต้องเสนอเปลี่ยนเฟืองท้ายด้วย
 export function gearDueThisChange(engineChangesSince: number): boolean {

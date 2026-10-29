@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { GEAR_TASK, GEAR_CEILING_DAYS, planGearForNewBike } from '@/lib/routineCycle'
+import { GEAR_TASK, GEAR_CEILING_DAYS, DEFAULT_ENGINE_RENTED_DAYS, planGearForNewBike } from '@/lib/routineCycle'
 
 type CsvRow = {
   branch_name: string
@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
           last_done_date: lastOilDate,
           next_due_km: oilKm,
           next_due_date: null,
+          interval_rented_days: DEFAULT_ENGINE_RENTED_DAYS,
         })
       }
       // เฟืองท้ายเข้าระบบตามรอบน้ำมันเครื่องเลย (ไม่ใช้ช่อง gear_oil_interval_km ในไฟล์แล้ว) — ไฟล์ไม่มีวันที่เปลี่ยนเฟืองท้าย
