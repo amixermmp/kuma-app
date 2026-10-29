@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds } from '@/lib/staffBranch'
-import { bangkokDate, FOLLOWUP_OUTCOMES } from '@/lib/questItems'
+import { bangkokDate, FOLLOWUP_OUTCOMES, UNLOCK_MAX_DAYS } from '@/lib/questItems'
 
 const KEY_PREFIX: Record<string, string> = { return: 'ret:', pay: 'pay:', routine: 'rtn:', doc: 'doc:' }
 
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   const staffId = (await cookies()).get('kuma_staff_id')?.value
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { items, outcome, appointmentDate, note } = await request.json()
+  const { items, outcome, appointmentDate, note, ownerApproved, approvalReason } = await request.json()
   if (!Array.isArray(items) || items.length === 0 || items.length > 20) return NextResponse.json({ error: 'กรุณาเลือกรายการที่ทักแล้ว' }, { status: 400 })
   if (!Object.keys(FOLLOWUP_OUTCOMES).includes(outcome)) return NextResponse.json({ error: 'กรุณาเลือกผลการทัก' }, { status: 400 })
   const cleanNote = typeof note === 'string' ? note.trim().slice(0, 1000) : ''
@@ -37,17 +37,29 @@ export async function POST(request: NextRequest) {
   }
 
   // ลิมิตการซ่อนรายการด้วยนัดวันที่: นัดไกลสุดกี่วัน + ทักมาแล้วถึงกี่ครั้งแล้วนัดซ่อนไม่ได้ (กันเลื่อนไปเรื่อยๆ)
+  // ปลดล็อกได้เมื่อพนักงานยืนยันว่าโทรถามพี่เจ้าของร้านแล้ว + เขียนเหตุผล → นัดไกลสุด UNLOCK_MAX_DAYS และไม่ติดเพดานทักซ้ำ
+  // (ระบบพิสูจน์ไม่ได้ว่าโทรจริง จึงเก็บชื่อ/เวลา/เหตุผลไว้ให้เจ้าของตรวจย้อน)
+  const reason = typeof approvalReason === 'string' ? approvalReason.trim().slice(0, 300) : ''
+  const wantsUnlock = ownerApproved === true
+  if (wantsUnlock && !reason) return NextResponse.json({ error: 'ปลดล็อกต้องเขียนเหตุผล (เช่น ลูกค้าไปต่างประเทศ กลับวันที่ ...)' }, { status: 400 })
+  let usedUnlock = false
   if (appt) {
     const { data: settings } = await supabase.from('quest_settings').select('*').eq('id', 1).maybeSingle()
     const maxDays = Number(settings?.max_appointment_days ?? 7)
     const snoozeLimit = Number(settings?.max_snooze_followups ?? 2)
     const maxDate = bangkokDate(Date.now() + maxDays * 86_400_000)
-    if (appt > maxDate) return NextResponse.json({ error: `นัดไกลสุดได้ ${maxDays} วันนับจากวันนี้` }, { status: 400 })
+    const unlockMaxDate = bangkokDate(Date.now() + UNLOCK_MAX_DAYS * 86_400_000)
+    if (wantsUnlock && appt > unlockMaxDate) return NextResponse.json({ error: `ปลดล็อกแล้วนัดไกลสุดได้ ${UNLOCK_MAX_DAYS} วันนับจากวันนี้` }, { status: 400 })
     const keys = (items as { key: string }[]).map(i => i.key)
     const { data: prev } = await supabase.from('quest_followups').select('item_key').in('item_key', keys)
     const counts = new Map<string, number>()
     for (const p of prev ?? []) counts.set(p.item_key, (counts.get(p.item_key) ?? 0) + 1)
-    if (keys.some(k => (counts.get(k) ?? 0) >= snoozeLimit)) {
+    const snoozeBlocked = keys.some(k => (counts.get(k) ?? 0) >= snoozeLimit)
+    const tooFar = appt > maxDate
+    // บันทึกว่าปลดล็อกเฉพาะตอนที่ต้องใช้จริง (ติ๊กมาแต่นัดอยู่ในลิมิตปกติ = ไม่นับเป็นข้อยกเว้น)
+    usedUnlock = wantsUnlock && (tooFar || snoozeBlocked)
+    if (!wantsUnlock && tooFar) return NextResponse.json({ error: `นัดไกลสุดได้ ${maxDays} วันนับจากวันนี้ — ถ้าต้องนัดไกลกว่านี้ ให้โทรถามพี่เจ้าของร้านแล้วกด "ปลดล็อก"` }, { status: 400 })
+    if (!wantsUnlock && snoozeBlocked) {
       return NextResponse.json({ error: `รายการนี้ทักมาแล้วครบ ${snoozeLimit} ครั้ง นัดวันที่ซ่อนไม่ได้แล้ว — ให้ทักหาพี่เจ้าของร้าน (ไม่ต้องใส่วันนัด)` }, { status: 400 })
     }
   }
@@ -56,6 +68,7 @@ export async function POST(request: NextRequest) {
   const rows = (items as { key: string; type: string }[]).map(i => ({
     item_key: i.key, item_type: i.type, bike_id: bike.id, branch_id: bike.branch_id, quest_date: today,
     staff_id: staffId, staff_name: staff?.name ?? null, outcome, appointment_date: appt, note: cleanNote,
+    ...(usedUnlock ? { owner_approved: true, approval_reason: reason } : {}),
   }))
   const { error } = await supabase.from('quest_followups').insert(rows)
   if (error) return NextResponse.json({ error: 'บันทึกไม่สำเร็จ' }, { status: 500 })

@@ -107,7 +107,7 @@ function FixedQuestCard({ q, onChanged }: { q: FixedQuest; onChanged: () => void
   )
 }
 
-function ChaseCardView({ card, onChanged, minDate, maxDate, snoozeLimit }: { card: QuestCard; onChanged: () => void; minDate: string; maxDate: string; snoozeLimit: number }) {
+function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snoozeLimit }: { card: QuestCard; onChanged: () => void; minDate: string; maxDate: string; unlockMaxDate: string; snoozeLimit: number }) {
   const open = card.items.filter(i => !i.doneToday && !i.info)
   const [selected, setSelected] = useState<Set<string>>(new Set(open.map(i => i.key)))
   const [outcome, setOutcome] = useState<OutcomeKey | ''>('')
@@ -116,6 +116,10 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, snoozeLimit }: { car
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
+  // ปลดล็อกนัดไกลกว่าลิมิต: โทรถามพี่เจ้าของร้านก่อน แล้วติ๊กยืนยัน + เขียนเหตุผล
+  const [unlockOpen, setUnlockOpen] = useState(false)
+  const [approved, setApproved] = useState(false)
+  const [reason, setReason] = useState('')
 
   const toggle = (key: string) => setSelected(prev => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n })
   const needsAppt = outcome === 'appointed' || outcome === 'postponed'
@@ -137,14 +141,18 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, snoozeLimit }: { car
     if (!outcome) { setError('กรุณาเลือกผลการทัก'); return }
     if (!outcomeChoices.some(c => c.key === outcome)) { setError('ผลการทักไม่ตรงกับรายการที่เลือก กรุณาเลือกใหม่'); setOutcome(''); return }
     if (!note.trim()) { setError('กรุณาเขียนข้อความ (ทักแล้วเป็นยังไง)'); return }
+    const unlocking = needsAppt && unlockOpen
+    if (unlocking && !approved) { setError('ติ๊กยืนยันว่าพี่เจ้าของร้านอนุมัติแล้ว (ต้องโทรถามก่อน)'); return }
+    if (unlocking && !reason.trim()) { setError('กรุณาเขียนเหตุผลที่ปลดล็อก'); return }
     setBusy(true); setError('')
     const err = await post('/api/staff/quests/followup', {
       items: picked.map(i => ({ key: i.key, type: i.type, bikeId: card.bikeId })),
-      outcome, appointmentDate: needsAppt && appt && !snoozeBlocked ? appt : null, note,
+      outcome, appointmentDate: needsAppt && appt && (!snoozeBlocked || unlocking) ? appt : null, note,
+      ownerApproved: unlocking && !!appt, approvalReason: unlocking ? reason : undefined,
     })
     setBusy(false)
     if (err) { setError(err); return }
-    setNote(''); setOutcome(''); setAppt('')
+    setNote(''); setOutcome(''); setAppt(''); setUnlockOpen(false); setApproved(false); setReason('')
     onChanged()
   }
 
@@ -229,15 +237,36 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, snoozeLimit }: { car
               }}>{c.label}</button>
             ))}
           </div>
-          {needsAppt && !snoozeBlocked && (
+          {needsAppt && (!snoozeBlocked || unlockOpen) && (
             <div style={{ marginBottom: '8px' }}>
-              <div className="field-label" style={{ marginBottom: '4px' }}>นัดวันที่ (รายการจะหายจนถึง 1 วันก่อนวันนัด — นัดไกลสุดถึง {dateTh(maxDate + 'T00:00:00+07:00')})</div>
-              <input className="field-input" type="date" min={minDate} max={maxDate} value={appt} onChange={e => setAppt(e.target.value)} />
+              <div className="field-label" style={{ marginBottom: '4px' }}>
+                นัดวันที่ (รายการจะหายจนถึง 1 วันก่อนวันนัด — นัดไกลสุดถึง {dateTh((unlockOpen ? unlockMaxDate : maxDate) + 'T00:00:00+07:00')})
+              </div>
+              <input className="field-input" type="date" min={minDate} max={unlockOpen ? unlockMaxDate : maxDate} value={appt} onChange={e => setAppt(e.target.value)} />
             </div>
           )}
-          {needsAppt && snoozeBlocked && (
+          {needsAppt && snoozeBlocked && !unlockOpen && (
             <div style={{ marginBottom: '8px', fontSize: '12px', color: '#dc2626', background: '#fef2f2', borderRadius: '8px', padding: '8px 10px' }}>
               ทักมาแล้วครบ {snoozeLimit} ครั้ง นัดวันที่ซ่อนรายการไม่ได้แล้ว — ให้ทักหาพี่เจ้าของร้าน (รายการจะขึ้นให้เห็นทุกวันจนกว่างานจะจบ)
+            </div>
+          )}
+          {needsAppt && !unlockOpen && (
+            <button type="button" onClick={() => setUnlockOpen(true)} style={{ marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '7px 10px', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}>
+              🔓 ปลดล็อก (นัดไกลกว่าลิมิต / ทักครบแล้ว) — ต้องโทรถามพี่เจ้าของร้านก่อน
+            </button>
+          )}
+          {needsAppt && unlockOpen && (
+            <div style={{ marginBottom: '8px', border: '1px solid #bfdbfe', background: '#eff6ff', borderRadius: '10px', padding: '10px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#1d4ed8', marginBottom: '6px' }}>🔓 ปลดล็อกนัดไกล (สูงสุดถึง {dateTh(unlockMaxDate + 'T00:00:00+07:00')})</div>
+              <div style={{ fontSize: '12px', color: '#1d4ed8', marginBottom: '8px' }}>📞 โทรถามพี่เจ้าของร้านก่อน แล้วจึงติ๊กด้านล่าง</div>
+              <label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>
+                <input type="checkbox" checked={approved} onChange={e => setApproved(e.target.checked)} style={{ width: '18px', height: '18px', marginTop: '1px' }} />
+                พี่เจ้าของร้านอนุมัติแล้ว
+              </label>
+              <input className="field-input" placeholder="เหตุผล * เช่น ลูกค้าไปญี่ปุ่น กลับ 20 พ.ย." value={reason} onChange={e => setReason(e.target.value)} />
+              <button type="button" onClick={() => { setUnlockOpen(false); setApproved(false); setReason(''); setAppt('') }} style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+                ยกเลิกการปลดล็อก
+              </button>
             </div>
           )}
           <textarea className="field-input" rows={2} placeholder={ownerMode ? 'ข้อความ * เช่น ทักหาพี่เจ้าของร้านแล้วทางไลน์' : 'ข้อความ * เช่น ทักแล้ว ลูกค้าบอกจะมาพรุ่งนี้'} value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: '8px' }} />
@@ -319,6 +348,7 @@ export default function QuestsClient({ board }: { board: QuestBoard }) {
   const b: Board = board
   const pct = b.progress.total > 0 ? Math.round((b.progress.done / b.progress.total) * 100) : 100
   const fixedBySlot = (slot: QuestSlot) => b.fixed.filter(f => f.slot === slot)
+  const unlockApptDate = new Date(Date.parse(`${b.date}T00:00:00Z`) + b.limits.unlockDays * 86_400_000).toISOString().split('T')[0]
   const maxApptDate = new Date(Date.parse(`${b.date}T00:00:00Z`) + b.limits.appointmentDays * 86_400_000).toISOString().split('T')[0]
 
   return (
@@ -349,7 +379,7 @@ export default function QuestsClient({ board }: { board: QuestBoard }) {
 
             {b.chase.length > 0 && (
               <Section title="📞 ต้องทัก" count={b.chase.length} color="#dc2626">
-                {b.chase.map(c => <ChaseCardView key={c.bikeId} card={c} onChanged={refresh} minDate={b.date} maxDate={maxApptDate} snoozeLimit={b.limits.snoozeLimit} />)}
+                {b.chase.map(c => <ChaseCardView key={c.bikeId} card={c} onChanged={refresh} minDate={b.date} maxDate={maxApptDate} unlockMaxDate={unlockApptDate} snoozeLimit={b.limits.snoozeLimit} />)}
               </Section>
             )}
 

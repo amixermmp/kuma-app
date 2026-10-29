@@ -25,7 +25,7 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
     admin.from('branches').select('id, name').order('name'),
     admin.from('daily_quest_templates').select('id, title, slot, kind, sub_items, branch_ids, days_of_week, auto_source').eq('active', true).order('sort_order'),
     admin.from('daily_quest_logs').select('template_id, branch_id, sub_item, staff_name, done_at, note, photo_url').eq('quest_date', today),
-    admin.from('quest_followups').select('item_key, item_type, bike_id, branch_id, quest_date, staff_name, outcome, appointment_date, note, created_at').gte('quest_date', since).order('created_at', { ascending: false }).limit(500),
+    admin.from('quest_followups').select('item_key, item_type, bike_id, branch_id, quest_date, staff_name, outcome, appointment_date, note, created_at, owner_approved, approval_reason').gte('quest_date', since).order('created_at', { ascending: false }).limit(500),
     admin.from('quest_settings').select('disabled_branch_ids').eq('id', 1).maybeSingle(),
   ])
 
@@ -40,6 +40,12 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
   const escalated = board && board.enabled ? board.chase.filter(c => c.items.some(i => !i.info && i.escalate)) : []
 
   const filtered = (followups ?? []).filter(f => !plate || (plateOf.get(f.bike_id) ?? '').replace(/\s/g, '').includes(plate.replace(/\s/g, '')))
+  // นัดไกลกว่าลิมิตที่พนักงานปลดล็อก (แจ้งว่าโทรถามพี่เจ้าของร้านแล้ว) และยังไม่ถึงวันนัด — รวมรายการที่บันทึกพร้อมกันเป็นแถวเดียว
+  const unlocked = Array.from(
+    (followups ?? []).filter(f => f.owner_approved && f.appointment_date && f.appointment_date >= today)
+      .reduce((m, f) => m.set(`${f.bike_id}|${f.created_at}`, f), new Map<string, NonNullable<typeof followups>[number]>()).values(),
+  )
+  const branchName = new Map((branches ?? []).map(b => [b.id, b.name]))
   const todayFollowups = (followups ?? []).filter(f => f.quest_date === today)
 
   return (
@@ -113,6 +119,21 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
           </div>
         ))}
 
+        <div style={{ fontWeight: 800, fontSize: '13px', padding: '8px 2px' }}>🔓 นัดไกลกว่าลิมิต — พนักงานแจ้งว่าพี่เจ้าของร้านอนุมัติแล้ว ({unlocked.length})</div>
+        {unlocked.length === 0 && <div style={{ color: '#9ca3af', fontSize: '13px', padding: '4px 0 14px' }}>ไม่มีรายการที่ปลดล็อก</div>}
+        {unlocked.map((f, idx) => (
+          <div key={idx} className="card" style={{ marginBottom: '8px', borderLeft: '4px solid #1d4ed8' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+              <b>{plateOf.get(f.bike_id) ?? '—'}</b>
+              <span style={{ color: '#1d4ed8', fontSize: '12px', fontWeight: 700 }}>นัด {date(f.appointment_date)}</span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+              {f.item_type === 'return' ? 'ทวงคืนรถ' : f.item_type === 'pay' ? 'ค่าเช่ารายเดือน' : f.item_type === 'doc' ? 'เอกสาร (ภาษี/พ.ร.บ.)' : 'รูทีน'} • บันทึกโดย {f.staff_name ?? ''} {date(f.created_at)} {time(f.created_at)}{branchName.get(f.branch_id) ? ` • ${branchName.get(f.branch_id)}` : ''}
+            </div>
+            <div style={{ fontSize: '13px', marginTop: '4px' }}>เหตุผล: {f.approval_reason}</div>
+          </div>
+        ))}
+
         <div style={{ fontWeight: 800, fontSize: '13px', padding: '8px 2px' }}>📞 ประวัติการติดตาม (30 วันล่าสุด)</div>
         <form style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
           <input name="plate" defaultValue={plate} placeholder="ค้นหาด้วยทะเบียน" className="field-input" style={{ flex: 1 }} />
@@ -127,7 +148,7 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
             </div>
             <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
               {f.item_type === 'return' ? 'ทวงคืนรถ' : f.item_type === 'pay' ? 'ค่าเช่ารายเดือน' : f.item_type === 'doc' ? 'เอกสาร (ภาษี/พ.ร.บ.)' : 'รูทีน'} • <b style={{ color: '#111827' }}>{(FOLLOWUP_OUTCOMES as Record<string, string>)[f.outcome] ?? f.outcome}</b>
-              {f.appointment_date ? ` • นัด ${date(f.appointment_date)}` : ''}
+              {f.appointment_date ? ` • นัด ${date(f.appointment_date)}` : ''}{f.owner_approved ? ' • 🔓 ปลดล็อกนัดไกล' : ''}
             </div>
             <div style={{ fontSize: '13px', marginTop: '4px' }}>{f.note}</div>
           </div>

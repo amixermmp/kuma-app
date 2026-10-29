@@ -85,8 +85,11 @@ export type QuestBoard =
       snoozed: QuestCard[]
       queue: { returns: QueueRow[]; sends: QueueRow[]; returnsDone: number; sendsDone: number }
       progress: { done: number; total: number }
-      limits: { appointmentDays: number; snoozeLimit: number }
+      limits: { appointmentDays: number; snoozeLimit: number; unlockDays: number }
     }
+
+// นัดไกลสุดเมื่อพนักงานปลดล็อก (โทรถามพี่เจ้าของร้านแล้ว) — ปลดแล้วไม่ติดเพดานทักซ้ำด้วย
+export const UNLOCK_MAX_DAYS = 30
 
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null))
 
@@ -446,6 +449,6 @@ export async function loadQuestBoard(
     enabled: true, date: today, branchId: ownBranchId, waitDays,
     fixed, chase, self, wait, snoozed: snoozedCards,
     queue: { returns, sends, returnsDone: (returnedTodayRaw ?? []).length, sendsDone: (startedTodayRaw ?? []).length },
-    progress, limits: { appointmentDays, snoozeLimit },
+    progress, limits: { appointmentDays, snoozeLimit, unlockDays: UNLOCK_MAX_DAYS },
   }
 }
