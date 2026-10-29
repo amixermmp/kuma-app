@@ -112,6 +112,7 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
   const [error, setError] = useState('')
   const [overrideOvertime, setOverrideOvertime] = useState('')
   const [routineDue, setRoutineDue] = useState<{ taskName: string; dueReason: string }[] | null>(null)
+  const [docAlerts, setDocAlerts] = useState<{ key: string; title: string; dayLabel: string; expired: boolean; notifyOwner: boolean; href: string | null }[]>([])
 
   // จุดคืนรถยังไม่ฟันธงตอนส่งรถ (เลือกคืนที่ร้าน หรือไม่ได้เลือกอะไรเลย) — ถามจริงตอนนี้แทน แล้วเก็บเงินเลยถ้าเลือกนอกสถานที่
   const returnAlreadyConfirmed = rental.return_type === 'offsite'
@@ -170,8 +171,11 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); return }
-      if (Array.isArray(data.routineDue) && data.routineDue.length > 0) {
-        setRoutineDue(data.routineDue)
+      const dueRoutines = Array.isArray(data.routineDue) ? data.routineDue : []
+      const dueDocs = Array.isArray(data.docAlerts) ? data.docAlerts : []
+      if (dueRoutines.length > 0 || dueDocs.length > 0) {
+        setRoutineDue(dueRoutines)
+        setDocAlerts(dueDocs)
         return
       }
       router.push('/staff/home')
@@ -613,21 +617,46 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
         }}>
           <div style={{ background: '#fff', borderRadius: '20px', padding: '24px', maxWidth: '360px', width: '100%' }}>
-            <div style={{ fontSize: '40px', textAlign: 'center', marginBottom: '10px' }}>🛢️</div>
+            <div style={{ fontSize: '40px', textAlign: 'center', marginBottom: '10px' }}>{routineDue.length > 0 ? '🛢️' : '📄'}</div>
             <div style={{ fontSize: '17px', fontWeight: 800, textAlign: 'center', color: '#111827', marginBottom: '4px' }}>
-              {bike.license_plate} ถึงกำหนดบำรุงรักษา
+              {bike.license_plate} {routineDue.length > 0 ? 'ถึงกำหนดบำรุงรักษา' : 'เอกสารรถใกล้หมด/หมดอายุ'}
             </div>
-            <div style={{ fontSize: '13px', textAlign: 'center', color: '#6b7280', marginBottom: '16px' }}>
-              โปรดตรวจสอบก่อนปล่อยเช่าคันนี้อีก
-            </div>
-            <div style={{ background: '#fef2f2', borderRadius: '12px', padding: '12px 14px', marginBottom: '16px' }}>
-              {routineDue.map((r, i) => (
-                <div key={i} style={{ padding: '4px 0', borderTop: i > 0 ? '1px solid #fecaca' : 'none' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{r.taskName}</div>
-                  <div style={{ fontSize: '12px', color: '#dc2626' }}>{r.dueReason}</div>
-                </div>
-              ))}
-            </div>
+            {routineDue.length > 0 && (
+              <div style={{ fontSize: '13px', textAlign: 'center', color: '#6b7280', marginBottom: '16px' }}>
+                โปรดตรวจสอบก่อนปล่อยเช่าคันนี้อีก
+              </div>
+            )}
+            {routineDue.length > 0 && (
+              <div style={{ background: '#fef2f2', borderRadius: '12px', padding: '12px 14px', marginBottom: '16px' }}>
+                {routineDue.map((r, i) => (
+                  <div key={i} style={{ padding: '4px 0', borderTop: i > 0 ? '1px solid #fecaca' : 'none' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{r.taskName}</div>
+                    <div style={{ fontSize: '12px', color: '#dc2626' }}>{r.dueReason}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {docAlerts.length > 0 && (
+              <div style={{ background: '#fffbeb', borderRadius: '12px', padding: '12px 14px', marginBottom: '16px', marginTop: routineDue.length > 0 ? 0 : '16px' }}>
+                {docAlerts.map((d, i) => (
+                  <div key={d.key} style={{ padding: '4px 0', borderTop: i > 0 ? '1px solid #fde68a' : 'none' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>📄 {d.title}</div>
+                    <div style={{ fontSize: '12px', color: d.expired ? '#dc2626' : '#b45309' }}>{d.dayLabel}</div>
+                    {d.href && (
+                      <button type="button" onClick={() => router.push(d.href!)} style={{ marginTop: '4px', fontSize: '12px', fontWeight: 700, color: '#c2410c', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        ไปหน้าเอกสาร
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {routineDue.length > 0 && docAlerts.some(d => !d.notifyOwner) && (
+                  <div style={{ fontSize: '11px', color: '#b45309', marginTop: '6px' }}>ภาษีกับรอบบำรุงถึงพร้อมกัน — ทำพร้อมกันได้</div>
+                )}
+                {docAlerts.some(d => d.notifyOwner) && (
+                  <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px' }}>รายการ "ทักหาพี่เจ้าของร้าน" จะขึ้นในเควสให้ติ๊กว่าแจ้งแล้ว</div>
+                )}
+              </div>
+            )}
             <button
               className="btn btn-success"
               style={{ width: '100%' }}

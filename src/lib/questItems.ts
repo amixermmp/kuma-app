@@ -88,6 +88,59 @@ export type QuestBoard =
       limits: { appointmentDays: number; snoozeLimit: number; unlockDays: number }
     }
 
+// กติกาเตือนเอกสาร พ.ร.บ./ภาษี (ชุดเดียวกันทั้งเควสและหน้ารับคืนรถ)
+//  - พ.ร.บ. และภาษีรถอายุไม่ถึง inspectYears ปี (ไม่ต้องนำเข้าตรวจ): แจ้งเจ้าของ ตั้งแต่ก่อนหมด pobLead วัน และหลังหมดตลอดไป
+//  - ภาษีรถที่ต้องนำเข้า (อายุถึงเกณฑ์ หรือไม่มีค่าปี): ทำเองที่ร้าน เตือนล่วงหน้า taxLead วัน
+export type DocAlert = { notifyOwner: boolean; daysLeft: number; expired: boolean; dayLabel: string; age: number | null }
+export type DocAlertConfig = { pobLead: number; taxLead: number; inspectYears: number }
+export function docAlert(
+  doc: { doc_type: string; expiry_date: string },
+  bikeYear: number | null | undefined,
+  todayMs: number,
+  thisYear: number,
+  cfg: DocAlertConfig,
+): DocAlert | null {
+  const [y, m, d] = String(doc.expiry_date).split('-').map(Number)
+  const daysLeft = Math.round((Date.UTC(y, m - 1, d) - todayMs) / 86_400_000)
+  const age = bikeYear ? thisYear - Number(bikeYear) : null
+  const notifyOwner = doc.doc_type === 'pob' || (age != null && age < cfg.inspectYears)
+  if (daysLeft > (notifyOwner ? cfg.pobLead : cfg.taxLead)) return null
+  const expired = daysLeft < 0
+  const dayLabel = expired ? `หมดอายุแล้ว ${-daysLeft} วัน` : daysLeft === 0 ? 'หมดอายุวันนี้' : `หมดอายุอีก ${daysLeft} วัน`
+  return { notifyOwner, daysLeft, expired, dayLabel, age }
+}
+
+export type BikeDocAlert = { key: string; title: string; dayLabel: string; expired: boolean; notifyOwner: boolean; href: string | null }
+// เอกสารของรถคันเดียวที่ถึงเกณฑ์เตือน — ใช้เตือนตอนรับคืนรถ (ค่าเกณฑ์ดึงจากตั้งค่าเควสของเจ้าของ)
+export async function loadBikeDocAlerts(supabase: Admin, bikeId: string): Promise<BikeDocAlert[]> {
+  const nowMs = Date.now()
+  const today = bangkokDate(nowMs)
+  const [ty, tm, td] = today.split('-').map(Number)
+  const [{ data: settings }, { data: bike }, { data: docs }] = await Promise.all([
+    supabase.from('quest_settings').select('*').eq('id', 1).maybeSingle(),
+    supabase.from('bikes').select('year').eq('id', bikeId).maybeSingle(),
+    supabase.from('bike_documents').select('id, doc_type, expiry_date').eq('bike_id', bikeId).in('doc_type', ['tax', 'pob']).not('expiry_date', 'is', null),
+  ])
+  const cfg: DocAlertConfig = {
+    pobLead: Number(settings?.pob_lead_days ?? 7),
+    taxLead: Number(settings?.tax_lead_days ?? 30),
+    inspectYears: Number(settings?.inspect_years ?? 5),
+  }
+  const out: BikeDocAlert[] = []
+  for (const doc of docs ?? []) {
+    const a = docAlert(doc, bike?.year, Date.UTC(ty, tm - 1, td), ty, cfg)
+    if (!a) continue
+    const name = doc.doc_type === 'pob' ? 'พ.ร.บ.' : 'ภาษีรถ'
+    out.push({
+      key: `${doc.id}:${doc.expiry_date}`,
+      title: a.notifyOwner ? `${name} — ทักหาพี่เจ้าของร้าน` : `${name} — ต้องนำรถเข้าต่อ ทำเองที่ร้าน`,
+      dayLabel: a.dayLabel, expired: a.expired, notifyOwner: a.notifyOwner,
+      href: a.notifyOwner ? null : `/staff/docs?bikeId=${bikeId}`,
+    })
+  }
+  return out.sort((x, y) => Number(y.expired) - Number(x.expired))
+}
+
 // นัดไกลสุดเมื่อพนักงานปลดล็อก (โทรถามพี่เจ้าของร้านแล้ว) — ปลดแล้วไม่ติดเพดานทักซ้ำด้วย
 export const UNLOCK_MAX_DAYS = 30
 
@@ -309,19 +362,15 @@ export async function loadQuestBoard(
   for (const doc of (docsRaw ?? []) as Row[]) {
     const bike = bikeById.get(doc.bike_id)
     if (!bike || !doc.expiry_date) continue
-    const daysLeft = daysTo(doc.expiry_date)
-    const expired = daysLeft < 0
-    const dayLabel = expired ? `หมดอายุแล้ว ${-daysLeft} วัน` : daysLeft === 0 ? 'หมดอายุวันนี้' : `หมดอายุอีก ${daysLeft} วัน`
+    const alert = docAlert(doc as { doc_type: string; expiry_date: string }, bike.year, todayMs, ty, { pobLead, taxLead, inspectYears })
+    if (!alert) continue
+    const { daysLeft, expired, dayLabel, age } = alert
     const key = `doc:${doc.id}:${doc.expiry_date}`
-    const age = bike.year ? ty - Number(bike.year) : null
-    const notifyOnly = doc.doc_type === 'pob' || (age != null && age < inspectYears)
-    if (notifyOnly) {
-      if (daysLeft > pobLead) continue
+    if (alert.notifyOwner) {
       const label = doc.doc_type === 'pob' ? 'พ.ร.บ. — ทักหาพี่เจ้าของร้าน' : `ภาษี (รถอายุ ${age} ปี ไม่ต้องนำเข้า) — ทักหาพี่เจ้าของร้าน`
       draftOf(bike.id).items.push(decorate(key, 'doc', label, dayLabel, expired ? 2 : 4, { notifyOwner: true }))
       continue
     }
-    if (daysLeft > taxLead) continue
     const monthly = monthlyByBike.get(bike.id)
     const rental = rentalByBike.get(bike.id)
     const label = 'ต่อภาษี (ต้องนำรถเข้ามา)'

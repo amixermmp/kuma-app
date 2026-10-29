@@ -5,6 +5,7 @@ import { writeLog } from '@/lib/log'
 import { recalcNeverDoneRoutines, calcRoutineUrgency } from '@/lib/routines'
 import { hasOpenContract } from '@/lib/availability'
 import { odometerLowerError } from '@/lib/odometerCheck'
+import { loadBikeDocAlerts, type BikeDocAlert } from '@/lib/questItems'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -166,5 +167,13 @@ export async function POST(request: NextRequest) {
     metadata: { rentalId, bikeId, damageFee, fuelFee, refundAmount },
   })
 
-  return NextResponse.json({ success: true, routineDue })
+  // เอกสาร พ.ร.บ./ภาษีใกล้หมดหรือหมดแล้ว — เตือนในกล่องเดียวกับรูทีน (กติกาเดียวกับเควส) พังตรงนี้ต้องไม่ทำให้การรับคืนล้ม
+  let docAlerts: BikeDocAlert[] = []
+  try {
+    docAlerts = await loadBikeDocAlerts(supabase, bikeId)
+  } catch (e) {
+    console.error('[rental/return] doc alerts failed:', bikeId, e)
+  }
+
+  return NextResponse.json({ success: true, routineDue, docAlerts })
 }
