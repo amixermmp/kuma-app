@@ -137,6 +137,8 @@ export async function POST(request: NextRequest) {
       next_due_date: nextDueDate,
       interval_rented_days: intervalRentedDays,
       rented_days_accumulated: 0,
+      rented_minutes_carry: 0,
+      rented_days_last_ticked_date: new Date(Date.now() + 7 * 3600_000).toISOString().split('T')[0], // เริ่มนับวันเช่าใหม่จากวันถัดไป
       last_cost: cost ?? null,
       receipt_url: receiptUrl ?? null,
       updated_at: new Date().toISOString(),

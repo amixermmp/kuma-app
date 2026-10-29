@@ -4,6 +4,7 @@ import { linePush, textMessage, imageMessage, LineMessage } from '@/lib/line'
 import { findBrokenBookings } from '@/lib/bookingConflicts'
 import { writeLog } from '@/lib/log'
 import { ENGINE_TASK, GEAR_TASK, gearDueThisChange } from '@/lib/routineCycle'
+import { tickRentedDays } from '@/lib/routines'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -925,42 +926,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ═══ 11) นับ "วันเช่าสะสม" ของรูทีนทีละ 1 วัน — เฉพาะรถที่กำลังถูกเช่าอยู่จริงวันนี้ ═══
-  // เดิมบวกยกก้อนตอนคืนรถ/ปิดสัญญา ทำให้นับซ้ำวันที่เกิดก่อนเปลี่ยนน้ำมันครั้งล่าสุด และไม่นับตอนต่อสัญญาเรื่อยๆ (ไม่เคยปิดสัญญาจริง)
-  // เปลี่ยนมาเดินทีละ 1 วันแทน กันเคสนับซ้ำ + ครอบคลุมรถที่เช่าต่อเนื่องยาวๆ ด้วย — เช็ค rented_days_last_ticked_date กันติ๊กซ้ำวันเดียวกัน
-  let routinesTicked = 0
-  {
-    const { data: pendingRoutines } = await supabase
-      .from('bike_routines')
-      .select('id, bike_id, rented_days_accumulated')
-      .not('interval_rented_days', 'is', null)
-      .or(`rented_days_last_ticked_date.is.null,rented_days_last_ticked_date.lt.${bkkToday}`)
-
-    if (pendingRoutines && pendingRoutines.length > 0) {
-      const bikeIds = Array.from(new Set(pendingRoutines.map(r => r.bike_id)))
-      const [{ data: activeRentals }, { data: activeMonthlies }] = await Promise.all([
-        supabase.from('rentals').select('bike_id').in('bike_id', bikeIds).in('status', ['active', 'extended']),
-        supabase.from('monthly_rentals').select('bike_id').in('bike_id', bikeIds).eq('status', 'active'),
-      ])
-      const rentedBikeIds = new Set([
-        ...(activeRentals ?? []).map(r => r.bike_id),
-        ...(activeMonthlies ?? []).map(r => r.bike_id),
-      ])
-
-      for (const r of pendingRoutines) {
-        const isRented = rentedBikeIds.has(r.bike_id)
-        const { error: tickErr } = await supabase
-          .from('bike_routines')
-          .update({
-            rented_days_last_ticked_date: bkkToday,
-            ...(isRented ? { rented_days_accumulated: (r.rented_days_accumulated ?? 0) + 1 } : {}),
-          })
-          .eq('id', r.id)
-        if (tickErr) console.error('[cron/line-notify] rented_days tick failed:', r.id, JSON.stringify(tickErr))
-        else if (isRented) routinesTicked++
-      }
-    }
-  }
+  // ═══ 11) นับ "วันเช่าสะสม" ของรูทีน — รวมเวลาที่รถอยู่กับลูกค้าจริงของวันเต็มที่ผ่านไปแล้ว (ถึงสิ้นเมื่อวาน) 24 ชม. = 1 วัน ═══
+  // เดิมบวก 1 ถ้าตอน cron รันมีสัญญาเปิดอยู่ → ตกหล่นวันที่เช่า-คืนในวันเดียว/ช่วงรอยต่อสัญญา/วันที่ cron พลาด
+  // ตอนนี้นับจากเวลาเช่า-คืนจริงของทุกสัญญา (รวมต่อสัญญา/คืนช้า) และนับย้อนช่วงที่ขาดให้เอง
+  const routinesTicked = await tickRentedDays(supabase, bkkToday)
 
   return NextResponse.json({
     checkedAt: nowIso,

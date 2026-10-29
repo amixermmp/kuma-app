@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { countRentedDaysSince } from '@/lib/routines'
+import { recountRentedSince } from '@/lib/routines'
 import { ENGINE_TASK, DEFAULT_ENGINE_RENTED_DAYS } from '@/lib/routineCycle'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ bikeId: string }> }) {
@@ -54,9 +54,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     && (!existing || existing.last_done_date !== last_done_date || existing.interval_rented_days == null)
   if (needsRecount) {
     const todayBkk = new Date(Date.now() + 7 * 3600_000).toISOString().split('T')[0]
-    rentedDaysAccumulated = await countRentedDaysSince(admin, bikeId, last_done_date, todayBkk)
-    payload.rented_days_accumulated = rentedDaysAccumulated
-    payload.rented_days_last_ticked_date = todayBkk // รวมวันนี้ไว้แล้ว กัน cron บวกซ้ำ
+    const recount = await recountRentedSince(admin, bikeId, last_done_date, todayBkk)
+    rentedDaysAccumulated = recount.days
+    payload.rented_days_accumulated = recount.days
+    payload.rented_minutes_carry = recount.carryMinutes
+    payload.rented_days_last_ticked_date = recount.countedThrough // นับถึงสิ้นเมื่อวานแล้ว วันนี้ให้ cron นับต่อ
   }
 
   let error
