@@ -63,7 +63,7 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
         {(branches ?? []).map(b => {
           const mine = (templates ?? []).filter(t => (!t.branch_ids?.length || t.branch_ids.includes(b.id)) && (!t.days_of_week?.length || t.days_of_week.includes(dow)))
           const bLogs = (logs ?? []).filter(l => l.branch_id === b.id)
-          const bFollow = todayFollowups.filter(f => f.branch_id === b.id)
+          const bFollow = Array.from(new Set(todayFollowups.filter(f => f.branch_id === b.id).map(f => f.item_key)))
           const isOff = disabled.includes(b.id)
           const done = mine.filter(t => {
             if (t.kind === 'auto') return false

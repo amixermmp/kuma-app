@@ -107,8 +107,10 @@ function FixedQuestCard({ q, onChanged }: { q: FixedQuest; onChanged: () => void
   )
 }
 
-function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snoozeLimit }: { card: QuestCard; onChanged: () => void; minDate: string; maxDate: string; unlockMaxDate: string; snoozeLimit: number }) {
-  const open = card.items.filter(i => !i.doneToday && !i.info)
+function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snoozeLimit, waitingView = false }: { card: QuestCard; onChanged: () => void; minDate: string; maxDate: string; unlockMaxDate: string; snoozeLimit: number; waitingView?: boolean }) {
+  // ล็อกเมื่อทักวันนี้แล้วและมีผลจริง; รายการที่ทักแล้วรอคำตอบยังบันทึกผลต่อได้
+  const locked = (i: QuestCard['items'][number]) => i.doneToday && !i.waiting
+  const open = card.items.filter(i => !locked(i) && !i.info)
   const [selected, setSelected] = useState<Set<string>>(new Set(open.map(i => i.key)))
   const [outcome, setOutcome] = useState<OutcomeKey | ''>('')
   const [appt, setAppt] = useState('')
@@ -124,19 +126,22 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snooz
   const toggle = (key: string) => setSelected(prev => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n })
   const needsAppt = outcome === 'appointed' || outcome === 'postponed'
   // ทักมาแล้วถึงลิมิต → นัดวันที่ซ่อนรายการไม่ได้แล้ว (ต้องทักหาพี่เจ้าของร้านแทน)
-  const snoozeBlocked = card.items.some(i => selected.has(i.key) && !i.doneToday && !i.info && i.followCount >= snoozeLimit)
+  // followCount นับวันนี้ด้วยถ้าทักไปแล้ว (รอคำตอบ) — ลิมิตนับเฉพาะวันก่อนหน้า
+  const snoozeBlocked = card.items.some(i => selected.has(i.key) && !locked(i) && !i.info && i.followCount - (i.doneToday ? 1 : 0) >= snoozeLimit)
   const escalated = card.items.some(i => !i.info && i.escalate)
   const maxUnreachable = Math.max(0, ...card.items.filter(i => !i.info && i.escalate).map(i => i.unreachableDays ?? 0))
   const maxFollowNow = Math.max(0, ...card.items.filter(i => !i.info).map(i => i.followCount))
   // เลือกแต่รายการที่ต้องแจ้งเจ้าของ (พ.ร.บ./ภาษีรถใหม่) → ตัวเลือกผลเป็นชุดของเจ้าของ ไม่ใช่ชุดทักลูกค้า
-  const pickedNow = card.items.filter(i => selected.has(i.key) && !i.doneToday && !i.info)
+  const pickedNow = card.items.filter(i => selected.has(i.key) && !locked(i) && !i.info)
   const ownerMode = pickedNow.length > 0 && pickedNow.every(i => i.notifyOwner === true)
+  // รายการที่รอคำตอบอยู่แล้วล้วนๆ ไม่ต้องเลือก "รอคำตอบ" ซ้ำ
+  const allWaiting = pickedNow.length > 0 && pickedNow.every(i => i.waiting)
   const outcomeChoices: { key: OutcomeKey; label: string }[] = ownerMode
     ? [{ key: 'notified', label: FOLLOWUP_OUTCOMES.notified }, { key: 'appointed', label: 'พี่เจ้าของร้านนัดวันแล้ว' }, { key: 'other', label: FOLLOWUP_OUTCOMES.other }]
-    : (Object.keys(FOLLOWUP_OUTCOMES) as OutcomeKey[]).filter(k => k !== 'notified').map(k => ({ key: k, label: FOLLOWUP_OUTCOMES[k] }))
+    : (Object.keys(FOLLOWUP_OUTCOMES) as OutcomeKey[]).filter(k => k !== 'notified' && !(allWaiting && k === 'waiting')).map(k => ({ key: k, label: FOLLOWUP_OUTCOMES[k] }))
 
   const save = async () => {
-    const picked = card.items.filter(i => selected.has(i.key) && !i.doneToday && !i.info)
+    const picked = card.items.filter(i => selected.has(i.key) && !locked(i) && !i.info)
     if (picked.length === 0) { setError('กรุณาติ๊กรายการที่ทักแล้วอย่างน้อย 1 รายการ'); return }
     if (!outcome) { setError('กรุณาเลือกผลการทัก'); return }
     if (!outcomeChoices.some(c => c.key === outcome)) { setError('ผลการทักไม่ตรงกับรายการที่เลือก กรุณาเลือกใหม่'); setOutcome(''); return }
@@ -161,7 +166,7 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snooz
   const maxFollow = Math.max(0, ...card.items.map(i => i.followCount))
 
   return (
-    <div className="card" style={{ marginBottom: '10px', borderLeft: `4px solid ${URGENCY_COLOR(card.urgency)}` }}>
+    <div className="card" style={{ marginBottom: '10px', borderLeft: `4px solid ${waitingView ? '#d97706' : URGENCY_COLOR(card.urgency)}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontWeight: 800, fontSize: '15px' }}>{card.plate} <span style={{ fontWeight: 500, fontSize: '12px', color: '#6b7280' }}>{card.bikeName}</span></div>
@@ -192,14 +197,19 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snooz
         ) : (
           <label key={i.key} style={{
             display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 10px', borderRadius: '10px',
-            background: i.doneToday ? '#f0fdf4' : selected.has(i.key) ? '#fff7ed' : '#f9fafb', cursor: i.doneToday ? 'default' : 'pointer',
+            background: locked(i) ? '#f0fdf4' : selected.has(i.key) ? '#fff7ed' : '#f9fafb', cursor: locked(i) ? 'default' : 'pointer',
           }}>
-            {i.doneToday ? <span style={{ fontSize: '16px' }}>✅</span> : (
+            {locked(i) ? <span style={{ fontSize: '16px' }}>✅</span> : (
               <input type="checkbox" checked={selected.has(i.key)} onChange={() => toggle(i.key)} style={{ width: '18px', height: '18px', marginTop: '1px' }} />
             )}
             <span style={{ flex: 1 }}>
               <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{i.notifyOwner ? '📣 ' : i.type === 'doc' ? '📄 ' : ''}{i.label}</span>
-              <span style={{ display: 'block', fontSize: '12px', color: URGENCY_COLOR(i.urgency), fontWeight: 600 }}>{i.detail}{i.doneToday ? ' • ทักวันนี้แล้ว' : ''}</span>
+              <span style={{ display: 'block', fontSize: '12px', color: URGENCY_COLOR(i.urgency), fontWeight: 600 }}>{i.detail}{locked(i) ? ' • ทักวันนี้แล้ว' : ''}</span>
+              {i.waiting && (
+                <span style={{ display: 'block', fontSize: '12px', color: '#92400e', marginTop: '2px' }}>
+                  ⏳ ทักแล้ว รอคำตอบลูกค้า{i.notes[0] ? ` — ${i.notes[0].staff} ${timeTh(i.notes[0].at)}: ${i.notes[0].note}` : ''}
+                </span>
+              )}
               {i.confirmDate && !i.doneToday && (
                 <span style={{ display: 'inline-block', marginTop: '3px', fontSize: '12px', fontWeight: 700, color: '#1d4ed8', background: '#dbeafe', borderRadius: '6px', padding: '2px 8px' }}>📅 นัด {dateTh(i.confirmDate + 'T00:00:00+07:00')} — โทรยืนยัน</span>
               )}
@@ -227,8 +237,12 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snooz
 
       {open.length > 0 && (
         <div style={{ marginTop: '12px', borderTop: '1px dashed #e5e7eb', paddingTop: '12px' }}>
-          <div className="field-label" style={{ marginBottom: '2px' }}>ผลการทัก *</div>
-          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>ได้คำตอบแล้วกดผลนั้นได้เลย / ถ้าสิ้นวันยังไม่ได้คำตอบ กด "ติดต่อไม่ได้วันนี้" พร้อมเขียนว่าทักไปกี่ครั้ง</div>
+          <div className="field-label" style={{ marginBottom: '2px' }}>{waitingView || allWaiting ? 'ลูกค้าตอบแล้ว — บันทึกผล *' : 'ผลการทัก *'}</div>
+          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>
+            {waitingView || allWaiting
+              ? 'ลูกค้าตอบมาแล้วกดผลนั้น / ยังไม่ตอบก็ปล่อยไว้ได้ ถ้าข้ามวันระบบนับเป็นติดต่อไม่ได้และขึ้นให้ทักใหม่พรุ่งนี้เช้าเอง'
+              : 'ทักแล้วยังไม่ตอบ กด "ทักแล้ว รอคำตอบลูกค้า" (รายการจะไปรอที่ส่วนรอคำตอบ) / ได้คำตอบแล้วกดผลนั้นได้เลย / ทักหลายรอบแล้วไม่ตอบและจะไม่รอต่อวันนี้ กด "ติดต่อไม่ได้วันนี้"'}
+          </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
             {outcomeChoices.map(c => (
               <button key={c.key} type="button" onClick={() => setOutcome(c.key)} style={{
@@ -282,10 +296,13 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snooz
 
 function SelfCardView({ card }: { card: QuestCard }) {
   return (
-    <div className="card" style={{ marginBottom: '10px', borderLeft: '4px solid #9ca3af' }}>
+    <div className="card" style={{ marginBottom: '10px', borderLeft: '4px solid #9ca3af', opacity: card.inRepair ? 0.8 : 1 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
         <div>
-          <div style={{ fontWeight: 800, fontSize: '15px' }}>{card.plate} <span style={{ fontWeight: 500, fontSize: '12px', color: '#6b7280' }}>{card.bikeName}</span></div>
+          <div style={{ fontWeight: 800, fontSize: '15px' }}>
+            {card.plate} <span style={{ fontWeight: 500, fontSize: '12px', color: '#6b7280' }}>{card.bikeName}</span>
+            {card.inRepair && <span style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 700, color: '#92400e', background: '#fef3c7', borderRadius: '6px', padding: '2px 8px' }}>🔨 กำลังซ่อม</span>}
+          </div>
           {card.items.map(i => (
             <div key={i.key} style={{ fontSize: '13px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
               <span><b>{i.type === 'doc' ? '📄 ' : ''}{i.label}</b> <span style={{ color: '#6b7280' }}>— {i.detail}</span></span>
@@ -377,15 +394,22 @@ export default function QuestsClient({ board }: { board: QuestBoard }) {
               <Section title={SLOT_LABEL.open}>{fixedBySlot('open').map(q => <FixedQuestCard key={q.id} q={q} onChanged={refresh} />)}</Section>
             )}
 
+            {/* ทำเองขึ้นก่อนต้องทัก: รถที่อยู่ในร้านตอนเช้าต้องลงมือก่อนมีคนเช่าออกไป ส่วนการทักทำเมื่อไหร่ก็ได้ */}
+            {b.self.length > 0 && (
+              <Section title="🔧 ทำเอง (รถอยู่ในร้าน — ทำก่อนมีคนเช่าออก)" count={b.self.length}>
+                {b.self.map(c => <SelfCardView key={c.bikeId} card={c} />)}
+              </Section>
+            )}
+
             {b.chase.length > 0 && (
               <Section title="📞 ต้องทัก" count={b.chase.length} color="#dc2626">
                 {b.chase.map(c => <ChaseCardView key={c.bikeId} card={c} onChanged={refresh} minDate={b.date} maxDate={maxApptDate} unlockMaxDate={unlockApptDate} snoozeLimit={b.limits.snoozeLimit} />)}
               </Section>
             )}
 
-            {b.self.length > 0 && (
-              <Section title="🔧 ทำเอง (รถอยู่ในร้าน)" count={b.self.length}>
-                {b.self.map(c => <SelfCardView key={c.bikeId} card={c} />)}
+            {b.waiting.length > 0 && (
+              <Section title="⏳ รอคำตอบลูกค้า (ทักแล้ว)" count={b.waiting.length} color="#d97706">
+                {b.waiting.map(c => <ChaseCardView key={c.bikeId} card={c} onChanged={refresh} minDate={b.date} maxDate={maxApptDate} unlockMaxDate={unlockApptDate} snoozeLimit={b.limits.snoozeLimit} waitingView />)}
               </Section>
             )}
 
@@ -398,6 +422,21 @@ export default function QuestsClient({ board }: { board: QuestBoard }) {
 
             {b.chase.length === 0 && b.self.length === 0 && (
               <div style={{ textAlign: 'center', color: '#16a34a', fontSize: '13px', padding: '8px 0 16px' }}>✅ ไม่มีงานค้างที่ต้องติดตามตอนนี้</div>
+            )}
+
+            {b.contacted.length > 0 && (
+              <Collapsible title="✅ ทักแล้ววันนี้ (ได้ผลแล้ว ไม่ต้องทำอะไรเพิ่ม)" count={b.contacted.length}>
+                {b.contacted.map(c => (
+                  <div key={c.bikeId} className="card" style={{ marginBottom: '8px', opacity: 0.85 }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px' }}>{c.plate} <span style={{ fontWeight: 400, color: '#6b7280' }}>{c.customer ?? ''}</span></div>
+                    {c.items.map(i => (
+                      <div key={i.key} style={{ fontSize: '12px', color: '#6b7280' }}>
+                        {i.label}{i.notes[0] ? ` — ${i.notes[0].outcome}${i.notes[0].appointment ? ` นัด ${dateTh(i.notes[0].appointment)}` : ''} (${i.notes[0].staff} ${timeTh(i.notes[0].at)})` : ''}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </Collapsible>
             )}
 
             {b.wait.length > 0 && (

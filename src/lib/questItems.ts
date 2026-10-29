@@ -8,6 +8,7 @@ import { ENGINE_TASK, GEAR_TASK, gearDueThisChange } from '@/lib/routineCycle'
 type Admin = ReturnType<typeof createAdminClient>
 
 export const FOLLOWUP_OUTCOMES = {
+  waiting: 'ทักแล้ว รอคำตอบลูกค้า', // ทัก/โทรแล้วแต่ยังไม่ได้คำตอบ — รายการย้ายไปส่วนรอคำตอบ; ข้ามวันโดยไม่มีผลใหม่ = นับเป็นติดต่อไม่ได้ 1 วันให้เอง
   appointed: 'นัดแล้ว',
   no_answer: 'ติดต่อไม่ได้วันนี้', // สรุปปลายวันว่าทัก/โทรแล้วยังไม่ได้คำตอบ (นับเป็น 1 วันที่ติดต่อไม่ได้)
   postponed: 'ขอเลื่อน',
@@ -29,7 +30,8 @@ export type QuestSubItem = {
   detail: string
   urgency: number
   doneToday: boolean
-  followCount: number
+  waiting?: boolean       // ผลล่าสุดของวันนี้คือ "ทักแล้ว รอคำตอบลูกค้า" (ยังบันทึกผลจริงต่อได้)
+  followCount: number     // จำนวนวันที่ทักรายการนี้ (วันเดียวทักกี่รอบก็นับ 1)
   notes: FollowupNote[]
   escalate?: boolean      // ติดต่อไม่ได้เกินกำหนด (คนละวัน) → ธงแดง ให้ทักหาพี่เจ้าของร้าน
   unreachableDays?: number // จำนวนวันที่บันทึก "ติดต่อไม่ได้"ของรายการนี้
@@ -49,6 +51,7 @@ export type QuestCard = {
   group: QuestGroup
   urgency: number
   ownerOnly: boolean      // การ์ดนี้มีแต่งานที่ต้องแจ้งเจ้าของ (ไม่ต้องทักลูกค้า)
+  inRepair: boolean       // รถอยู่ในร้านแต่กำลังซ่อม/บำรุง (กลุ่มทำเอง แสดงท้ายสุดพร้อมป้าย)
   items: QuestSubItem[]
 }
 export type FixedQuest = {
@@ -79,7 +82,9 @@ export type QuestBoard =
       branchId: string
       waitDays: number
       fixed: FixedQuest[]
-      chase: QuestCard[]
+      chase: QuestCard[]      // ต้องลงมือทักจริง (มีรายการที่ยังไม่ทักวันนี้ หรือติดต่อไม่ได้เกินกำหนด)
+      waiting: QuestCard[]    // ทักแล้ววันนี้ รอคำตอบลูกค้า
+      contacted: QuestCard[]  // ทักแล้ววันนี้และได้ผลแล้ว ไม่มีอะไรต้องทำเพิ่ม
       self: QuestCard[]
       wait: QuestCard[]
       snoozed: QuestCard[]
@@ -268,13 +273,19 @@ export async function loadQuestBoard(
   const followByKey = new Map<string, Row[]>()
   for (const f of (followupsRaw ?? []) as Row[]) (followByKey.get(f.item_key) ?? followByKey.set(f.item_key, []).get(f.item_key)!).push(f)
   const decorate = (key: string, type: QuestItemType, label: string, detail: string, urgency: number, extra?: Partial<QuestSubItem>): QuestSubItem => {
-    const fs = followByKey.get(key) ?? []
+    const fs = followByKey.get(key) ?? [] // เรียงใหม่→เก่า
     const lastAppt = (fs.find(f => f.appointment_date)?.appointment_date as string | undefined) ?? null
-    const unreachableDays = new Set(fs.filter(f => f.outcome === 'no_answer').map(f => f.quest_date)).size
+    const byDate = new Map<string, Row[]>()
+    for (const f of fs) (byDate.get(f.quest_date) ?? byDate.set(f.quest_date, []).get(f.quest_date)!).push(f)
+    // วันที่ติดต่อไม่ได้ = กด "ติดต่อไม่ได้" หรือ ทักแล้วรอคำตอบแต่วันนั้นผ่านไปโดยไม่มีผลอื่นเลย (วันนี้ยังรอได้ ยังไม่นับ)
+    const unreachableDays = Array.from(byDate.entries())
+      .filter(([d, recs]) => recs.some(f => f.outcome === 'no_answer') || (d < today && recs.every(f => f.outcome === 'waiting'))).length
+    const todayRecs = byDate.get(today) ?? []
     return {
       key, type, label, detail, urgency,
-      doneToday: fs.some(f => f.quest_date === today),
-      followCount: fs.length,
+      doneToday: todayRecs.length > 0,
+      waiting: todayRecs[0]?.outcome === 'waiting',
+      followCount: byDate.size,
       unreachableDays,
       escalate: unreachableDays >= (type === 'return' ? escDaysReturn : escDays),
       confirmDate: lastAppt && lastAppt >= today && lastAppt <= tomorrow ? lastAppt : null,
@@ -407,6 +418,7 @@ export async function loadQuestBoard(
     const base = {
       bikeId: d.bikeId, plate: bike.license_plate, bikeName: `${bike.brand ?? ''} ${bike.model ?? ''}`.trim(),
       holder, customer: cust?.name ?? null, phone: cust?.phone ?? null, expectedEnd: rental?.expected_end_datetime ?? null,
+      inRepair: holder === 'shop' && (bike.status === 'repair' || bike.status === 'maintenance'),
     }
     for (const group of ['chase', 'self', 'wait'] as QuestGroup[]) {
       const inGroup = d.items.filter(i => groupOfUrgency(i.urgency) === group)
@@ -425,7 +437,28 @@ export async function loadQuestBoard(
   }
   const sortCards = (a: QuestCard, b: QuestCard) => a.urgency - b.urgency || a.plate.localeCompare(b.plate)
   const chase = cards.filter(c => c.group === 'chase').sort(sortCards)
-  const self = cards.filter(c => c.group === 'self').sort(sortCards)
+  // รถกำลังซ่อมแสดงท้ายสุดของกลุ่มทำเอง (ยังเห็นอยู่ แต่ไม่ปนกับคันที่ลงมือทำได้เลย)
+  const self = cards.filter(c => c.group === 'self').sort((a, b) => Number(a.inRepair) - Number(b.inRepair) || sortCards(a, b))
+
+  // แยกการ์ดต้องทักตามสถานะ: ต้องลงมือ / ทักแล้วรอคำตอบ / ทักแล้วได้ผลแล้ว (การ์ดที่ติดต่อไม่ได้เกินกำหนดอยู่ครบใบในต้องลงมือเสมอ ให้ธงแดงเห็น)
+  // ความคืบหน้าและเควสอัตโนมัติ "followups" ใช้รายการ chase เต็ม (ทุกรายการที่ทักวันนี้นับว่าทักแล้ว) ไม่กระทบจากการแยกนี้
+  const rebuild = (c: QuestCard, items: QuestSubItem[]): QuestCard => {
+    const real = items.filter(i => !i.info)
+    return { ...c, items, urgency: Math.min(...real.map(i => i.urgency)), ownerOnly: real.every(i => i.notifyOwner === true) }
+  }
+  const chaseOpen: QuestCard[] = []
+  const waitingCards: QuestCard[] = []
+  const contactedCards: QuestCard[] = []
+  for (const c of chase) {
+    if (c.items.some(i => !i.info && i.escalate)) { chaseOpen.push(c); continue }
+    const waitingItems = c.items.filter(i => !i.info && i.waiting)
+    const rest = c.items.filter(i => !i.waiting)
+    const restReal = rest.filter(i => !i.info)
+    if (waitingItems.length > 0) waitingCards.push(rebuild(c, waitingItems))
+    if (restReal.length === 0) continue
+    if (restReal.some(i => !i.doneToday)) chaseOpen.push(waitingItems.length > 0 ? rebuild(c, rest) : c)
+    else contactedCards.push(rebuild(c, restReal))
+  }
   const wait = cards.filter(c => c.group === 'wait').sort((a, b) => (a.expectedEnd ?? '').localeCompare(b.expectedEnd ?? ''))
   void routineWait
 
@@ -496,7 +529,7 @@ export async function loadQuestBoard(
 
   return {
     enabled: true, date: today, branchId: ownBranchId, waitDays,
-    fixed, chase, self, wait, snoozed: snoozedCards,
+    fixed, chase: chaseOpen, waiting: waitingCards, contacted: contactedCards, self, wait, snoozed: snoozedCards,
     queue: { returns, sends, returnsDone: (returnedTodayRaw ?? []).length, sendsDone: (startedTodayRaw ?? []).length },
     progress, limits: { appointmentDays, snoozeLimit, unlockDays: UNLOCK_MAX_DAYS },
   }

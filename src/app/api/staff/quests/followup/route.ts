@@ -20,7 +20,8 @@ export async function POST(request: NextRequest) {
 
   const today = bangkokDate()
   let appt: string | null = null
-  if (appointmentDate) {
+  // "ทักแล้ว รอคำตอบ" ยังไม่มีวันนัด — ไม่รับวันนัดมาซ่อนรายการ
+  if (appointmentDate && outcome !== 'waiting') {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(appointmentDate) || appointmentDate < today) return NextResponse.json({ error: 'วันนัดไม่ถูกต้อง' }, { status: 400 })
     appt = appointmentDate
   }
@@ -51,10 +52,11 @@ export async function POST(request: NextRequest) {
     const unlockMaxDate = bangkokDate(Date.now() + UNLOCK_MAX_DAYS * 86_400_000)
     if (wantsUnlock && appt > unlockMaxDate) return NextResponse.json({ error: `ปลดล็อกแล้วนัดไกลสุดได้ ${UNLOCK_MAX_DAYS} วันนับจากวันนี้` }, { status: 400 })
     const keys = (items as { key: string }[]).map(i => i.key)
-    const { data: prev } = await supabase.from('quest_followups').select('item_key').in('item_key', keys)
-    const counts = new Map<string, number>()
-    for (const p of prev ?? []) counts.set(p.item_key, (counts.get(p.item_key) ?? 0) + 1)
-    const snoozeBlocked = keys.some(k => (counts.get(k) ?? 0) >= snoozeLimit)
+    // นับ "วันที่เคยทัก" ก่อนวันนี้ — วันนี้ทัก (รอคำตอบ) แล้วบันทึกผลต่อ ถือเป็นการทักครั้งเดียวกัน ไม่นับซ้ำ
+    const { data: prev } = await supabase.from('quest_followups').select('item_key, quest_date').in('item_key', keys).lt('quest_date', today)
+    const daysByKey = new Map<string, Set<string>>()
+    for (const p of prev ?? []) (daysByKey.get(p.item_key) ?? daysByKey.set(p.item_key, new Set()).get(p.item_key)!).add(p.quest_date)
+    const snoozeBlocked = keys.some(k => (daysByKey.get(k)?.size ?? 0) >= snoozeLimit)
     const tooFar = appt > maxDate
     // บันทึกว่าปลดล็อกเฉพาะตอนที่ต้องใช้จริง (ติ๊กมาแต่นัดอยู่ในลิมิตปกติ = ไม่นับเป็นข้อยกเว้น)
     usedUnlock = wantsUnlock && (tooFar || snoozeBlocked)

@@ -30,9 +30,10 @@ type Props = {
   shopPlates: string[]
   repairPlates: string[]
   alreadyClosedToday: { closedAt: string; staffName: string } | null
+  questWarning: { fixed: string[]; chase: number; self: number } | null
 }
 
-export default function CloseShopClient({ staffName, branchName, shopPlates, repairPlates, alreadyClosedToday }: Props) {
+export default function CloseShopClient({ staffName, branchName, shopPlates, repairPlates, alreadyClosedToday, questWarning }: Props) {
   const expectedPlates = [...shopPlates, ...repairPlates]
   const router = useRouter()
   const selfieInputRef = useRef<HTMLInputElement>(null)
@@ -318,6 +319,19 @@ export default function CloseShopClient({ staffName, branchName, shopPlates, rep
             padding: '10px 12px', marginBottom: '14px', fontSize: '12px', color: '#92400e',
           }}>
             ⚠️ วันนี้ปิดร้านไปแล้วเมื่อ {new Date(alreadyClosedToday.closedAt).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' })} น. โดย {alreadyClosedToday.staffName} — ยังปิดซ้ำได้ถ้าจำเป็น
+          </div>
+        )}
+
+        {questWarning && (
+          <div style={{
+            background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '12px',
+            padding: '10px 12px', marginBottom: '14px', fontSize: '12px', color: '#92400e',
+          }}>
+            <div style={{ fontWeight: 800, marginBottom: '4px' }}>⚠️ ตรวจเควสก่อนปิดร้าน — ยังมีเควสค้าง (ไม่บังคับ ปิดร้านต่อได้)</div>
+            {questWarning.fixed.length > 0 && <div>• เควสประจำ {questWarning.fixed.length} ข้อ: {questWarning.fixed.slice(0, 3).join(', ')}{questWarning.fixed.length > 3 ? ' ...' : ''}</div>}
+            {questWarning.chase > 0 && <div>• ต้องทัก {questWarning.chase} คัน ที่ยังไม่ได้ทักวันนี้</div>}
+            {questWarning.self > 0 && <div>• รถในร้านมีงานทำเอง {questWarning.self} คัน (ทำพรุ่งนี้ได้ แต่อย่าปล่อยค้างนาน)</div>}
+            <Link href="/staff/quests" style={{ display: 'inline-block', marginTop: '6px', fontWeight: 700, color: '#92400e', textDecoration: 'underline' }}>ไปดูเควส →</Link>
           </div>
         )}
 

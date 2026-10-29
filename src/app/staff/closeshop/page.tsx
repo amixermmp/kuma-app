@@ -2,8 +2,9 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getStaffOwnBranchId } from '@/lib/staffBranch'
+import { getStaffOwnBranchId, getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
 import { getShopOverviewGroups } from '@/lib/shopOverview'
+import { loadQuestBoard } from '@/lib/questItems'
 import CloseShopClient from './CloseShopClient'
 
 export const dynamic = 'force-dynamic'
@@ -67,6 +68,23 @@ export default async function CloseShopPage() {
     staffName: (existingCloseToday as any).staff?.name ?? '',
   } : null
 
+  // เควสค้างก่อนปิดร้าน — เตือนอย่างเดียว ไม่บล็อกการปิดร้าน (โหลดพลาดก็ไม่ขึ้นแถบ ปิดร้านได้ตามปกติ)
+  // ไม่นับ: เควสช่วงปิดร้าน/เควสปิดร้านเอง, เควส "ต้องทักครบ" (นับจากรายการต้องทักโดยตรงแล้ว), รายการที่ทักแล้วรอคำตอบ
+  let questWarning: { fixed: string[]; chase: number; self: number } | null = null
+  try {
+    const allowedBranchIds = await getStaffBranchIds(staffId)
+    const allowedBikeIds = await getAllowedBikeIds(allowedBranchIds)
+    const board = await loadQuestBoard(admin, { allowedBranchIds, allowedBikeIds, ownBranchId: branchId })
+    if (board.enabled) {
+      const fixed = board.fixed.filter(f => !f.done && f.slot !== 'close' && f.autoSource !== 'closeshop' && f.autoSource !== 'followups').map(f => f.title)
+      const chase = board.chase.filter(c => c.items.some(i => !i.info && !i.doneToday)).length
+      const self = board.self.filter(c => !c.inRepair).length
+      if (fixed.length + chase + self > 0) questWarning = { fixed, chase, self }
+    }
+  } catch (e) {
+    console.error('[closeshop] quest warning failed:', e)
+  }
+
   return (
     <CloseShopClient
       staffName={staffName}
@@ -74,6 +92,7 @@ export default async function CloseShopPage() {
       shopPlates={shopPlates}
       repairPlates={repairPlates}
       alreadyClosedToday={alreadyClosedToday}
+      questWarning={questWarning}
     />
   )
 }
