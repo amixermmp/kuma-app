@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPromoPayDays, resolveSingleBikeRate } from '@/lib/bikeCatalog'
+import { loadMonthlySettlement } from '@/lib/monthlySettlementServer'
+import { isThaiIdNumber } from '@/lib/customer'
 import MonthlyEndClient from './MonthlyEndClient'
 
 export const dynamic = 'force-dynamic'
@@ -14,34 +15,10 @@ export default async function MonthlyEndPage({ params }: { params: Promise<{ id:
   const { id } = await params
   const supabase = createAdminClient()
 
-  const [{ data: rental }, { data: payments }] = await Promise.all([
-    supabase
-      .from('monthly_rentals')
-      .select(`
-        id, start_date, payment_day, monthly_rate, deposit_amount, deposit_method, status,
-        bikes(id, license_plate, brand, model, branch_id, odometer, daily_rate, monthly_rate),
-        customers(id, name, phone)
-      `)
-      .eq('id', id)
-      .eq('status', 'active')
-      .single(),
-    supabase
-      .from('monthly_payments')
-      .select('due_date, amount, status')
-      .eq('monthly_rental_id', id)
-      .is('voided_at', null)
-      .in('status', ['paid', 'partial']),
-  ])
-
-  if (!rental) redirect('/staff/home')
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rentalBike = (rental as any).bikes
-  const promoPayDays = rentalBike ? await getPromoPayDays(supabase, rentalBike.brand, rentalBike.model, rentalBike.branch_id) : 5
-  // ราคาปัจจุบันของรถ ใช้คิด "ราคาปกติ" เทียบตอนคืนรถก่อนกำหนด — ต้อง resolve เผื่อรถไม่ได้ override ราคาไว้
-  const resolvedRental = rentalBike ? { ...rental, bikes: await resolveSingleBikeRate(supabase, rentalBike) } : rental
-
-  const totalCollected = (payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
+  // ใบสรุปคิดที่ฝั่งเซิร์ฟเวอร์ด้วยตัวคิดตัวเดียวกับ API จบสัญญา (API คิดซ้ำอีกรอบตอนกดยืนยัน)
+  const loaded = await loadMonthlySettlement(supabase, id)
+  if (!loaded) redirect('/staff/home')
+  const { rental, customer, currentBike, formulaBike, settlement, totalCollected, depositCash } = loaded
 
   const startDate = new Date(rental.start_date)
   const now = new Date()
@@ -49,25 +26,29 @@ export default async function MonthlyEndPage({ params }: { params: Promise<{ id:
     (now.getFullYear() - startDate.getFullYear()) * 12 +
     (now.getMonth() - startDate.getMonth()) + 1
 
-  // งวดปัจจุบันที่จ่ายไปแล้ว (due_date ล่าสุด) — ใช้หาว่าคืนรถก่อนครบงวดไหม
-  const dueDates = Array.from(new Set((payments ?? []).map(p => p.due_date))).sort()
-  const periodEnd = dueDates[dueDates.length - 1] ?? null
-  const periodStart = dueDates.length >= 2 ? dueDates[dueDates.length - 2] : rental.start_date
-  const periodPaidAmount = periodEnd
-    ? (payments ?? []).filter(p => p.due_date === periodEnd).reduce((s, p) => s + Number(p.amount), 0)
-    : 0
-
   return (
     <MonthlyEndClient
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      rental={resolvedRental as any}
+      rental={{
+        id: rental.id,
+        start_date: rental.start_date,
+        payment_day: rental.payment_day,
+        monthly_rate: Number(rental.monthly_rate),
+        deposit_amount: Number(rental.deposit_amount) || 0,
+        deposit_method: rental.deposit_method ?? null,
+      }}
+      bike={{
+        license_plate: currentBike.license_plate,
+        brand: currentBike.brand,
+        model: currentBike.model,
+        odometer: currentBike.odometer ?? 0,
+      }}
+      customer={{ name: customer?.name ?? '', phone: customer?.phone ?? '' }}
+      settlement={settlement}
+      formulaBike={formulaBike}
+      depositCash={depositCash}
       totalCollected={totalCollected}
       monthsRented={monthsRented}
-      periodStart={periodStart}
-      periodEnd={periodEnd}
-      periodPaidAmount={periodPaidAmount}
-      staffId={staffId}
-      promoPayDays={promoPayDays}
+      isThaiId={isThaiIdNumber(customer?.id_card_number ?? '')}
     />
   )
 }
