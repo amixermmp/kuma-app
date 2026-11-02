@@ -1,10 +1,51 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import sharp from 'sharp'
 
-const MAX_PER_BRANCH = 50
+const MAX_PER_BRANCH = 25
+
+const storagePathOf = (url: string | null | undefined) => url?.match(/\/rental-photo\/(.+?)(?:\?|$)/)?.[1] ?? null
+
+// ตัดคิวของสาขาให้เหลือ MAX_PER_BRANCH รูปล่าสุด — ลบทั้งแถวและไฟล์ในที่เก็บรูป (เดิมลบแต่แถว ไฟล์ค้างสะสม)
+// รูปที่ใส่กรอบแล้วลบเสมอ ส่วนรูปต้นฉบับลบเฉพาะเมื่อสัญญาไม่ได้อ้างถึงแล้ว — ถ้ายังอ้างอยู่ปล่อยให้ cron ล้างรูปสัญญาลบให้ตามเวลา
+// ลบไฟล์ไม่สำเร็จจะไม่ลบแถว รอบหน้าจะลองใหม่เอง คืนจำนวนแถวที่ลบ
+export async function trimMarketingQueue(
+  supabase: ReturnType<typeof createAdminClient>,
+  branchId: string
+): Promise<number> {
+  const { data: rows } = await supabase
+    .from('marketing_photos')
+    .select('id, rental_id, rental_type, original_photo_url, processed_photo_url')
+    .eq('branch_id', branchId)
+    .order('created_at', { ascending: false })
+
+  const overflow = (rows ?? []).slice(MAX_PER_BRANCH)
+  if (overflow.length === 0) return 0
+
+  const contractIds = (type: 'daily' | 'monthly') => overflow.filter(r => r.rental_type === type).map(r => r.rental_id)
+  const [{ data: daily }, { data: monthly }] = await Promise.all([
+    supabase.from('rentals').select('send_photos').in('id', contractIds('daily')),
+    supabase.from('monthly_rentals').select('send_photos').in('id', contractIds('monthly')),
+  ])
+  const contractPhotos = JSON.stringify([...(daily ?? []), ...(monthly ?? [])].map(c => c.send_photos))
+
+  const paths: string[] = []
+  for (const r of overflow) {
+    const processed = storagePathOf(r.processed_photo_url)
+    if (processed) paths.push(processed)
+    const original = storagePathOf(r.original_photo_url)
+    if (original && !contractPhotos.includes(original)) paths.push(original)
+  }
+  if (paths.length > 0) {
+    const { error } = await supabase.storage.from('rental-photo').remove(paths)
+    if (error) return 0
+  }
+
+  await supabase.from('marketing_photos').delete().in('id', overflow.map(r => r.id))
+  return overflow.length
+}
 
 // คัดลอกรูปคู่รถ (with_bike) เข้าคิวโปรโมทแยกต่างหากทันทีตอนสร้างสัญญา — กันโดนลบตอนคืนรถ
-// (send_photos ถูกลบทิ้งอัตโนมัติเมื่อคืนรถ) หมุนเวียนสูงสุด 50 รูปต่อสาขา ตัวเก่าสุดหลุดออกเมื่อเกิน
+// (send_photos ถูกลบทิ้งอัตโนมัติเมื่อคืนรถ) หมุนเวียนสูงสุด 25 รูปต่อสาขา ตัวเก่าสุดหลุดออกเมื่อเกิน
 export async function queueMarketingPhoto(
   supabase: ReturnType<typeof createAdminClient>,
   branchId: string,
@@ -21,15 +62,11 @@ export async function queueMarketingPhoto(
     original_photo_url: withBikePhotoUrl,
   })
 
-  const { data: rows } = await supabase
-    .from('marketing_photos')
-    .select('id')
-    .eq('branch_id', branchId)
-    .order('created_at', { ascending: false })
-
-  const overflow = (rows ?? []).slice(MAX_PER_BRANCH)
-  if (overflow.length > 0) {
-    await supabase.from('marketing_photos').delete().in('id', overflow.map(r => r.id))
+  // best-effort: ตัดคิวพลาดต้องไม่ทำให้การส่งรถล้ม (แถวเกินจะถูกตัดในรอบถัดไป)
+  try {
+    await trimMarketingQueue(supabase, branchId)
+  } catch (e) {
+    console.error('[marketing] trim failed', branchId, String(e))
   }
 }
 
