@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
   const { data: rental, error: rentalErr } = await supabase
     .from('rentals')
-    .select('id, bike_id, customer_id, branch_id, send_photos, customer_signature, bikes(brand, model), customers(name, phone, id_card_number)')
+    .select('id, bike_id, customer_id, branch_id, start_datetime, send_photos, customer_signature, bikes(brand, model), customers(name, phone, id_card_number)')
     .eq('id', rentalId)
     .in('status', ['active', 'extended'])
     .single()
@@ -90,6 +90,8 @@ export async function POST(request: NextRequest) {
       customer_id: rental.customer_id,
       staff_id: staffId,
       start_date: todayStr,
+      // เวลารับรถเดิมจากสัญญารายวัน (เวลาไทย) — ยกมาไว้ใช้เป็นเวลาคืนตอนสลับกลับเป็นรายวัน
+      pickup_time: rental.start_datetime ? new Date(new Date(rental.start_datetime).getTime() + 7 * 3_600_000).toISOString().slice(11, 16) : null,
       payment_day: paymentDay,
       monthly_rate: monthlyRate,
       deposit_amount: depositAmount,

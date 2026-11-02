@@ -380,6 +380,22 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
 
         <div style={{ height: '16px' }} />
 
+        {/* Switch to daily */}
+        <div className="card" style={{ border: '1.5px solid #16a34a' }}>
+          <div className="card-title" style={{ color: '#15803d' }}>📅 ต่อเป็นรายวัน</div>
+          <div style={{ fontSize: '13px', color: '#4b5563', marginBottom: '14px' }}>
+            ถ้าลูกค้าครบดีลแล้วขอต่อแบบสัปดาห์/รายวันแทนรายเดือน — รถยังอยู่กับลูกค้า ระบบย้ายเอกสารไปสัญญารายวันให้
+          </div>
+          <Link href={`/staff/monthly/switch/${rental.id}`} className="btn" style={{
+            display: 'block', width: '100%', background: '#fff', color: '#15803d',
+            border: '2px solid #16a34a', textAlign: 'center', textDecoration: 'none',
+          }}>
+            📅 ต่อเป็นรายวัน
+          </Link>
+        </div>
+
+        <div style={{ height: '12px' }} />
+
         {/* End contract */}
         <div className="card" style={{ border: '1.5px solid #dc2626' }}>
           <div className="card-title" style={{ color: '#dc2626' }}>⚠️ สิ้นสุดสัญญา</div>

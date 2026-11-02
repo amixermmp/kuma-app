@@ -8,6 +8,7 @@ import { hasOpenContract } from '@/lib/availability'
 import { findModelBookingConflict } from '@/lib/bookingConflicts'
 import { isRealPhone, isThaiIdNumber } from '@/lib/customer'
 import { queueMarketingPhoto } from '@/lib/marketingPhotos'
+import { bangkokDateStr } from '@/lib/monthlySettlement'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -165,6 +166,8 @@ export async function POST(request: NextRequest) {
       customer_id: customerId,
       staff_id: staffId,
       start_date: startDate,
+      // เวลารับรถ (เวลาไทย) — เก็บเฉพาะตอนสร้างสัญญาวันเริ่มจริง (ไว้ใช้เป็นเวลาคืนตอนสลับเป็นรายวัน) สัญญาลงย้อนหลังไม่รู้เวลา = ว่าง
+      pickup_time: startDate === bangkokDateStr() ? new Date(Date.now() + 7 * 3_600_000).toISOString().slice(11, 16) : null,
       payment_day: paymentDay,
       monthly_rate: monthlyRate,
       deposit_amount: depositAmount || 0,

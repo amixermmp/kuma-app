@@ -357,7 +357,7 @@ export default function JobsClient({
                     <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
                       💰 ฿{Number(mr.monthly_rate).toLocaleString()}/เดือน • ครบวันที่ {mr.payment_day} ทุกเดือน
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
                       <a href={`tel:${customer?.phone ?? ''}`} style={{
                         fontSize: '12px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px',
                         background: '#f0fdf4', color: '#16a34a', textDecoration: 'none', border: '1px solid #bbf7d0',
@@ -369,6 +369,12 @@ export default function JobsClient({
                         background: '#7c3aed', color: '#fff', textDecoration: 'none',
                       }}>
                         💰 ต่อสัญญา
+                      </Link>
+                      <Link href={`/staff/monthly/switch/${mr.id}`} style={{
+                        fontSize: '12px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px',
+                        background: '#f0fdf4', color: '#15803d', textDecoration: 'none', border: '1px solid #86efac',
+                      }}>
+                        📅 ต่อเป็นรายวัน
                       </Link>
                       <Link href={`/staff/monthly/end/${mr.id}`} style={{
                         fontSize: '12px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px',

@@ -276,6 +276,21 @@ export default async function BikeMenuPage({ params }: { params: { bikeId: strin
               </div>
             </Link>
             <Link
+              href={`/staff/monthly/switch/${monthlyRentalId}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '16px',
+                background: '#fff', border: '2px solid #16a34a',
+                borderRadius: '14px', padding: '18px 20px',
+                textDecoration: 'none',
+              }}
+            >
+              <span style={{ fontSize: '36px' }}>📅</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '16px', color: '#15803d' }}>ต่อเป็นรายวัน</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>ครบดีลแล้วขอต่อแบบสัปดาห์/รายวัน — รถยังอยู่กับลูกค้า</div>
+              </div>
+            </Link>
+            <Link
               href={`/staff/line/monthly/${monthlyRentalId}`}
               style={{
                 display: 'flex', alignItems: 'center', gap: '16px',
