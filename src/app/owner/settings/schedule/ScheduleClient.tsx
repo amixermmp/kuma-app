@@ -69,6 +69,20 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
     if (!err) router.refresh()
   }
 
+  const [addStaffId, setAddStaffId] = useState('')
+  const addExtra = async (day: string) => {
+    if (!addStaffId) { flash('❌ เลือกคนที่จะเพิ่มก่อน'); return }
+    const err = await call({ action: 'addExtra', staffId: addStaffId, day })
+    flash(err ? '❌ ' + err : '✅ เพิ่มเวรแล้ว')
+    if (!err) { setAddStaffId(''); router.refresh() }
+  }
+  const removeExtra = async (staffId: string, day: string) => {
+    if (!confirm(`ลบเวรที่ลงเพิ่มของ ${nameOf(staffId)} วันที่ ${fmtDate(day)}?\n\n(ลบได้เฉพาะเวรที่ลงเพิ่ม — เวรตามแบบแผนต้องแก้ที่แบบแผน)`)) return
+    const err = await call({ action: 'removeExtra', staffId, day })
+    flash(err ? '❌ ' + err : '🗑️ ลบเวรแล้ว')
+    if (!err) router.refresh()
+  }
+
   const setDayType = async (day: string, type: 'weekday' | 'weekend' | null) => {
     const err = await call({ action: 'dayType', day, type })
     flash(err ? '❌ ' + err : '✅ บันทึกประเภทวันแล้ว')
@@ -134,7 +148,7 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
                   </div>
                   <div style={{ fontSize: '12px', fontWeight: 800, color: st.color, width: '52px' }}>{d.count}/{d.target} คน</div>
                   <div style={{ flex: 1, fontSize: '11px', color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {d.staffIds.map(nameOf).join(', ') || '—'}
+                    {d.staffIds.map(id => nameOf(id) + (d.extraStaffIds.includes(id) ? ' ➕' : '')).join(', ') || '—'}
                   </div>
                   <div style={{ fontSize: '10px', fontWeight: 700, color: st.color }}>
                     {st.label}{d.overridden ? ' • วันพิเศษ' : ''}
@@ -149,6 +163,23 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
                       <button className="btn" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setDayType(d.date, 'weekend')}>นับเป็นวันหยุด</button>
                       <button className="btn" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setDayType(d.date, 'weekday')}>นับเป็นวันธรรมดา</button>
                       {d.overridden && <button className="btn" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setDayType(d.date, null)}>กลับเป็นตามปกติ</button>}
+                    </div>
+                    <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed #e5e7eb' }}>
+                      <div style={{ fontWeight: 700, marginBottom: '6px' }}>เวรที่ลงเพิ่มวันนี้ (➕ = ลงเอง/เจ้าของเพิ่มให้)</div>
+                      {d.extraStaffIds.length === 0 && <div style={{ color: '#9ca3af', marginBottom: '6px' }}>ยังไม่มี</div>}
+                      {d.extraStaffIds.map(id => (
+                        <div key={id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span>{nameOf(id)}</span>
+                          <button className="btn" style={{ padding: '3px 10px', fontSize: '11px', color: '#dc2626' }} onClick={() => removeExtra(id, d.date)}>ลบเวรนี้</button>
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                        <select className="field-input" style={{ flex: 1, padding: '6px 8px', fontSize: '12px' }} value={addStaffId} onChange={e => setAddStaffId(e.target.value)}>
+                          <option value="">— เพิ่มคนลงวันนี้ —</option>
+                          {staff.filter(s => s.active && !d.staffIds.includes(s.id)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        <button className="btn" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => addExtra(d.date)}>+ เพิ่ม</button>
+                      </div>
                     </div>
                   </div>
                 )}

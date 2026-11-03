@@ -34,14 +34,30 @@ export function dayTypeFor(dateStr: string, overrides: Record<string, DayType> =
   return w === 0 || w === 6 ? 'weekend' : 'weekday'
 }
 
+// เวรเพิ่มรายวัน: พนักงานกดลงเวรว่างเอง หรือเจ้าของเพิ่มให้ (นอกเหนือจากแบบแผนรายสัปดาห์)
+export type ExtraShift = { staffId: string; day: string }
+
 // ใครมีเวรวันนั้นตามแบบแผน (คนเดียวกันซ้ำนับครั้งเดียว)
-export function staffOnDate(patterns: SchedulePattern[], dateStr: string): string[] {
+export function patternStaffOnDate(patterns: SchedulePattern[], dateStr: string): string[] {
   const w = weekdayOf(dateStr)
   const out = new Set<string>()
   for (const p of patterns) {
     if (dateStr >= p.startDate && dateStr <= p.endDate && p.weekdays.includes(w)) out.add(p.staffId)
   }
   return Array.from(out)
+}
+
+// ใครมีเวรวันนั้น = ตามแบบแผน + เวรเพิ่มรายวัน (คนเดียวกันซ้ำนับครั้งเดียว)
+export function staffOnDate(patterns: SchedulePattern[], dateStr: string, extras: ExtraShift[] = []): string[] {
+  const out = new Set(patternStaffOnDate(patterns, dateStr))
+  for (const e of extras) if (e.day === dateStr) out.add(e.staffId)
+  return Array.from(out)
+}
+
+// ลงเวรว่างได้กี่ที่ (ถึงเป้าแล้ว = 0) — ใช้ทั้งปุ่ม "ลงเวรนี้" และให้ฝั่งเซิร์ฟเวอร์คิดซ้ำ
+export function openSlots(count: number, type: DayType, c: ScheduleCounts): number {
+  const target = type === 'weekend' ? c.weekendTarget : c.weekdayTarget
+  return Math.max(0, target - count)
 }
 
 export type DayStatus = 'short' | 'low' | 'ok'   // short = ต่ำกว่าขั้นต่ำ (แดง) / low = ต่ำกว่าเป้า (เหลือง) / ok
@@ -60,9 +76,11 @@ export type ScheduleDay = {
   type: DayType
   overridden: boolean
   staffIds: string[]
+  extraStaffIds: string[]   // ในจำนวน staffIds: คนที่ลงเพิ่มเอง/เจ้าของเพิ่มให้ (ไม่ได้มาจากแบบแผน)
   count: number
   min: number
   target: number
+  open: number              // ลงเวรว่างได้อีกกี่ที่
   status: DayStatus
 }
 
@@ -72,17 +90,20 @@ export function buildScheduleDays(
   patterns: SchedulePattern[],
   overrides: Record<string, DayType>,
   counts: ScheduleCounts,
+  extras: ExtraShift[] = [],
 ): ScheduleDay[] {
   const out: ScheduleDay[] = []
   for (let i = 0; i < days; i++) {
     const date = addDays(fromDate, i)
     const type = dayTypeFor(date, overrides)
-    const staffIds = staffOnDate(patterns, date)
+    const staffIds = staffOnDate(patterns, date, extras)
+    const fromPattern = new Set(patternStaffOnDate(patterns, date))
     out.push({
       date, weekday: weekdayOf(date), type, overridden: overrides[date] != null,
-      staffIds, count: staffIds.length,
+      staffIds, extraStaffIds: staffIds.filter(id => !fromPattern.has(id)), count: staffIds.length,
       min: type === 'weekend' ? counts.weekendMin : counts.weekdayMin,
       target: type === 'weekend' ? counts.weekendTarget : counts.weekdayTarget,
+      open: openSlots(staffIds.length, type, counts),
       status: dayStatus(staffIds.length, type, counts),
     })
   }

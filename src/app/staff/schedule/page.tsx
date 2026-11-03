@@ -3,8 +3,9 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
-import { loadOverrides, loadPatterns, loadScheduleConfig } from '@/lib/schedule'
+import { loadExtraShifts, loadOverrides, loadPatterns, loadScheduleConfig } from '@/lib/schedule'
 import { SCHEDULE_DAYS, WEEKDAY_SHORT, addDays, bkkDateStr, buildScheduleDays } from '@/lib/scheduleCalc'
+import ScheduleCalendar, { type CalendarDay } from './ScheduleCalendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,12 +54,20 @@ export default async function StaffSchedulePage() {
   }
 
   const to = addDays(today, SCHEDULE_DAYS - 1)
-  const [patterns, overrides] = await Promise.all([loadPatterns(supabase, branchId), loadOverrides(supabase, branchId, today, to)])
-  const days = buildScheduleDays(today, SCHEDULE_DAYS, patterns, overrides, config.counts)
-  const ids = Array.from(new Set(patterns.map(p => p.staffId)))
+  const [patterns, overrides, extras] = await Promise.all([loadPatterns(supabase, branchId), loadOverrides(supabase, branchId, today, to), loadExtraShifts(supabase, branchId, today, to)])
+  const days = buildScheduleDays(today, SCHEDULE_DAYS, patterns, overrides, config.counts, extras)
+  const ids = Array.from(new Set([...patterns.map(p => p.staffId), ...extras.map(e => e.staffId)]))
   const { data: staff } = ids.length ? await supabase.from('staff').select('id, name').in('id', ids) : { data: [] }
   const nameOf = (id: string) => staff?.find(s => s.id === id)?.name ?? '—'
   const mine = days.filter(d => d.staffIds.includes(staffId))
+  // ลงเวรว่างได้เฉพาะคนที่เจ้าของตั้งแบบแผนไว้ (พาร์ทไทม์ในตาราง)
+  const eligible = patterns.some(p => p.staffId === staffId)
+  const calendarDays: CalendarDay[] = days.map(d => ({
+    date: d.date, weekday: d.weekday, label: fmtDate(d.date), isToday: d.date === today, mine: d.staffIds.includes(staffId),
+    people: d.staffIds.map(id => ({ id, name: nameOf(id), mine: id === staffId, extra: d.extraStaffIds.includes(id) })),
+    open: d.open,
+    canClaim: eligible && d.date > today && d.open > 0 && !d.staffIds.includes(staffId),
+  }))
   const next = mine.find(d => d.date >= today)
 
   return (
@@ -68,30 +77,12 @@ export default async function StaffSchedulePage() {
         {mine.length === 0
           ? 'คุณไม่มีเวรในช่วง 60 วันข้างหน้า'
           : <>เวรถัดไปของคุณ: <strong>{WEEKDAY_SHORT[next!.weekday]} {fmtDate(next!.date)}{next!.date === today ? ' (วันนี้)' : ''}</strong> • ทั้งหมด {mine.length} วันใน 60 วัน</>}
-        <div style={{ fontSize: '11px', marginTop: '4px', opacity: .8 }}>ต้องการลา/สลับเวร → ทักหาพี่เจ้าของร้าน</div>
+        <div style={{ fontSize: '11px', marginTop: '4px', opacity: .8 }}>
+          {eligible ? 'วันที่มีปุ่ม "ลงเวรนี้" = ยังขาดคน ใครกดก่อนได้ก่อน ลงแล้วยกเลิกเองไม่ได้ • ' : ''}ต้องการลา/สลับเวร → ทักหาพี่เจ้าของร้าน
+        </div>
       </div>
 
-      <div style={{ margin: '12px 16px 24px' }}>
-        {days.map(d => {
-          const isMine = d.staffIds.includes(staffId)
-          return (
-            <div key={d.date} style={{
-              display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', marginBottom: '5px', borderRadius: '10px',
-              background: isMine ? '#ecfeff' : '#fff', border: `1.5px solid ${isMine ? '#22d3ee' : '#f3f4f6'}`,
-            }}>
-              <div style={{ width: '70px', fontSize: '12px', fontWeight: 800, color: d.weekday === 0 || d.weekday === 6 ? '#be123c' : '#111827' }}>
-                {WEEKDAY_SHORT[d.weekday]} {fmtDate(d.date)}
-              </div>
-              <div style={{ flex: 1, fontSize: '12px', color: '#374151', lineHeight: 1.5 }}>
-                {d.staffIds.length === 0 ? <span style={{ color: '#9ca3af' }}>— ยังไม่มีคน —</span> : d.staffIds.map((id, i) => (
-                  <span key={id}>{i > 0 && ', '}<span style={{ fontWeight: id === staffId ? 800 : 500, color: id === staffId ? '#0e7490' : undefined }}>{nameOf(id)}</span></span>
-                ))}
-              </div>
-              {d.date === today && <span style={{ fontSize: '10px', fontWeight: 800, color: '#e11d48' }}>วันนี้</span>}
-            </div>
-          )
-        })}
-      </div>
+      <ScheduleCalendar days={calendarDays} />
     </div>
   )
 }
