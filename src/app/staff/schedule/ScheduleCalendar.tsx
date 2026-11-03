@@ -14,6 +14,7 @@ export type CalendarDay = {
   people: { id: string; name: string; mine: boolean; extra: boolean }[]
   open: number        // ที่ว่างเหลือ (ถึงเป้าแล้ว = 0)
   canClaim: boolean   // มีสิทธิ์ลง + ยังว่าง + ไม่ใช่งานเรา + เป็นวันอนาคต
+  returning: boolean  // เราลาวันนี้ไว้ (อนุมัติแล้ว) — กดลงตอนนี้ = กลับมาลงงานวันเดิม
   canLeave: boolean   // เป็นงานของเรา + ล่วงหน้าพอ (≥48 ชม.) + ยังไม่มีคำขอลา
   tooLate: boolean    // เป็นงานของเราแต่ใกล้กว่า 48 ชม. → ลาในแอปไม่ได้
   noticeAuto: boolean // ล่วงหน้า ≥10 วัน = อนุมัติทันที
@@ -33,7 +34,8 @@ export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
 
   const claim = async (d: CalendarDay) => {
     if (busy) return
-    if (!confirm(`ลงงานวัน${WEEKDAY_SHORT[d.weekday]} ${d.label}?\n\nลงแล้วเป็นการยืนยันว่าจะมาทำงาน ยกเลิกเองไม่ได้ ถ้าจะถอนต้องแจ้งลาตามเงื่อนไข`)) return
+    const returnNote = d.returning ? 'คุณเคยลางานวันนี้ไว้ — จะกลับมาลงงานวันเดิม\n\n' : ''
+    if (!confirm(`${d.returning ? 'กลับมาลงงาน' : 'ลงงาน'}วัน${WEEKDAY_SHORT[d.weekday]} ${d.label}?\n\n${returnNote}ลงแล้วเป็นการยืนยันว่าจะมาทำงาน ยกเลิกเองไม่ได้ ถ้าจะถอนต้องแจ้งลาตามเงื่อนไข`)) return
     setBusy(d.date)
     setMsg('')
     try {
@@ -85,7 +87,7 @@ export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
               {d.open > 0 && <div style={{ fontSize: '11px', color: '#b45309', fontWeight: 700 }}>ว่าง {d.open} ที่</div>}
               {d.myLeave && (
                 <div style={{ fontSize: '11px', fontWeight: 800, color: STATUS_TEXT[d.myLeave.status].color }}>
-                  {d.myLeave.status === 'approved' ? '🏖️ คุณลาวันนี้แล้ว' : `📝 ขอลา — ${STATUS_TEXT[d.myLeave.status].text}`}
+                  {d.myLeave.status === 'approved' ? (d.mine ? '🔁 กลับมาลงงานแล้ว (เคยลาไว้)' : '🏖️ คุณลาวันนี้แล้ว') : `📝 ขอลา — ${STATUS_TEXT[d.myLeave.status].text}`}
                 </div>
               )}
               {d.tooLate && <div style={{ fontSize: '11px', color: '#9ca3af' }}>ลาด่วน (น้อยกว่า 48 ชม.) → ทักหาผู้จัดการ</div>}
@@ -95,7 +97,7 @@ export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
               <button onClick={() => claim(d)} disabled={busy !== null} style={{
                 padding: '7px 12px', borderRadius: '10px', border: 'none', background: '#0e7490', color: '#fff',
                 fontSize: '12px', fontWeight: 800, fontFamily: 'inherit', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, whiteSpace: 'nowrap',
-              }}>{busy === d.date ? '...' : 'ลงงานนี้'}</button>
+              }}>{busy === d.date ? '...' : d.returning ? 'กลับมาลงงานนี้' : 'ลงงานนี้'}</button>
             )}
             {d.canLeave && (
               <button onClick={() => openLeave(d)} disabled={busy !== null} style={{

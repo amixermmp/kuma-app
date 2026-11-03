@@ -35,7 +35,7 @@ export function dayTypeFor(dateStr: string, overrides: Record<string, DayType> =
 }
 
 // งานเพิ่มรายวัน: พนักงานกดลงงานที่ว่างเอง หรือเจ้าของเพิ่มให้ (นอกเหนือจากแบบแผนรายสัปดาห์)
-export type ExtraShift = { staffId: string; day: string }
+export type ExtraShift = { staffId: string; day: string; createdAt?: string }
 
 // ใครมีงานวันนั้นตามแบบแผน (คนเดียวกันซ้ำนับครั้งเดียว)
 export function patternStaffOnDate(patterns: SchedulePattern[], dateStr: string): string[] {
@@ -48,13 +48,19 @@ export function patternStaffOnDate(patterns: SchedulePattern[], dateStr: string)
 }
 
 // การลาที่อนุมัติแล้ว: คนนั้นถูกตัดออกจากวันนั้น (ที่ว่างเปิดให้คนอื่นกดลง) — คำขอที่ยังรออนุมัติยังนับว่ามาทำงานตามปกติ
-export type LeaveMark = { staffId: string; day: string }
+export type LeaveMark = { staffId: string; day: string; at?: string }   // at = เวลาที่สร้างรายการลา (ใช้แยกงานเพิ่มที่ "ลงก่อนลา" กับ "ลงกลับมาหลังลา")
 
 // ใครมีงานวันนั้น = (ตามแบบแผน + งานเพิ่มรายวัน) − คนที่ลาอนุมัติแล้ว (คนเดียวกันซ้ำนับครั้งเดียว)
+// ข้อยกเว้น "ลาแล้วเปลี่ยนใจ กลับมาลงงานวันเดิม": งานเพิ่มที่ถูกลงทีหลังเวลาที่สร้างรายการลา (extra.createdAt > leave.at) = กลับมาแล้ว นับเป็นคนในวัน
+// งานเพิ่มที่ลงก่อนลา = ถูกตัดตอนลา (ไม่รู้เวลา = ถือว่าลงก่อน ตัดออก เหมือนพฤติกรรมเดิม)
 export function staffOnDate(patterns: SchedulePattern[], dateStr: string, extras: ExtraShift[] = [], leaves: LeaveMark[] = []): string[] {
   const out = new Set(patternStaffOnDate(patterns, dateStr))
   for (const e of extras) if (e.day === dateStr) out.add(e.staffId)
-  for (const l of leaves) if (l.day === dateStr) out.delete(l.staffId)
+  for (const l of leaves) {
+    if (l.day !== dateStr) continue
+    const returned = extras.some(e => e.day === dateStr && e.staffId === l.staffId && !!e.createdAt && !!l.at && e.createdAt > l.at)
+    if (!returned) out.delete(l.staffId)
+  }
   return Array.from(out)
 }
 

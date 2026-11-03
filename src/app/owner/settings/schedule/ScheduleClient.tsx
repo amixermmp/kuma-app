@@ -226,7 +226,7 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
                         <div key={l.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', gap: '6px' }}>
                           <span>
                             {nameOf(l.staffId)}
-                            <span style={{ color: l.status === 'approved' ? '#166534' : '#b45309', fontWeight: 700 }}> • {l.status === 'approved' ? 'ลาแล้ว' : 'รออนุมัติ'}</span>
+                            <span style={{ color: l.status === 'approved' ? '#166534' : '#b45309', fontWeight: 700 }}> • {l.status === 'approved' ? (d.staffIds.includes(l.staffId) ? 'ลาแล้ว แต่กลับมาลงงานแล้ว' : 'ลาแล้ว') : 'รออนุมัติ'}</span>
                             {l.late && <span style={{ color: '#dc2626', fontWeight: 700 }}> • ลาด่วน</span>}
                             {l.source === 'owner' && <span style={{ color: '#6b7280' }}> • เจ้าของบันทึก</span>}
                             {l.reason && <span style={{ color: '#6b7280' }}> • {l.reason}</span>}

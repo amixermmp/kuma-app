@@ -91,14 +91,18 @@ export default async function StaffSchedulePage() {
       date: d.date, weekday: d.weekday, label: fmtDate(d.date), isToday: d.date === today, mine: isMine,
       people: d.staffIds.map(id => ({ id, name: nameOf(id), mine: id === staffId, extra: d.extraStaffIds.includes(id) })),
       open: d.open,
-      canClaim: eligible && d.date > today && d.open > 0 && !isMine && !myLeave,
+      // ลาอนุมัติแล้วแต่เปลี่ยนใจ: กลับมาลงงานวันเดิมได้ถ้ายังว่าง (ลาที่ยังรออนุมัติให้กดยกเลิกคำขอแทน)
+      canClaim: eligible && d.date > today && d.open > 0 && !isMine && (!myLeave || myLeave.status === 'approved'),
+      returning: myLeave?.status === 'approved',
       canLeave, tooLate, noticeAuto: notice >= LEAVE_AUTO_DAYS, surplusOk, coverOptions,
       myLeave: myLeave ? { id: myLeave.id, status: myLeave.status } : null,
     }
   })
 
   // คำขอของฉัน (ลาเป็นช่วงรวมเป็นรายการเดียว) + คำขอที่ขอให้ฉันทำแทน
-  const mineLeaves = leaves.filter(l => l.staffId === staffId)
+  // ลาที่อนุมัติแล้วแต่กลับมาลงงานวันนั้นใหม่แล้ว ไม่ต้องโชว์ว่า "ลาแล้ว" ในกล่องคำขอ
+  const myShiftDays = new Set(days.filter(d => d.staffIds.includes(staffId)).map(d => d.date))
+  const mineLeaves = leaves.filter(l => l.staffId === staffId && !(l.status === 'approved' && myShiftDays.has(l.day)))
   const groups = new Map<string, typeof mineLeaves>()
   for (const l of mineLeaves) groups.set(l.groupId ?? l.id, [...(groups.get(l.groupId ?? l.id) ?? []), l])
   const myRequests: MyRequest[] = Array.from(groups.values()).map(g => {
@@ -126,6 +130,7 @@ export default async function StaffSchedulePage() {
             <>
               <div style={{ fontWeight: 800, marginBottom: '2px' }}>📌 กติกาตารางงาน</div>
               <div>🟢 ปุ่ม <strong>"ลงงานนี้"</strong> = วันนั้นยังขาดคน ใครกดก่อนได้ก่อน <strong>ลงแล้วยกเลิกเองไม่ได้</strong></div>
+              <div>🔁 ลาไปแล้วเปลี่ยนใจ → ถ้าวันนั้นยังว่าง กด "กลับมาลงงานนี้" ได้เลย</div>
               <div>📝 กดลาล่วงหน้า <strong>10 วันขึ้นไป</strong> → อนุมัติทันที</div>
               <div>✅ วันที่คนเกินเป้า ลาแล้วยังครบ → อนุมัติทันที</div>
               <div>🤝 ลาน้อยกว่า 10 วัน → เลือก<strong>คนที่จะมาแทน</strong> พอเขากดรับ <strong>อนุมัติทันที</strong> ถ้าไม่มีคนแทน ส่งคำขอให้ผู้จัดการพิจารณา (ผู้จัดการมีสิทธิ์ไม่อนุมัติ)</div>

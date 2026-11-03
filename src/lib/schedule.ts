@@ -40,8 +40,8 @@ export async function loadOverrides(supabase: Admin, branchId: string, from: str
 
 export async function loadExtraShifts(supabase: Admin, branchId: string, from: string, to: string): Promise<ExtraShift[]> {
   const { data } = await supabase.from('schedule_extra_shifts')
-    .select('staff_id, day').eq('branch_id', branchId).gte('day', from).lte('day', to)
-  return (data ?? []).map(r => ({ staffId: r.staff_id as string, day: r.day as string }))
+    .select('staff_id, day, created_at').eq('branch_id', branchId).gte('day', from).lte('day', to)
+  return (data ?? []).map(r => ({ staffId: r.staff_id as string, day: r.day as string, createdAt: r.created_at as string }))
 }
 
 // วิธีเช็คอินของวันนี้: 'normal' = ฟอร์มถ่ายรูปปกติ / 'off_shift' = เป็นคนมีแบบแผนแต่วันนี้ไม่มีงาน → ถามว่าเข้าทำงานหรือดูตารางอย่างเดียว
@@ -78,7 +78,7 @@ export async function loadLeaves(supabase: Admin, branchId: string, from: string
 
 // เฉพาะที่อนุมัติแล้วเท่านั้นที่ตัดคนออกจากวัน (คำขอที่ยังรออยู่ยังนับว่ามาทำงานตามปกติ)
 export const approvedMarks = (leaves: LeaveRow[]): LeaveMark[] =>
-  leaves.filter(l => l.status === 'approved').map(l => ({ staffId: l.staffId, day: l.day }))
+  leaves.filter(l => l.status === 'approved').map(l => ({ staffId: l.staffId, day: l.day, at: l.createdAt }))
 
 // ── บันทึก (เจ้าของเท่านั้น — เรียกจาก API ที่ตรวจสิทธิ์แล้ว) ────────────────────────────────
 const cleanCount = (v: unknown) => {
@@ -172,9 +172,12 @@ export async function claimScheduleShift(
   ])
   if (!patterns.some(p => p.staffId === staffId)) return { error: 'คุณยังไม่ได้อยู่ในตารางงาน — ทักหาผู้จัดการ', code: 'forbidden' }
 
-  // คนที่มีคำขอลา/ลาแล้ววันนั้นลงวันเดียวกันไม่ได้; คนที่ลาอนุมัติแล้วไม่นับเป็นคนในวัน → ที่ว่างเพิ่ม
-  if (leaves.some(l => l.staffId === staffId)) return { error: 'คุณมีคำขอลาวันนั้นอยู่แล้ว', code: 'dup' }
-  const onLeave = new Set(approvedMarks(leaves).map(l => l.staffId))
+  // คำขอลาที่ยังรออนุมัติ: ให้กดยกเลิกคำขอ ไม่ใช่ลงงานซ้อน
+  // ลาอนุมัติแล้วแต่เปลี่ยนใจ: ลงงานวันเดิมกลับมาได้ ถ้าวันนั้นยังว่าง (ใครไวได้ก่อน ไม่มีสิทธิ์พิเศษ) — บันทึกเป็นงานเพิ่ม รายการลาเดิมเก็บไว้เป็นประวัติ
+  if (leaves.some(l => l.staffId === staffId && l.status !== 'approved')) {
+    return { error: 'คุณมีคำขอลาวันนั้นที่ยังรออยู่ — ยกเลิกคำขอลาในกล่อง "คำขอลาของฉัน" แทน', code: 'dup' }
+  }
+  const onLeave = new Set(approvedMarks(leaves).map(l => l.staffId))   // คนที่ลาอนุมัติแล้วไม่นับเป็นคนในวัน → ที่ว่างเพิ่ม
   const fromPattern = patternStaffOnDate(patterns, day).filter(id => !onLeave.has(id))
   if (fromPattern.includes(staffId) || extras.some(e => e.staffId === staffId)) {
     return { error: 'คุณมีงานวันนั้นอยู่แล้ว', code: 'dup' }
