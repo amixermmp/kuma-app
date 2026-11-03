@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { routineDueReasons } from '@/lib/routineStatus'
 import { addDaysIso } from '@/lib/routineCycle'
+import { splitSpanBySwaps } from '@/lib/swapSpans'
 
 export type RoutineUrgency = 'overdue' | 'warning' | 'ok'
 
@@ -74,34 +75,58 @@ async function fetchRentalSpans(
     else byBike.set(bikeId, [span])
   }
   if (bikeIds.length === 0 || toMs <= fromMs) return byBike
+  const wanted = new Set(bikeIds)
 
-  const [{ data: rentals }, { data: monthlies }] = await Promise.all([
-    supabase.from('rentals')
-      .select('bike_id, start_datetime, expected_end_datetime, actual_end_datetime, status')
-      .in('bike_id', bikeIds)
-      .in('status', ['active', 'extended', 'overdue', 'returned'])
+  // ดึงสัญญาทุกใบที่ทับหน้าต่าง (ไม่กรองตามรถ) แล้วแยกช่วงต่อคันตามประวัติสลับคันเอง — สัญญาที่ปัจจุบันอยู่กับคันอื่นแต่เคยเป็นของคันนี้ก็ต้องเห็น
+  // ดึงทีละหน้า (ระบบตัดที่ 1,000 แถวต่อคำขอ)
+  const fetchAll = async <T,>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> => {
+    const rows: T[] = []
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await build(from, from + 999)
+      if (error) throw error
+      rows.push(...(data ?? []))
+      if (!data || data.length < 1000) break
+    }
+    return rows
+  }
+
+  type DailyRow = { bike_id: string; start_datetime: string; expected_end_datetime: string; actual_end_datetime: string | null; status: string; updated_at: string | null; swap_log: unknown }
+  type MonthlyRow = { bike_id: string; start_date: string; end_date: string | null; swap_log: unknown }
+  const [rentals, monthlies] = await Promise.all([
+    fetchAll<DailyRow>((a, b) => supabase.from('rentals')
+      .select('bike_id, start_datetime, expected_end_datetime, actual_end_datetime, status, updated_at, swap_log')
+      .in('status', ['active', 'extended', 'overdue', 'returned', 'converted'])
       .lt('start_datetime', new Date(toMs).toISOString())
-      .or(`actual_end_datetime.is.null,actual_end_datetime.gt.${new Date(fromMs).toISOString()}`),
-    supabase.from('monthly_rentals')
-      .select('bike_id, start_date, end_date')
-      .in('bike_id', bikeIds)
+      .or(`actual_end_datetime.is.null,actual_end_datetime.gt.${new Date(fromMs).toISOString()}`)
+      .order('id')
+      .range(a, b)),
+    fetchAll<MonthlyRow>((a, b) => supabase.from('monthly_rentals')
+      .select('bike_id, start_date, end_date, swap_log')
       .in('status', ['active', 'ended'])
       .lte('start_date', bkkDateOf(toMs - 1))
-      .or(`end_date.is.null,end_date.gte.${bkkDateOf(fromMs)}`),
+      .or(`end_date.is.null,end_date.gte.${bkkDateOf(fromMs)}`)
+      .order('id')
+      .range(a, b)),
   ])
 
-  for (const r of rentals ?? []) {
+  for (const r of rentals) {
     // ยังไม่คืน = อยู่กับลูกค้าต่อเนื่องไม่ว่าเลยกำหนดหรือต่อสัญญาภายหลัง; คืนแล้วแต่ไม่มีเวลาคืนจริง ใช้เวลากำหนดคืน
+    // แปลงเป็นรายเดือนแล้ว (converted) = อยู่กับลูกค้าถึงตอนที่แปลง (เวลาที่แถวถูกปิดสถานะ ไม่เกินกำหนดคืน) — ช่วงถัดจากนั้นสัญญาเดือนนับต่อ
+    const expectedEnd = Date.parse(r.expected_end_datetime)
     const end = r.actual_end_datetime
       ? Date.parse(r.actual_end_datetime)
-      : r.status === 'returned' ? Date.parse(r.expected_end_datetime) : Infinity
-    push(r.bike_id, { start: Date.parse(r.start_datetime), end })
+      : r.status === 'returned' ? expectedEnd
+      : r.status === 'converted' ? Math.min(expectedEnd, r.updated_at ? Date.parse(r.updated_at) : expectedEnd)
+      : Infinity
+    for (const s of splitSpanBySwaps(r.bike_id, Date.parse(r.start_datetime), end, r.swap_log)) {
+      if (wanted.has(s.bikeId)) push(s.bikeId, { start: s.start, end: s.end })
+    }
   }
-  for (const m of monthlies ?? []) {
-    push(m.bike_id, {
-      start: dayStartMs(m.start_date),
-      end: m.end_date ? dayStartMs(addDaysIso(m.end_date, 1)) : Infinity,
-    })
+  for (const m of monthlies) {
+    const end = m.end_date ? dayStartMs(addDaysIso(m.end_date, 1)) : Infinity
+    for (const s of splitSpanBySwaps(m.bike_id, dayStartMs(m.start_date), end, m.swap_log)) {
+      if (wanted.has(s.bikeId)) push(s.bikeId, { start: s.start, end: s.end })
+    }
   }
   return byBike
 }
