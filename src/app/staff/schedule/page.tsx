@@ -43,6 +43,15 @@ export default async function StaffSchedulePage() {
         <h1>ตารางงาน</h1>
         <div className="sub">ดู • ลงงานที่ว่าง • ลา</div>
       </div>
+      {/* ยังไม่ได้เช็คอิน (โหมดดูตารางอย่างเดียว) เข้าหน้าแรกไม่ได้ → มีปุ่มออกจากระบบกลับหน้าใส่รหัส */}
+      {!checkedIn && (
+        <form action="/api/staff/logout" method="post">
+          <button type="submit" style={{
+            background: 'rgba(255,255,255,.18)', color: '#fff', border: 'none', borderRadius: '10px',
+            padding: '8px 12px', fontSize: '12px', fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
+          }}>ออกจากระบบ</button>
+        </form>
+      )}
     </div>
   )
 

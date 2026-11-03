@@ -219,6 +219,14 @@ export default function CheckinForm({ staffName, branchName, redirectTo, already
           </div>
         )}
       </div>
+
+      {/* ออกจากระบบ → กลับหน้าใส่รหัส (เปิดผิดบัญชี/ส่งเครื่องต่อให้คนอื่น) — หน้าแรกเข้าไม่ได้จนกว่าจะเช็คอิน จึงต้องมีปุ่มออกตรงนี้ด้วย */}
+      <form action="/api/staff/logout" method="post" style={{ padding: '0 24px 28px', textAlign: 'center' }}>
+        <button type="submit" style={{
+          background: 'transparent', border: 'none', color: 'rgba(255,255,255,.55)', fontSize: '13px',
+          fontFamily: 'inherit', cursor: 'pointer', textDecoration: 'underline', padding: '8px 12px',
+        }}>ออกจากระบบ (กลับหน้าใส่รหัส)</button>
+      </form>
     </div>
   )
 }
