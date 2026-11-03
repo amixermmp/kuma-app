@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logStaffAction } from '@/lib/log'
 import { findModelBookingConflict } from '@/lib/bookingConflicts'
+import { extendDepositPlan } from '@/lib/dailySwitch'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { rentalId, payment, newEndDatetime, newTotalDays, newCredit, overrideBookingConflict, photoUrl, slipCustomerName } = body
+  const { rentalId, payment, newEndDatetime, newTotalDays, newCredit, overrideBookingConflict, photoUrl, slipCustomerName, extraDeposit, confirmWaiveDeposit } = body
 
   if (!rentalId || !newEndDatetime || !newTotalDays || payment == null || newCredit == null) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
@@ -23,13 +24,36 @@ export async function POST(request: NextRequest) {
 
   const { data: current, error: fetchErr } = await supabase
     .from('rentals')
-    .select('total_amount, branch_id, bike_id, bikes(license_plate, brand, model)')
+    .select('total_amount, total_days, discount, deposit_amount, deposit_method, send_photos, branch_id, bike_id, bikes(license_plate, brand, model)')
     .eq('id', rentalId)
     .in('status', ['active', 'extended'])
     .single()
 
   if (fetchErr || !current) {
     return NextResponse.json({ error: 'ไม่พบรายการเช่า' }, { status: 404 })
+  }
+
+  // มัดจำ: เตือนเฉพาะตอนต่อแล้วข้ามเกณฑ์ขึ้น (สั้น → 7 วันขึ้นไป) — คิดซ้ำฝั่งเซิร์ฟเวอร์ ไม่เชื่อยอดจากหน้าเว็บ ไม่มีการคืนมัดจำตอนต่อ
+  const heldDeposit = Number(current.deposit_amount) || 0
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hasAccommodationProof = !!(current.send_photos as any)?.accommodation_proof
+  const depositPlan = extendDepositPlan({
+    isStudent: (Number(current.discount) || 0) > 0,
+    oldDays: Number(current.total_days) || 0,
+    newDays: Number(newTotalDays),
+    hasAccommodationProof,
+    held: heldDeposit,
+    idCard: current.deposit_method === 'id_card',
+  })
+  if (depositPlan.blocked) {
+    return NextResponse.json({ error: 'มัดจำเป็นบัตรประชาชน — ต่อถึง 7 วันขึ้นไปวางบัตรแทนมัดจำไม่ได้ ต้องเปลี่ยนเป็นมัดจำเงินสดก่อน (ทักหาพี่เจ้าของร้าน)' }, { status: 400 })
+  }
+  const extraDep = Math.min(100_000, Math.max(0, Math.floor(Number(extraDeposit) || 0)))
+  const waivedDeposit = extraDep < depositPlan.recommendedExtra
+  if (waivedDeposit && confirmWaiveDeposit !== true) {
+    return NextResponse.json({
+      error: `มัดจำที่ควรเก็บเพิ่ม ฿${depositPlan.recommendedExtra.toLocaleString()} (ถืออยู่ ฿${heldDeposit.toLocaleString()} เกณฑ์ ฿${depositPlan.required.toLocaleString()}) — กรอกน้อยกว่านี้ต้องติ๊กยืนยันหยวนมัดจำ`,
+    }, { status: 400 })
   }
 
   // กันต่อทับคิวจองแบบไม่รู้ตัว — ต่อได้ต่อเมื่อยืนยัน (override) แล้วไปย้ายคิวให้ลูกค้าจอง
@@ -75,6 +99,7 @@ export async function POST(request: NextRequest) {
       total_days: newTotalDays,
       total_amount: current.total_amount + payment,
       outstanding_credit: newCredit,
+      ...(extraDep > 0 ? { deposit_amount: heldDeposit + extraDep } : {}),
       ...(conflict && overrideBookingConflict ? { fast_lane: true } : {}),
     })
     .eq('id', rentalId)
@@ -105,8 +130,13 @@ export async function POST(request: NextRequest) {
   const newEndText = new Date(newEndDatetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   await logStaffAction(staffId, 'rental_extended',
     `ต่อเวลาเช่า ${plate} — ถึง ${newEndText} — เก็บเงิน ฿${Number(payment).toLocaleString()}` +
+    (extraDep > 0 ? ` • มัดจำเพิ่ม ฿${extraDep.toLocaleString()}` : '') +
+    (waivedDeposit ? ` ⚠️ หยวนมัดจำ (ควรเพิ่ม ฿${depositPlan.recommendedExtra.toLocaleString()} เก็บจริง ฿${extraDep.toLocaleString()})` : '') +
     (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : ''),
-    { rentalId, payment, newEndDatetime, overrodeBooking: conflict?.id ?? null })
+    {
+      rentalId, payment, newEndDatetime, overrodeBooking: conflict?.id ?? null,
+      ...(depositPlan.tierUp ? { deposit: { held: heldDeposit, required: depositPlan.required, recommendedExtra: depositPlan.recommendedExtra, collectedExtra: extraDep, waived: waivedDeposit, newTotal: heldDeposit + extraDep } } : {}),
+    })
 
   return NextResponse.json({ success: true, paymentId: extendPaymentId })
 }

@@ -15,7 +15,7 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
   const { data: rental } = await supabase
     .from('rentals')
     .select(`
-      id, bike_id, start_datetime, expected_end_datetime, total_days, total_amount, daily_rate, discount, outstanding_credit, status,
+      id, bike_id, start_datetime, expected_end_datetime, total_days, total_amount, daily_rate, discount, outstanding_credit, status, deposit_amount, deposit_method, send_photos,
       bikes(id, license_plate, brand, model, branch_id, daily_rate, monthly_rate),
       customers(id, name)
     `)
@@ -49,5 +49,9 @@ export default async function ExtendPage({ params }: { params: { rentalId: strin
   const resolvedRental = rentalBike ? { ...rental, bikes: await resolveSingleBikeRate(supabase, rentalBike) } : rental
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <ExtendForm rental={resolvedRental as any} staffId={staffId} upcomingBookings={upcomingBookings ?? []} promoPayDays={promoPayDays} payments={payments ?? []} />
+  return <ExtendForm
+    rental={resolvedRental as any} staffId={staffId} upcomingBookings={upcomingBookings ?? []} promoPayDays={promoPayDays} payments={payments ?? []}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    depositHeld={Number(rental.deposit_amount) || 0} depositIsIdCard={rental.deposit_method === 'id_card'} hasAccommodationProof={!!(rental.send_photos as any)?.accommodation_proof}
+  />
 }

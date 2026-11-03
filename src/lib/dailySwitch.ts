@@ -69,3 +69,17 @@ export function requiredDeposit(p: { isStudent: boolean; days: number; hasAccomm
   if (p.days >= 7) return 1000
   return p.hasAccommodationProof ? 0 : 500
 }
+
+// ต่อเวลาสัญญารายวัน: เตือนมัดจำเฉพาะตอนที่ต่อแล้ว "ข้ามเกณฑ์มัดจำขึ้น" (เช่นสั้น → 7 วันขึ้นไป) เท่านั้น
+// ไม่ถามซ้ำทุกครั้งที่ต่อ (สัญญาที่หยวนมัดจำไว้ตั้งแต่ส่งรถจะได้ไม่โดนทวงทุกรอบ) และไม่มีการคืนมัดจำเมื่อเกณฑ์ลดลง — คืนทีเดียวตอนคืนรถ
+// วางบัตรแทนมัดจำ: ต่อจากสั้น (<7 วัน) ไปเป็น 7 วันขึ้นไปไม่ได้ (เกณฑ์เดียวกับหน้าส่งรถ)
+export function extendDepositPlan(p: {
+  isStudent: boolean; oldDays: number; newDays: number; hasAccommodationProof: boolean; held: number; idCard: boolean
+}): { required: number; tierUp: boolean; blocked: boolean; recommendedExtra: number } {
+  const req = (days: number) => requiredDeposit({ isStudent: p.isStudent, days, hasAccommodationProof: p.hasAccommodationProof })
+  const required = req(p.newDays)
+  const tierUp = required > req(p.oldDays)
+  const blocked = p.idCard && p.newDays >= 7 && p.oldDays < 7
+  const recommendedExtra = p.idCard || !tierUp ? 0 : Math.max(0, required - p.held)
+  return { required, tierUp, blocked, recommendedExtra }
+}

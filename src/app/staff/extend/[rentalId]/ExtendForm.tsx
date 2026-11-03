@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { calcRentQuote } from '@/lib/pricing'
+import { extendDepositPlan } from '@/lib/dailySwitch'
 import { idAndSlipNameMatch } from '@/lib/customer'
 import PhotoUpload from '@/components/PhotoUpload'
 
@@ -42,6 +43,9 @@ type Props = {
   upcomingBookings: UpcomingBooking[]
   promoPayDays?: number
   payments: PastPayment[]
+  depositHeld: number
+  depositIsIdCard: boolean
+  hasAccommodationProof: boolean
 }
 
 const PAYMENT_KIND_LABEL: Record<string, string> = { rental: 'ส่งรถ', extend: 'ต่อเวลา' }
@@ -94,7 +98,7 @@ function ExtendSuccessScreen({ customerName, bikeLabel, newEndIso, paymentId }: 
   )
 }
 
-export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5, payments }: Props) {
+export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5, payments, depositHeld, depositIsIdCard, hasAccommodationProof }: Props) {
   const router = useRouter()
   const bike = rental.bikes
   const customer = rental.customers
@@ -104,6 +108,9 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
   const [error, setError] = useState('')
   const [successEndIso, setSuccessEndIso] = useState<string | null>(null)
   const [successPaymentId, setSuccessPaymentId] = useState<string | null>(null)
+  // มัดจำเพิ่ม (null = ใช้ยอดที่ระบบแนะนำ) + ติ๊กยืนยันหยวนถ้ากรอกน้อยกว่าที่ควร
+  const [extraDepInput, setExtraDepInput] = useState<string | null>(null)
+  const [confirmWaive, setConfirmWaive] = useState(false)
 
   // หลักฐานการชำระ/สลิป — บังคับแนบทุกครั้งที่ต่อเวลา
   const [photoUrl, setPhotoUrl]           = useState('')
@@ -217,6 +224,15 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
 
   const newEnd = useMemo(() => new Date(startDt.getTime() + (rental.total_days + daysCovered) * 86_400_000), [startDt, rental.total_days, daysCovered])
 
+  // มัดจำ: เตือนเฉพาะตอนต่อแล้วข้ามเกณฑ์ขึ้น (เช่น สั้น → 7 วันขึ้นไป) ไม่มีการคืนมัดจำตอนต่อ — คืนทีเดียวตอนคืนรถ
+  const depositPlan = daysCovered > 0
+    ? extendDepositPlan({ isStudent: isStudentPromo, oldDays: rental.total_days, newDays: rental.total_days + daysCovered, hasAccommodationProof, held: depositHeld, idCard: depositIsIdCard })
+    : null
+  const recommendedExtra = depositPlan?.recommendedExtra ?? 0
+  const depositBlocked = depositPlan?.blocked ?? false
+  const extraDep = extraDepInput == null ? recommendedExtra : Math.min(100_000, Math.max(0, Math.floor(Number(extraDepInput) || 0)))
+  const waived = extraDep < recommendedExtra
+
   const now = Date.now()
   const expectedMs = new Date(rental.expected_end_datetime).getTime()
   // ใช้ floor เหมือนป้าย "เกิน N วัน" ในหน้า Job Tasks (นับเป็นวันเต็มที่ผ่านไปแล้วเท่านั้น) —
@@ -255,6 +271,8 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
     if (submittingRef.current) return
     if (paymentNum <= 0) { setError('กรุณาใส่จำนวนเงิน'); return }
     if (!photoUrl) { setError('กรุณาแนบรูปหลักฐานการชำระ'); return }
+    if (depositBlocked) { setError('มัดจำเป็นบัตรประชาชน — ต่อถึง 7 วันขึ้นไปวางบัตรแทนมัดจำไม่ได้ ต้องเปลี่ยนเป็นมัดจำเงินสดก่อน (ทักหาพี่เจ้าของร้าน)'); return }
+    if (waived && !confirmWaive) { setError('มัดจำที่เก็บน้อยกว่าที่ควร — ติ๊กยืนยันหยวนมัดจำก่อน'); return }
     if (conflictBooking) {
       const ok = confirm(
         `⚡ ต่อเวลานี้จะชนคิวจอง ${conflictBooking.booking_ref} ของคุณ${conflictBooking.customer_name} ` +
@@ -276,6 +294,8 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
         overrideBookingConflict: override,
         photoUrl,
         slipCustomerName: slipOcrName || null,
+        extraDeposit: extraDep,
+        confirmWaiveDeposit: waived ? confirmWaive : false,
       })
 
       let res = await fetch('/api/staff/rental/extend', {
@@ -543,6 +563,44 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
           </div>
         </div>
 
+        {/* มัดจำเพิ่ม — โผล่เฉพาะตอนต่อแล้วข้ามเกณฑ์มัดจำขึ้น */}
+        {depositPlan && depositPlan.tierUp && (
+          <div className="card" style={{ borderTop: '3px solid #d97706' }}>
+            <div className="card-title">🔒 มัดจำเพิ่ม</div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px', lineHeight: 1.6 }}>
+              ต่อรอบนี้รวมเป็น {rental.total_days + daysCovered} วัน เข้าเกณฑ์มัดจำ ฿{depositPlan.required.toLocaleString()}
+              {' '}(ถืออยู่ {depositIsIdCard ? 'บัตรประชาชน' : `฿${depositHeld.toLocaleString()}`})
+              <br />ไม่มีการคืนมัดจำตอนต่อ — คืนทีเดียวตอนคืนรถ
+            </div>
+            {depositBlocked ? (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 12px', color: '#dc2626', fontSize: '13px', fontWeight: 600 }}>
+                ⛔ มัดจำเป็นบัตรประชาชน — ต่อถึง 7 วันขึ้นไปวางบัตรแทนมัดจำไม่ได้ ต้องเปลี่ยนเป็นมัดจำเงินสดก่อน (ทักหาพี่เจ้าของร้าน)
+              </div>
+            ) : (
+              <>
+                <label className="field-label">เก็บมัดจำเพิ่มจริง (บาท) — ควรเพิ่ม ฿{recommendedExtra.toLocaleString()}</label>
+                <input
+                  className="field-input" type="number" min={0}
+                  value={extraDepInput ?? String(recommendedExtra)}
+                  onChange={e => { setExtraDepInput(e.target.value); setConfirmWaive(false) }}
+                  style={{ fontSize: '18px', fontWeight: 700 }}
+                />
+                {waived && (
+                  <label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginTop: '10px', fontSize: '13px', color: '#b45309', fontWeight: 600 }}>
+                    <input type="checkbox" checked={confirmWaive} onChange={e => setConfirmWaive(e.target.checked)} style={{ marginTop: 3 }} />
+                    <span>⚠️ เก็บน้อยกว่าที่ควร (฿{extraDep.toLocaleString()} จาก ฿{recommendedExtra.toLocaleString()}) — ยืนยันหยวนมัดจำ ระบบจะบันทึกไว้</span>
+                  </label>
+                )}
+                {extraDep > 0 && (
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
+                    สลิปรอบนี้ควรเป็นยอดรวม ฿{(paymentNum + extraDep).toLocaleString()} (ค่าเช่า ฿{paymentNum.toLocaleString()} + มัดจำ ฿{extraDep.toLocaleString()}) — มัดจำไม่นับเป็นรายได้
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* Summary */}
         {paymentNum > 0 && (
           <div style={{
@@ -609,10 +667,10 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
         <button
           className="btn"
           onClick={handleSubmit}
-          disabled={loading || paymentNum <= 0 || !photoUrl}
+          disabled={loading || paymentNum <= 0 || !photoUrl || depositBlocked || (waived && !confirmWaive)}
           style={{
             width: '100%', background: '#d97706', color: '#fff',
-            opacity: (loading || paymentNum <= 0 || !photoUrl) ? 0.5 : 1,
+            opacity: (loading || paymentNum <= 0 || !photoUrl || depositBlocked || (waived && !confirmWaive)) ? 0.5 : 1,
           }}
         >
           {loading ? '⏳ กำลังบันทึก...' : daysCovered === 0 && paymentNum > 0 ? '💾 บันทึกเครดิต' : '💾 ยืนยันต่อเวลา'}
