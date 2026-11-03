@@ -170,7 +170,7 @@ export async function claimScheduleShift(
     loadExtraShifts(supabase, branchId, day, day),
     loadLeaves(supabase, branchId, day, day),
   ])
-  if (!patterns.some(p => p.staffId === staffId)) return { error: 'คุณยังไม่ได้อยู่ในตารางเวร — ทักหาพี่เจ้าของร้าน', code: 'forbidden' }
+  if (!patterns.some(p => p.staffId === staffId)) return { error: 'คุณยังไม่ได้อยู่ในตารางเวร — ทักหาผู้จัดการ', code: 'forbidden' }
 
   // คนที่มีคำขอลา/ลาแล้ววันนั้นลงวันเดียวกันไม่ได้; คนที่ลาอนุมัติแล้วไม่นับเป็นคนในวัน → ที่ว่างเพิ่ม
   if (leaves.some(l => l.staffId === staffId)) return { error: 'คุณมีคำขอลาวันนั้นอยู่แล้ว', code: 'dup' }

@@ -63,11 +63,11 @@ export async function loadSwitchContext(supabase: any, monthlyId: string): Promi
 
   const fmtRate = (n: number) => `฿${Math.round(n).toLocaleString()}`
   let blockReason: string | null = null
-  if (!s.hasPeriod) blockReason = 'ไม่พบรายการรับค่าเช่าของสัญญานี้ — ทักหาพี่เจ้าของร้าน'
+  if (!s.hasPeriod) blockReason = 'ไม่พบรายการรับค่าเช่าของสัญญานี้ — ทักหาผู้จัดการ'
   else if (s.futurePaid > 0) blockReason = 'จ่ายค่าเช่าล่วงหน้าไว้แล้ว — ยังไม่ถึงวันครบดีล'
   else if (!s.reachedEnd) blockReason = `ยังไม่ถึงวันครบดีล (ครบ ${s.periodEnd ? thDate(s.periodEnd) : '-'}) — สลับเป็นรายวันได้ตั้งแต่วันครบดีลเป็นต้นไป`
   else if (s.paidCurrent < s.contractRate) blockReason = `งวดล่าสุดยังจ่ายไม่ครบ (ค้าง ${fmtRate(s.contractRate - s.paidCurrent)}) — เก็บให้ครบก่อนสลับ`
-  else if (missing.length > 0) blockReason = `รูปในสัญญาเดิมไม่ครบ (ขาด ${missing.join(', ')}) — ทักหาพี่เจ้าของร้าน`
+  else if (missing.length > 0) blockReason = `รูปในสัญญาเดิมไม่ครบ (ขาด ${missing.join(', ')}) — ทักหาผู้จัดการ`
 
   const dealStart = s.periodEnd && s.reachedEnd ? s.periodEnd : null
   const lateDays = dealStart ? Math.max(0, diffDays(dealStart, today)) : 0

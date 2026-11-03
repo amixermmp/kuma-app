@@ -40,7 +40,7 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
   const escalated = board && board.enabled ? board.chase.filter(c => c.items.some(i => !i.info && i.escalate)) : []
 
   const filtered = (followups ?? []).filter(f => !plate || (plateOf.get(f.bike_id) ?? '').replace(/\s/g, '').includes(plate.replace(/\s/g, '')))
-  // นัดไกลกว่าลิมิตที่พนักงานปลดล็อก (แจ้งว่าโทรถามพี่เจ้าของร้านแล้ว) และยังไม่ถึงวันนัด — รวมรายการที่บันทึกพร้อมกันเป็นแถวเดียว
+  // นัดไกลกว่าลิมิตที่พนักงานปลดล็อก (แจ้งว่าโทรถามผู้จัดการแล้ว) และยังไม่ถึงวันนัด — รวมรายการที่บันทึกพร้อมกันเป็นแถวเดียว
   const unlocked = Array.from(
     (followups ?? []).filter(f => f.owner_approved && f.appointment_date && f.appointment_date >= today)
       .reduce((m, f) => m.set(`${f.bike_id}|${f.created_at}`, f), new Map<string, NonNullable<typeof followups>[number]>()).values(),
@@ -103,7 +103,7 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
           )
         })}
 
-        <div style={{ fontWeight: 800, fontSize: '13px', padding: '8px 2px', color: '#dc2626' }}>🚨 ติดต่อลูกค้าไม่ได้เกินกำหนด — รอพี่เจ้าของร้านจัดการ ({escalated.length} คัน)</div>
+        <div style={{ fontWeight: 800, fontSize: '13px', padding: '8px 2px', color: '#dc2626' }}>🚨 ติดต่อลูกค้าไม่ได้เกินกำหนด — รอผู้จัดการดำเนินการ ({escalated.length} คัน)</div>
         {escalated.length === 0 && <div style={{ color: '#9ca3af', fontSize: '13px', padding: '4px 0 14px' }}>ไม่มีรายการที่ติดต่อไม่ได้เกินกำหนด</div>}
         {escalated.map(c => (
           <div key={c.bikeId} className="card" style={{ marginBottom: '8px', borderLeft: '4px solid #dc2626' }}>
@@ -119,7 +119,7 @@ export default async function OwnerQuestsPage({ searchParams }: { searchParams: 
           </div>
         ))}
 
-        <div style={{ fontWeight: 800, fontSize: '13px', padding: '8px 2px' }}>🔓 นัดไกลกว่าลิมิต — พนักงานแจ้งว่าพี่เจ้าของร้านอนุมัติแล้ว ({unlocked.length})</div>
+        <div style={{ fontWeight: 800, fontSize: '13px', padding: '8px 2px' }}>🔓 นัดไกลกว่าลิมิต — พนักงานแจ้งว่าผู้จัดการอนุมัติแล้ว ({unlocked.length})</div>
         {unlocked.length === 0 && <div style={{ color: '#9ca3af', fontSize: '13px', padding: '4px 0 14px' }}>ไม่มีรายการที่ปลดล็อก</div>}
         {unlocked.map((f, idx) => (
           <div key={idx} className="card" style={{ marginBottom: '8px', borderLeft: '4px solid #1d4ed8' }}>

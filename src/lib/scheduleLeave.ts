@@ -30,7 +30,7 @@ const hasShift = (c: Ctx, staffId: string, day: string) =>
 
 const LEAVE_ERR: Record<string, string> = {
   invalid: 'วันที่ไม่ถูกต้อง',
-  too_late: 'ลาล่วงหน้าน้อยกว่า 48 ชม. ลาในแอปไม่ได้ — ทักหาพี่เจ้าของร้านให้บันทึกลาให้',
+  too_late: 'ลาล่วงหน้าน้อยกว่า 48 ชม. ลาในแอปไม่ได้ — ทักหาผู้จัดการให้บันทึกลาให้',
   too_far: 'ลาได้ภายใน 60 วันข้างหน้าเท่านั้น',
   cover_range: 'ลาเป็นช่วงระบุคนแทนไม่ได้',
 }
@@ -120,7 +120,7 @@ export async function respondCover(supabase: Admin, coverStaffId: string, branch
   if (typeof leaveId !== 'string' || !leaveId) return 'ไม่พบคำขอ'
   const { data: lv } = await supabase.from('schedule_leaves').select('id, staff_id, branch_id, day, status, cover_staff_id').eq('id', leaveId).maybeSingle()
   if (!lv || lv.branch_id !== branchId || lv.cover_staff_id !== coverStaffId || lv.status !== 'pending_cover') return 'คำขอนี้ไม่ได้รอคุณตอบแล้ว'
-  if (lv.day <= bkkDateStr()) return 'เลยกำหนดวันนั้นแล้ว — ทักหาพี่เจ้าของร้าน'
+  if (lv.day <= bkkDateStr()) return 'เลยกำหนดวันนั้นแล้ว — ทักหาผู้จัดการ'
 
   if (!accept) {
     const { error } = await supabase.from('schedule_leaves').update({ status: 'pending' }).eq('id', leaveId).eq('status', 'pending_cover')
@@ -150,7 +150,7 @@ export async function cancelOwnLeave(supabase: Admin, staffId: string, leaveId: 
   if (typeof leaveId !== 'string' || !leaveId) return 'ไม่พบคำขอ'
   const { data: lv } = await supabase.from('schedule_leaves').select('id, staff_id, status, group_id').eq('id', leaveId).maybeSingle()
   if (!lv || lv.staff_id !== staffId) return 'ไม่พบคำขอ'
-  if (lv.status !== 'pending' && lv.status !== 'pending_cover') return 'ลาที่อนุมัติแล้วยกเลิกเองไม่ได้ — ทักหาพี่เจ้าของร้าน'
+  if (lv.status !== 'pending' && lv.status !== 'pending_cover') return 'ลาที่อนุมัติแล้วยกเลิกเองไม่ได้ — ทักหาผู้จัดการ'
   let q = supabase.from('schedule_leaves').update({ status: 'cancelled' }).eq('staff_id', staffId).in('status', ['pending', 'pending_cover'])
   q = lv.group_id ? q.eq('group_id', lv.group_id) : q.eq('id', leaveId)
   const { error } = await q

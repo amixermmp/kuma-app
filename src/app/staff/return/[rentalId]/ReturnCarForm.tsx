@@ -653,7 +653,7 @@ export default function ReturnCarForm({ rental, staffId, promoPayDays = 5, fuelR
                   <div style={{ fontSize: '11px', color: '#b45309', marginTop: '6px' }}>ภาษีกับรอบบำรุงถึงพร้อมกัน — ทำพร้อมกันได้</div>
                 )}
                 {docAlerts.some(d => d.notifyOwner) && (
-                  <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px' }}>รายการ "ทักหาพี่เจ้าของร้าน" จะขึ้นในเควสให้ติ๊กว่าแจ้งแล้ว</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px' }}>รายการ "ทักหาผู้จัดการ" จะขึ้นในเควสให้ติ๊กว่าแจ้งแล้ว</div>
                 )}
               </div>
             )}

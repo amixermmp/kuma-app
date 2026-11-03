@@ -53,13 +53,13 @@ export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
   const submitLeave = async (d: CalendarDay) => {
     if (busy) return
     const hasCover = cover !== ''
-    const how = d.noticeAuto || d.surplusOk ? 'อนุมัติทันที' : hasCover ? 'รอคนแทนกดรับ' : 'ส่งให้เจ้าของพิจารณา'
+    const how = d.noticeAuto || d.surplusOk ? 'อนุมัติทันที' : hasCover ? 'รอคนแทนกดรับ' : 'ส่งให้ผู้จัดการพิจารณา'
     if (!confirm(`ลาวัน${WEEKDAY_SHORT[d.weekday]} ${d.label}?\n\n${how} — ลาที่อนุมัติแล้วยกเลิกเองไม่ได้`)) return
     setBusy('leave' + d.date)
     const r = await postLeave({ action: 'request', from: d.date, to: d.date, coverStaffId: cover || undefined, reason })
     setBusy(null)
     if (!r.ok) { setMsg('❌ ' + r.error); return }
-    setMsg(r.route === 'auto' ? `✅ ลาวันที่ ${d.label} แล้ว อนุมัติทันที` : r.route === 'cover' ? '✅ ส่งคำขอให้คนแทนแล้ว รอเขากดรับ' : d.surplusOk ? '⚠️ มีคนลาพร้อมกันจนวันนั้นเหลือต่ำกว่าเป้า — ส่งคำขอให้เจ้าของพิจารณาแทน' : '✅ ส่งคำขอลาให้เจ้าของแล้ว รอพิจารณา')
+    setMsg(r.route === 'auto' ? `✅ ลาวันที่ ${d.label} แล้ว อนุมัติทันที` : r.route === 'cover' ? '✅ ส่งคำขอให้คนแทนแล้ว รอเขากดรับ' : d.surplusOk ? '⚠️ มีคนลาพร้อมกันจนวันนั้นเหลือต่ำกว่าเป้า — ส่งคำขอให้ผู้จัดการพิจารณาแทน' : '✅ ส่งคำขอลาให้ผู้จัดการแล้ว รอพิจารณา')
     setLeaveDay(null)
     router.refresh()
   }
@@ -88,7 +88,7 @@ export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
                   {d.myLeave.status === 'approved' ? '🏖️ คุณลาวันนี้แล้ว' : `📝 ขอลา — ${STATUS_TEXT[d.myLeave.status].text}`}
                 </div>
               )}
-              {d.tooLate && <div style={{ fontSize: '11px', color: '#9ca3af' }}>ลาด่วน (น้อยกว่า 48 ชม.) → ทักหาพี่เจ้าของร้าน</div>}
+              {d.tooLate && <div style={{ fontSize: '11px', color: '#9ca3af' }}>ลาด่วน (น้อยกว่า 48 ชม.) → ทักหาผู้จัดการ</div>}
             </div>
             {d.isToday && <span style={{ fontSize: '10px', fontWeight: 800, color: '#e11d48' }}>วันนี้</span>}
             {d.canClaim && (
@@ -112,11 +112,11 @@ export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
                   ? <>ล่วงหน้า 10 วันขึ้นไป — <strong>อนุมัติทันที</strong> เวรนี้จะกลายเป็นที่ว่างให้คนอื่นกดลง</>
                   : d.surplusOk
                     ? <>วันนี้คนเกินเป้า — ลาแล้วยังเหลือครบเป้า <strong>อนุมัติทันที</strong> ไม่ต้องหาคนแทน</>
-                    : <>ล่วงหน้าน้อยกว่า 10 วัน — เลือก<strong>คนแทน</strong>ที่คุยกันแล้ว (เขากดรับแล้วอนุมัติทันที) หรือไม่เลือกก็ได้ แล้วส่งให้<strong>เจ้าของพิจารณา</strong></>}
+                    : <>ล่วงหน้าน้อยกว่า 10 วัน — เลือก<strong>คนแทน</strong>ที่คุยกันแล้ว (เขากดรับแล้วอนุมัติทันที) หรือไม่เลือกก็ได้ แล้วส่งให้<strong>ผู้จัดการพิจารณา</strong></>}
               </div>
               {!d.noticeAuto && !d.surplusOk && (
                 <select className="field-input" value={cover} onChange={e => setCover(e.target.value)} style={{ marginBottom: '8px' }}>
-                  <option value="">— ไม่ระบุคนแทน (ส่งให้เจ้าของ) —</option>
+                  <option value="">— ไม่ระบุคนแทน (ส่งให้ผู้จัดการ) —</option>
                   {d.coverOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               )}

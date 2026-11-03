@@ -8,7 +8,7 @@ export type CoverRequest = { id: string; fromName: string; label: string; reason
 
 export const STATUS_TEXT = {
   pending_cover: { text: 'รอคนแทนรับ', color: '#b45309', bg: '#fffbeb' },
-  pending: { text: 'รอเจ้าของพิจารณา', color: '#b45309', bg: '#fffbeb' },
+  pending: { text: 'รอผู้จัดการพิจารณา', color: '#b45309', bg: '#fffbeb' },
   approved: { text: 'ลาแล้ว', color: '#166534', bg: '#f0fdf4' },
 } as const
 
@@ -46,10 +46,10 @@ export default function LeavePanels({ eligible, today, myRequests, coverRequests
 
   const submitRange = async () => {
     if (!from || !to) { setMsg('❌ เลือกวันเริ่มและวันสิ้นสุดให้ครบ'); return }
-    if (!confirm(`ขอลาตั้งแต่ ${from} ถึง ${to}?\n\nระบบจะลาเฉพาะวันที่คุณมีเวร ลาเป็นช่วงจะส่งให้เจ้าของพิจารณาเมื่อยาวเกิน 14 วันหรือมีวันที่ใกล้กว่า 10 วัน`)) return
+    if (!confirm(`ขอลาตั้งแต่ ${from} ถึง ${to}?\n\nระบบจะลาเฉพาะวันที่คุณมีเวร ลาเป็นช่วงจะส่งให้ผู้จัดการพิจารณาเมื่อยาวเกิน 14 วันหรือมีวันที่ใกล้กว่า 10 วัน`)) return
     const r = await run('range', { action: 'request', from, to, reason }, '')
     if (r?.ok) {
-      setMsg(r.route === 'auto' ? '✅ ลาเป็นช่วงแล้ว อนุมัติทันที' : '✅ ส่งคำขอลาให้เจ้าของแล้ว รอพิจารณา')
+      setMsg(r.route === 'auto' ? '✅ ลาเป็นช่วงแล้ว อนุมัติทันที' : '✅ ส่งคำขอลาให้ผู้จัดการแล้ว รอพิจารณา')
       setRangeOpen(false); setFrom(''); setTo(''); setReason('')
     }
   }
@@ -69,7 +69,7 @@ export default function LeavePanels({ eligible, today, myRequests, coverRequests
               <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                 <button disabled={busy !== null} onClick={() => { if (confirm(`รับทำเวรแทน ${c.fromName} วัน ${c.label}?\n\nรับแล้วเป็นเวรของคุณ ยกเลิกเองไม่ได้ ต้องลาตามเงื่อนไข`)) run('c' + c.id, { action: 'respond', id: c.id, accept: true }, '✅ รับทำเวรแทนแล้ว') }}
                   style={{ padding: '7px 16px', borderRadius: '10px', border: 'none', background: '#0e7490', color: '#fff', fontWeight: 800, fontSize: '12px', fontFamily: 'inherit', cursor: 'pointer' }}>รับ</button>
-                <button disabled={busy !== null} onClick={() => run('d' + c.id, { action: 'respond', id: c.id, accept: false }, 'ไม่รับแล้ว — คำขอกลับไปรอเจ้าของพิจารณา')}
+                <button disabled={busy !== null} onClick={() => run('d' + c.id, { action: 'respond', id: c.id, accept: false }, 'ไม่รับแล้ว — คำขอกลับไปรอผู้จัดการพิจารณา')}
                   style={{ padding: '7px 16px', borderRadius: '10px', border: '1.5px solid #d1d5db', background: '#fff', color: '#374151', fontWeight: 700, fontSize: '12px', fontFamily: 'inherit', cursor: 'pointer' }}>ไม่รับ</button>
               </div>
             </div>
@@ -97,7 +97,7 @@ export default function LeavePanels({ eligible, today, myRequests, coverRequests
               </div>
             )
           })}
-          <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px' }}>ลาที่อนุมัติแล้วยกเลิกเองไม่ได้ — ทักหาพี่เจ้าของร้าน</div>
+          <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px' }}>ลาที่อนุมัติแล้วยกเลิกเองไม่ได้ — ทักหาผู้จัดการ</div>
         </div>
       )}
 
@@ -109,7 +109,7 @@ export default function LeavePanels({ eligible, today, myRequests, coverRequests
           {rangeOpen && (
             <div style={{ marginTop: '10px' }}>
               <div style={{ fontSize: '11px', color: '#6b7280', lineHeight: 1.6, marginBottom: '8px' }}>
-                ลาเฉพาะวันที่คุณมีเวร • ล่วงหน้า 10 วันขึ้นไปและไม่เกิน 14 วัน อนุมัติทันที • นอกเหนือจากนี้ส่งให้เจ้าของพิจารณา • ลาล่วงหน้าน้อยกว่า 48 ชม. ทักหาพี่เจ้าของร้าน
+                ลาเฉพาะวันที่คุณมีเวร • ล่วงหน้า 10 วันขึ้นไปและไม่เกิน 14 วัน อนุมัติทันที • นอกเหนือจากนี้ส่งให้ผู้จัดการพิจารณา • ลาล่วงหน้าน้อยกว่า 48 ชม. ทักหาผู้จัดการ
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <div><div className="field-label">ตั้งแต่วันที่</div><input className="field-input" type="date" min={today} value={from} onChange={e => setFrom(e.target.value)} /></div>

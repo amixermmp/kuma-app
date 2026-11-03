@@ -42,7 +42,7 @@ export function quoteSwitch(input: {
 }): SwitchQuote | { error: string } {
   const { pkg, minDays, baseRate, promoPayDays } = input
   const ndr = Math.max(0, baseRate - Math.max(0, input.discountPerDay))
-  if (!(baseRate > 0)) return { error: 'ไม่พบเรทรายวันของรถคันนี้ — ทักหาพี่เจ้าของร้านให้ตั้งราคาก่อน' }
+  if (!(baseRate > 0)) return { error: 'ไม่พบเรทรายวันของรถคันนี้ — ทักหาผู้จัดการให้ตั้งราคาก่อน' }
 
   if (pkg === 'week') {
     if (minDays > 7) return { error: 'แพ็กเกจสัปดาห์ (7 วัน) ครอบคลุมไม่ถึงวันนี้ — เลือกจำนวนวันแทน' }

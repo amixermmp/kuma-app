@@ -202,12 +202,12 @@ export default function MonthlyEndClient({ rental, bike, customer, settlement: s
               )}
               {formulaBike.source === 'previous_missing' && (
                 <div style={{ fontSize: '12px', color: '#92400e', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px', padding: '8px 10px', margin: '6px 0' }}>
-                  ⚠️ เคยสลับคันในเดือนนี้ แต่หาคันเดิมไม่เจอ — ใช้เรทรายวันของคันปัจจุบันคิดแทน ทักหาพี่เจ้าของร้านถ้าตัวเลขดูไม่ถูก
+                  ⚠️ เคยสลับคันในเดือนนี้ แต่หาคันเดิมไม่เจอ — ใช้เรทรายวันของคันปัจจุบันคิดแทน ทักหาผู้จัดการถ้าตัวเลขดูไม่ถูก
                 </div>
               )}
               {s.dailyRateMissing && !s.reachedEnd && (
                 <div style={{ fontSize: '12px', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '8px 10px', margin: '6px 0' }}>
-                  ⚠️ ไม่พบเรทรายวันของรถรุ่นนี้ — ระบบไม่คืนเงินค่าเช่าให้ ทักหาพี่เจ้าของร้านให้ตั้งราคาก่อน
+                  ⚠️ ไม่พบเรทรายวันของรถรุ่นนี้ — ระบบไม่คืนเงินค่าเช่าให้ ทักหาผู้จัดการให้ตั้งราคาก่อน
                 </div>
               )}
 

@@ -118,14 +118,14 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snooz
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
-  // ปลดล็อกนัดไกลกว่าลิมิต: โทรถามพี่เจ้าของร้านก่อน แล้วติ๊กยืนยัน + เขียนเหตุผล
+  // ปลดล็อกนัดไกลกว่าลิมิต: โทรถามผู้จัดการก่อน แล้วติ๊กยืนยัน + เขียนเหตุผล
   const [unlockOpen, setUnlockOpen] = useState(false)
   const [approved, setApproved] = useState(false)
   const [reason, setReason] = useState('')
 
   const toggle = (key: string) => setSelected(prev => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n })
   const needsAppt = outcome === 'appointed' || outcome === 'postponed'
-  // ทักมาแล้วถึงลิมิต → นัดวันที่ซ่อนรายการไม่ได้แล้ว (ต้องทักหาพี่เจ้าของร้านแทน)
+  // ทักมาแล้วถึงลิมิต → นัดวันที่ซ่อนรายการไม่ได้แล้ว (ต้องทักหาผู้จัดการแทน)
   // followCount นับวันนี้ด้วยถ้าทักไปแล้ว (รอคำตอบ) — ลิมิตนับเฉพาะวันก่อนหน้า
   const snoozeBlocked = card.items.some(i => selected.has(i.key) && !locked(i) && !i.info && i.followCount - (i.doneToday ? 1 : 0) >= snoozeLimit)
   const escalated = card.items.some(i => !i.info && i.escalate)
@@ -137,7 +137,7 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snooz
   // รายการที่รอคำตอบอยู่แล้วล้วนๆ ไม่ต้องเลือก "รอคำตอบ" ซ้ำ
   const allWaiting = pickedNow.length > 0 && pickedNow.every(i => i.waiting)
   const outcomeChoices: { key: OutcomeKey; label: string }[] = ownerMode
-    ? [{ key: 'notified', label: FOLLOWUP_OUTCOMES.notified }, { key: 'appointed', label: 'พี่เจ้าของร้านนัดวันแล้ว' }, { key: 'other', label: FOLLOWUP_OUTCOMES.other }]
+    ? [{ key: 'notified', label: FOLLOWUP_OUTCOMES.notified }, { key: 'appointed', label: 'ผู้จัดการนัดวันแล้ว' }, { key: 'other', label: FOLLOWUP_OUTCOMES.other }]
     : (Object.keys(FOLLOWUP_OUTCOMES) as OutcomeKey[]).filter(k => k !== 'notified' && !(allWaiting && k === 'waiting')).map(k => ({ key: k, label: FOLLOWUP_OUTCOMES[k] }))
 
   const save = async () => {
@@ -147,7 +147,7 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snooz
     if (!outcomeChoices.some(c => c.key === outcome)) { setError('ผลการทักไม่ตรงกับรายการที่เลือก กรุณาเลือกใหม่'); setOutcome(''); return }
     if (!note.trim()) { setError('กรุณาเขียนข้อความ (ทักแล้วเป็นยังไง)'); return }
     const unlocking = needsAppt && unlockOpen
-    if (unlocking && !approved) { setError('ติ๊กยืนยันว่าพี่เจ้าของร้านอนุมัติแล้ว (ต้องโทรถามก่อน)'); return }
+    if (unlocking && !approved) { setError('ติ๊กยืนยันว่าผู้จัดการอนุมัติแล้ว (ต้องโทรถามก่อน)'); return }
     if (unlocking && !reason.trim()) { setError('กรุณาเขียนเหตุผลที่ปลดล็อก'); return }
     setBusy(true); setError('')
     const err = await post('/api/staff/quests/followup', {
@@ -184,7 +184,7 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snooz
 
       {escalated && (
         <div style={{ marginTop: '10px', fontSize: '12px', fontWeight: 700, color: '#fff', background: '#dc2626', borderRadius: '10px', padding: '8px 10px' }}>
-          🚨 ติดต่อไม่ได้มาแล้ว {maxUnreachable} วัน — ทักหาพี่เจ้าของร้าน
+          🚨 ติดต่อไม่ได้มาแล้ว {maxUnreachable} วัน — ทักหาผู้จัดการ
         </div>
       )}
 
@@ -261,21 +261,21 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snooz
           )}
           {needsAppt && snoozeBlocked && !unlockOpen && (
             <div style={{ marginBottom: '8px', fontSize: '12px', color: '#dc2626', background: '#fef2f2', borderRadius: '8px', padding: '8px 10px' }}>
-              ทักมาแล้วครบ {snoozeLimit} ครั้ง นัดวันที่ซ่อนรายการไม่ได้แล้ว — ให้ทักหาพี่เจ้าของร้าน (รายการจะขึ้นให้เห็นทุกวันจนกว่างานจะจบ)
+              ทักมาแล้วครบ {snoozeLimit} ครั้ง นัดวันที่ซ่อนรายการไม่ได้แล้ว — ให้ทักหาผู้จัดการ (รายการจะขึ้นให้เห็นทุกวันจนกว่างานจะจบ)
             </div>
           )}
           {needsAppt && !unlockOpen && (
             <button type="button" onClick={() => setUnlockOpen(true)} style={{ marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '7px 10px', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}>
-              🔓 ปลดล็อก (นัดไกลกว่าลิมิต / ทักครบแล้ว) — ต้องโทรถามพี่เจ้าของร้านก่อน
+              🔓 ปลดล็อก (นัดไกลกว่าลิมิต / ทักครบแล้ว) — ต้องโทรถามผู้จัดการก่อน
             </button>
           )}
           {needsAppt && unlockOpen && (
             <div style={{ marginBottom: '8px', border: '1px solid #bfdbfe', background: '#eff6ff', borderRadius: '10px', padding: '10px' }}>
               <div style={{ fontSize: '13px', fontWeight: 800, color: '#1d4ed8', marginBottom: '6px' }}>🔓 ปลดล็อกนัดไกล (สูงสุดถึง {dateTh(unlockMaxDate + 'T00:00:00+07:00')})</div>
-              <div style={{ fontSize: '12px', color: '#1d4ed8', marginBottom: '8px' }}>📞 โทรถามพี่เจ้าของร้านก่อน แล้วจึงติ๊กด้านล่าง</div>
+              <div style={{ fontSize: '12px', color: '#1d4ed8', marginBottom: '8px' }}>📞 โทรถามผู้จัดการก่อน แล้วจึงติ๊กด้านล่าง</div>
               <label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>
                 <input type="checkbox" checked={approved} onChange={e => setApproved(e.target.checked)} style={{ width: '18px', height: '18px', marginTop: '1px' }} />
-                พี่เจ้าของร้านอนุมัติแล้ว
+                ผู้จัดการอนุมัติแล้ว
               </label>
               <input className="field-input" placeholder="เหตุผล * เช่น ลูกค้าไปญี่ปุ่น กลับ 20 พ.ย." value={reason} onChange={e => setReason(e.target.value)} />
               <button type="button" onClick={() => { setUnlockOpen(false); setApproved(false); setReason(''); setAppt('') }} style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
@@ -283,7 +283,7 @@ function ChaseCardView({ card, onChanged, minDate, maxDate, unlockMaxDate, snooz
               </button>
             </div>
           )}
-          <textarea className="field-input" rows={2} placeholder={ownerMode ? 'ข้อความ * เช่น ทักหาพี่เจ้าของร้านแล้วทางไลน์' : 'ข้อความ * เช่น ทักแล้ว ลูกค้าบอกจะมาพรุ่งนี้'} value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: '8px' }} />
+          <textarea className="field-input" rows={2} placeholder={ownerMode ? 'ข้อความ * เช่น ทักหาผู้จัดการแล้วทางไลน์' : 'ข้อความ * เช่น ทักแล้ว ลูกค้าบอกจะมาพรุ่งนี้'} value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: '8px' }} />
           {error && <div style={{ color: '#dc2626', fontSize: '12px', marginBottom: '6px' }}>⚠️ {error}</div>}
           <button type="button" disabled={busy} onClick={save} className="btn btn-success" style={{ width: '100%', opacity: busy ? 0.6 : 1 }}>
             {busy ? '⏳ กำลังบันทึก...' : `💾 บันทึกการติดตาม (${selected.size} รายการ)`}

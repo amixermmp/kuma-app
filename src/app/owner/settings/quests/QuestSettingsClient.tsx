@@ -117,7 +117,7 @@ export default function QuestSettingsClient({ branches, templates, waitDays: ini
           <Field label="ทักมาแล้วกี่ครั้งถึงเลิกให้นัดซ่อนรายการ" hint="ตั้ง 2 = ทักครั้งที่ 1-2 นัดซ่อนได้ ครั้งที่ 3 ขึ้นไปซ่อนไม่ได้ รายการขึ้นทุกวันพร้อมธงแดง">
             <input className="field-input" type="number" min={0} max={10} value={maxSnooze} onChange={e => setMaxSnooze(e.target.value)} />
           </Field>
-          <div className="field-label" style={{ margin: '12px 0 6px', fontWeight: 800 }}>🚨 ติดต่อลูกค้าไม่ได้ → ให้ทักหาพี่เจ้าของร้าน</div>
+          <div className="field-label" style={{ margin: '12px 0 6px', fontWeight: 800 }}>🚨 ติดต่อลูกค้าไม่ได้ → ให้ทักหาผู้จัดการ</div>
           <Field label="ติดต่อไม่ได้ (คนละวัน) กี่วันแล้วขึ้นธงแดง" hint="พนักงานกด 'ติดต่อไม่ได้วันนี้' ตอนสิ้นวัน นับเป็น 1 วัน — ใช้กับค่าเช่า รูทีน เอกสาร">
             <input className="field-input" type="number" min={0} max={14} value={escDays} onChange={e => setEscDays(e.target.value)} />
           </Field>

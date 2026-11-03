@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
   const quote = quoteSwitch({ pkg, daysInput: days, minDays, baseRate: ctx.bike.baseDailyRate, discountPerDay, promoPayDays: ctx.promoPayDays })
   if ('error' in quote) return NextResponse.json({ error: quote.error }, { status: 400 })
-  if (!(quote.total > 0)) return NextResponse.json({ error: 'คิดราคาไม่ได้ — ทักหาพี่เจ้าของร้าน' }, { status: 400 })
+  if (!(quote.total > 0)) return NextResponse.json({ error: 'คิดราคาไม่ได้ — ทักหาผู้จัดการ' }, { status: 400 })
   const promoAfterOverdue = quote.isPromo && ctx.lateDays > 0
 
   const endMs = startMs + quote.days * DAY_MS

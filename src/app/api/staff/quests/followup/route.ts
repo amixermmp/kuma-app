@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ลิมิตการซ่อนรายการด้วยนัดวันที่: นัดไกลสุดกี่วัน + ทักมาแล้วถึงกี่ครั้งแล้วนัดซ่อนไม่ได้ (กันเลื่อนไปเรื่อยๆ)
-  // ปลดล็อกได้เมื่อพนักงานยืนยันว่าโทรถามพี่เจ้าของร้านแล้ว + เขียนเหตุผล → นัดไกลสุด UNLOCK_MAX_DAYS และไม่ติดเพดานทักซ้ำ
+  // ปลดล็อกได้เมื่อพนักงานยืนยันว่าโทรถามผู้จัดการแล้ว + เขียนเหตุผล → นัดไกลสุด UNLOCK_MAX_DAYS และไม่ติดเพดานทักซ้ำ
   // (ระบบพิสูจน์ไม่ได้ว่าโทรจริง จึงเก็บชื่อ/เวลา/เหตุผลไว้ให้เจ้าของตรวจย้อน)
   const reason = typeof approvalReason === 'string' ? approvalReason.trim().slice(0, 300) : ''
   const wantsUnlock = ownerApproved === true
@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
     const tooFar = appt > maxDate
     // บันทึกว่าปลดล็อกเฉพาะตอนที่ต้องใช้จริง (ติ๊กมาแต่นัดอยู่ในลิมิตปกติ = ไม่นับเป็นข้อยกเว้น)
     usedUnlock = wantsUnlock && (tooFar || snoozeBlocked)
-    if (!wantsUnlock && tooFar) return NextResponse.json({ error: `นัดไกลสุดได้ ${maxDays} วันนับจากวันนี้ — ถ้าต้องนัดไกลกว่านี้ ให้โทรถามพี่เจ้าของร้านแล้วกด "ปลดล็อก"` }, { status: 400 })
+    if (!wantsUnlock && tooFar) return NextResponse.json({ error: `นัดไกลสุดได้ ${maxDays} วันนับจากวันนี้ — ถ้าต้องนัดไกลกว่านี้ ให้โทรถามผู้จัดการแล้วกด "ปลดล็อก"` }, { status: 400 })
     if (!wantsUnlock && snoozeBlocked) {
-      return NextResponse.json({ error: `รายการนี้ทักมาแล้วครบ ${snoozeLimit} ครั้ง นัดวันที่ซ่อนไม่ได้แล้ว — ให้ทักหาพี่เจ้าของร้าน (ไม่ต้องใส่วันนัด)` }, { status: 400 })
+      return NextResponse.json({ error: `รายการนี้ทักมาแล้วครบ ${snoozeLimit} ครั้ง นัดวันที่ซ่อนไม่ได้แล้ว — ให้ทักหาผู้จัดการ (ไม่ต้องใส่วันนัด)` }, { status: 400 })
     }
   }
 

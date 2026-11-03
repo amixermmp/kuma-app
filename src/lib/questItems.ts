@@ -14,7 +14,7 @@ export const FOLLOWUP_OUTCOMES = {
   postponed: 'ขอเลื่อน',
   refused: 'ปฏิเสธ',
   other: 'อื่นๆ',
-  notified: 'ทักหาพี่เจ้าของร้านแล้ว', // ใช้กับงานเอกสารที่ต้องทักหาเจ้าของ (พ.ร.บ./ภาษีรถไม่ต้องนำเข้า) — ใช้คำนี้คำเดียวทั้งระบบ พนักงานไม่สับสน
+  notified: 'ทักหาผู้จัดการแล้ว', // ใช้กับงานเอกสารที่ต้องทักหาเจ้าของ (พ.ร.บ./ภาษีรถไม่ต้องนำเข้า) — ใช้คำนี้คำเดียวทั้งระบบ พนักงานไม่สับสน
 } as const
 export type OutcomeKey = keyof typeof FOLLOWUP_OUTCOMES
 
@@ -33,7 +33,7 @@ export type QuestSubItem = {
   waiting?: boolean       // ผลล่าสุดของวันนี้คือ "ทักแล้ว รอคำตอบลูกค้า" (ยังบันทึกผลจริงต่อได้)
   followCount: number     // จำนวนวันที่ทักรายการนี้ (วันเดียวทักกี่รอบก็นับ 1)
   notes: FollowupNote[]
-  escalate?: boolean      // ติดต่อไม่ได้เกินกำหนด (คนละวัน) → ธงแดง ให้ทักหาพี่เจ้าของร้าน
+  escalate?: boolean      // ติดต่อไม่ได้เกินกำหนด (คนละวัน) → ธงแดง ให้ทักหาผู้จัดการ
   unreachableDays?: number // จำนวนวันที่บันทึก "ติดต่อไม่ได้"ของรายการนี้
   confirmDate?: string | null // วันนัดล่าสุดที่เป็นวันนี้/พรุ่งนี้ → ให้โทรยืนยันนัด
   info?: boolean          // บรรทัดข้อมูลเฉยๆ (เช่น น้ำมันเครื่องคาดครบเมื่อไหร่) ไม่ต้องติ๊ก
@@ -138,7 +138,7 @@ export async function loadBikeDocAlerts(supabase: Admin, bikeId: string): Promis
     const name = doc.doc_type === 'pob' ? 'พ.ร.บ.' : 'ภาษีรถ'
     out.push({
       key: `${doc.id}:${doc.expiry_date}`,
-      title: a.notifyOwner ? `${name} — ทักหาพี่เจ้าของร้าน` : `${name} — ต้องนำรถเข้าต่อ ทำเองที่ร้าน`,
+      title: a.notifyOwner ? `${name} — ทักหาผู้จัดการ` : `${name} — ต้องนำรถเข้าต่อ ทำเองที่ร้าน`,
       dayLabel: a.dayLabel, expired: a.expired, notifyOwner: a.notifyOwner,
       href: a.notifyOwner ? null : `/staff/docs?bikeId=${bikeId}`,
     })
@@ -146,7 +146,7 @@ export async function loadBikeDocAlerts(supabase: Admin, bikeId: string): Promis
   return out.sort((x, y) => Number(y.expired) - Number(x.expired))
 }
 
-// นัดไกลสุดเมื่อพนักงานปลดล็อก (โทรถามพี่เจ้าของร้านแล้ว) — ปลดแล้วไม่ติดเพดานทักซ้ำด้วย
+// นัดไกลสุดเมื่อพนักงานปลดล็อก (โทรถามผู้จัดการแล้ว) — ปลดแล้วไม่ติดเพดานทักซ้ำด้วย
 export const UNLOCK_MAX_DAYS = 30
 
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null))
@@ -378,7 +378,7 @@ export async function loadQuestBoard(
     const { daysLeft, expired, dayLabel, age } = alert
     const key = `doc:${doc.id}:${doc.expiry_date}`
     if (alert.notifyOwner) {
-      const label = doc.doc_type === 'pob' ? 'พ.ร.บ. — ทักหาพี่เจ้าของร้าน' : `ภาษี (รถอายุ ${age} ปี ไม่ต้องนำเข้า) — ทักหาพี่เจ้าของร้าน`
+      const label = doc.doc_type === 'pob' ? 'พ.ร.บ. — ทักหาผู้จัดการ' : `ภาษี (รถอายุ ${age} ปี ไม่ต้องนำเข้า) — ทักหาผู้จัดการ`
       draftOf(bike.id).items.push(decorate(key, 'doc', label, dayLabel, expired ? 2 : 4, { notifyOwner: true }))
       continue
     }
