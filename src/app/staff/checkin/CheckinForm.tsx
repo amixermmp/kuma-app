@@ -25,11 +25,12 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   }
 }
 
-export default function CheckinForm({ staffName, branchName, redirectTo, alreadyCheckedInAt }: {
+export default function CheckinForm({ staffName, branchName, redirectTo, alreadyCheckedInAt, offShift = false }: {
   staffName: string
   branchName: string
   redirectTo: string
   alreadyCheckedInAt: string | null
+  offShift?: boolean
 }) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -41,6 +42,24 @@ export default function CheckinForm({ staffName, branchName, redirectTo, already
   const [continuing, setContinuing] = useState(false)
   const [error, setError] = useState('')
   const [checkedInAt, setCheckedInAt] = useState<string | null>(alreadyCheckedInAt)
+  // วันนี้ไม่มีเวรตามตาราง: ถามก่อนว่าจะเข้าทำงาน (ถ่ายรูปเช็คอินตามปกติ) หรือดูตารางอย่างเดียว
+  const [workOffShift, setWorkOffShift] = useState(false)
+  const [openingSchedule, setOpeningSchedule] = useState(false)
+  const askOffShift = offShift && !workOffShift && !checkedInAt
+
+  const viewScheduleOnly = async () => {
+    setOpeningSchedule(true)
+    setError('')
+    try {
+      const res = await fetchWithTimeout('/api/staff/schedule/view-only', { method: 'POST' }, 10000)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'เปิดตารางไม่สำเร็จ')
+      window.location.href = '/staff/schedule'
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่')
+      setOpeningSchedule(false)
+    }
+  }
 
   // เคลียร์ fallback timer ตอน unmount — กันยิง reload ซ้ำถ้า navigate สำเร็จไปแล้วจริงๆ
   useEffect(() => {
@@ -128,7 +147,23 @@ export default function CheckinForm({ staffName, branchName, redirectTo, already
       </div>
 
       <div style={{ flex: 1, padding: '8px 24px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        {checkedInAt ? (
+        {askOffShift ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '14px' }}>📅</div>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: '16px', marginBottom: '4px' }}>วันนี้ไม่มีเวรของคุณ</div>
+            <div style={{ color: 'rgba(255,255,255,.6)', fontSize: '13px', marginBottom: '24px' }}>ตามตารางเวร คุณไม่ได้ลงทำงานวันนี้</div>
+            {error && <div style={{ color: '#fca5a5', fontSize: '13px', marginBottom: '12px' }}>{error}</div>}
+            <button onClick={viewScheduleOnly} disabled={openingSchedule} style={{
+              width: '100%', padding: '15px', borderRadius: '14px', border: 'none', marginBottom: '10px',
+              background: '#0e7490', color: '#fff', fontSize: '15px', fontWeight: 800, fontFamily: 'inherit',
+              cursor: openingSchedule ? 'default' : 'pointer', opacity: openingSchedule ? 0.6 : 1,
+            }}>{openingSchedule ? 'กำลังเปิด...' : '📅 ดูตารางอย่างเดียว'}</button>
+            <button onClick={() => setWorkOffShift(true)} disabled={openingSchedule} style={{
+              width: '100%', padding: '15px', borderRadius: '14px', border: '1.5px solid rgba(255,255,255,.25)',
+              background: 'transparent', color: '#fff', fontSize: '15px', fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+            }}>💼 เข้าทำงานวันนี้ (ถ่ายรูปเช็คอิน)</button>
+          </div>
+        ) : checkedInAt ? (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '48px', marginBottom: '14px' }}>✅</div>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: '16px', marginBottom: '4px' }}>เช็คอินไปแล้ววันนี้</div>

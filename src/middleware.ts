@@ -36,7 +36,10 @@ export async function middleware(request: NextRequest) {
       const checkinCookie = request.cookies.get('kuma_checkin_date')?.value
       // บัญชีเจ้าของ: บัตรผ่านต้องตรงกับรหัสบัญชีที่ล็อกอินอยู่ (ไม่ผูกวัน ล็อกอินข้ามคืนก็ไม่เด้ง)
       const isOwnerPass = request.cookies.get('kuma_owner_pass')?.value === staffId
-      if (pastGateTime && checkinCookie !== `${staffId}:${todayStr}` && !isOwnerPass) {
+      // "ดูตารางอย่างเดียว" (คนที่ไม่มีเวรวันนี้ เลือกที่หน้าเช็คอิน): ผ่านด่านได้เฉพาะหน้าปฏิทินเวร ไม่ใช่หน้าอื่น
+      const viewOnlySchedule = request.cookies.get('kuma_schedule_view')?.value === `${staffId}:${todayStr}`
+        && (pathname === '/staff/schedule' || pathname.startsWith('/staff/schedule/'))
+      if (pastGateTime && checkinCookie !== `${staffId}:${todayStr}` && !isOwnerPass && !viewOnlySchedule) {
         const url = new URL('/staff/checkin', request.url)
         url.searchParams.set('redirect', pathname)
         return NextResponse.redirect(url)

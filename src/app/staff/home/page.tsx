@@ -1,10 +1,11 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ScanLine, Pin, Search, Bike, Send, Wrench, FileText, Droplet, Undo2, Phone, Store, Lock, Fuel, Image as ImageIcon, ListChecks } from 'lucide-react'
+import { ScanLine, Pin, Search, Bike, Send, Wrench, FileText, Droplet, Undo2, Phone, Store, Lock, Fuel, Image as ImageIcon, ListChecks, CalendarDays } from 'lucide-react'
 import TabBar from '@/components/staff/TabBar'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getStaffBranchIds, getAllowedBikeIds } from '@/lib/staffBranch'
+import { getStaffBranchIds, getAllowedBikeIds, getStaffOwnBranchId } from '@/lib/staffBranch'
+import { loadScheduleConfig } from '@/lib/schedule'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,6 +92,14 @@ export default async function StaffHomePage() {
   const branchName = (staffRow as any)?.branches?.name ?? 'Kuma Bikes'
   const totalJobs = (overdueCount ?? 0) + (dueSoonCount ?? 0) + (repairCount ?? 0) + (contactCount ?? 0) + (docsCount ?? 0) + (sendCount ?? 0) + routineCount
 
+  // ปุ่มตารางเวร โผล่เฉพาะสาขาที่เจ้าของเปิดใช้ตารางเวรแล้ว
+  let scheduleOn = false
+  try {
+    scheduleOn = (await loadScheduleConfig(supabase, await getStaffOwnBranchId(staffId))).enabled
+  } catch {
+    scheduleOn = false
+  }
+
   const QUICK_ACTIONS = [
     { Icon: Search, label: 'ค้นหารถ',    href: '/staff/search' },
     { Icon: Bike,   label: 'รวมรถ',       href: '/staff/fleet' },
@@ -102,8 +111,9 @@ export default async function StaffHomePage() {
     { Icon: Fuel,    label: 'ภาพรวมน้ำมัน', href: '/staff/fuel' },
     { Icon: ImageIcon, label: 'รูปโปรโมท', href: '/staff/marketing' },
     { Icon: ListChecks, label: 'เควสประจำวัน', href: '/staff/quests' },
+    ...(scheduleOn ? [{ Icon: CalendarDays, label: 'ตารางเวร', href: '/staff/schedule' }] : []),
     { Icon: Lock,    label: 'ปิดร้าน',    href: '/staff/closeshop' },
-  ] as const
+  ]
 
   const BADGES = [
     { Icon: Send, label: `ส่งรถ ${sendCount}`, show: (sendCount ?? 0) > 0, color: '#fff', bg: 'rgba(255,255,255,.08)' },
