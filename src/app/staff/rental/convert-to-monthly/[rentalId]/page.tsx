@@ -17,7 +17,7 @@ export default async function ConvertToMonthlyPage({ params }: { params: Promise
   const { data: rental } = await supabase
     .from('rentals')
     .select(`
-      id, start_datetime, expected_end_datetime, total_days, total_amount, deposit_amount, status,
+      id, start_datetime, expected_end_datetime, total_days, total_amount, deposit_amount, deposit_method, status,
       bikes(id, license_plate, brand, model, branch_id, daily_rate, monthly_rate, deposit_amount, photo_url),
       customers(name, phone, id_card_number)
     `)

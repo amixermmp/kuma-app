@@ -3,9 +3,12 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import type { CardChoice } from '@/lib/dailySwitch'
+import CardDepositGate from '@/components/CardDepositGate'
 
 type Rental = {
   id: string
+  deposit_method?: string | null
   start_datetime: string
   expected_end_datetime: string
   total_days: number
@@ -36,8 +39,15 @@ export default function ConvertToMonthlyForm({ rental, staffId }: { rental: Rent
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>(isThaiId ? 'transfer' : 'cash')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // ลูกค้าวางบัตรไว้แทนมัดจำ: รายเดือนวางบัตรไม่ได้ → เปลี่ยนเป็นเงินสด หรือผู้จัดการยืนยันคงบัตร
+  const cardHeld = rental.deposit_method === 'id_card'
+  const [cardChoice, setCardChoice] = useState<CardChoice | null>(null)
+  const [confirmKeepCard, setConfirmKeepCard] = useState(false)
+  const keepCard = cardHeld && cardChoice === 'keep_card'
+  const cardGateOpen = cardHeld && (cardChoice == null || (keepCard && !confirmKeepCard))
 
   const handleSubmit = async () => {
+    if (cardGateOpen) { setError('ลูกค้าวางบัตรไว้ — เลือกเปลี่ยนเป็นมัดจำเงินสด หรือให้ผู้จัดการยืนยันคงบัตรไว้ (และติ๊กยืนยัน)'); return }
     if (!monthlyRate || parseFloat(monthlyRate) <= 0) { setError('กรุณาใส่ราคาเช่าต่อเดือน'); return }
     if (paymentMethod === 'cash' && isThaiId) { setError('บัตรประชาชนไทย — จ่ายเงินสดไม่ได้ ต้องโอนเงินเท่านั้น'); return }
     setError('')
@@ -51,7 +61,9 @@ export default function ConvertToMonthlyForm({ rental, staffId }: { rental: Rent
           staffId,
           monthlyRate: parseFloat(monthlyRate),
           paymentDay,
-          depositAmount: parseFloat(depositAmount) || 0,
+          depositAmount: keepCard ? 0 : parseFloat(depositAmount) || 0,
+          cardChoice: cardHeld ? cardChoice : undefined,
+          confirmKeepCard: keepCard ? confirmKeepCard : undefined,
           paymentMethod,
           overrideBookingConflict,
         }),
@@ -100,9 +112,16 @@ export default function ConvertToMonthlyForm({ rental, staffId }: { rental: Rent
           </div>
           <div className="info-row">
             <span className="info-key">มัดจำที่จ่ายไว้</span>
-            <span className="info-val">฿{Number(rental.deposit_amount).toLocaleString()}</span>
+            <span className="info-val">{cardHeld ? 'วางบัตรประชาชน' : `฿${Number(rental.deposit_amount).toLocaleString()}`}</span>
           </div>
         </div>
+
+        {cardHeld && (
+          <div style={{ marginBottom: '12px' }}>
+            <CardDepositGate choice={cardChoice} onChoice={c => { setCardChoice(c); setConfirmKeepCard(false) }}
+              confirmKeep={confirmKeepCard} onConfirmKeep={setConfirmKeepCard} why="สัญญารายเดือนเป็นเช่าระยะยาว" />
+          </div>
+        )}
 
         <div className="card">
           <div className="card-title">สัญญารายเดือนใหม่</div>
@@ -114,6 +133,9 @@ export default function ConvertToMonthlyForm({ rental, staffId }: { rental: Rent
             <label className="field-label">วันเก็บเงินรายเดือน (วันที่ ... ทุกเดือน)</label>
             <input className="field-input" type="number" min={1} max={31} value={paymentDay} onChange={e => setPaymentDay(parseInt(e.target.value) || 1)} />
           </div>
+          {keepCard ? (
+            <div style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 600 }}>🪪 มัดจำ: คงบัตรประชาชนไว้ (ผู้จัดการยืนยัน) — ไม่เก็บเงินมัดจำ</div>
+          ) : (
           <div className="field-row" style={{ marginBottom: 0 }}>
             <label className="field-label">เงินมัดจำรายเดือน (฿)</label>
             <input className="field-input" type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
@@ -127,6 +149,7 @@ export default function ConvertToMonthlyForm({ rental, staffId }: { rental: Rent
               </div>
             )}
           </div>
+          )}
         </div>
 
         <div className="card">
@@ -166,10 +189,10 @@ export default function ConvertToMonthlyForm({ rental, staffId }: { rental: Rent
 
         <button
           onClick={handleSubmit}
-          disabled={loading}
+          disabled={loading || cardGateOpen}
           style={{
             width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
-            background: loading ? '#9ca3af' : '#16a34a', color: '#fff', fontWeight: 700, fontSize: '15px',
+            background: loading || cardGateOpen ? '#9ca3af' : '#16a34a', color: '#fff', fontWeight: 700, fontSize: '15px',
             cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
           }}
         >

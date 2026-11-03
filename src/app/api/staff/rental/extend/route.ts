@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logStaffAction } from '@/lib/log'
 import { findModelBookingConflict } from '@/lib/bookingConflicts'
-import { extendDepositPlan } from '@/lib/dailySwitch'
+import { checkCardGate, extendDepositPlan, type CardChoice } from '@/lib/dailySwitch'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { rentalId, payment, newEndDatetime, newTotalDays, newCredit, overrideBookingConflict, photoUrl, slipCustomerName, extraDeposit, confirmWaiveDeposit } = body
+  const { rentalId, payment, newEndDatetime, newTotalDays, newCredit, overrideBookingConflict, photoUrl, slipCustomerName, extraDeposit, confirmWaiveDeposit, cardChoice, confirmKeepCard } = body
 
   if (!rentalId || !newEndDatetime || !newTotalDays || payment == null || newCredit == null) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
@@ -45,11 +45,15 @@ export async function POST(request: NextRequest) {
     held: heldDeposit,
     idCard: current.deposit_method === 'id_card',
   })
-  if (depositPlan.blocked) {
-    return NextResponse.json({ error: 'มัดจำเป็นบัตรประชาชน — ต่อถึง 7 วันขึ้นไปวางบัตรแทนมัดจำไม่ได้ ต้องเปลี่ยนเป็นมัดจำเงินสดก่อน (ทักหาพี่เจ้าของร้าน)' }, { status: 400 })
+  // วางบัตรแล้วต่อจนเข้าเกณฑ์ยาว (7 วันขึ้นไป): ต้องเลือกเปลี่ยนเป็นเงินสด หรือผู้จัดการยืนยันคงบัตร
+  let cardMode: CardChoice | null = null
+  if (depositPlan.cardConflict) {
+    const gate = checkCardGate({ cardChoice, confirmKeepCard })
+    if ('error' in gate) return NextResponse.json({ error: gate.error }, { status: 400 })
+    cardMode = gate.mode
   }
-  const extraDep = Math.min(100_000, Math.max(0, Math.floor(Number(extraDeposit) || 0)))
-  const waivedDeposit = extraDep < depositPlan.recommendedExtra
+  const extraDep = cardMode === 'keep_card' ? 0 : Math.min(100_000, Math.max(0, Math.floor(Number(extraDeposit) || 0)))
+  const waivedDeposit = cardMode !== 'keep_card' && extraDep < depositPlan.recommendedExtra
   if (waivedDeposit && confirmWaiveDeposit !== true) {
     return NextResponse.json({
       error: `มัดจำที่ควรเก็บเพิ่ม ฿${depositPlan.recommendedExtra.toLocaleString()} (ถืออยู่ ฿${heldDeposit.toLocaleString()} เกณฑ์ ฿${depositPlan.required.toLocaleString()}) — กรอกน้อยกว่านี้ต้องติ๊กยืนยันหยวนมัดจำ`,
@@ -100,6 +104,7 @@ export async function POST(request: NextRequest) {
       total_amount: current.total_amount + payment,
       outstanding_credit: newCredit,
       ...(extraDep > 0 ? { deposit_amount: heldDeposit + extraDep } : {}),
+      ...(cardMode === 'cash' ? { deposit_method: 'cash' } : {}),
       ...(conflict && overrideBookingConflict ? { fast_lane: true } : {}),
     })
     .eq('id', rentalId)
@@ -130,11 +135,14 @@ export async function POST(request: NextRequest) {
   const newEndText = new Date(newEndDatetime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   await logStaffAction(staffId, 'rental_extended',
     `ต่อเวลาเช่า ${plate} — ถึง ${newEndText} — เก็บเงิน ฿${Number(payment).toLocaleString()}` +
+    (cardMode === 'cash' ? ' 🪪 เปลี่ยนมัดจำจากบัตรเป็นเงินสด (คืนบัตรลูกค้า)' : '') +
+    (cardMode === 'keep_card' ? ' 🪪 ผู้จัดการยืนยันให้คงบัตรไว้เป็นมัดจำต่อ (ข้อยกเว้น)' : '') +
     (extraDep > 0 ? ` • มัดจำเพิ่ม ฿${extraDep.toLocaleString()}` : '') +
     (waivedDeposit ? ` ⚠️ หยวนมัดจำ (ควรเพิ่ม ฿${depositPlan.recommendedExtra.toLocaleString()} เก็บจริง ฿${extraDep.toLocaleString()})` : '') +
     (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : ''),
     {
       rentalId, payment, newEndDatetime, overrodeBooking: conflict?.id ?? null,
+      ...(cardMode ? { cardAction: cardMode } : {}),
       ...(depositPlan.tierUp ? { deposit: { held: heldDeposit, required: depositPlan.required, recommendedExtra: depositPlan.recommendedExtra, collectedExtra: extraDep, waived: waivedDeposit, newTotal: heldDeposit + extraDep } } : {}),
     })
 

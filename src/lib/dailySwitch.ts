@@ -70,16 +70,32 @@ export function requiredDeposit(p: { isStudent: boolean; days: number; hasAccomm
   return p.hasAccommodationProof ? 0 : 500
 }
 
+// ── วางบัตรประชาชนแทนมัดจำ: กติกากลางที่ทุกจุดใช้ร่วมกัน ─────────────────────────────────────────
+// วางบัตรได้เฉพาะเช่าสั้น (<7 วัน) ไม่ใช่นักศึกษา/รายเดือน ถ้าต่อ/แปลง/สลับแล้วเข้าเกณฑ์ยาว ("cardConflict") ต้องเลือก 1 ใน 2:
+//  - 'cash'      ลูกค้านำเงินสดมาแลกบัตร → เก็บมัดจำเงินสดตามเกณฑ์ เปลี่ยนวิธีมัดจำเป็นเงินสด คืนบัตรให้ลูกค้า
+//  - 'keep_card' ผู้จัดการยืนยันให้คงบัตรไว้ต่อ → ต้องติ๊กยืนยัน ไม่แตะมัดจำ (หน้าเว็บเก็บแค่ติ๊ก ระบบเช็คตัวตนผู้จัดการไม่ได้ แต่บันทึกลงบันทึกการทำงาน)
+// API ทุกจุดต้องเรียก checkCardGate ซ้ำเอง ไม่เชื่อหน้าเว็บ
+export type CardChoice = 'cash' | 'keep_card'
+
+export function checkCardGate(p: { cardChoice: unknown; confirmKeepCard: unknown }): { mode: CardChoice } | { error: string } {
+  if (p.cardChoice === 'cash') return { mode: 'cash' }
+  if (p.cardChoice === 'keep_card') {
+    if (p.confirmKeepCard !== true) return { error: 'ผู้จัดการยังไม่ได้ยืนยันให้คงบัตรไว้ — ติ๊กยืนยันก่อน หรือเปลี่ยนเป็นมัดจำเงินสด' }
+    return { mode: 'keep_card' }
+  }
+  return { error: 'ลูกค้าวางบัตรประชาชนไว้ แต่เกณฑ์นี้ต้องมัดจำเงินสด — เลือกเปลี่ยนเป็นมัดจำเงินสด หรือให้ผู้จัดการยืนยันคงบัตรไว้' }
+}
+
 // ต่อเวลาสัญญารายวัน: เตือนมัดจำเฉพาะตอนที่ต่อแล้ว "ข้ามเกณฑ์มัดจำขึ้น" (เช่นสั้น → 7 วันขึ้นไป) เท่านั้น
 // ไม่ถามซ้ำทุกครั้งที่ต่อ (สัญญาที่หยวนมัดจำไว้ตั้งแต่ส่งรถจะได้ไม่โดนทวงทุกรอบ) และไม่มีการคืนมัดจำเมื่อเกณฑ์ลดลง — คืนทีเดียวตอนคืนรถ
-// วางบัตรแทนมัดจำ: ต่อจากสั้น (<7 วัน) ไปเป็น 7 วันขึ้นไปไม่ได้ (เกณฑ์เดียวกับหน้าส่งรถ)
+// recommendedExtra = ยอดที่ควรเก็บเพิ่ม (ถ้า cardConflict = ยอดตอนเลือกเปลี่ยนเป็นเงินสด คิดจากถืออยู่ 0 เพราะบัตรไม่ใช่เงิน)
 export function extendDepositPlan(p: {
   isStudent: boolean; oldDays: number; newDays: number; hasAccommodationProof: boolean; held: number; idCard: boolean
-}): { required: number; tierUp: boolean; blocked: boolean; recommendedExtra: number } {
+}): { required: number; tierUp: boolean; cardConflict: boolean; recommendedExtra: number } {
   const req = (days: number) => requiredDeposit({ isStudent: p.isStudent, days, hasAccommodationProof: p.hasAccommodationProof })
   const required = req(p.newDays)
   const tierUp = required > req(p.oldDays)
-  const blocked = p.idCard && p.newDays >= 7 && p.oldDays < 7
-  const recommendedExtra = p.idCard || !tierUp ? 0 : Math.max(0, required - p.held)
-  return { required, tierUp, blocked, recommendedExtra }
+  const cardConflict = p.idCard && p.newDays >= 7 && p.oldDays < 7
+  const recommendedExtra = !tierUp || (p.idCard && !cardConflict) ? 0 : Math.max(0, required - (p.idCard ? 0 : p.held))
+  return { required, tierUp, cardConflict, recommendedExtra }
 }

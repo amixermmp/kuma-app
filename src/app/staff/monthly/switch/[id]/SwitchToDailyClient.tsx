@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { cleanAmount } from '@/lib/monthlySettlement'
-import { DAY_MS, minSwitchDays, quoteSwitch, requiredDeposit, switchStartMs, type SwitchPackage } from '@/lib/dailySwitch'
+import { DAY_MS, minSwitchDays, quoteSwitch, requiredDeposit, switchStartMs, type CardChoice, type SwitchPackage } from '@/lib/dailySwitch'
+import CardDepositGate from '@/components/CardDepositGate'
 
 type Ctx = {
   monthlyId: string
@@ -41,6 +42,8 @@ export default function SwitchToDailyClient({ ctx }: { ctx: Ctx }) {
   const [studentPhoto, setStudentPhoto]   = useState('')
   const [extraDepInput, setExtraDepInput] = useState<string | null>(null)
   const [confirmWaive, setConfirmWaive]   = useState(false)
+  const [cardChoice, setCardChoice]       = useState<CardChoice | null>(null)
+  const [confirmKeepCard, setConfirmKeepCard] = useState(false)
   const [receivedDate, setReceivedDate]   = useState(ctx.today)
   const [method, setMethod]               = useState<'cash' | 'transfer' | null>(ctx.isThaiId ? 'transfer' : null)
   const [slipUrl, setSlipUrl]             = useState('')
@@ -64,11 +67,14 @@ export default function SwitchToDailyClient({ ctx }: { ctx: Ctx }) {
   const endMs = startMs != null && q ? startMs + q.days * DAY_MS : null
 
   const idCardDeposit = ctx.heldDeposit.method === 'id_card'
-  const depositBlocked = idCardDeposit && q != null && (isStudent || q.days >= 7)
+  // วางบัตรแต่เกณฑ์ใหม่เป็นแบบยาว (7 วันขึ้นไป/นักศึกษา) → เลือกเปลี่ยนเป็นเงินสด หรือผู้จัดการยืนยันคงบัตร
+  const cardConflict = idCardDeposit && q != null && (isStudent || q.days >= 7)
+  const keepCard = cardConflict && cardChoice === 'keep_card'
+  const cardGateOpen = cardConflict && (cardChoice == null || (keepCard && !confirmKeepCard))
   const requiredDep = q ? requiredDeposit({ isStudent, days: q.days, hasAccommodationProof: ctx.hasAccommodationProof }) : 0
-  const recommendedExtra = idCardDeposit ? 0 : Math.max(0, requiredDep - ctx.heldDeposit.amount)
-  const extraDep = extraDepInput == null ? recommendedExtra : cleanAmount(extraDepInput, 100_000)
-  const waived = extraDep < recommendedExtra
+  const recommendedExtra = idCardDeposit && !(cardConflict && cardChoice === 'cash') ? 0 : Math.max(0, requiredDep - ctx.heldDeposit.amount)
+  const extraDep = keepCard ? 0 : extraDepInput == null ? recommendedExtra : cleanAmount(extraDepInput, 100_000)
+  const waived = !keepCard && extraDep < recommendedExtra
   const totalToday = (q?.total ?? 0) + extraDep
 
   const upload = async (file: File, kind: 'slip' | 'student') => {
@@ -94,6 +100,7 @@ export default function SwitchToDailyClient({ ctx }: { ctx: Ctx }) {
         receivedDate, paymentMethod: method, slipUrl,
         isStudent, universityAffiliation: needUniAnswer ? uni : null, studentIdPhotoUrl: studentPhoto || null,
         extraDeposit: extraDep, confirmWaiveDeposit: waived ? confirmWaive : false,
+        cardChoice: cardConflict ? cardChoice : undefined, confirmKeepCard: keepCard ? confirmKeepCard : undefined,
         overrideBookingConflict,
       }),
     })
@@ -105,7 +112,8 @@ export default function SwitchToDailyClient({ ctx }: { ctx: Ctx }) {
     if (!q) { setError(quoteError || 'คิดราคาไม่ได้'); return }
     if (needUniAnswer && !uni) { setError(`กรุณาเลือกว่าเป็นนักศึกษา ${ctx.student.university} หรือมหาลัยอื่นๆ`); return }
     if (needStudentPhoto) { setError('ใช้สิทธิราคานักศึกษา — กรุณาแนบรูปบัตรนิสิต/นักศึกษาด้วย'); return }
-    if (depositBlocked) { setError('มัดจำเป็นบัตรประชาชน — เช่า 7 วันขึ้นไปหรือนักศึกษา วางบัตรแทนมัดจำไม่ได้'); return }
+    if (cardConflict && cardChoice == null) { setError('ลูกค้าวางบัตรไว้ — เลือกเปลี่ยนเป็นมัดจำเงินสด หรือให้ผู้จัดการยืนยันคงบัตรไว้'); return }
+    if (keepCard && !confirmKeepCard) { setError('ผู้จัดการยังไม่ได้ยืนยันให้คงบัตรไว้ — ติ๊กยืนยันก่อน'); return }
     if (waived && !confirmWaive) { setError('มัดจำที่เก็บน้อยกว่าที่ควร — ติ๊กยืนยันหยวนมัดจำก่อน'); return }
     if (!method) { setError('กรุณาเลือกวิธีรับเงิน (เงินสด/โอน)'); return }
     if (!slipUrl) { setError('กรุณาแนบสลิป/หลักฐานการชำระเงินของรอบนี้'); return }
@@ -261,11 +269,19 @@ export default function SwitchToDailyClient({ ctx }: { ctx: Ctx }) {
             {/* มัดจำ */}
             <div className="card">
               <div className="card-title">มัดจำ</div>
-              {idCardDeposit ? (
-                depositBlocked
-                  ? warn('มัดจำเป็นบัตรประชาชน — เช่า 7 วันขึ้นไปหรือนักศึกษา วางบัตรแทนมัดจำไม่ได้ ต้องเปลี่ยนเป็นเงินมัดจำก่อน (ทักหาพี่เจ้าของร้าน)', 'red')
-                  : <div style={{ fontSize: '13px', color: '#374151' }}>วางบัตรประชาชนไว้แทนมัดจำต่อไป ไม่มีเงินมัดจำต้องเก็บ</div>
-              ) : (
+              {cardConflict && (
+                <div style={{ marginBottom: '10px' }}>
+                  <CardDepositGate choice={cardChoice} onChoice={c => { setCardChoice(c); setConfirmKeepCard(false); setConfirmWaive(false) }}
+                    confirmKeep={confirmKeepCard} onConfirmKeep={setConfirmKeepCard} why="แบบที่เลือกเข้าเกณฑ์เช่า 7 วันขึ้นไป/นักศึกษา" />
+                </div>
+              )}
+              {idCardDeposit && !cardConflict && (
+                <div style={{ fontSize: '13px', color: '#374151' }}>วางบัตรประชาชนไว้แทนมัดจำต่อไป ไม่มีเงินมัดจำต้องเก็บ</div>
+              )}
+              {keepCard && (
+                <div style={{ fontSize: '13px', color: '#1d4ed8', fontWeight: 600 }}>🪪 คงบัตรประชาชนไว้ (ผู้จัดการยืนยัน) — ไม่เก็บเงินมัดจำ</div>
+              )}
+              {(!idCardDeposit || (cardConflict && cardChoice === 'cash')) && (
                 <>
                   {row('ถืออยู่', baht(ctx.heldDeposit.amount))}
                   {row('เกณฑ์ของแบบนี้', baht(requiredDep))}
@@ -337,7 +353,7 @@ export default function SwitchToDailyClient({ ctx }: { ctx: Ctx }) {
               </div>
             )}
 
-            <button onClick={handleConfirm} disabled={loading || !confirmed} style={{
+            <button onClick={handleConfirm} disabled={loading || !confirmed || cardGateOpen} style={{
               width: '100%', background: confirmed ? '#16a34a' : '#e5e7eb', color: confirmed ? '#fff' : '#9ca3af',
               border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700,
               cursor: confirmed ? 'pointer' : 'not-allowed', opacity: loading ? 0.7 : 1,

@@ -5,7 +5,7 @@ import { logStaffAction } from '@/lib/log'
 import { findModelBookingConflict } from '@/lib/bookingConflicts'
 import { cleanAmount, diffDays } from '@/lib/monthlySettlement'
 import { loadSwitchContext } from '@/lib/dailySwitchServer'
-import { DAY_MS, minSwitchDays, quoteSwitch, requiredDeposit, switchStartMs, type SwitchPackage } from '@/lib/dailySwitch'
+import { DAY_MS, checkCardGate, minSwitchDays, quoteSwitch, requiredDeposit, switchStartMs, type CardChoice, type SwitchPackage } from '@/lib/dailySwitch'
 
 const PACKAGES: SwitchPackage[] = ['now', 'plus1', 'days', 'week']
 const baht = (n: number) => `฿${Math.round(n).toLocaleString()}`
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const {
     monthlyRentalId, pickupTime, pkg, days, receivedDate, paymentMethod, slipUrl,
-    isStudent, universityAffiliation, studentIdPhotoUrl, extraDeposit, confirmWaiveDeposit, overrideBookingConflict,
+    isStudent, universityAffiliation, studentIdPhotoUrl, extraDeposit, confirmWaiveDeposit, cardChoice, confirmKeepCard, overrideBookingConflict,
   } = body
   if (!monthlyRentalId) return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
 
@@ -73,13 +73,18 @@ export async function POST(request: NextRequest) {
   const endMs = startMs + quote.days * DAY_MS
 
   // ── มัดจำ ──────────────────────────────────────────────────────────────────
-  if (ctx.heldDeposit.method === 'id_card' && (student || quote.days >= 7)) {
-    return NextResponse.json({ error: 'มัดจำเป็นบัตรประชาชน — เช่า 7 วันขึ้นไปหรือนักศึกษา วางบัตรแทนมัดจำไม่ได้ ต้องเปลี่ยนเป็นเงินมัดจำก่อน (ทักหาพี่เจ้าของร้าน)' }, { status: 400 })
+  // วางบัตรไว้แต่เกณฑ์ใหม่เป็นแบบยาว (7 วันขึ้นไป/นักศึกษา): เลือกเปลี่ยนเป็นเงินสด หรือผู้จัดการยืนยันคงบัตร
+  const idCardHeld = ctx.heldDeposit.method === 'id_card'
+  let cardMode: CardChoice | null = null
+  if (idCardHeld && (student || quote.days >= 7)) {
+    const gate = checkCardGate({ cardChoice, confirmKeepCard })
+    if ('error' in gate) return NextResponse.json({ error: gate.error }, { status: 400 })
+    cardMode = gate.mode
   }
   const requiredDep = requiredDeposit({ isStudent: student, days: quote.days, hasAccommodationProof: ctx.hasAccommodationProof })
-  const recommendedExtra = ctx.heldDeposit.method === 'id_card' ? 0 : Math.max(0, requiredDep - ctx.heldDeposit.amount)
-  const extraDep = cleanAmount(extraDeposit, 100_000)
-  const waived = extraDep < recommendedExtra
+  const recommendedExtra = idCardHeld && cardMode !== 'cash' ? 0 : Math.max(0, requiredDep - ctx.heldDeposit.amount)
+  const extraDep = cardMode === 'keep_card' ? 0 : cleanAmount(extraDeposit, 100_000)
+  const waived = cardMode !== 'keep_card' && extraDep < recommendedExtra
   if (waived && confirmWaiveDeposit !== true) {
     return NextResponse.json({
       error: `มัดจำที่ควรเก็บเพิ่ม ${baht(recommendedExtra)} (ถืออยู่ ${baht(ctx.heldDeposit.amount)} เกณฑ์ ${baht(requiredDep)}) — กรอกน้อยกว่านี้ต้องติ๊กยืนยันหยวนมัดจำ`,
@@ -166,7 +171,7 @@ export async function POST(request: NextRequest) {
       total_days: quote.days,
       total_amount: quote.total,
       deposit_amount: newDeposit,
-      deposit_method: ctx.heldDeposit.method,
+      deposit_method: cardMode === 'cash' ? 'cash' : ctx.heldDeposit.method,
       discount: quote.discount,
       payment_method: paymentMethod,
       paid_amount: quote.total,
@@ -209,12 +214,14 @@ export async function POST(request: NextRequest) {
   await logStaffAction(staffId, 'monthly_to_daily',
     `สลับรายเดือน→รายวัน ${ctx.bike.plate} — ${ctx.customer.name} — ${quote.days} วัน ${baht(quote.total)} (เริ่มนับ ${ctx.dealStart})` +
       (promoAfterOverdue ? ` ⚠️ เลือกแพ็กเกจโปรหลังเลยวันครบดี ${ctx.lateDays} วัน` : '') +
+      (cardMode === 'cash' ? ' 🪪 เปลี่ยนมัดจำจากบัตรเป็นเงินสด (คืนบัตรลูกค้า)' : '') +
+      (cardMode === 'keep_card' ? ' 🪪 ผู้จัดการยืนยันให้คงบัตรไว้เป็นมัดจำต่อ (ข้อยกเว้น)' : '') +
       (waived ? ` ⚠️ หยวนมัดจำ (ควรเพิ่ม ${baht(recommendedExtra)} เก็บจริง ${baht(extraDep)})` : '') +
       (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : ''),
     {
       monthlyRentalId, rentalId: rental.id, bikeId: ctx.bikeId, dealStart: ctx.dealStart, pickupTime,
       pkg, days: quote.days, total: quote.total, normalTotal: quote.normalTotal, discount: quote.discount, discountPerDay,
-      lateDays: ctx.lateDays, promoAfterOverdue,
+      lateDays: ctx.lateDays, promoAfterOverdue, ...(cardMode ? { cardAction: cardMode } : {}),
       deposit: { held: ctx.heldDeposit.amount, required: requiredDep, recommendedExtra, collectedExtra: extraDep, waived, newTotal: newDeposit },
       receivedDate: received, paymentMethod,
       fastLaneOverBookingId: conflict && overrideBookingConflict ? conflict.id : null,

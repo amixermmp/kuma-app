@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { writeLog } from '@/lib/log'
 import { findModelBookingConflict } from '@/lib/bookingConflicts'
 import { isThaiIdNumber } from '@/lib/customer'
+import { checkCardGate, type CardChoice } from '@/lib/dailySwitch'
 
 // แปลงสัญญารายวันที่กำลังเช่าอยู่ ให้เป็นสัญญารายเดือน (ลูกค้าเช่าสั้นทดลองก่อนแล้วโอนรายเดือนเพิ่มมา)
 // ปิดสัญญารายวันเดิม (ไม่แตะยอด rental_payments ที่เก็บไปแล้ว — ยึดตามกฎบัญชี "รายได้ตามวันที่เก็บจริง")
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
   const staffId = cookieStore.get('kuma_staff_id')?.value
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { rentalId, monthlyRate, paymentDay, depositAmount, paymentMethod, overrideBookingConflict } = await request.json()
+  const { rentalId, monthlyRate, paymentDay, depositAmount, paymentMethod, overrideBookingConflict, cardChoice, confirmKeepCard } = await request.json()
 
   if (!rentalId || !monthlyRate || !paymentDay || depositAmount == null || !paymentMethod) {
     return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 })
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   const { data: rental, error: rentalErr } = await supabase
     .from('rentals')
-    .select('id, bike_id, customer_id, branch_id, start_datetime, send_photos, customer_signature, bikes(brand, model), customers(name, phone, id_card_number)')
+    .select('id, bike_id, customer_id, branch_id, start_datetime, deposit_method, send_photos, customer_signature, bikes(brand, model), customers(name, phone, id_card_number)')
     .eq('id', rentalId)
     .in('status', ['active', 'extended'])
     .single()
@@ -39,6 +40,16 @@ export async function POST(request: NextRequest) {
   if (paymentMethod === 'cash' && isThaiIdNumber(customer?.id_card_number ?? '')) {
     return NextResponse.json({ error: 'บัตรประชาชนไทย — จ่ายเงินสดไม่ได้ ต้องโอนเงินเท่านั้น' }, { status: 400 })
   }
+
+  // สัญญารายเดือนวางบัตรแทนมัดจำไม่ได้ — ถ้าสัญญารายวันเดิมวางบัตรไว้ ต้องเลือกเปลี่ยนเป็นเงินสด หรือผู้จัดการยืนยันคงบัตร
+  // (เดิมไม่ส่งต่อวิธีมัดจำ สัญญาเดือนใหม่จะกลายเป็นเงินสดทั้งที่บัตรยังอยู่ที่ร้าน ไม่มีป้ายเตือนคืนบัตร)
+  let cardMode: CardChoice | null = null
+  if (rental.deposit_method === 'id_card') {
+    const gate = checkCardGate({ cardChoice, confirmKeepCard })
+    if ('error' in gate) return NextResponse.json({ error: gate.error }, { status: 400 })
+    cardMode = gate.mode
+  }
+  const keepCard = cardMode === 'keep_card'
 
   const bikeId = rental.bike_id
   const branchId = rental.branch_id
@@ -94,7 +105,8 @@ export async function POST(request: NextRequest) {
       pickup_time: rental.start_datetime ? new Date(new Date(rental.start_datetime).getTime() + 7 * 3_600_000).toISOString().slice(11, 16) : null,
       payment_day: paymentDay,
       monthly_rate: monthlyRate,
-      deposit_amount: depositAmount,
+      deposit_amount: keepCard ? 0 : depositAmount,
+      deposit_method: keepCard ? 'id_card' : 'cash',
       status: 'active',
       send_photos: sendPhotos,
       customer_signature: rental.customer_signature ?? null,
@@ -139,9 +151,12 @@ export async function POST(request: NextRequest) {
     actorName: staffName,
     action: 'rental_converted_to_monthly',
     description: `แปลงสัญญารายวัน → รายเดือน — ลูกค้า ${customer?.name ?? '—'} (${customer?.phone ?? '—'}) — ฿${Number(monthlyRate).toLocaleString()}/เดือน` +
+      (cardMode === 'cash' ? ' 🪪 เปลี่ยนมัดจำจากบัตรเป็นเงินสด (คืนบัตรลูกค้า)' : '') +
+      (keepCard ? ' 🪪 ผู้จัดการยืนยันให้คงบัตรไว้เป็นมัดจำต่อ (ข้อยกเว้น)' : '') +
       (conflict && overrideBookingConflict ? ` ⚡ Fast lane ทับคิวจอง ${conflict.booking_ref}` : ''),
     metadata: {
-      oldRentalId: rentalId, newMonthlyRentalId: monthlyRental.id, bikeId, monthlyRate, depositAmount,
+      oldRentalId: rentalId, newMonthlyRentalId: monthlyRental.id, bikeId, monthlyRate, depositAmount: keepCard ? 0 : depositAmount,
+      ...(cardMode ? { cardAction: cardMode } : {}),
       fastLaneOverBookingId: conflict && overrideBookingConflict ? conflict.id : null,
     },
   })

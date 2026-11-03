@@ -4,7 +4,8 @@ import { useState, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { calcRentQuote } from '@/lib/pricing'
-import { extendDepositPlan } from '@/lib/dailySwitch'
+import { extendDepositPlan, type CardChoice } from '@/lib/dailySwitch'
+import CardDepositGate from '@/components/CardDepositGate'
 import { idAndSlipNameMatch } from '@/lib/customer'
 import PhotoUpload from '@/components/PhotoUpload'
 
@@ -111,6 +112,9 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
   // มัดจำเพิ่ม (null = ใช้ยอดที่ระบบแนะนำ) + ติ๊กยืนยันหยวนถ้ากรอกน้อยกว่าที่ควร
   const [extraDepInput, setExtraDepInput] = useState<string | null>(null)
   const [confirmWaive, setConfirmWaive] = useState(false)
+  // วางบัตรแล้วต่อจนเข้าเกณฑ์ 7 วันขึ้นไป: เปลี่ยนเป็นเงินสด หรือผู้จัดการยืนยันคงบัตร
+  const [cardChoice, setCardChoice] = useState<CardChoice | null>(null)
+  const [confirmKeepCard, setConfirmKeepCard] = useState(false)
 
   // หลักฐานการชำระ/สลิป — บังคับแนบทุกครั้งที่ต่อเวลา
   const [photoUrl, setPhotoUrl]           = useState('')
@@ -229,9 +233,12 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
     ? extendDepositPlan({ isStudent: isStudentPromo, oldDays: rental.total_days, newDays: rental.total_days + daysCovered, hasAccommodationProof, held: depositHeld, idCard: depositIsIdCard })
     : null
   const recommendedExtra = depositPlan?.recommendedExtra ?? 0
-  const depositBlocked = depositPlan?.blocked ?? false
-  const extraDep = extraDepInput == null ? recommendedExtra : Math.min(100_000, Math.max(0, Math.floor(Number(extraDepInput) || 0)))
-  const waived = extraDep < recommendedExtra
+  const cardConflict = depositPlan?.cardConflict ?? false
+  const keepCard = cardConflict && cardChoice === 'keep_card'
+  // ยังไม่ได้เลือก หรือเลือกคงบัตรแต่ผู้จัดการยังไม่ยืนยัน → กดต่อเวลาไม่ได้
+  const cardGateOpen = cardConflict && (cardChoice == null || (keepCard && !confirmKeepCard))
+  const extraDep = keepCard ? 0 : extraDepInput == null ? recommendedExtra : Math.min(100_000, Math.max(0, Math.floor(Number(extraDepInput) || 0)))
+  const waived = !keepCard && extraDep < recommendedExtra
 
   const now = Date.now()
   const expectedMs = new Date(rental.expected_end_datetime).getTime()
@@ -271,7 +278,8 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
     if (submittingRef.current) return
     if (paymentNum <= 0) { setError('กรุณาใส่จำนวนเงิน'); return }
     if (!photoUrl) { setError('กรุณาแนบรูปหลักฐานการชำระ'); return }
-    if (depositBlocked) { setError('มัดจำเป็นบัตรประชาชน — ต่อถึง 7 วันขึ้นไปวางบัตรแทนมัดจำไม่ได้ ต้องเปลี่ยนเป็นมัดจำเงินสดก่อน (ทักหาพี่เจ้าของร้าน)'); return }
+    if (cardConflict && cardChoice == null) { setError('ลูกค้าวางบัตรไว้ — เลือกเปลี่ยนเป็นมัดจำเงินสด หรือให้ผู้จัดการยืนยันคงบัตรไว้'); return }
+    if (keepCard && !confirmKeepCard) { setError('ผู้จัดการยังไม่ได้ยืนยันให้คงบัตรไว้ — ติ๊กยืนยันก่อน'); return }
     if (waived && !confirmWaive) { setError('มัดจำที่เก็บน้อยกว่าที่ควร — ติ๊กยืนยันหยวนมัดจำก่อน'); return }
     if (conflictBooking) {
       const ok = confirm(
@@ -296,6 +304,8 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
         slipCustomerName: slipOcrName || null,
         extraDeposit: extraDep,
         confirmWaiveDeposit: waived ? confirmWaive : false,
+        cardChoice: cardConflict ? cardChoice : undefined,
+        confirmKeepCard: keepCard ? confirmKeepCard : undefined,
       })
 
       let res = await fetch('/api/staff/rental/extend', {
@@ -564,7 +574,7 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
         </div>
 
         {/* มัดจำเพิ่ม — โผล่เฉพาะตอนต่อแล้วข้ามเกณฑ์มัดจำขึ้น */}
-        {depositPlan && depositPlan.tierUp && (
+        {depositPlan && (depositPlan.tierUp || cardConflict) && (
           <div className="card" style={{ borderTop: '3px solid #d97706' }}>
             <div className="card-title">🔒 มัดจำเพิ่ม</div>
             <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px', lineHeight: 1.6 }}>
@@ -572,11 +582,13 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
               {' '}(ถืออยู่ {depositIsIdCard ? 'บัตรประชาชน' : `฿${depositHeld.toLocaleString()}`})
               <br />ไม่มีการคืนมัดจำตอนต่อ — คืนทีเดียวตอนคืนรถ
             </div>
-            {depositBlocked ? (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 12px', color: '#dc2626', fontSize: '13px', fontWeight: 600 }}>
-                ⛔ มัดจำเป็นบัตรประชาชน — ต่อถึง 7 วันขึ้นไปวางบัตรแทนมัดจำไม่ได้ ต้องเปลี่ยนเป็นมัดจำเงินสดก่อน (ทักหาพี่เจ้าของร้าน)
+            {cardConflict && (
+              <div style={{ marginBottom: '12px' }}>
+                <CardDepositGate choice={cardChoice} onChoice={c => { setCardChoice(c); setConfirmKeepCard(false); setConfirmWaive(false) }}
+                  confirmKeep={confirmKeepCard} onConfirmKeep={setConfirmKeepCard} why="ต่อรอบนี้เข้าเกณฑ์เช่า 7 วันขึ้นไป" />
               </div>
-            ) : (
+            )}
+            {keepCard || cardGateOpen ? null : (
               <>
                 <label className="field-label">เก็บมัดจำเพิ่มจริง (บาท) — ควรเพิ่ม ฿{recommendedExtra.toLocaleString()}</label>
                 <input
@@ -667,10 +679,10 @@ export default function ExtendForm({ rental, upcomingBookings, promoPayDays = 5,
         <button
           className="btn"
           onClick={handleSubmit}
-          disabled={loading || paymentNum <= 0 || !photoUrl || depositBlocked || (waived && !confirmWaive)}
+          disabled={loading || paymentNum <= 0 || !photoUrl || cardGateOpen || (waived && !confirmWaive)}
           style={{
             width: '100%', background: '#d97706', color: '#fff',
-            opacity: (loading || paymentNum <= 0 || !photoUrl || depositBlocked || (waived && !confirmWaive)) ? 0.5 : 1,
+            opacity: (loading || paymentNum <= 0 || !photoUrl || cardGateOpen || (waived && !confirmWaive)) ? 0.5 : 1,
           }}
         >
           {loading ? '⏳ กำลังบันทึก...' : daysCovered === 0 && paymentNum > 0 ? '💾 บันทึกเครดิต' : '💾 ยืนยันต่อเวลา'}
