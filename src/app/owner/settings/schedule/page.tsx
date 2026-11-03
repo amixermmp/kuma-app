@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { loadExtraShifts, loadOverrides, loadPatterns, loadScheduleConfig } from '@/lib/schedule'
+import { approvedMarks, loadExtraShifts, loadLeaves, loadOverrides, loadPatterns, loadScheduleConfig } from '@/lib/schedule'
 import { SCHEDULE_DAYS, addDays, bkkDateStr, buildScheduleDays } from '@/lib/scheduleCalc'
 import ScheduleClient from './ScheduleClient'
 
@@ -23,14 +23,15 @@ export default async function ScheduleSettingsPage({ searchParams }: { searchPar
 
   const today = bkkDateStr()
   const to = addDays(today, SCHEDULE_DAYS - 1)
-  const [config, patterns, overrides, extras, { data: staff }] = await Promise.all([
+  const [config, patterns, overrides, extras, leaves, { data: staff }] = await Promise.all([
     loadScheduleConfig(admin, branchId),
     loadPatterns(admin, branchId),
     loadOverrides(admin, branchId, today, to),
     loadExtraShifts(admin, branchId, today, to),
+    loadLeaves(admin, branchId, today, to),
     admin.from('staff').select('id, name, is_active, role').eq('branch_id', branchId).order('name'),
   ])
-  const days = buildScheduleDays(today, SCHEDULE_DAYS, patterns, overrides, config.counts, extras)
+  const days = buildScheduleDays(today, SCHEDULE_DAYS, patterns, overrides, config.counts, extras, approvedMarks(leaves))
 
   return (
     <div className="app-wrap">
@@ -40,8 +41,9 @@ export default async function ScheduleSettingsPage({ searchParams }: { searchPar
         enabled={config.enabled}
         counts={config.counts}
         // เลือกได้เฉพาะพนักงานที่ยังใช้งานอยู่ (คนลาออก/ปิดใช้งานไม่ขึ้นให้ตั้งแบบแผนใหม่) — แต่ถ้ามีแบบแผนค้างอยู่ ยังต้องเห็นชื่อ
-        staff={(staff ?? []).filter(s => s.is_active || patterns.some(p => p.staffId === s.id) || extras.some(e => e.staffId === s.id)).map(s => ({ id: s.id, name: s.name, active: !!s.is_active, role: s.role }))}
+        staff={(staff ?? []).filter(s => s.is_active || patterns.some(p => p.staffId === s.id) || extras.some(e => e.staffId === s.id) || leaves.some(l => l.staffId === s.id || l.coverStaffId === s.id)).map(s => ({ id: s.id, name: s.name, active: !!s.is_active, role: s.role }))}
         patterns={patterns}
+        leaves={leaves}
         days={days}
         today={today}
       />

@@ -47,11 +47,55 @@ export function patternStaffOnDate(patterns: SchedulePattern[], dateStr: string)
   return Array.from(out)
 }
 
-// ใครมีเวรวันนั้น = ตามแบบแผน + เวรเพิ่มรายวัน (คนเดียวกันซ้ำนับครั้งเดียว)
-export function staffOnDate(patterns: SchedulePattern[], dateStr: string, extras: ExtraShift[] = []): string[] {
+// การลาที่อนุมัติแล้ว: คนนั้นถูกตัดออกจากวันนั้น (ที่ว่างเปิดให้คนอื่นกดลง) — คำขอที่ยังรออนุมัติยังนับว่ามาทำงานตามปกติ
+export type LeaveMark = { staffId: string; day: string }
+
+// ใครมีเวรวันนั้น = (ตามแบบแผน + เวรเพิ่มรายวัน) − คนที่ลาอนุมัติแล้ว (คนเดียวกันซ้ำนับครั้งเดียว)
+export function staffOnDate(patterns: SchedulePattern[], dateStr: string, extras: ExtraShift[] = [], leaves: LeaveMark[] = []): string[] {
   const out = new Set(patternStaffOnDate(patterns, dateStr))
   for (const e of extras) if (e.day === dateStr) out.add(e.staffId)
+  for (const l of leaves) if (l.day === dateStr) out.delete(l.staffId)
   return Array.from(out)
+}
+
+// ── กติกาการลา (เจ้าของตกลง) ──────────────────────────────────────────────────────────────
+//  ล่วงหน้า < 48 ชม. (นับถึง 09:00 ของวันนั้น) → ลาในแอปไม่ได้ ต้องทักหาพี่เจ้าของร้าน (เจ้าของบันทึกลาให้)
+//  ล่วงหน้า ≥ 10 วัน → อนุมัติทันที | น้อยกว่า 10 วัน → ถ้าระบุคนแทน รอคนแทนกดรับ (รับแล้วอนุมัติ) ไม่มีคนแทน = ส่งเจ้าของ
+//  ลาเป็นช่วง: ยาวเกิน 14 วัน หรือมีวันที่ใกล้กว่า 10 วัน → ส่งเจ้าของทั้งช่วง (ไม่แยกครึ่งอนุมัติครึ่งรอ); ช่วงไม่มีคนแทน
+export const LEAVE_MIN_HOURS = 48
+export const LEAVE_AUTO_DAYS = 10
+export const LEAVE_MAX_AUTO_RANGE = 14
+const SHIFT_START_HOUR_BKK = 9
+
+export type LeaveRoute = 'auto' | 'cover' | 'owner'
+
+export const diffDaysStr = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
+
+// เวลาเริ่มเวรของวันนั้น (09:00 เวลาไทย) เป็น ms
+export const shiftStartMs = (dateStr: string) => Date.parse(`${dateStr}T0${SHIFT_START_HOUR_BKK}:00:00+07:00`)
+
+export function leaveRoute(
+  p: { today: string; nowMs: number; days: string[]; hasCover: boolean },
+): { route: LeaveRoute } | { error: 'invalid' | 'too_late' | 'too_far' | 'cover_range' } {
+  const days = [...p.days].sort()
+  if (days.length === 0) return { error: 'invalid' }
+  const first = days[0], last = days[days.length - 1]
+  if (first <= p.today) return { error: 'too_late' }
+  if (shiftStartMs(first) - p.nowMs < LEAVE_MIN_HOURS * 3_600_000) return { error: 'too_late' }
+  if (last > addDays(p.today, SCHEDULE_DAYS - 1)) return { error: 'too_far' }
+  if (days.length > 1 && p.hasCover) return { error: 'cover_range' }
+  const rangeSpan = diffDaysStr(first, last) + 1
+  if (rangeSpan > LEAVE_MAX_AUTO_RANGE) return { route: 'owner' }
+  if (diffDaysStr(p.today, first) >= LEAVE_AUTO_DAYS) return { route: 'auto' }
+  return { route: p.hasCover ? 'cover' : 'owner' }
+}
+
+// วันที่ติดกันตั้งแต่ from ถึง to (รวมทั้งสองวัน) — null ถ้าช่วงไม่ถูกต้อง
+export function dateRange(from: unknown, to: unknown, maxDays = SCHEDULE_DAYS): string[] | null {
+  if (!isDateStr(from) || !isDateStr(to) || to < from) return null
+  const n = diffDaysStr(from, to) + 1
+  if (n > maxDays) return null
+  return Array.from({ length: n }, (_, i) => addDays(from, i))
 }
 
 // ลงเวรว่างได้กี่ที่ (ถึงเป้าแล้ว = 0) — ใช้ทั้งปุ่ม "ลงเวรนี้" และให้ฝั่งเซิร์ฟเวอร์คิดซ้ำ
@@ -77,6 +121,7 @@ export type ScheduleDay = {
   overridden: boolean
   staffIds: string[]
   extraStaffIds: string[]   // ในจำนวน staffIds: คนที่ลงเพิ่มเอง/เจ้าของเพิ่มให้ (ไม่ได้มาจากแบบแผน)
+  leaveStaffIds: string[]   // คนที่มีเวรวันนี้แต่ลาอนุมัติแล้ว (ถูกตัดออกจาก staffIds)
   count: number
   min: number
   target: number
@@ -91,16 +136,19 @@ export function buildScheduleDays(
   overrides: Record<string, DayType>,
   counts: ScheduleCounts,
   extras: ExtraShift[] = [],
+  leaves: LeaveMark[] = [],
 ): ScheduleDay[] {
   const out: ScheduleDay[] = []
   for (let i = 0; i < days; i++) {
     const date = addDays(fromDate, i)
     const type = dayTypeFor(date, overrides)
-    const staffIds = staffOnDate(patterns, date, extras)
+    const staffIds = staffOnDate(patterns, date, extras, leaves)
+    const planned = staffOnDate(patterns, date, extras)
     const fromPattern = new Set(patternStaffOnDate(patterns, date))
     out.push({
       date, weekday: weekdayOf(date), type, overridden: overrides[date] != null,
-      staffIds, extraStaffIds: staffIds.filter(id => !fromPattern.has(id)), count: staffIds.length,
+      staffIds, extraStaffIds: staffIds.filter(id => !fromPattern.has(id)),
+      leaveStaffIds: planned.filter(id => !staffIds.includes(id)), count: staffIds.length,
       min: type === 'weekend' ? counts.weekendMin : counts.weekdayMin,
       target: type === 'weekend' ? counts.weekendTarget : counts.weekdayTarget,
       open: openSlots(staffIds.length, type, counts),

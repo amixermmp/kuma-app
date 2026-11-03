@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SettingsHeader, Section, Field, SaveBtn, Toggle } from '../_shared'
 import { WEEKDAY_SHORT, type ScheduleCounts, type ScheduleDay, type SchedulePattern } from '@/lib/scheduleCalc'
+import type { LeaveRow } from '@/lib/schedule'
 
 type Branch = { id: string; name: string }
 type StaffRow = { id: string; name: string; active: boolean; role: string | null }
@@ -18,9 +19,9 @@ const STATUS_STYLE = {
 const fmtDate = (d: string) =>
   new Date(`${d}T00:00:00+07:00`).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short' })
 
-export default function ScheduleClient({ branches, branchId, enabled: initEnabled, counts: initCounts, staff, patterns, days, today }: {
+export default function ScheduleClient({ branches, branchId, enabled: initEnabled, counts: initCounts, staff, patterns, leaves, days, today }: {
   branches: Branch[]; branchId: string; enabled: boolean; counts: ScheduleCounts
-  staff: StaffRow[]; patterns: SchedulePattern[]; days: ScheduleDay[]; today: string
+  staff: StaffRow[]; patterns: SchedulePattern[]; leaves: LeaveRow[]; days: ScheduleDay[]; today: string
 }) {
   const router = useRouter()
   const [enabled, setEnabled] = useState(initEnabled)
@@ -68,6 +69,38 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
     flash(err ? '❌ ' + err : '🗑️ ลบแล้ว')
     if (!err) router.refresh()
   }
+
+  // ── ลา: อนุมัติ/ปฏิเสธคำขอ, บันทึกลาแทนพนักงาน (ด่วน <48 ชม. ฯลฯ), ยกเลิกการลา ──
+  const [leaveStaffId, setLeaveStaffId] = useState('')
+  const [leaveReason, setLeaveReason] = useState('')
+  const decide = async (l: PendingGroup, approve: boolean) => {
+    if (!confirm(`${approve ? 'อนุมัติ' : 'ปฏิเสธ'}การลาของ ${nameOf(l.staffId)} (${l.label})?`)) return
+    const err = await call({ action: 'decideLeave', id: l.id, groupId: l.groupId, approve })
+    flash(err ? '❌ ' + err : approve ? '✅ อนุมัติแล้ว' : '🚫 ปฏิเสธแล้ว')
+    if (!err) router.refresh()
+  }
+  const recordLeave = async (day: string) => {
+    if (!leaveStaffId) { flash('❌ เลือกคนที่ลาก่อน'); return }
+    const err = await call({ action: 'recordLeave', staffId: leaveStaffId, from: day, to: day, reason: leaveReason })
+    flash(err ? '❌ ' + err : '✅ บันทึกลาแล้ว')
+    if (!err) { setLeaveStaffId(''); setLeaveReason(''); router.refresh() }
+  }
+  const cancelLeave = async (l: LeaveRow) => {
+    if (!confirm(`ยกเลิกการลาของ ${nameOf(l.staffId)} วันที่ ${fmtDate(l.day)}?\n\nคนนั้นจะกลับมามีเวรตามแบบแผน (เวรเพิ่มที่เคยลงเอง/เวรที่คนแทนรับไปไม่ถูกลบให้ — ลบเองได้ในแผงรายวัน)`)) return
+    const err = await call({ action: 'cancelLeave', id: l.id })
+    flash(err ? '❌ ' + err : '✅ ยกเลิกการลาแล้ว')
+    if (!err) router.refresh()
+  }
+  type PendingGroup = { id: string; groupId: string | null; staffId: string; label: string; reason: string | null; cover: string | null; status: LeaveRow['status'] }
+  const pendingGroups: PendingGroup[] = (() => {
+    const m = new Map<string, LeaveRow[]>()
+    for (const l of leaves.filter(x => x.status !== 'approved')) m.set(l.groupId ?? l.id, [...(m.get(l.groupId ?? l.id) ?? []), l])
+    return Array.from(m.values()).map(g => ({
+      id: g[0].id, groupId: g[0].groupId, staffId: g[0].staffId, reason: g[0].reason, status: g[0].status,
+      cover: g[0].coverStaffId ? nameOf(g[0].coverStaffId) : null,
+      label: g.length > 1 ? `${fmtDate(g[0].day)} – ${fmtDate(g[g.length - 1].day)} (${g.length} วัน)` : fmtDate(g[0].day),
+    }))
+  })()
 
   const [addStaffId, setAddStaffId] = useState('')
   const addExtra = async (day: string) => {
@@ -129,6 +162,27 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
         </div>
       </Section>
 
+      <Section title={`คำขอลาที่รออนุมัติ (${pendingGroups.length})`}>
+        <div style={{ padding: '4px 16px 14px' }}>
+          {pendingGroups.length === 0 && <div style={{ fontSize: '12px', color: '#9ca3af', padding: '8px 0' }}>ไม่มีคำขอที่รออยู่</div>}
+          {pendingGroups.map(g => (
+            <div key={g.id} style={{ padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}>
+              <div style={{ fontSize: '13px' }}>
+                <strong>{nameOf(g.staffId)}</strong> ขอลา <strong>{g.label}</strong>
+              </div>
+              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+                {g.status === 'pending_cover' ? `รอ ${g.cover ?? 'คนแทน'} กดรับ (อนุมัติเองได้ — ไม่มีคนแทน)` : g.cover ? `ขอให้ ${g.cover} แทน แต่ไม่รับ` : 'ไม่มีคนแทน'}
+                {g.reason ? ` • ${g.reason}` : ''}
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button className="btn" style={{ padding: '6px 14px', fontSize: '12px', background: '#166534', color: '#fff' }} onClick={() => decide(g, true)}>อนุมัติ</button>
+                <button className="btn" style={{ padding: '6px 14px', fontSize: '12px', color: '#dc2626' }} onClick={() => decide(g, false)}>ปฏิเสธ</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
       <Section title={`ภาพรวม ${days.length} วันข้างหน้า — ขาดคน ${shortCount} วัน • ต่ำกว่าเป้า ${lowCount} วัน`}>
         <div style={{ padding: '4px 12px 14px' }}>
           {patterns.length === 0 && (
@@ -149,6 +203,7 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
                   <div style={{ fontSize: '12px', fontWeight: 800, color: st.color, width: '52px' }}>{d.count}/{d.target} คน</div>
                   <div style={{ flex: 1, fontSize: '11px', color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {d.staffIds.map(id => nameOf(id) + (d.extraStaffIds.includes(id) ? ' ➕' : '')).join(', ') || '—'}
+                    {d.leaveStaffIds.length > 0 && <span style={{ color: '#9ca3af' }}> • ลา: {d.leaveStaffIds.map(nameOf).join(', ')}</span>}
                   </div>
                   <div style={{ fontSize: '10px', fontWeight: 700, color: st.color }}>
                     {st.label}{d.overridden ? ' • วันพิเศษ' : ''}
@@ -165,7 +220,32 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
                       {d.overridden && <button className="btn" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setDayType(d.date, null)}>กลับเป็นตามปกติ</button>}
                     </div>
                     <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed #e5e7eb' }}>
-                      <div style={{ fontWeight: 700, marginBottom: '6px' }}>เวรที่ลงเพิ่มวันนี้ (➕ = ลงเอง/เจ้าของเพิ่มให้)</div>
+                      <div style={{ fontWeight: 700, marginBottom: '6px' }}>การลาวันนี้</div>
+                      {leaves.filter(l => l.day === d.date).length === 0 && <div style={{ color: '#9ca3af', marginBottom: '6px' }}>ไม่มี</div>}
+                      {leaves.filter(l => l.day === d.date).map(l => (
+                        <div key={l.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', gap: '6px' }}>
+                          <span>
+                            {nameOf(l.staffId)}
+                            <span style={{ color: l.status === 'approved' ? '#166534' : '#b45309', fontWeight: 700 }}> • {l.status === 'approved' ? 'ลาแล้ว' : 'รออนุมัติ'}</span>
+                            {l.late && <span style={{ color: '#dc2626', fontWeight: 700 }}> • ลาด่วน</span>}
+                            {l.source === 'owner' && <span style={{ color: '#6b7280' }}> • เจ้าของบันทึก</span>}
+                            {l.reason && <span style={{ color: '#6b7280' }}> • {l.reason}</span>}
+                          </span>
+                          <button className="btn" style={{ padding: '3px 10px', fontSize: '11px', color: '#dc2626' }} onClick={() => cancelLeave(l)}>ยกเลิกลา</button>
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                        <select className="field-input" style={{ flex: 1, minWidth: '140px', padding: '6px 8px', fontSize: '12px' }} value={leaveStaffId} onChange={e => setLeaveStaffId(e.target.value)}>
+                          <option value="">— บันทึกลาให้ (เลือกคนที่มีเวรวันนี้) —</option>
+                          {d.staffIds.map(id => <option key={id} value={id}>{nameOf(id)}</option>)}
+                        </select>
+                        <input className="field-input" style={{ flex: 1, minWidth: '120px', padding: '6px 8px', fontSize: '12px' }} placeholder="เหตุผล (ไม่บังคับ)" value={leaveReason} onChange={e => setLeaveReason(e.target.value)} />
+                        <button className="btn" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => recordLeave(d.date)}>บันทึกลา</button>
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px' }}>บันทึกลาได้ทุกกรณี รวมลาด่วนน้อยกว่า 48 ชม. (ระบบติดป้าย "ลาด่วน" ให้) — เวรจะว่างให้คนอื่นกดลง</div>
+                    </div>
+                    <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed #e5e7eb' }}>
+                      <div style={{ fontWeight: 700, marginBottom: '6px' }}>เวรที่ลงเพิ่มวันนี้ (➕ = ลงเอง/เจ้าของเพิ่มให้/รับแทน)</div>
                       {d.extraStaffIds.length === 0 && <div style={{ color: '#9ca3af', marginBottom: '6px' }}>ยังไม่มี</div>}
                       {d.extraStaffIds.map(id => (
                         <div key={id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>

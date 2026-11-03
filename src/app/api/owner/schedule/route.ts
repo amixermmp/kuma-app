@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { addOwnerExtraShift, deleteSchedulePattern, removeExtraShift, saveSchedulePattern, saveScheduleSettings, setScheduleDayType } from '@/lib/schedule'
+import { ownerCancelLeave, ownerDecideLeave, ownerRecordLeave } from '@/lib/scheduleLeave'
 
 // ตั้งค่าตารางเวรของเจ้าของ: สวิตช์/จำนวนคนต่อวัน, แบบแผนรายสัปดาห์ต่อคน, ประเภทวันพิเศษ
 export async function POST(request: NextRequest) {
@@ -32,6 +33,14 @@ export async function POST(request: NextRequest) {
     error = await addOwnerExtraShift(admin, branchId, body.staffId, body.day)
   } else if (body.action === 'removeExtra') {
     error = await removeExtraShift(admin, branchId, body.staffId, body.day)
+  } else if (body.action === 'decideLeave') {
+    error = await ownerDecideLeave(admin, branchId, { id: body.id, groupId: body.groupId }, body.approve === true)
+  } else if (body.action === 'recordLeave') {
+    const r = await ownerRecordLeave(admin, branchId, body.staffId, body.from, body.to ?? body.from, body.reason)
+    if ('error' in r) error = r.error
+    else extra = { count: r.count }
+  } else if (body.action === 'cancelLeave') {
+    error = await ownerCancelLeave(admin, branchId, body.id)
   } else {
     return NextResponse.json({ error: 'คำสั่งไม่ถูกต้อง' }, { status: 400 })
   }

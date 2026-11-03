@@ -3,16 +3,20 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
-import { loadExtraShifts, loadOverrides, loadPatterns, loadScheduleConfig } from '@/lib/schedule'
-import { SCHEDULE_DAYS, WEEKDAY_SHORT, addDays, bkkDateStr, buildScheduleDays } from '@/lib/scheduleCalc'
+import { approvedMarks, loadExtraShifts, loadLeaves, loadOverrides, loadPatterns, loadScheduleConfig } from '@/lib/schedule'
+import {
+  LEAVE_AUTO_DAYS, LEAVE_MIN_HOURS, SCHEDULE_DAYS, WEEKDAY_SHORT, addDays, bkkDateStr, buildScheduleDays, diffDaysStr, shiftStartMs,
+} from '@/lib/scheduleCalc'
 import ScheduleCalendar, { type CalendarDay } from './ScheduleCalendar'
+import LeavePanels, { type CoverRequest, type MyRequest } from './LeavePanels'
 
 export const dynamic = 'force-dynamic'
 
 const fmtDate = (d: string) =>
   new Date(`${d}T00:00:00+07:00`).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short' })
 
-// ปฏิทินเวรแบบอ่านอย่างเดียวของสาขาตัวเอง — เข้าได้แม้ยังไม่เช็คอิน (โหมด "ดูตารางอย่างเดียว" ที่หน้าเช็คอิน)
+// ปฏิทินเวรของสาขาตัวเอง — เข้าได้แม้ยังไม่เช็คอิน (โหมด "ดูตารางอย่างเดียว" ที่หน้าเช็คอิน)
+// ลงเวรว่าง / ลา / ให้คนแทน ทำได้จากหน้านี้
 export default async function StaffSchedulePage() {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
@@ -37,7 +41,7 @@ export default async function StaffSchedulePage() {
       <Link href={backHref} className="app-header-back">←</Link>
       <div style={{ flex: 1 }}>
         <h1>ตารางเวร</h1>
-        <div className="sub">ดูอย่างเดียว</div>
+        <div className="sub">ดู • ลงเวรว่าง • ลา</div>
       </div>
     </div>
   )
@@ -54,20 +58,58 @@ export default async function StaffSchedulePage() {
   }
 
   const to = addDays(today, SCHEDULE_DAYS - 1)
-  const [patterns, overrides, extras] = await Promise.all([loadPatterns(supabase, branchId), loadOverrides(supabase, branchId, today, to), loadExtraShifts(supabase, branchId, today, to)])
-  const days = buildScheduleDays(today, SCHEDULE_DAYS, patterns, overrides, config.counts, extras)
-  const ids = Array.from(new Set([...patterns.map(p => p.staffId), ...extras.map(e => e.staffId)]))
-  const { data: staff } = ids.length ? await supabase.from('staff').select('id, name').in('id', ids) : { data: [] }
+  const [patterns, overrides, extras, leaves] = await Promise.all([
+    loadPatterns(supabase, branchId), loadOverrides(supabase, branchId, today, to),
+    loadExtraShifts(supabase, branchId, today, to), loadLeaves(supabase, branchId, today, to),
+  ])
+  const days = buildScheduleDays(today, SCHEDULE_DAYS, patterns, overrides, config.counts, extras, approvedMarks(leaves))
+
+  // ชื่อ + สถานะใช้งานของทุกคนที่เกี่ยวข้อง (คนแทนต้องเป็นคนที่ยังใช้งานอยู่)
+  const ids = Array.from(new Set([...patterns.map(p => p.staffId), ...extras.map(e => e.staffId), ...leaves.flatMap(l => l.coverStaffId ? [l.staffId, l.coverStaffId] : [l.staffId])]))
+  const { data: staff } = ids.length ? await supabase.from('staff').select('id, name, is_active').in('id', ids) : { data: [] }
   const nameOf = (id: string) => staff?.find(s => s.id === id)?.name ?? '—'
+  const eligible = patterns.some(p => p.staffId === staffId)   // ลงเวรว่าง/ลา ได้เฉพาะคนที่เจ้าของตั้งแบบแผนไว้
+  const eligibleIds = new Set(patterns.map(p => p.staffId))
+  const activeIds = new Set((staff ?? []).filter(s => s.is_active).map(s => s.id))
+  const nowMs = Date.now()
+  const myLeaveByDay = new Map(leaves.filter(l => l.staffId === staffId).map(l => [l.day, l]))
+
   const mine = days.filter(d => d.staffIds.includes(staffId))
-  // ลงเวรว่างได้เฉพาะคนที่เจ้าของตั้งแบบแผนไว้ (พาร์ทไทม์ในตาราง)
-  const eligible = patterns.some(p => p.staffId === staffId)
-  const calendarDays: CalendarDay[] = days.map(d => ({
-    date: d.date, weekday: d.weekday, label: fmtDate(d.date), isToday: d.date === today, mine: d.staffIds.includes(staffId),
-    people: d.staffIds.map(id => ({ id, name: nameOf(id), mine: id === staffId, extra: d.extraStaffIds.includes(id) })),
-    open: d.open,
-    canClaim: eligible && d.date > today && d.open > 0 && !d.staffIds.includes(staffId),
-  }))
+  const calendarDays: CalendarDay[] = days.map(d => {
+    const isMine = d.staffIds.includes(staffId)
+    const myLeave = myLeaveByDay.get(d.date)
+    const notice = diffDaysStr(today, d.date)
+    const tooLate = isMine && d.date > today && shiftStartMs(d.date) - nowMs < LEAVE_MIN_HOURS * 3_600_000
+    const canLeave = eligible && isMine && d.date > today && !tooLate && !myLeave
+    // คนแทนที่เลือกได้ (เฉพาะกรณีน้อยกว่า 10 วัน): คนอื่นในตารางที่ยังใช้งานและวันนั้นยังไม่มีเวร
+    const coverOptions = canLeave && notice < LEAVE_AUTO_DAYS
+      ? Array.from(eligibleIds).filter(id => id !== staffId && activeIds.has(id) && !d.staffIds.includes(id)).map(id => ({ id, name: nameOf(id) }))
+      : []
+    return {
+      date: d.date, weekday: d.weekday, label: fmtDate(d.date), isToday: d.date === today, mine: isMine,
+      people: d.staffIds.map(id => ({ id, name: nameOf(id), mine: id === staffId, extra: d.extraStaffIds.includes(id) })),
+      open: d.open,
+      canClaim: eligible && d.date > today && d.open > 0 && !isMine && !myLeave,
+      canLeave, tooLate, noticeAuto: notice >= LEAVE_AUTO_DAYS, coverOptions,
+      myLeave: myLeave ? { id: myLeave.id, status: myLeave.status } : null,
+    }
+  })
+
+  // คำขอของฉัน (ลาเป็นช่วงรวมเป็นรายการเดียว) + คำขอที่ขอให้ฉันทำแทน
+  const mineLeaves = leaves.filter(l => l.staffId === staffId)
+  const groups = new Map<string, typeof mineLeaves>()
+  for (const l of mineLeaves) groups.set(l.groupId ?? l.id, [...(groups.get(l.groupId ?? l.id) ?? []), l])
+  const myRequests: MyRequest[] = Array.from(groups.values()).map(g => {
+    const first = g[0], last = g[g.length - 1]
+    return {
+      id: first.id, status: first.status, late: g.some(x => x.late),
+      label: g.length > 1 ? `${fmtDate(first.day)} – ${fmtDate(last.day)} (${g.length} วัน)` : fmtDate(first.day),
+      coverName: first.coverStaffId ? nameOf(first.coverStaffId) : null, reason: first.reason,
+    }
+  })
+  const coverRequests: CoverRequest[] = leaves.filter(l => l.status === 'pending_cover' && l.coverStaffId === staffId && l.day > today)
+    .map(l => ({ id: l.id, fromName: nameOf(l.staffId), label: `${WEEKDAY_SHORT[days.find(d => d.date === l.day)?.weekday ?? 0]} ${fmtDate(l.day)}`, reason: l.reason }))
+
   const next = mine.find(d => d.date >= today)
 
   return (
@@ -77,11 +119,14 @@ export default async function StaffSchedulePage() {
         {mine.length === 0
           ? 'คุณไม่มีเวรในช่วง 60 วันข้างหน้า'
           : <>เวรถัดไปของคุณ: <strong>{WEEKDAY_SHORT[next!.weekday]} {fmtDate(next!.date)}{next!.date === today ? ' (วันนี้)' : ''}</strong> • ทั้งหมด {mine.length} วันใน 60 วัน</>}
-        <div style={{ fontSize: '11px', marginTop: '4px', opacity: .8 }}>
-          {eligible ? 'วันที่มีปุ่ม "ลงเวรนี้" = ยังขาดคน ใครกดก่อนได้ก่อน ลงแล้วยกเลิกเองไม่ได้ • ' : ''}ต้องการลา/สลับเวร → ทักหาพี่เจ้าของร้าน
+        <div style={{ fontSize: '11px', marginTop: '4px', opacity: .85, lineHeight: 1.6 }}>
+          {eligible
+            ? <>วันที่มีปุ่ม "ลงเวรนี้" = ยังขาดคน ใครกดก่อนได้ก่อน ลงแล้วยกเลิกเองไม่ได้ • ลาล่วงหน้า 10 วันขึ้นไปอนุมัติทันที • ลาน้อยกว่า 48 ชม. → ทักหาพี่เจ้าของร้าน</>
+            : <>ต้องการลา/สลับเวร → ทักหาพี่เจ้าของร้าน</>}
         </div>
       </div>
 
+      <LeavePanels eligible={eligible} today={today} myRequests={myRequests} coverRequests={coverRequests} />
       <ScheduleCalendar days={calendarDays} />
     </div>
   )

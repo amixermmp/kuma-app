@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   DEFAULT_COUNTS, SCHEDULE_DAYS, addDays, bkkDateStr, dayTypeFor, isDateStr, openSlots, patternStaffOnDate, staffOnDate, validatePattern,
-  type DayType, type ExtraShift, type SchedulePattern, type ScheduleCounts,
+  type DayType, type ExtraShift, type LeaveMark, type SchedulePattern, type ScheduleCounts,
 } from '@/lib/scheduleCalc'
 
 // ตารางเวรพนักงานพาร์ทไทม์: ส่วนฝั่งเซิร์ฟเวอร์ (ดึง/บันทึกข้อมูล + ตัดสินวิธีเช็คอินของวันนี้)
@@ -52,9 +52,31 @@ export async function getCheckinMode(supabase: Admin, staffId: string, branchId:
   const { data } = await supabase.from('schedule_patterns')
     .select('id, staff_id, weekdays, start_date, end_date').eq('staff_id', staffId).eq('branch_id', branchId)
   if (!data || data.length === 0) return 'normal'
-  const extras = await loadExtraShifts(supabase, branchId, today, today)
-  return staffOnDate(data.map(r => toPattern(r as PatternRow)), today, extras.filter(e => e.staffId === staffId)).includes(staffId) ? 'normal' : 'off_shift'
+  const [extras, leaves] = await Promise.all([loadExtraShifts(supabase, branchId, today, today), loadLeaves(supabase, branchId, today, today)])
+  const marks = approvedMarks(leaves).filter(l => l.staffId === staffId)   // ลาอนุมัติแล้ววันนี้ = ไม่มีเวร
+  return staffOnDate(data.map(r => toPattern(r as PatternRow)), today, extras.filter(e => e.staffId === staffId), marks).includes(staffId) ? 'normal' : 'off_shift'
 }
+
+// ── การลาที่ยังใช้งานอยู่ (รออนุมัติ/อนุมัติแล้ว) — ฟังก์ชันขอลา/อนุมัติอยู่ใน scheduleLeave.ts ───────────────
+export type LeaveStatus = 'pending_cover' | 'pending' | 'approved'
+export type LeaveRow = {
+  id: string; staffId: string; day: string; status: LeaveStatus
+  coverStaffId: string | null; groupId: string | null; reason: string | null; late: boolean; source: 'staff' | 'owner'
+}
+
+export async function loadLeaves(supabase: Admin, branchId: string, from: string, to: string): Promise<LeaveRow[]> {
+  const { data } = await supabase.from('schedule_leaves')
+    .select('id, staff_id, day, status, cover_staff_id, group_id, reason, late, source')
+    .eq('branch_id', branchId).gte('day', from).lte('day', to).in('status', ['pending_cover', 'pending', 'approved']).order('day')
+  return (data ?? []).map(r => ({
+    id: r.id, staffId: r.staff_id, day: r.day, status: r.status as LeaveStatus, coverStaffId: r.cover_staff_id,
+    groupId: r.group_id, reason: r.reason, late: !!r.late, source: r.source as 'staff' | 'owner',
+  }))
+}
+
+// เฉพาะที่อนุมัติแล้วเท่านั้นที่ตัดคนออกจากวัน (คำขอที่ยังรออยู่ยังนับว่ามาทำงานตามปกติ)
+export const approvedMarks = (leaves: LeaveRow[]): LeaveMark[] =>
+  leaves.filter(l => l.status === 'approved').map(l => ({ staffId: l.staffId, day: l.day }))
 
 // ── บันทึก (เจ้าของเท่านั้น — เรียกจาก API ที่ตรวจสิทธิ์แล้ว) ────────────────────────────────
 const cleanCount = (v: unknown) => {
@@ -140,14 +162,18 @@ export async function claimScheduleShift(
   if (!staff || staff.branch_id !== branchId || !staff.is_active) return { error: 'บัญชีนี้ลงเวรสาขานี้ไม่ได้', code: 'forbidden' }
 
   // สิทธิ์: เฉพาะคนที่เจ้าของตั้งแบบแผนไว้ (พาร์ทไทม์ในตาราง)
-  const [patterns, overrides, extras] = await Promise.all([
+  const [patterns, overrides, extras, leaves] = await Promise.all([
     loadPatterns(supabase, branchId),
     loadOverrides(supabase, branchId, day, day),
     loadExtraShifts(supabase, branchId, day, day),
+    loadLeaves(supabase, branchId, day, day),
   ])
   if (!patterns.some(p => p.staffId === staffId)) return { error: 'คุณยังไม่ได้อยู่ในตารางเวร — ทักหาพี่เจ้าของร้าน', code: 'forbidden' }
 
-  const fromPattern = patternStaffOnDate(patterns, day)
+  // คนที่มีคำขอลา/ลาแล้ววันนั้นลงวันเดียวกันไม่ได้; คนที่ลาอนุมัติแล้วไม่นับเป็นคนในวัน → ที่ว่างเพิ่ม
+  if (leaves.some(l => l.staffId === staffId)) return { error: 'คุณมีคำขอลาวันนั้นอยู่แล้ว', code: 'dup' }
+  const onLeave = new Set(approvedMarks(leaves).map(l => l.staffId))
+  const fromPattern = patternStaffOnDate(patterns, day).filter(id => !onLeave.has(id))
   if (fromPattern.includes(staffId) || extras.some(e => e.staffId === staffId)) {
     return { error: 'คุณมีเวรวันนั้นอยู่แล้ว', code: 'dup' }
   }
