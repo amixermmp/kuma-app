@@ -24,9 +24,9 @@ export async function POST(request: NextRequest) {
     const r = await requestLeave(admin, staffId, branchId, { from: body.from, to: body.to ?? body.from, coverStaffId: body.coverStaffId, reason: body.reason })
     if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 })
     await logStaffAction(staffId, 'schedule_leave_request',
-      `ขอลา ${body.from}${body.to && body.to !== body.from ? ` ถึง ${body.to}` : ''} (${r.count} วัน) — ${r.route === 'auto' ? 'อนุมัติทันที' : r.route === 'cover' ? 'รอคนแทนรับ' : 'รอเจ้าของพิจารณา'}`,
-      { from: body.from, to: body.to ?? body.from, route: r.route, coverStaffId: body.coverStaffId ?? null, reason: body.reason ?? null })
-    return NextResponse.json({ success: true, route: r.route, count: r.count })
+      `ขอลา ${body.from}${body.to && body.to !== body.from ? ` ถึง ${body.to}` : ''} (${r.count} วัน) — ${r.route === 'auto' ? (r.surplus ? 'อนุมัติทันที (วันนั้นคนเกินเป้า)' : 'อนุมัติทันที') : r.route === 'cover' ? 'รอคนแทนรับ' : 'รอเจ้าของพิจารณา'}`,
+      { from: body.from, to: body.to ?? body.from, route: r.route, surplus: r.surplus, coverStaffId: body.coverStaffId ?? null, reason: body.reason ?? null })
+    return NextResponse.json({ success: true, route: r.route, count: r.count, surplus: r.surplus })
   }
 
   if (body.action === 'cancel') {

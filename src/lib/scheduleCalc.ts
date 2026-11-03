@@ -98,6 +98,13 @@ export function dateRange(from: unknown, to: unknown, maxDays = SCHEDULE_DAYS): 
   return Array.from({ length: n }, (_, i) => addDays(from, i))
 }
 
+// วันที่คนเกินเป้า: ถ้าคนหนึ่งลา วันนั้นยังเหลือคน "ถึงเป้า" อยู่ไหม (count = จำนวนคนก่อนลา รวมคนที่ลา)
+// ใช้กับการลาที่ล่วงหน้าน้อยกว่า 10 วัน: เหลือถึงเป้า → อนุมัติทันที ไม่ต้องหาคนแทน/รอเจ้าของ (คนที่รับเกินไว้เป็นตัวสำรอง)
+export function stillAtTargetAfterLeave(count: number, type: DayType, c: ScheduleCounts): boolean {
+  const target = type === 'weekend' ? c.weekendTarget : c.weekdayTarget
+  return count - 1 >= target
+}
+
 // ลงเวรว่างได้กี่ที่ (ถึงเป้าแล้ว = 0) — ใช้ทั้งปุ่ม "ลงเวรนี้" และให้ฝั่งเซิร์ฟเวอร์คิดซ้ำ
 export function openSlots(count: number, type: DayType, c: ScheduleCounts): number {
   const target = type === 'weekend' ? c.weekendTarget : c.weekdayTarget

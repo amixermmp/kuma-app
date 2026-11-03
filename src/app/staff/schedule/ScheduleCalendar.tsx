@@ -17,6 +17,7 @@ export type CalendarDay = {
   canLeave: boolean   // เป็นเวรของเรา + ล่วงหน้าพอ (≥48 ชม.) + ยังไม่มีคำขอลา
   tooLate: boolean    // เป็นเวรของเราแต่ใกล้กว่า 48 ชม. → ลาในแอปไม่ได้
   noticeAuto: boolean // ล่วงหน้า ≥10 วัน = อนุมัติทันที
+  surplusOk: boolean  // วันนั้นคนเกินเป้า ลาแล้วยังเหลือถึงเป้า = อนุมัติทันที (<10 วัน ก็ได้)
   coverOptions: { id: string; name: string }[]   // คนแทนที่เลือกได้ (เฉพาะกรณี <10 วัน)
   myLeave: { id: string; status: 'pending_cover' | 'pending' | 'approved' } | null
 }
@@ -52,13 +53,13 @@ export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
   const submitLeave = async (d: CalendarDay) => {
     if (busy) return
     const hasCover = cover !== ''
-    const how = d.noticeAuto ? 'อนุมัติทันที' : hasCover ? 'รอคนแทนกดรับ' : 'ส่งให้เจ้าของพิจารณา'
+    const how = d.noticeAuto || d.surplusOk ? 'อนุมัติทันที' : hasCover ? 'รอคนแทนกดรับ' : 'ส่งให้เจ้าของพิจารณา'
     if (!confirm(`ลาวัน${WEEKDAY_SHORT[d.weekday]} ${d.label}?\n\n${how} — ลาที่อนุมัติแล้วยกเลิกเองไม่ได้`)) return
     setBusy('leave' + d.date)
     const r = await postLeave({ action: 'request', from: d.date, to: d.date, coverStaffId: cover || undefined, reason })
     setBusy(null)
     if (!r.ok) { setMsg('❌ ' + r.error); return }
-    setMsg(r.route === 'auto' ? `✅ ลาวันที่ ${d.label} แล้ว อนุมัติทันที` : r.route === 'cover' ? '✅ ส่งคำขอให้คนแทนแล้ว รอเขากดรับ' : '✅ ส่งคำขอลาให้เจ้าของแล้ว รอพิจารณา')
+    setMsg(r.route === 'auto' ? `✅ ลาวันที่ ${d.label} แล้ว อนุมัติทันที` : r.route === 'cover' ? '✅ ส่งคำขอให้คนแทนแล้ว รอเขากดรับ' : d.surplusOk ? '⚠️ มีคนลาพร้อมกันจนวันนั้นเหลือต่ำกว่าเป้า — ส่งคำขอให้เจ้าของพิจารณาแทน' : '✅ ส่งคำขอลาให้เจ้าของแล้ว รอพิจารณา')
     setLeaveDay(null)
     router.refresh()
   }
@@ -109,9 +110,11 @@ export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
               <div style={{ fontSize: '12px', color: '#374151', lineHeight: 1.6, marginBottom: '8px' }}>
                 {d.noticeAuto
                   ? <>ล่วงหน้า 10 วันขึ้นไป — <strong>อนุมัติทันที</strong> เวรนี้จะกลายเป็นที่ว่างให้คนอื่นกดลง</>
-                  : <>ล่วงหน้าน้อยกว่า 10 วัน — เลือก<strong>คนแทน</strong>ที่คุยกันแล้ว (เขากดรับแล้วอนุมัติทันที) หรือไม่เลือกก็ได้ แล้วส่งให้<strong>เจ้าของพิจารณา</strong></>}
+                  : d.surplusOk
+                    ? <>วันนี้คนเกินเป้า — ลาแล้วยังเหลือครบเป้า <strong>อนุมัติทันที</strong> ไม่ต้องหาคนแทน</>
+                    : <>ล่วงหน้าน้อยกว่า 10 วัน — เลือก<strong>คนแทน</strong>ที่คุยกันแล้ว (เขากดรับแล้วอนุมัติทันที) หรือไม่เลือกก็ได้ แล้วส่งให้<strong>เจ้าของพิจารณา</strong></>}
               </div>
-              {!d.noticeAuto && (
+              {!d.noticeAuto && !d.surplusOk && (
                 <select className="field-input" value={cover} onChange={e => setCover(e.target.value)} style={{ marginBottom: '8px' }}>
                   <option value="">— ไม่ระบุคนแทน (ส่งให้เจ้าของ) —</option>
                   {d.coverOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}

@@ -1,9 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  loadExtraShifts, loadLeaves, loadPatterns, loadScheduleConfig, approvedMarks, type LeaveStatus,
+  loadExtraShifts, loadLeaves, loadOverrides, loadPatterns, loadScheduleConfig, approvedMarks, type LeaveStatus,
 } from '@/lib/schedule'
 import {
-  SCHEDULE_DAYS, addDays, bkkDateStr, dateRange, leaveRoute, shiftStartMs, staffOnDate,
+  LEAVE_MAX_AUTO_RANGE, SCHEDULE_DAYS, addDays, bkkDateStr, dateRange, dayTypeFor, diffDaysStr, leaveRoute, shiftStartMs, staffOnDate, stillAtTargetAfterLeave,
   type ExtraShift, type LeaveRoute, type SchedulePattern,
 } from '@/lib/scheduleCalc'
 import type { LeaveRow } from '@/lib/schedule'
@@ -38,7 +38,7 @@ const LEAVE_ERR: Record<string, string> = {
 export async function requestLeave(
   supabase: Admin, staffId: string, branchId: string,
   input: { from: unknown; to: unknown; coverStaffId?: unknown; reason?: unknown },
-): Promise<{ ok: true; route: LeaveRoute; count: number } | { error: string }> {
+): Promise<{ ok: true; route: LeaveRoute; count: number; surplus: boolean } | { error: string }> {
   const days = dateRange(input.from, input.to)
   if (!days) return { error: 'วันที่ไม่ถูกต้อง' }
   const cfg = await loadScheduleConfig(supabase, branchId)
@@ -59,9 +59,21 @@ export async function requestLeave(
   const rt = leaveRoute({ today: bkkDateStr(), nowMs: Date.now(), days: shiftDays, hasCover: !!coverId })
   if ('error' in rt) return { error: LEAVE_ERR[rt.error] }
 
-  // ระบุคนแทนได้เฉพาะลาวันเดียวที่เข้ากรณี "น้อยกว่า 10 วัน" (≥10 วันอนุมัติทันที ไม่ต้องมีคนแทน)
+  // วันที่คนเกินเป้า (รับเกินไว้เผื่อมีคนลา): ลาแล้วทุกวันยังเหลือถึงเป้า (และช่วงไม่เกิน 14 วัน) → อนุมัติทันที ไม่ต้องคนแทน/ไม่ต้องรอเจ้าของ
+  // ยืนยันซ้ำหลังบันทึก (ด้านล่าง) กันหลายคนกดลาพร้อมกันแล้วเหลือต่ำกว่าเป้า — ไม่ต้องมีฟังก์ชันล็อกในฐานข้อมูล
+  let surplusPath = false
+  if (rt.route !== 'auto' && shiftDays.length <= LEAVE_MAX_AUTO_RANGE
+    && diffDaysStr(shiftDays[0], shiftDays[shiftDays.length - 1]) + 1 <= LEAVE_MAX_AUTO_RANGE) {
+    const overrides = await loadOverrides(supabase, branchId, shiftDays[0], shiftDays[shiftDays.length - 1])
+    surplusPath = shiftDays.every(d => {
+      const count = staffOnDate(ctx.patterns, d, ctx.extras, approvedMarks(ctx.leaves)).length
+      return stillAtTargetAfterLeave(count, dayTypeFor(d, overrides), cfg.counts)
+    })
+  }
+
+  // ระบุคนแทนได้เฉพาะลาวันเดียวที่เข้ากรณี "น้อยกว่า 10 วัน" (≥10 วันอนุมัติทันที ไม่ต้องมีคนแทน; วันที่คนเกินเป้าก็ไม่ต้อง)
   let cover: string | null = null
-  if (coverId && rt.route === 'cover') {
+  if (coverId && rt.route === 'cover' && !surplusPath) {
     const day = shiftDays[0]
     if (coverId === staffId) return { error: 'เลือกตัวเองเป็นคนแทนไม่ได้' }
     const { data: cs } = await supabase.from('staff').select('id, branch_id, is_active').eq('id', coverId).maybeSingle()
@@ -71,18 +83,36 @@ export async function requestLeave(
     cover = coverId
   }
 
-  const status: LeaveStatus = rt.route === 'auto' ? 'approved' : rt.route === 'cover' ? 'pending_cover' : 'pending'
+  const normalStatus: LeaveStatus = rt.route === 'auto' ? 'approved' : rt.route === 'cover' && !surplusPath ? 'pending_cover' : 'pending'
+  const status: LeaveStatus = surplusPath ? 'approved' : normalStatus
   const groupId = shiftDays.length > 1 ? crypto.randomUUID() : null
   const reason = typeof input.reason === 'string' && input.reason.trim() ? input.reason.trim().slice(0, 300) : null
   const now = new Date().toISOString()
   const rows = shiftDays.map(day => ({
-    branch_id: branchId, staff_id: staffId, day, status, source: 'staff', cover_staff_id: cover, group_id: groupId, reason, late: false,
-    ...(status === 'approved' ? { decided_by: 'auto', decided_at: now } : {}),
+    branch_id: branchId, staff_id: staffId, day, status, source: 'staff', cover_staff_id: surplusPath ? null : cover, group_id: groupId, reason, late: false,
+    ...(status === 'approved' ? { decided_by: surplusPath ? 'auto-surplus' : 'auto', decided_at: now } : {}),
   }))
   const { error } = await supabase.from('schedule_leaves').insert(rows)
   if (error) return { error: error.code === '23505' ? 'คุณมีคำขอลาในวันเหล่านี้อยู่แล้ว' : 'บันทึกไม่สำเร็จ ลองอีกครั้ง' }
+
+  // ยืนยันหลังบันทึก: ถ้ามีคนลาพร้อมกันจนวันไหนเหลือต่ำกว่าเป้า คำขอของเรากลับไปรอเจ้าของ
+  // (ปลอดภัยไว้ก่อน — ถ้ากดพร้อมกันเป๊ะๆ ทุกคนเห็นกันและกัน จึงส่งให้เจ้าของพิจารณาทั้งหมด ไม่มีทางเหลือต่ำกว่าเป้าโดยไม่มีใครรู้)
+  if (surplusPath) {
+    const first = shiftDays[0], last = shiftDays[shiftDays.length - 1]
+    const after = await loadCtx(supabase, branchId, first, last)
+    const overrides = await loadOverrides(supabase, branchId, first, last)
+    const stillOk = shiftDays.every(d => {
+      const target = dayTypeFor(d, overrides) === 'weekend' ? cfg.counts.weekendTarget : cfg.counts.weekdayTarget
+      return staffOnDate(after.patterns, d, after.extras, approvedMarks(after.leaves)).length >= target
+    })
+    if (!stillOk) {
+      await supabase.from('schedule_leaves').update({ status: 'pending', decided_by: null, decided_at: null })
+        .eq('staff_id', staffId).in('day', shiftDays).eq('decided_by', 'auto-surplus').eq('status', 'approved')
+      return { ok: true, route: 'owner', count: shiftDays.length, surplus: false }
+    }
+  }
   if (status === 'approved') await dropExtraShifts(supabase, shiftDays.map(day => ({ staffId, day })))
-  return { ok: true, route: rt.route, count: shiftDays.length }
+  return { ok: true, route: surplusPath ? 'auto' : rt.route, count: shiftDays.length, surplus: surplusPath }
 }
 
 // คนแทนกดรับ/ไม่รับ (ไม่จำกัดเวลา ตราบที่ยังไม่ถึงวันนั้น) — รับ = อนุมัติการลา + คนแทนได้เวรเพิ่มของวันนั้น; ไม่รับ = คำขอกลับไปรอเจ้าของ

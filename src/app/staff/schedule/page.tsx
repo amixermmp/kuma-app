@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import { approvedMarks, loadExtraShifts, loadLeaves, loadOverrides, loadPatterns, loadScheduleConfig } from '@/lib/schedule'
 import {
-  LEAVE_AUTO_DAYS, LEAVE_MIN_HOURS, SCHEDULE_DAYS, WEEKDAY_SHORT, addDays, bkkDateStr, buildScheduleDays, diffDaysStr, shiftStartMs,
+  LEAVE_AUTO_DAYS, LEAVE_MIN_HOURS, SCHEDULE_DAYS, WEEKDAY_SHORT, addDays, bkkDateStr, buildScheduleDays, diffDaysStr, shiftStartMs, stillAtTargetAfterLeave,
 } from '@/lib/scheduleCalc'
 import ScheduleCalendar, { type CalendarDay } from './ScheduleCalendar'
 import LeavePanels, { type CoverRequest, type MyRequest } from './LeavePanels'
@@ -82,7 +82,9 @@ export default async function StaffSchedulePage() {
     const tooLate = isMine && d.date > today && shiftStartMs(d.date) - nowMs < LEAVE_MIN_HOURS * 3_600_000
     const canLeave = eligible && isMine && d.date > today && !tooLate && !myLeave
     // คนแทนที่เลือกได้ (เฉพาะกรณีน้อยกว่า 10 วัน): คนอื่นในตารางที่ยังใช้งานและวันนั้นยังไม่มีเวร
-    const coverOptions = canLeave && notice < LEAVE_AUTO_DAYS
+    // วันที่คนเกินเป้า: ลาแล้วยังเหลือถึงเป้า → อนุมัติทันที ไม่ต้องคนแทน (ระบบตรวจซ้ำตอนส่งจริง)
+    const surplusOk = canLeave && notice < LEAVE_AUTO_DAYS && stillAtTargetAfterLeave(d.count, d.type, config.counts)
+    const coverOptions = canLeave && notice < LEAVE_AUTO_DAYS && !surplusOk
       ? Array.from(eligibleIds).filter(id => id !== staffId && activeIds.has(id) && !d.staffIds.includes(id)).map(id => ({ id, name: nameOf(id) }))
       : []
     return {
@@ -90,7 +92,7 @@ export default async function StaffSchedulePage() {
       people: d.staffIds.map(id => ({ id, name: nameOf(id), mine: id === staffId, extra: d.extraStaffIds.includes(id) })),
       open: d.open,
       canClaim: eligible && d.date > today && d.open > 0 && !isMine && !myLeave,
-      canLeave, tooLate, noticeAuto: notice >= LEAVE_AUTO_DAYS, coverOptions,
+      canLeave, tooLate, noticeAuto: notice >= LEAVE_AUTO_DAYS, surplusOk, coverOptions,
       myLeave: myLeave ? { id: myLeave.id, status: myLeave.status } : null,
     }
   })
@@ -119,10 +121,17 @@ export default async function StaffSchedulePage() {
         {mine.length === 0
           ? 'คุณไม่มีเวรในช่วง 60 วันข้างหน้า'
           : <>เวรถัดไปของคุณ: <strong>{WEEKDAY_SHORT[next!.weekday]} {fmtDate(next!.date)}{next!.date === today ? ' (วันนี้)' : ''}</strong> • ทั้งหมด {mine.length} วันใน 60 วัน</>}
-        <div style={{ fontSize: '11px', marginTop: '4px', opacity: .85, lineHeight: 1.6 }}>
-          {eligible
-            ? <>วันที่มีปุ่ม "ลงเวรนี้" = ยังขาดคน ใครกดก่อนได้ก่อน ลงแล้วยกเลิกเองไม่ได้ • ลาล่วงหน้า 10 วันขึ้นไปอนุมัติทันที • ลาน้อยกว่า 48 ชม. → ทักหาพี่เจ้าของร้าน</>
-            : <>ต้องการลา/สลับเวร → ทักหาพี่เจ้าของร้าน</>}
+        <div style={{ fontSize: '11.5px', marginTop: '8px', lineHeight: 1.7, color: '#0f4c5c' }}>
+          {eligible ? (
+            <>
+              <div style={{ fontWeight: 800, marginBottom: '2px' }}>📌 กติกาตารางเวร</div>
+              <div>🟢 ปุ่ม <strong>"ลงเวรนี้"</strong> = วันนั้นยังขาดคน ใครกดก่อนได้ก่อน <strong>ลงแล้วยกเลิกเองไม่ได้</strong></div>
+              <div>📝 กดลาล่วงหน้า <strong>10 วันขึ้นไป</strong> → อนุมัติทันที</div>
+              <div>✅ วันที่คนเกินเป้า ลาแล้วยังครบ → อนุมัติทันที</div>
+              <div>🤝 ลาน้อยกว่า 10 วัน → เลือก<strong>คนที่จะมาแทน</strong> พอเขากดรับ <strong>อนุมัติทันที</strong> ถ้าไม่มีคนแทน ส่งคำขอให้ผู้จัดการพิจารณา (ผู้จัดการมีสิทธิ์ไม่อนุมัติ)</div>
+              <div>⚠️ ลาน้อยกว่า 48 ชม. → <strong>ทักหาผู้จัดการ</strong></div>
+            </>
+          ) : <>ต้องการลา/สลับเวร → ทักหาผู้จัดการ</>}
         </div>
       </div>
 

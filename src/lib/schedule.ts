@@ -62,15 +62,17 @@ export type LeaveStatus = 'pending_cover' | 'pending' | 'approved'
 export type LeaveRow = {
   id: string; staffId: string; day: string; status: LeaveStatus
   coverStaffId: string | null; groupId: string | null; reason: string | null; late: boolean; source: 'staff' | 'owner'
+  decidedBy: string | null; createdAt: string
 }
 
 export async function loadLeaves(supabase: Admin, branchId: string, from: string, to: string): Promise<LeaveRow[]> {
   const { data } = await supabase.from('schedule_leaves')
-    .select('id, staff_id, day, status, cover_staff_id, group_id, reason, late, source')
+    .select('id, staff_id, day, status, cover_staff_id, group_id, reason, late, source, decided_by, created_at')
     .eq('branch_id', branchId).gte('day', from).lte('day', to).in('status', ['pending_cover', 'pending', 'approved']).order('day')
   return (data ?? []).map(r => ({
     id: r.id, staffId: r.staff_id, day: r.day, status: r.status as LeaveStatus, coverStaffId: r.cover_staff_id,
     groupId: r.group_id, reason: r.reason, late: !!r.late, source: r.source as 'staff' | 'owner',
+    decidedBy: r.decided_by ?? null, createdAt: r.created_at,
   }))
 }
 
