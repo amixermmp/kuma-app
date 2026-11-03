@@ -4,7 +4,7 @@ import {
   type DayType, type ExtraShift, type LeaveMark, type SchedulePattern, type ScheduleCounts,
 } from '@/lib/scheduleCalc'
 
-// ตารางเวรพนักงานพาร์ทไทม์: ส่วนฝั่งเซิร์ฟเวอร์ (ดึง/บันทึกข้อมูล + ตัดสินวิธีเช็คอินของวันนี้)
+// ตารางงานพนักงานพาร์ทไทม์: ส่วนฝั่งเซิร์ฟเวอร์ (ดึง/บันทึกข้อมูล + ตัดสินวิธีเช็คอินของวันนี้)
 // หลักการ: ระบบนี้กระทบเฉพาะ "คนที่เจ้าของตั้งแบบแผนให้" ในสาขาที่เปิดสวิตช์ — พนักงานประจำ/เจ้าของที่ไม่มีแบบแผนใช้เช็คอินเดิมทุกอย่าง
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -44,8 +44,8 @@ export async function loadExtraShifts(supabase: Admin, branchId: string, from: s
   return (data ?? []).map(r => ({ staffId: r.staff_id as string, day: r.day as string }))
 }
 
-// วิธีเช็คอินของวันนี้: 'normal' = ฟอร์มถ่ายรูปปกติ / 'off_shift' = เป็นคนมีแบบแผนแต่วันนี้ไม่มีเวร → ถามว่าเข้าทำงานหรือดูตารางอย่างเดียว
-// เวรที่ลงเพิ่มรายวัน (ลงเอง/เจ้าของเพิ่มให้) นับเป็น "มีเวร" ด้วย
+// วิธีเช็คอินของวันนี้: 'normal' = ฟอร์มถ่ายรูปปกติ / 'off_shift' = เป็นคนมีแบบแผนแต่วันนี้ไม่มีงาน → ถามว่าเข้าทำงานหรือดูตารางอย่างเดียว
+// งานที่ลงเพิ่มรายวัน (ลงเอง/เจ้าของเพิ่มให้) นับเป็น "มีงาน" ด้วย
 export async function getCheckinMode(supabase: Admin, staffId: string, branchId: string, today: string): Promise<'normal' | 'off_shift'> {
   const cfg = await loadScheduleConfig(supabase, branchId)
   if (!cfg.enabled) return 'normal'
@@ -53,7 +53,7 @@ export async function getCheckinMode(supabase: Admin, staffId: string, branchId:
     .select('id, staff_id, weekdays, start_date, end_date').eq('staff_id', staffId).eq('branch_id', branchId)
   if (!data || data.length === 0) return 'normal'
   const [extras, leaves] = await Promise.all([loadExtraShifts(supabase, branchId, today, today), loadLeaves(supabase, branchId, today, today)])
-  const marks = approvedMarks(leaves).filter(l => l.staffId === staffId)   // ลาอนุมัติแล้ววันนี้ = ไม่มีเวร
+  const marks = approvedMarks(leaves).filter(l => l.staffId === staffId)   // ลาอนุมัติแล้ววันนี้ = ไม่มีงาน
   return staffOnDate(data.map(r => toPattern(r as PatternRow)), today, extras.filter(e => e.staffId === staffId), marks).includes(staffId) ? 'normal' : 'off_shift'
 }
 
@@ -145,9 +145,9 @@ export async function setScheduleDayType(supabase: Admin, branchId: string, day:
   return error ? 'บันทึกไม่สำเร็จ' : null
 }
 
-// ── เวรเพิ่มรายวัน ────────────────────────────────────────────────────────────────────────────
+// ── งานเพิ่มรายวัน ────────────────────────────────────────────────────────────────────────────
 
-// พนักงานกด "ลงเวรนี้" ในวันที่ยังไม่เต็มเป้า — ใครไวได้ก่อน ลงแล้วถอนเองไม่ได้ (ต้องใช้ระบบลา)
+// พนักงานกด "ลงงานนี้" ในวันที่ยังไม่เต็มเป้า — ใครไวได้ก่อน ลงแล้วถอนเองไม่ได้ (ต้องใช้ระบบลา)
 // ผ่านฟังก์ชันฐานข้อมูล claim_schedule_shift ที่ล็อกต่อวัน (กดพร้อมกันได้คนเดียว) — เซิร์ฟเวอร์ใช้ service role เท่านั้น
 export async function claimScheduleShift(
   supabase: Admin, staffId: string, branchId: string, day: unknown,
@@ -155,13 +155,13 @@ export async function claimScheduleShift(
   if (!isDateStr(day)) return { error: 'วันที่ไม่ถูกต้อง', code: 'invalid' }
   const today = bkkDateStr()
   if (day <= today || day > addDays(today, SCHEDULE_DAYS - 1)) {
-    return { error: 'ลงเวรได้ตั้งแต่พรุ่งนี้ถึง 60 วันข้างหน้าเท่านั้น', code: 'invalid' }
+    return { error: 'ลงงานได้ตั้งแต่พรุ่งนี้ถึง 60 วันข้างหน้าเท่านั้น', code: 'invalid' }
   }
 
   const cfg = await loadScheduleConfig(supabase, branchId)
-  if (!cfg.enabled) return { error: 'สาขานี้ยังไม่เปิดใช้ตารางเวร', code: 'forbidden' }
+  if (!cfg.enabled) return { error: 'สาขานี้ยังไม่เปิดใช้ตารางงาน', code: 'forbidden' }
   const { data: staff } = await supabase.from('staff').select('id, branch_id, is_active').eq('id', staffId).maybeSingle()
-  if (!staff || staff.branch_id !== branchId || !staff.is_active) return { error: 'บัญชีนี้ลงเวรสาขานี้ไม่ได้', code: 'forbidden' }
+  if (!staff || staff.branch_id !== branchId || !staff.is_active) return { error: 'บัญชีนี้ลงงานสาขานี้ไม่ได้', code: 'forbidden' }
 
   // สิทธิ์: เฉพาะคนที่เจ้าของตั้งแบบแผนไว้ (พาร์ทไทม์ในตาราง)
   const [patterns, overrides, extras, leaves] = await Promise.all([
@@ -170,40 +170,40 @@ export async function claimScheduleShift(
     loadExtraShifts(supabase, branchId, day, day),
     loadLeaves(supabase, branchId, day, day),
   ])
-  if (!patterns.some(p => p.staffId === staffId)) return { error: 'คุณยังไม่ได้อยู่ในตารางเวร — ทักหาผู้จัดการ', code: 'forbidden' }
+  if (!patterns.some(p => p.staffId === staffId)) return { error: 'คุณยังไม่ได้อยู่ในตารางงาน — ทักหาผู้จัดการ', code: 'forbidden' }
 
   // คนที่มีคำขอลา/ลาแล้ววันนั้นลงวันเดียวกันไม่ได้; คนที่ลาอนุมัติแล้วไม่นับเป็นคนในวัน → ที่ว่างเพิ่ม
   if (leaves.some(l => l.staffId === staffId)) return { error: 'คุณมีคำขอลาวันนั้นอยู่แล้ว', code: 'dup' }
   const onLeave = new Set(approvedMarks(leaves).map(l => l.staffId))
   const fromPattern = patternStaffOnDate(patterns, day).filter(id => !onLeave.has(id))
   if (fromPattern.includes(staffId) || extras.some(e => e.staffId === staffId)) {
-    return { error: 'คุณมีเวรวันนั้นอยู่แล้ว', code: 'dup' }
+    return { error: 'คุณมีงานวันนั้นอยู่แล้ว', code: 'dup' }
   }
-  // ที่ว่างสำหรับเวรที่ลงเพิ่ม = เป้า − คนตามแบบแผน (ฟังก์ชันฐานข้อมูลนับเวรเพิ่มที่มีอยู่ภายใต้ล็อกอีกชั้น)
+  // ที่ว่างสำหรับงานที่ลงเพิ่ม = เป้า − คนตามแบบแผน (ฟังก์ชันฐานข้อมูลนับงานเพิ่มที่มีอยู่ภายใต้ล็อกอีกชั้น)
   const slots = openSlots(fromPattern.length, dayTypeFor(day, overrides), cfg.counts)
   if (slots <= 0) return { error: 'วันนี้เต็มแล้ว', code: 'full' }
 
   const { data, error } = await supabase.rpc('claim_schedule_shift', { p_branch: branchId, p_staff: staffId, p_day: day, p_open_slots: slots })
-  if (error) return { error: 'ลงเวรไม่สำเร็จ ลองอีกครั้ง', code: 'invalid' }
+  if (error) return { error: 'ลงงานไม่สำเร็จ ลองอีกครั้ง', code: 'invalid' }
   if (data === 'full') return { error: 'เต็มแล้ว — มีคนลงตัดหน้าไปก่อน', code: 'full' }
-  if (data === 'dup') return { error: 'คุณมีเวรวันนั้นอยู่แล้ว', code: 'dup' }
+  if (data === 'dup') return { error: 'คุณมีงานวันนั้นอยู่แล้ว', code: 'dup' }
   return { ok: true }
 }
 
-// เจ้าของเพิ่มคนลงวันไหนก็ได้ (เกินเป้าได้) — ห้ามซ้ำกับวันที่คนนั้นมีเวรตามแบบแผนอยู่แล้ว
+// เจ้าของเพิ่มคนลงวันไหนก็ได้ (เกินเป้าได้) — ห้ามซ้ำกับวันที่คนนั้นมีงานตามแบบแผนอยู่แล้ว
 export async function addOwnerExtraShift(supabase: Admin, branchId: string, staffId: unknown, day: unknown): Promise<string | null> {
   if (typeof staffId !== 'string' || !staffId) return 'ไม่พบพนักงาน'
   if (!isDateStr(day)) return 'วันที่ไม่ถูกต้อง'
   const { data: staff } = await supabase.from('staff').select('id, branch_id').eq('id', staffId).maybeSingle()
   if (!staff || staff.branch_id !== branchId) return 'พนักงานคนนี้ไม่ได้อยู่สาขานี้'
   const patterns = await loadPatterns(supabase, branchId)
-  if (patternStaffOnDate(patterns, day).includes(staffId)) return 'คนนี้มีเวรตามแบบแผนวันนั้นอยู่แล้ว'
+  if (patternStaffOnDate(patterns, day).includes(staffId)) return 'คนนี้มีงานตามแบบแผนวันนั้นอยู่แล้ว'
   const { error } = await supabase.from('schedule_extra_shifts')
     .upsert({ branch_id: branchId, staff_id: staffId, day, source: 'owner' }, { onConflict: 'staff_id,day', ignoreDuplicates: true })
   return error ? 'บันทึกไม่สำเร็จ' : null
 }
 
-// ลบเวรที่ลงเพิ่ม (ลงเอง/เจ้าของเพิ่ม) — ไม่แตะเวรตามแบบแผน (ลาเวรตามแบบแผนเป็นเรื่องของระบบลา)
+// ลบงานที่ลงเพิ่ม (ลงเอง/เจ้าของเพิ่ม) — ไม่แตะงานตามแบบแผน (ลางานตามแบบแผนเป็นเรื่องของระบบลา)
 export async function removeExtraShift(supabase: Admin, branchId: string, staffId: unknown, day: unknown): Promise<string | null> {
   if (typeof staffId !== 'string' || !staffId) return 'ไม่พบพนักงาน'
   if (!isDateStr(day)) return 'วันที่ไม่ถูกต้อง'

@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const accept = body.accept === true
     const err = await respondCover(admin, staffId, branchId, body.id, accept)
     if (err) return NextResponse.json({ error: err }, { status: 400 })
-    await logStaffAction(staffId, accept ? 'schedule_cover_accept' : 'schedule_cover_decline', accept ? 'รับทำเวรแทน' : 'ไม่รับทำเวรแทน', { id: body.id })
+    await logStaffAction(staffId, accept ? 'schedule_cover_accept' : 'schedule_cover_decline', accept ? 'รับทำงานแทน' : 'ไม่รับทำงานแทน', { id: body.id })
     return NextResponse.json({ success: true })
   }
 

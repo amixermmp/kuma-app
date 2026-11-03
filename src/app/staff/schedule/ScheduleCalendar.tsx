@@ -13,16 +13,16 @@ export type CalendarDay = {
   mine: boolean
   people: { id: string; name: string; mine: boolean; extra: boolean }[]
   open: number        // ที่ว่างเหลือ (ถึงเป้าแล้ว = 0)
-  canClaim: boolean   // มีสิทธิ์ลง + ยังว่าง + ไม่ใช่เวรเรา + เป็นวันอนาคต
-  canLeave: boolean   // เป็นเวรของเรา + ล่วงหน้าพอ (≥48 ชม.) + ยังไม่มีคำขอลา
-  tooLate: boolean    // เป็นเวรของเราแต่ใกล้กว่า 48 ชม. → ลาในแอปไม่ได้
+  canClaim: boolean   // มีสิทธิ์ลง + ยังว่าง + ไม่ใช่งานเรา + เป็นวันอนาคต
+  canLeave: boolean   // เป็นงานของเรา + ล่วงหน้าพอ (≥48 ชม.) + ยังไม่มีคำขอลา
+  tooLate: boolean    // เป็นงานของเราแต่ใกล้กว่า 48 ชม. → ลาในแอปไม่ได้
   noticeAuto: boolean // ล่วงหน้า ≥10 วัน = อนุมัติทันที
   surplusOk: boolean  // วันนั้นคนเกินเป้า ลาแล้วยังเหลือถึงเป้า = อนุมัติทันที (<10 วัน ก็ได้)
   coverOptions: { id: string; name: string }[]   // คนแทนที่เลือกได้ (เฉพาะกรณี <10 วัน)
   myLeave: { id: string; status: 'pending_cover' | 'pending' | 'approved' } | null
 }
 
-// ปฏิทินเวรของพนักงาน — ลงเวรว่าง (ใครไวได้ก่อน ลงแล้วถอนเองไม่ได้) และลา (วันเดียว + ระบุคนแทนได้)
+// ปฏิทินงานของพนักงาน — ลงงานที่ว่าง (ใครไวได้ก่อน ลงแล้วถอนเองไม่ได้) และลา (วันเดียว + ระบุคนแทนได้)
 export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
@@ -33,13 +33,13 @@ export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
 
   const claim = async (d: CalendarDay) => {
     if (busy) return
-    if (!confirm(`ลงเวรวัน${WEEKDAY_SHORT[d.weekday]} ${d.label}?\n\nลงแล้วเป็นการยืนยันว่าจะมาทำงาน ยกเลิกเองไม่ได้ ถ้าจะถอนต้องแจ้งลาตามเงื่อนไข`)) return
+    if (!confirm(`ลงงานวัน${WEEKDAY_SHORT[d.weekday]} ${d.label}?\n\nลงแล้วเป็นการยืนยันว่าจะมาทำงาน ยกเลิกเองไม่ได้ ถ้าจะถอนต้องแจ้งลาตามเงื่อนไข`)) return
     setBusy(d.date)
     setMsg('')
     try {
       const res = await fetch('/api/staff/schedule/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ day: d.date }) })
       const data = await res.json().catch(() => ({}))
-      setMsg(res.ok ? `✅ ลงเวรวันที่ ${d.label} แล้ว` : `❌ ${data.error ?? 'ลงเวรไม่สำเร็จ'}`)
+      setMsg(res.ok ? `✅ ลงงานวันที่ ${d.label} แล้ว` : `❌ ${data.error ?? 'ลงงานไม่สำเร็จ'}`)
       router.refresh()   // เต็ม/ลงสำเร็จ รีเฟรชข้อมูลล่าสุด
     } catch {
       setMsg('❌ เชื่อมต่อไม่สำเร็จ ลองอีกครั้ง')
@@ -95,7 +95,7 @@ export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
               <button onClick={() => claim(d)} disabled={busy !== null} style={{
                 padding: '7px 12px', borderRadius: '10px', border: 'none', background: '#0e7490', color: '#fff',
                 fontSize: '12px', fontWeight: 800, fontFamily: 'inherit', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, whiteSpace: 'nowrap',
-              }}>{busy === d.date ? '...' : 'ลงเวรนี้'}</button>
+              }}>{busy === d.date ? '...' : 'ลงงานนี้'}</button>
             )}
             {d.canLeave && (
               <button onClick={() => openLeave(d)} disabled={busy !== null} style={{
@@ -109,7 +109,7 @@ export default function ScheduleCalendar({ days }: { days: CalendarDay[] }) {
             <div style={{ margin: '4px 0 6px', padding: '12px', borderRadius: '10px', background: '#f9fafb', border: '1px solid #e5e7eb' }}>
               <div style={{ fontSize: '12px', color: '#374151', lineHeight: 1.6, marginBottom: '8px' }}>
                 {d.noticeAuto
-                  ? <>ล่วงหน้า 10 วันขึ้นไป — <strong>อนุมัติทันที</strong> เวรนี้จะกลายเป็นที่ว่างให้คนอื่นกดลง</>
+                  ? <>ล่วงหน้า 10 วันขึ้นไป — <strong>อนุมัติทันที</strong> งานนี้จะกลายเป็นที่ว่างให้คนอื่นกดลง</>
                   : d.surplusOk
                     ? <>วันนี้คนเกินเป้า — ลาแล้วยังเหลือครบเป้า <strong>อนุมัติทันที</strong> ไม่ต้องหาคนแทน</>
                     : <>ล่วงหน้าน้อยกว่า 10 วัน — เลือก<strong>คนแทน</strong>ที่คุยกันแล้ว (เขากดรับแล้วอนุมัติทันที) หรือไม่เลือกก็ได้ แล้วส่งให้<strong>ผู้จัดการพิจารณา</strong></>}

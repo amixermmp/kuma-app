@@ -8,11 +8,11 @@ import {
 } from '@/lib/scheduleCalc'
 import type { LeaveRow } from '@/lib/schedule'
 
-// ลา / แลกเวร (คนแทน) ของตารางเวรพาร์ทไทม์ — กติกาอยู่ที่ leaveRoute ใน scheduleCalc.ts
+// ลา / แลกงาน (คนแทน) ของตารางงานพาร์ทไทม์ — กติกาอยู่ที่ leaveRoute ใน scheduleCalc.ts
 //  <48 ชม. ลาในแอปไม่ได้ (เจ้าของบันทึกลาให้) / ≥10 วัน อนุมัติทันที / <10 วัน ระบุคนแทน→รอคนแทนรับ ไม่ระบุ→ส่งเจ้าของ
 type Admin = ReturnType<typeof createAdminClient>
 
-// อนุมัติการลา = ตัดเวรที่ลงเพิ่มของคนนั้นในวันนั้นออกด้วย (ไม่ให้นับคนที่ลาเป็นเวรเพิ่มค้าง กระทบการนับที่ว่างตอนลงเวร)
+// อนุมัติการลา = ตัดงานที่ลงเพิ่มของคนนั้นในวันนั้นออกด้วย (ไม่ให้นับคนที่ลาเป็นงานเพิ่มค้าง กระทบการนับที่ว่างตอนลงงาน)
 async function dropExtraShifts(supabase: Admin, rows: { staffId: string; day: string }[]) {
   for (const r of rows) await supabase.from('schedule_extra_shifts').delete().eq('staff_id', r.staffId).eq('day', r.day)
 }
@@ -24,7 +24,7 @@ async function loadCtx(supabase: Admin, branchId: string, from: string, to: stri
   ])
   return { patterns, extras, leaves }
 }
-// วันที่คนนี้ "มีเวรอยู่จริง" (ตามแบบแผน/เวรเพิ่ม และไม่ได้ลาอนุมัติไปแล้ว)
+// วันที่คนนี้ "มีงานอยู่จริง" (ตามแบบแผน/งานเพิ่ม และไม่ได้ลาอนุมัติไปแล้ว)
 const hasShift = (c: Ctx, staffId: string, day: string) =>
   staffOnDate(c.patterns, day, c.extras, approvedMarks(c.leaves)).includes(staffId)
 
@@ -42,16 +42,16 @@ export async function requestLeave(
   const days = dateRange(input.from, input.to)
   if (!days) return { error: 'วันที่ไม่ถูกต้อง' }
   const cfg = await loadScheduleConfig(supabase, branchId)
-  if (!cfg.enabled) return { error: 'สาขานี้ยังไม่เปิดใช้ตารางเวร' }
+  if (!cfg.enabled) return { error: 'สาขานี้ยังไม่เปิดใช้ตารางงาน' }
   const { data: staff } = await supabase.from('staff').select('id, branch_id, is_active').eq('id', staffId).maybeSingle()
-  if (!staff || staff.branch_id !== branchId || !staff.is_active) return { error: 'บัญชีนี้ลาเวรสาขานี้ไม่ได้' }
+  if (!staff || staff.branch_id !== branchId || !staff.is_active) return { error: 'บัญชีนี้ลางานสาขานี้ไม่ได้' }
 
   const ctx = await loadCtx(supabase, branchId, days[0], days[days.length - 1])
-  if (!ctx.patterns.some(p => p.staffId === staffId)) return { error: 'คุณยังไม่ได้อยู่ในตารางเวร' }
+  if (!ctx.patterns.some(p => p.staffId === staffId)) return { error: 'คุณยังไม่ได้อยู่ในตารางงาน' }
   const shiftDays = days.filter(d => hasShift(ctx, staffId, d))
   if (shiftDays.length === 0) {
-    // ไม่เหลือวันที่มีเวร: ถ้าเพราะลาไปแล้ว/มีคำขอค้างอยู่ ให้บอกตรงๆ ไม่ใช่ "ไม่มีเวร"
-    return { error: ctx.leaves.some(l => l.staffId === staffId && days.includes(l.day)) ? 'คุณมีคำขอลาในวันนี้อยู่แล้ว (หรือลาไปแล้ว)' : 'ช่วงวันนี้คุณไม่มีเวร ไม่ต้องลา' }
+    // ไม่เหลือวันที่มีงาน: ถ้าเพราะลาไปแล้ว/มีคำขอค้างอยู่ ให้บอกตรงๆ ไม่ใช่ "ไม่มีงาน"
+    return { error: ctx.leaves.some(l => l.staffId === staffId && days.includes(l.day)) ? 'คุณมีคำขอลาในวันนี้อยู่แล้ว (หรือลาไปแล้ว)' : 'ช่วงวันนี้คุณไม่มีงาน ไม่ต้องลา' }
   }
   if (ctx.leaves.some(l => l.staffId === staffId && shiftDays.includes(l.day))) return { error: 'คุณมีคำขอลาในวันเหล่านี้อยู่แล้ว' }
 
@@ -78,8 +78,8 @@ export async function requestLeave(
     if (coverId === staffId) return { error: 'เลือกตัวเองเป็นคนแทนไม่ได้' }
     const { data: cs } = await supabase.from('staff').select('id, branch_id, is_active').eq('id', coverId).maybeSingle()
     if (!cs || cs.branch_id !== branchId || !cs.is_active) return { error: 'คนแทนต้องเป็นพนักงานสาขานี้' }
-    if (!ctx.patterns.some(p => p.staffId === coverId)) return { error: 'คนแทนต้องเป็นคนที่อยู่ในตารางเวร' }
-    if (hasShift(ctx, coverId, day)) return { error: 'คนแทนมีเวรวันนั้นอยู่แล้ว' }
+    if (!ctx.patterns.some(p => p.staffId === coverId)) return { error: 'คนแทนต้องเป็นคนที่อยู่ในตารางงาน' }
+    if (hasShift(ctx, coverId, day)) return { error: 'คนแทนมีงานวันนั้นอยู่แล้ว' }
     cover = coverId
   }
 
@@ -115,7 +115,7 @@ export async function requestLeave(
   return { ok: true, route: surplusPath ? 'auto' : rt.route, count: shiftDays.length, surplus: surplusPath }
 }
 
-// คนแทนกดรับ/ไม่รับ (ไม่จำกัดเวลา ตราบที่ยังไม่ถึงวันนั้น) — รับ = อนุมัติการลา + คนแทนได้เวรเพิ่มของวันนั้น; ไม่รับ = คำขอกลับไปรอเจ้าของ
+// คนแทนกดรับ/ไม่รับ (ไม่จำกัดเวลา ตราบที่ยังไม่ถึงวันนั้น) — รับ = อนุมัติการลา + คนแทนได้งานเพิ่มของวันนั้น; ไม่รับ = คำขอกลับไปรอเจ้าของ
 export async function respondCover(supabase: Admin, coverStaffId: string, branchId: string, leaveId: unknown, accept: boolean): Promise<string | null> {
   if (typeof leaveId !== 'string' || !leaveId) return 'ไม่พบคำขอ'
   const { data: lv } = await supabase.from('schedule_leaves').select('id, staff_id, branch_id, day, status, cover_staff_id').eq('id', leaveId).maybeSingle()
@@ -127,9 +127,9 @@ export async function respondCover(supabase: Admin, coverStaffId: string, branch
     return error ? 'บันทึกไม่สำเร็จ' : null
   }
   const ctx = await loadCtx(supabase, branchId, lv.day, lv.day)
-  if (hasShift(ctx, coverStaffId, lv.day)) return 'คุณมีเวรวันนั้นอยู่แล้ว'
+  if (hasShift(ctx, coverStaffId, lv.day)) return 'คุณมีงานวันนั้นอยู่แล้ว'
 
-  // จองสิทธิ์ก่อน (เงื่อนไขว่ายังรออยู่ กดซ้ำ/พร้อมกันผ่านได้ครั้งเดียว) แล้วค่อยให้เวร — ล้มกลางทางคืนสถานะ
+  // จองสิทธิ์ก่อน (เงื่อนไขว่ายังรออยู่ กดซ้ำ/พร้อมกันผ่านได้ครั้งเดียว) แล้วค่อยให้งาน — ล้มกลางทางคืนสถานะ
   const { data: claimed, error } = await supabase.from('schedule_leaves')
     .update({ status: 'approved', decided_by: 'cover', decided_at: new Date().toISOString() })
     .eq('id', leaveId).eq('status', 'pending_cover').select('id')
@@ -139,7 +139,7 @@ export async function respondCover(supabase: Admin, coverStaffId: string, branch
     .upsert({ branch_id: branchId, staff_id: coverStaffId, day: lv.day, source: 'cover' }, { onConflict: 'staff_id,day', ignoreDuplicates: true })
   if (shiftErr) {
     await supabase.from('schedule_leaves').update({ status: 'pending_cover', decided_by: null, decided_at: null }).eq('id', leaveId)
-    return 'บันทึกเวรไม่สำเร็จ ลองอีกครั้ง'
+    return 'บันทึกงานไม่สำเร็จ ลองอีกครั้ง'
   }
   await dropExtraShifts(supabase, [{ staffId: lv.staff_id, day: lv.day }])
   return null
@@ -188,7 +188,7 @@ export async function ownerRecordLeave(
 
   const ctx = await loadCtx(supabase, branchId, days[0], days[days.length - 1])
   const shiftDays = days.filter(d => hasShift(ctx, staffId, d))
-  if (shiftDays.length === 0) return { error: 'ช่วงวันนี้คนนี้ไม่มีเวร (หรือลาไปแล้ว)' }
+  if (shiftDays.length === 0) return { error: 'ช่วงวันนี้คนนี้ไม่มีงาน (หรือลาไปแล้ว)' }
 
   const why = typeof reason === 'string' && reason.trim() ? reason.trim().slice(0, 300) : null
   const now = Date.now()
@@ -213,7 +213,7 @@ export async function ownerRecordLeave(
   return { count: shiftDays.length }
 }
 
-// เจ้าของยกเลิกการลา (กลับมามีเวรตามแบบแผน) — เวรเพิ่มที่ลงเองซึ่งถูกตัดตอนลาไม่กลับมา และเวรที่คนแทนรับไปยังอยู่ (ลบเองได้จากแผงรายวัน)
+// เจ้าของยกเลิกการลา (กลับมามีงานตามแบบแผน) — งานเพิ่มที่ลงเองซึ่งถูกตัดตอนลาไม่กลับมา และงานที่คนแทนรับไปยังอยู่ (ลบเองได้จากแผงรายวัน)
 export async function ownerCancelLeave(supabase: Admin, branchId: string, leaveId: unknown): Promise<string | null> {
   if (typeof leaveId !== 'string' || !leaveId) return 'ไม่พบการลา'
   const { data, error } = await supabase.from('schedule_leaves')

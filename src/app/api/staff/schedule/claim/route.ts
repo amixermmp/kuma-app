@@ -5,8 +5,8 @@ import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import { claimScheduleShift } from '@/lib/schedule'
 import { logStaffAction } from '@/lib/log'
 
-// พนักงานกด "ลงเวรนี้" — ใครไวได้ก่อน ลงแล้วยกเลิกเองไม่ได้ (ถอนต้องใช้ระบบลา)
-// ใช้ได้แม้ยังไม่เช็คอิน (โหมด "ดูตารางอย่างเดียว") — เส้นทาง /api ไม่ผ่านด่านเช็คอิน และการลงเวรไม่ต้องใช้สิทธิ์ทำงานหน้าร้าน
+// พนักงานกด "ลงงานนี้" — ใครไวได้ก่อน ลงแล้วยกเลิกเองไม่ได้ (ถอนต้องใช้ระบบลา)
+// ใช้ได้แม้ยังไม่เช็คอิน (โหมด "ดูตารางอย่างเดียว") — เส้นทาง /api ไม่ผ่านด่านเช็คอิน และการลงงานไม่ต้องใช้สิทธิ์ทำงานหน้าร้าน
 export async function POST(request: NextRequest) {
   const staffId = (await cookies()).get('kuma_staff_id')?.value
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -23,6 +23,6 @@ export async function POST(request: NextRequest) {
   if ('error' in result) {
     return NextResponse.json({ error: result.error, code: result.code }, { status: result.code === 'full' || result.code === 'dup' ? 409 : 400 })
   }
-  await logStaffAction(staffId, 'schedule_claim', `ลงเวรว่างวันที่ ${day}`, { day, branchId })
+  await logStaffAction(staffId, 'schedule_claim', `ลงงานที่ว่างวันที่ ${day}`, { day, branchId })
   return NextResponse.json({ success: true })
 }

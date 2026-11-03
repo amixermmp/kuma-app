@@ -92,7 +92,7 @@ export default async function StaffHomePage() {
   const branchName = (staffRow as any)?.branches?.name ?? 'Kuma Bikes'
   const totalJobs = (overdueCount ?? 0) + (dueSoonCount ?? 0) + (repairCount ?? 0) + (contactCount ?? 0) + (docsCount ?? 0) + (sendCount ?? 0) + routineCount
 
-  // ปุ่มตารางเวร โผล่เฉพาะสาขาที่เจ้าของเปิดใช้ตารางเวรแล้ว
+  // ปุ่มตารางงาน โผล่เฉพาะสาขาที่เจ้าของเปิดใช้ตารางงานแล้ว
   let scheduleOn = false
   try {
     scheduleOn = (await loadScheduleConfig(supabase, await getStaffOwnBranchId(staffId))).enabled
@@ -111,7 +111,7 @@ export default async function StaffHomePage() {
     { Icon: Fuel,    label: 'ภาพรวมน้ำมัน', href: '/staff/fuel' },
     { Icon: ImageIcon, label: 'รูปโปรโมท', href: '/staff/marketing' },
     { Icon: ListChecks, label: 'เควสประจำวัน', href: '/staff/quests' },
-    ...(scheduleOn ? [{ Icon: CalendarDays, label: 'ตารางเวร', href: '/staff/schedule' }] : []),
+    ...(scheduleOn ? [{ Icon: CalendarDays, label: 'ตารางงาน', href: '/staff/schedule' }] : []),
     { Icon: Lock,    label: 'ปิดร้าน',    href: '/staff/closeshop' },
   ]
 

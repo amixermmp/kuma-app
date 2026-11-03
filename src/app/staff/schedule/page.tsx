@@ -15,8 +15,8 @@ export const dynamic = 'force-dynamic'
 const fmtDate = (d: string) =>
   new Date(`${d}T00:00:00+07:00`).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short' })
 
-// ปฏิทินเวรของสาขาตัวเอง — เข้าได้แม้ยังไม่เช็คอิน (โหมด "ดูตารางอย่างเดียว" ที่หน้าเช็คอิน)
-// ลงเวรว่าง / ลา / ให้คนแทน ทำได้จากหน้านี้
+// ปฏิทินงานของสาขาตัวเอง — เข้าได้แม้ยังไม่เช็คอิน (โหมด "ดูตารางอย่างเดียว" ที่หน้าเช็คอิน)
+// ลงงานที่ว่าง / ลา / ให้คนแทน ทำได้จากหน้านี้
 export default async function StaffSchedulePage() {
   const cookieStore = await cookies()
   const staffId = cookieStore.get('kuma_staff_id')?.value
@@ -40,8 +40,8 @@ export default async function StaffSchedulePage() {
     <div className="app-header" style={{ background: '#0e7490' }}>
       <Link href={backHref} className="app-header-back">←</Link>
       <div style={{ flex: 1 }}>
-        <h1>ตารางเวร</h1>
-        <div className="sub">ดู • ลงเวรว่าง • ลา</div>
+        <h1>ตารางงาน</h1>
+        <div className="sub">ดู • ลงงานที่ว่าง • ลา</div>
       </div>
     </div>
   )
@@ -51,7 +51,7 @@ export default async function StaffSchedulePage() {
       <div className="app-wrap">
         {header}
         <div style={{ margin: '24px 16px', padding: '18px', background: '#fff', borderRadius: '14px', fontSize: '14px', color: '#6b7280', textAlign: 'center' }}>
-          สาขานี้ยังไม่เปิดใช้ตารางเวร
+          สาขานี้ยังไม่เปิดใช้ตารางงาน
         </div>
       </div>
     )
@@ -68,7 +68,7 @@ export default async function StaffSchedulePage() {
   const ids = Array.from(new Set([...patterns.map(p => p.staffId), ...extras.map(e => e.staffId), ...leaves.flatMap(l => l.coverStaffId ? [l.staffId, l.coverStaffId] : [l.staffId])]))
   const { data: staff } = ids.length ? await supabase.from('staff').select('id, name, is_active').in('id', ids) : { data: [] }
   const nameOf = (id: string) => staff?.find(s => s.id === id)?.name ?? '—'
-  const eligible = patterns.some(p => p.staffId === staffId)   // ลงเวรว่าง/ลา ได้เฉพาะคนที่เจ้าของตั้งแบบแผนไว้
+  const eligible = patterns.some(p => p.staffId === staffId)   // ลงงานที่ว่าง/ลา ได้เฉพาะคนที่เจ้าของตั้งแบบแผนไว้
   const eligibleIds = new Set(patterns.map(p => p.staffId))
   const activeIds = new Set((staff ?? []).filter(s => s.is_active).map(s => s.id))
   const nowMs = Date.now()
@@ -81,7 +81,7 @@ export default async function StaffSchedulePage() {
     const notice = diffDaysStr(today, d.date)
     const tooLate = isMine && d.date > today && shiftStartMs(d.date) - nowMs < LEAVE_MIN_HOURS * 3_600_000
     const canLeave = eligible && isMine && d.date > today && !tooLate && !myLeave
-    // คนแทนที่เลือกได้ (เฉพาะกรณีน้อยกว่า 10 วัน): คนอื่นในตารางที่ยังใช้งานและวันนั้นยังไม่มีเวร
+    // คนแทนที่เลือกได้ (เฉพาะกรณีน้อยกว่า 10 วัน): คนอื่นในตารางที่ยังใช้งานและวันนั้นยังไม่มีงาน
     // วันที่คนเกินเป้า: ลาแล้วยังเหลือถึงเป้า → อนุมัติทันที ไม่ต้องคนแทน (ระบบตรวจซ้ำตอนส่งจริง)
     const surplusOk = canLeave && notice < LEAVE_AUTO_DAYS && stillAtTargetAfterLeave(d.count, d.type, config.counts)
     const coverOptions = canLeave && notice < LEAVE_AUTO_DAYS && !surplusOk
@@ -119,19 +119,19 @@ export default async function StaffSchedulePage() {
       {header}
       <div style={{ margin: '12px 16px 0', padding: '12px 14px', background: '#ecfeff', border: '1px solid #a5f3fc', borderRadius: '12px', fontSize: '13px', color: '#155e75' }}>
         {mine.length === 0
-          ? 'คุณไม่มีเวรในช่วง 60 วันข้างหน้า'
-          : <>เวรถัดไปของคุณ: <strong>{WEEKDAY_SHORT[next!.weekday]} {fmtDate(next!.date)}{next!.date === today ? ' (วันนี้)' : ''}</strong> • ทั้งหมด {mine.length} วันใน 60 วัน</>}
+          ? 'คุณไม่มีงานในช่วง 60 วันข้างหน้า'
+          : <>งานถัดไปของคุณ: <strong>{WEEKDAY_SHORT[next!.weekday]} {fmtDate(next!.date)}{next!.date === today ? ' (วันนี้)' : ''}</strong> • ทั้งหมด {mine.length} วันใน 60 วัน</>}
         <div style={{ fontSize: '11.5px', marginTop: '8px', lineHeight: 1.7, color: '#0f4c5c' }}>
           {eligible ? (
             <>
-              <div style={{ fontWeight: 800, marginBottom: '2px' }}>📌 กติกาตารางเวร</div>
-              <div>🟢 ปุ่ม <strong>"ลงเวรนี้"</strong> = วันนั้นยังขาดคน ใครกดก่อนได้ก่อน <strong>ลงแล้วยกเลิกเองไม่ได้</strong></div>
+              <div style={{ fontWeight: 800, marginBottom: '2px' }}>📌 กติกาตารางงาน</div>
+              <div>🟢 ปุ่ม <strong>"ลงงานนี้"</strong> = วันนั้นยังขาดคน ใครกดก่อนได้ก่อน <strong>ลงแล้วยกเลิกเองไม่ได้</strong></div>
               <div>📝 กดลาล่วงหน้า <strong>10 วันขึ้นไป</strong> → อนุมัติทันที</div>
               <div>✅ วันที่คนเกินเป้า ลาแล้วยังครบ → อนุมัติทันที</div>
               <div>🤝 ลาน้อยกว่า 10 วัน → เลือก<strong>คนที่จะมาแทน</strong> พอเขากดรับ <strong>อนุมัติทันที</strong> ถ้าไม่มีคนแทน ส่งคำขอให้ผู้จัดการพิจารณา (ผู้จัดการมีสิทธิ์ไม่อนุมัติ)</div>
               <div>⚠️ ลาน้อยกว่า 48 ชม. → <strong>ทักหาผู้จัดการ</strong></div>
             </>
-          ) : <>ต้องการลา/สลับเวร → ทักหาผู้จัดการ</>}
+          ) : <>ต้องการลา/สลับงาน → ทักหาผู้จัดการ</>}
         </div>
       </div>
 

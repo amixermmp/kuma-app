@@ -5,9 +5,9 @@ import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import { getCheckinMode } from '@/lib/schedule'
 import { bkkDateStr } from '@/lib/scheduleCalc'
 
-// "ดูตารางอย่างเดียว" — คนที่มีแบบแผนแต่วันนี้ไม่มีเวร เข้าดูปฏิทินเวรได้โดยไม่ต้องเช็คอิน
+// "ดูตารางอย่างเดียว" — คนที่มีแบบแผนแต่วันนี้ไม่มีงาน เข้าดูปฏิทินงานได้โดยไม่ต้องเช็คอิน
 // ตั้งคุกกี้ที่ด่านใน middleware ยอมให้เฉพาะหน้า /staff/schedule เท่านั้น (หน้าอื่นยังเด้งไปเช็คอินเหมือนเดิม)
-// ตรวจฝั่งเซิร์ฟเวอร์ว่าเป็นคน "ไม่มีเวรวันนี้" จริง — คนที่มีเวรหรือคนที่ไม่มีแบบแผนใช้ช่องทางนี้ข้ามเช็คอินไม่ได้
+// ตรวจฝั่งเซิร์ฟเวอร์ว่าเป็นคน "ไม่มีงานวันนี้" จริง — คนที่มีงานหรือคนที่ไม่มีแบบแผนใช้ช่องทางนี้ข้ามเช็คอินไม่ได้
 export async function POST() {
   const staffId = (await cookies()).get('kuma_staff_id')?.value
   if (!staffId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

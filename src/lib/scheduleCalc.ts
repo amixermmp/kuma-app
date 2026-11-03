@@ -1,4 +1,4 @@
-// ตารางเวรพนักงานพาร์ทไทม์: ตัวคำนวณล้วน (ไม่ผูกกับเซิร์ฟเวอร์/ฐานข้อมูล ใช้ได้ทั้งหน้าเว็บและ API)
+// ตารางงานพนักงานพาร์ทไทม์: ตัวคำนวณล้วน (ไม่ผูกกับเซิร์ฟเวอร์/ฐานข้อมูล ใช้ได้ทั้งหน้าเว็บและ API)
 // วันที่ทุกตัวเป็นข้อความ YYYY-MM-DD (วันตามปฏิทินไทย) — weekdays: 0=อาทิตย์ ... 6=เสาร์
 export type DayType = 'weekday' | 'weekend'
 
@@ -34,10 +34,10 @@ export function dayTypeFor(dateStr: string, overrides: Record<string, DayType> =
   return w === 0 || w === 6 ? 'weekend' : 'weekday'
 }
 
-// เวรเพิ่มรายวัน: พนักงานกดลงเวรว่างเอง หรือเจ้าของเพิ่มให้ (นอกเหนือจากแบบแผนรายสัปดาห์)
+// งานเพิ่มรายวัน: พนักงานกดลงงานที่ว่างเอง หรือเจ้าของเพิ่มให้ (นอกเหนือจากแบบแผนรายสัปดาห์)
 export type ExtraShift = { staffId: string; day: string }
 
-// ใครมีเวรวันนั้นตามแบบแผน (คนเดียวกันซ้ำนับครั้งเดียว)
+// ใครมีงานวันนั้นตามแบบแผน (คนเดียวกันซ้ำนับครั้งเดียว)
 export function patternStaffOnDate(patterns: SchedulePattern[], dateStr: string): string[] {
   const w = weekdayOf(dateStr)
   const out = new Set<string>()
@@ -50,7 +50,7 @@ export function patternStaffOnDate(patterns: SchedulePattern[], dateStr: string)
 // การลาที่อนุมัติแล้ว: คนนั้นถูกตัดออกจากวันนั้น (ที่ว่างเปิดให้คนอื่นกดลง) — คำขอที่ยังรออนุมัติยังนับว่ามาทำงานตามปกติ
 export type LeaveMark = { staffId: string; day: string }
 
-// ใครมีเวรวันนั้น = (ตามแบบแผน + เวรเพิ่มรายวัน) − คนที่ลาอนุมัติแล้ว (คนเดียวกันซ้ำนับครั้งเดียว)
+// ใครมีงานวันนั้น = (ตามแบบแผน + งานเพิ่มรายวัน) − คนที่ลาอนุมัติแล้ว (คนเดียวกันซ้ำนับครั้งเดียว)
 export function staffOnDate(patterns: SchedulePattern[], dateStr: string, extras: ExtraShift[] = [], leaves: LeaveMark[] = []): string[] {
   const out = new Set(patternStaffOnDate(patterns, dateStr))
   for (const e of extras) if (e.day === dateStr) out.add(e.staffId)
@@ -71,7 +71,7 @@ export type LeaveRoute = 'auto' | 'cover' | 'owner'
 
 export const diffDaysStr = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
 
-// เวลาเริ่มเวรของวันนั้น (09:00 เวลาไทย) เป็น ms
+// เวลาเริ่มงานของวันนั้น (09:00 เวลาไทย) เป็น ms
 export const shiftStartMs = (dateStr: string) => Date.parse(`${dateStr}T0${SHIFT_START_HOUR_BKK}:00:00+07:00`)
 
 export function leaveRoute(
@@ -105,7 +105,7 @@ export function stillAtTargetAfterLeave(count: number, type: DayType, c: Schedul
   return count - 1 >= target
 }
 
-// ลงเวรว่างได้กี่ที่ (ถึงเป้าแล้ว = 0) — ใช้ทั้งปุ่ม "ลงเวรนี้" และให้ฝั่งเซิร์ฟเวอร์คิดซ้ำ
+// ลงงานที่ว่างได้กี่ที่ (ถึงเป้าแล้ว = 0) — ใช้ทั้งปุ่ม "ลงงานนี้" และให้ฝั่งเซิร์ฟเวอร์คิดซ้ำ
 export function openSlots(count: number, type: DayType, c: ScheduleCounts): number {
   const target = type === 'weekend' ? c.weekendTarget : c.weekdayTarget
   return Math.max(0, target - count)
@@ -128,11 +128,11 @@ export type ScheduleDay = {
   overridden: boolean
   staffIds: string[]
   extraStaffIds: string[]   // ในจำนวน staffIds: คนที่ลงเพิ่มเอง/เจ้าของเพิ่มให้ (ไม่ได้มาจากแบบแผน)
-  leaveStaffIds: string[]   // คนที่มีเวรวันนี้แต่ลาอนุมัติแล้ว (ถูกตัดออกจาก staffIds)
+  leaveStaffIds: string[]   // คนที่มีงานวันนี้แต่ลาอนุมัติแล้ว (ถูกตัดออกจาก staffIds)
   count: number
   min: number
   target: number
-  open: number              // ลงเวรว่างได้อีกกี่ที่
+  open: number              // ลงงานที่ว่างได้อีกกี่ที่
   status: DayStatus
 }
 

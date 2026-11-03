@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { addOwnerExtraShift, deleteSchedulePattern, removeExtraShift, saveSchedulePattern, saveScheduleSettings, setScheduleDayType } from '@/lib/schedule'
 import { ownerCancelLeave, ownerDecideLeave, ownerRecordLeave } from '@/lib/scheduleLeave'
 
-// ตั้งค่าตารางเวรของเจ้าของ: สวิตช์/จำนวนคนต่อวัน, แบบแผนรายสัปดาห์ต่อคน, ประเภทวันพิเศษ
+// ตั้งค่าตารางงานของเจ้าของ: สวิตช์/จำนวนคนต่อวัน, แบบแผนรายสัปดาห์ต่อคน, ประเภทวันพิเศษ
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

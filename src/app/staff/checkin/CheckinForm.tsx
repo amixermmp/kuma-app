@@ -42,7 +42,7 @@ export default function CheckinForm({ staffName, branchName, redirectTo, already
   const [continuing, setContinuing] = useState(false)
   const [error, setError] = useState('')
   const [checkedInAt, setCheckedInAt] = useState<string | null>(alreadyCheckedInAt)
-  // วันนี้ไม่มีเวรตามตาราง: ถามก่อนว่าจะเข้าทำงาน (ถ่ายรูปเช็คอินตามปกติ) หรือดูตารางอย่างเดียว
+  // วันนี้ไม่มีงานตามตาราง: ถามก่อนว่าจะเข้าทำงาน (ถ่ายรูปเช็คอินตามปกติ) หรือดูตารางอย่างเดียว
   const [workOffShift, setWorkOffShift] = useState(false)
   const [openingSchedule, setOpeningSchedule] = useState(false)
   const askOffShift = offShift && !workOffShift && !checkedInAt
@@ -150,8 +150,8 @@ export default function CheckinForm({ staffName, branchName, redirectTo, already
         {askOffShift ? (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '48px', marginBottom: '14px' }}>📅</div>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: '16px', marginBottom: '4px' }}>วันนี้ไม่มีเวรของคุณ</div>
-            <div style={{ color: 'rgba(255,255,255,.6)', fontSize: '13px', marginBottom: '24px' }}>ตามตารางเวร คุณไม่ได้ลงทำงานวันนี้</div>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: '16px', marginBottom: '4px' }}>วันนี้คุณไม่ได้ลงงาน</div>
+            <div style={{ color: 'rgba(255,255,255,.6)', fontSize: '13px', marginBottom: '24px' }}>ตามตารางงาน วันนี้ไม่มีงานของคุณ</div>
             {error && <div style={{ color: '#fca5a5', fontSize: '13px', marginBottom: '12px' }}>{error}</div>}
             <button onClick={viewScheduleOnly} disabled={openingSchedule} style={{
               width: '100%', padding: '15px', borderRadius: '14px', border: 'none', marginBottom: '10px',

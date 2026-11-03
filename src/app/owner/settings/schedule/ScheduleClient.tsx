@@ -86,7 +86,7 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
     if (!err) { setLeaveStaffId(''); setLeaveReason(''); router.refresh() }
   }
   const cancelLeave = async (l: LeaveRow) => {
-    if (!confirm(`ยกเลิกการลาของ ${nameOf(l.staffId)} วันที่ ${fmtDate(l.day)}?\n\nคนนั้นจะกลับมามีเวรตามแบบแผน (เวรเพิ่มที่เคยลงเอง/เวรที่คนแทนรับไปไม่ถูกลบให้ — ลบเองได้ในแผงรายวัน)`)) return
+    if (!confirm(`ยกเลิกการลาของ ${nameOf(l.staffId)} วันที่ ${fmtDate(l.day)}?\n\nคนนั้นจะกลับมามีงานตามแบบแผน (งานเพิ่มที่เคยลงเอง/งานที่คนแทนรับไปไม่ถูกลบให้ — ลบเองได้ในแผงรายวัน)`)) return
     const err = await call({ action: 'cancelLeave', id: l.id })
     flash(err ? '❌ ' + err : '✅ ยกเลิกการลาแล้ว')
     if (!err) router.refresh()
@@ -106,13 +106,13 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
   const addExtra = async (day: string) => {
     if (!addStaffId) { flash('❌ เลือกคนที่จะเพิ่มก่อน'); return }
     const err = await call({ action: 'addExtra', staffId: addStaffId, day })
-    flash(err ? '❌ ' + err : '✅ เพิ่มเวรแล้ว')
+    flash(err ? '❌ ' + err : '✅ เพิ่มงานแล้ว')
     if (!err) { setAddStaffId(''); router.refresh() }
   }
   const removeExtra = async (staffId: string, day: string) => {
-    if (!confirm(`ลบเวรที่ลงเพิ่มของ ${nameOf(staffId)} วันที่ ${fmtDate(day)}?\n\n(ลบได้เฉพาะเวรที่ลงเพิ่ม — เวรตามแบบแผนต้องแก้ที่แบบแผน)`)) return
+    if (!confirm(`ลบงานที่ลงเพิ่มของ ${nameOf(staffId)} วันที่ ${fmtDate(day)}?\n\n(ลบได้เฉพาะงานที่ลงเพิ่ม — งานตามแบบแผนต้องแก้ที่แบบแผน)`)) return
     const err = await call({ action: 'removeExtra', staffId, day })
-    flash(err ? '❌ ' + err : '🗑️ ลบเวรแล้ว')
+    flash(err ? '❌ ' + err : '🗑️ ลบงานแล้ว')
     if (!err) router.refresh()
   }
 
@@ -129,7 +129,7 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
 
   return (
     <>
-      <SettingsHeader title="ตารางเวรพาร์ทไทม์" sub="แบบแผนรายสัปดาห์ต่อคน + ภาพรวม 60 วันข้างหน้า" />
+      <SettingsHeader title="ตารางงานพาร์ทไทม์" sub="แบบแผนรายสัปดาห์ต่อคน + ภาพรวม 60 วันข้างหน้า" />
       {msg && <div style={{ margin: '12px 16px 0', padding: '10px 14px', borderRadius: '10px', background: '#f3f4f6', fontSize: '13px', fontWeight: 600 }}>{msg}</div>}
 
       <div style={{ margin: '12px 16px 0', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -145,9 +145,9 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
         <div style={{ padding: '4px 16px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 700 }}>เปิดใช้ตารางเวร</div>
+              <div style={{ fontSize: '14px', fontWeight: 700 }}>เปิดใช้ตารางงาน</div>
               <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
-                เปิดแล้ว คนที่มีแบบแผนแต่วันนี้ไม่มีเวร จะเลือก "เข้าทำงาน" หรือ "ดูตารางอย่างเดียว" ตอนเช็คอิน — คนที่ไม่มีแบบแผน (พนักงานประจำ/เจ้าของ) ใช้เช็คอินเดิมทุกอย่าง
+                เปิดแล้ว คนที่มีแบบแผนแต่วันนี้ไม่มีงาน จะเลือก "เข้าทำงาน" หรือ "ดูตารางอย่างเดียว" ตอนเช็คอิน — คนที่ไม่มีแบบแผน (พนักงานประจำ/เจ้าของ) ใช้เช็คอินเดิมทุกอย่าง
               </div>
             </div>
             <Toggle on={enabled} onClick={() => setEnabled(v => !v)} />
@@ -236,21 +236,21 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
                       ))}
                       <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
                         <select className="field-input" style={{ flex: 1, minWidth: '140px', padding: '6px 8px', fontSize: '12px' }} value={leaveStaffId} onChange={e => setLeaveStaffId(e.target.value)}>
-                          <option value="">— บันทึกลาให้ (เลือกคนที่มีเวรวันนี้) —</option>
+                          <option value="">— บันทึกลาให้ (เลือกคนที่มีงานวันนี้) —</option>
                           {d.staffIds.map(id => <option key={id} value={id}>{nameOf(id)}</option>)}
                         </select>
                         <input className="field-input" style={{ flex: 1, minWidth: '120px', padding: '6px 8px', fontSize: '12px' }} placeholder="เหตุผล (ไม่บังคับ)" value={leaveReason} onChange={e => setLeaveReason(e.target.value)} />
                         <button className="btn" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => recordLeave(d.date)}>บันทึกลา</button>
                       </div>
-                      <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px' }}>บันทึกลาได้ทุกกรณี รวมลาด่วนน้อยกว่า 48 ชม. (ระบบติดป้าย "ลาด่วน" ให้) — เวรจะว่างให้คนอื่นกดลง</div>
+                      <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px' }}>บันทึกลาได้ทุกกรณี รวมลาด่วนน้อยกว่า 48 ชม. (ระบบติดป้าย "ลาด่วน" ให้) — งานจะว่างให้คนอื่นกดลง</div>
                     </div>
                     <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed #e5e7eb' }}>
-                      <div style={{ fontWeight: 700, marginBottom: '6px' }}>เวรที่ลงเพิ่มวันนี้ (➕ = ลงเอง/เจ้าของเพิ่มให้/รับแทน)</div>
+                      <div style={{ fontWeight: 700, marginBottom: '6px' }}>งานที่ลงเพิ่มวันนี้ (➕ = ลงเอง/เจ้าของเพิ่มให้/รับแทน)</div>
                       {d.extraStaffIds.length === 0 && <div style={{ color: '#9ca3af', marginBottom: '6px' }}>ยังไม่มี</div>}
                       {d.extraStaffIds.map(id => (
                         <div key={id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                           <span>{nameOf(id)}</span>
-                          <button className="btn" style={{ padding: '3px 10px', fontSize: '11px', color: '#dc2626' }} onClick={() => removeExtra(id, d.date)}>ลบเวรนี้</button>
+                          <button className="btn" style={{ padding: '3px 10px', fontSize: '11px', color: '#dc2626' }} onClick={() => removeExtra(id, d.date)}>ลบงานนี้</button>
                         </div>
                       ))}
                       <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
@@ -281,7 +281,7 @@ export default function ScheduleClient({ branches, branchId, enabled: initEnable
                 <button className="btn" style={{ padding: '5px 12px', fontSize: '12px' }}
                   onClick={() => setDraft({ staffId: s.id, weekdays: [], startDate: today, endDate: '' })}>+ เพิ่มแบบแผน</button>
               </div>
-              {patternsOf(s.id).length === 0 && <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>ไม่มีแบบแผน — เช็คอินตามปกติทุกวัน ไม่ถูกตารางเวรกระทบ</div>}
+              {patternsOf(s.id).length === 0 && <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>ไม่มีแบบแผน — เช็คอินตามปกติทุกวัน ไม่ถูกตารางงานกระทบ</div>}
               {patternsOf(s.id).map(p => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '6px', fontSize: '12px' }}>
                   <div>
