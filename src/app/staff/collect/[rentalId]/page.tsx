@@ -2,21 +2,12 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getApplicableMonthlyRate } from '@/lib/monthlyRate'
+import { MAX_PERIODS_AHEAD, getDueDate, monthsElapsed as calcMonthsElapsed } from '@/lib/monthlyPeriods'
 import CollectRentForm from './CollectRentForm'
 
 export const dynamic = 'force-dynamic'
 
 const MONTH_NAMES = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
-
-function getDueDate(startDate: Date, periodIndex: number, paymentDay: number): Date {
-  // If payment_day < start day-of-month, first due date is in the next month
-  const offset = paymentDay < startDate.getDate() ? 1 : 0
-  const d = new Date(startDate)
-  d.setMonth(d.getMonth() + periodIndex + offset)
-  const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
-  d.setDate(Math.min(paymentDay, daysInMonth))
-  return d
-}
 
 export default async function CollectRentPage({ params }: { params: Promise<{ rentalId: string }> }) {
   const cookieStore = await cookies()
@@ -51,11 +42,9 @@ export default async function CollectRentPage({ params }: { params: Promise<{ re
   const paymentDay = rental.payment_day ?? startDate.getDate()
   const now = new Date()
 
-  // Generate all periods from start until next month
-  const monthsElapsed =
-    (now.getFullYear() - startDate.getFullYear()) * 12 +
-    (now.getMonth() - startDate.getMonth())
-  const totalPeriods = monthsElapsed + 1 // include current month
+  // งวดตั้งแต่เริ่มสัญญาถึงงวดของเดือนปัจจุบัน + จ่ายล่วงหน้าได้อีก MAX_PERIODS_AHEAD งวด (กฎเดียวกับ API ใน lib/monthlyPeriods.ts)
+  const monthsElapsed = calcMonthsElapsed(startDate, now)
+  const totalPeriods = monthsElapsed + 1 + MAX_PERIODS_AHEAD
 
   // Build period list with payment data
   const periods = Array.from({ length: totalPeriods }, (_, i) => {
@@ -80,6 +69,8 @@ export default async function CollectRentPage({ params }: { params: Promise<{ re
       periodRate,
       fullyPaid,
       isOverdue,
+      // งวดที่เกินเดือนปัจจุบัน = จ่ายล่วงหน้า (ลูกค้ายังไม่ถึงกำหนด) — ไม่นับเป็นงวดที่ต้องเก็บ ไม่เตือน ไม่นับเป็น "เช่ามาแล้ว"
+      ahead: i > monthsElapsed,
     }
   })
 

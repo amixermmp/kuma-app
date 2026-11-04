@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logStaffAction } from '@/lib/log'
 import { getApplicableMonthlyRate } from '@/lib/monthlyRate'
+import { MAX_PERIODS_AHEAD, lastAllowedDueDate } from '@/lib/monthlyPeriods'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -21,11 +22,20 @@ export async function POST(request: NextRequest) {
   // Get monthly_rental to know the rate
   const { data: rental } = await supabase
     .from('monthly_rentals')
-    .select('monthly_rate, swap_log, bikes(license_plate), customers(name)')
+    .select('monthly_rate, swap_log, start_date, payment_day, bikes(license_plate), customers(name)')
     .eq('id', monthlyRentalId)
     .single()
 
   if (!rental) return NextResponse.json({ error: 'ไม่พบสัญญา' }, { status: 404 })
+
+  // จ่ายล่วงหน้าได้ไม่เกิน MAX_PERIODS_AHEAD งวดนับจากงวดของเดือนปัจจุบัน (กฎเดียวกับหน้าเก็บเงิน) — กันกดค้าง/ส่งงวดไกลเกินมา
+  if (rental.start_date) {
+    const startDate = new Date(rental.start_date)
+    const limit = lastAllowedDueDate(startDate, new Date(), rental.payment_day ?? startDate.getDate())
+    if (String(dueDate) > limit) {
+      return NextResponse.json({ error: `จ่ายล่วงหน้าได้ไม่เกิน ${MAX_PERIODS_AHEAD} งวด (ถึงงวดครบกำหนด ${limit})` }, { status: 400 })
+    }
+  }
 
   // Sum existing payments for this period
   const { data: existing } = await supabase

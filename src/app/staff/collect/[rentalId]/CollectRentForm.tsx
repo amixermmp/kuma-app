@@ -39,6 +39,7 @@ type Period = {
   periodRate: number
   fullyPaid: boolean
   isOverdue: boolean
+  ahead: boolean   // งวดล่วงหน้า (เกินเดือนปัจจุบัน) — ลูกค้ายังไม่ถึงกำหนด
 }
 
 type Props = {
@@ -63,6 +64,7 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
   const customer = rental.customers
   const monthlyRate = rental.monthly_rate
   const { isOverdue } = currentPeriod
+  const isAhead = currentPeriod.ahead && !currentPeriod.fullyPaid   // งวดปัจจุบันจ่ายครบแล้ว กำลังรับจ่ายล่วงหน้า
   // ใช้ราคาของ "งวดนี้" เสมอ (periodRate) ไม่ใช่ราคาปัจจุบันของสัญญา — เผื่อเคยสลับรถหลังงวดนี้กำหนด
   // ชำระไปแล้ว งวดนั้นยังอ้างอิงราคาเดิม ราคาใหม่มีผลแค่งวดถัดไปที่กำหนดชำระหลังวันสลับ
   const remaining = currentPeriod.periodRate - currentPeriod.totalPaid
@@ -137,7 +139,7 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
     ? 'linear-gradient(135deg,#dc2626,#b91c1c)'
     : '#111827'
 
-  const monthsRented = periods.filter(p => p.fullyPaid).length
+  const monthsRented = periods.filter(p => p.fullyPaid && !p.ahead).length   // ไม่นับงวดที่จ่ายล่วงหน้า
 
   return (
     <div className="app-wrap">
@@ -194,15 +196,21 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
           <div className="card" style={{ borderTop: '3px solid #16a34a' }}>
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
               <div style={{ fontSize: '36px' }}>✅</div>
-              <div style={{ fontWeight: 700, color: '#16a34a', marginTop: '8px' }}>เก็บเงินครบทุกเดือนแล้ว</div>
+              <div style={{ fontWeight: 700, color: '#16a34a', marginTop: '8px' }}>{currentPeriod.ahead ? 'จ่ายล่วงหน้าครบแล้ว' : 'เก็บเงินครบทุกเดือนแล้ว'}</div>
               <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{currentPeriod.label}</div>
+              {currentPeriod.ahead && <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>งวดถัดไปเปิดให้จ่ายเมื่อขึ้นเดือนใหม่</div>}
             </div>
           </div>
         ) : (
-          <div className="card" style={{ borderTop: `3px solid ${isOverdue ? '#dc2626' : '#16a34a'}` }}>
-            <div className="card-title" style={{ color: isOverdue ? '#dc2626' : '#16a34a' }}>
-              {isOverdue ? '🔴 ค้างชำระ' : '💰 งวดที่ต้องเก็บ'}
+          <div className="card" style={{ borderTop: `3px solid ${isOverdue ? '#dc2626' : isAhead ? '#2563eb' : '#16a34a'}` }}>
+            <div className="card-title" style={{ color: isOverdue ? '#dc2626' : isAhead ? '#2563eb' : '#16a34a' }}>
+              {isOverdue ? '🔴 ค้างชำระ' : isAhead ? '➕ จ่ายล่วงหน้า (ไม่บังคับ)' : '💰 งวดที่ต้องเก็บ'}
             </div>
+            {isAhead && (
+              <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '10px', padding: '10px 14px', marginBottom: '12px', fontSize: '12px', color: '#1e40af', lineHeight: 1.6 }}>
+                งวดปัจจุบันจ่ายครบแล้ว — งวดนี้ลูกค้ายังไม่ถึงกำหนด กดรับเงิน<strong>เฉพาะเมื่อลูกค้าขอจ่ายล่วงหน้า</strong> (ไม่ต้องรับก็ได้)
+              </div>
+            )}
 
             {currentPeriod.periodRate !== monthlyRate && (
               <div style={{
@@ -216,7 +224,7 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
 
             {/* Period box */}
             <div style={{
-              background: isOverdue ? '#fef2f2' : '#f0fdf4',
+              background: isOverdue ? '#fef2f2' : isAhead ? '#eff6ff' : '#f0fdf4',
               borderRadius: '10px', padding: '14px', textAlign: 'center', marginBottom: '14px',
             }}>
               <div style={{ fontSize: '13px', color: isOverdue ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
@@ -317,12 +325,12 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
               const icon = p.fullyPaid ? '✅' : p.isOverdue ? '🔴' : p.totalPaid > 0 ? '🟡' : '⏳'
               const color = p.fullyPaid ? '#16a34a' : p.isOverdue ? '#dc2626' : p.totalPaid > 0 ? '#d97706' : '#9ca3af'
               const label = p.fullyPaid
-                ? 'ครบแล้ว'
+                ? (p.ahead ? 'จ่ายล่วงหน้าแล้ว' : 'ครบแล้ว')
                 : p.isOverdue
                   ? `เลท — ค้าง ฿${(p.periodRate - p.totalPaid).toLocaleString()}`
                   : p.totalPaid > 0
                     ? `บางส่วน — ค้าง ฿${(p.periodRate - p.totalPaid).toLocaleString()}`
-                    : 'รอชำระ'
+                    : p.ahead ? 'งวดล่วงหน้า — ยังไม่ถึงกำหนด' : 'รอชำระ'
               return (
                 <div key={p.dueDate} style={{ marginBottom: '10px', borderBottom: '1px solid #f3f4f6', paddingBottom: '10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -371,10 +379,10 @@ export default function CollectRentForm({ rental, periods, currentPeriod, staffI
         {!currentPeriod.fullyPaid && (
           <button className="btn" onClick={handleSubmit} disabled={loading} style={{
             width: '100%',
-            background: isOverdue ? '#dc2626' : '#16a34a',
+            background: isOverdue ? '#dc2626' : isAhead ? '#2563eb' : '#16a34a',
             color: '#fff', opacity: loading ? 0.7 : 1,
           }}>
-            {loading ? '⏳ กำลังบันทึก...' : currentPeriod.totalPaid > 0 ? '➕ เพิ่มการชำระ' : '✅ บันทึกรับเงินเดือนนี้'}
+            {loading ? '⏳ กำลังบันทึก...' : currentPeriod.totalPaid > 0 ? '➕ เพิ่มการชำระ' : isAhead ? '✅ บันทึกรับเงินล่วงหน้า' : '✅ บันทึกรับเงินเดือนนี้'}
           </button>
         )}
 
