@@ -87,7 +87,8 @@ function RoutineCard({ r }: { r: RoutineItem }) {
       })
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
       setSaved(true)
-      router.refresh()
+      // โชว์ "บันทึกเรียบร้อย" สั้นๆ แล้วกลับเมนูหลัก ให้รู้ว่าเสร็จแล้ว ไม่ต้องกด back เอง
+      setTimeout(() => { router.push('/staff/home'); router.refresh() }, 1000)
     } catch { setError('เกิดข้อผิดพลาด') }
     finally { setLoading(false) }
   }
@@ -320,14 +321,14 @@ function RoutineCard({ r }: { r: RoutineItem }) {
           )}
           <button className="btn btn-success"
             style={{ marginTop: '14px', width: '100%', opacity: loading || blocked ? 0.5 : 1 }}
-            onClick={handleSave} disabled={loading || blocked}>
+            onClick={handleSave} disabled={loading || blocked || saved}>
             {loading ? '⏳ กำลังบันทึก...' : '✅ บันทึกว่าเสร็จแล้ว'}
           </button>
         </div>
       )}
       {saved && (
         <div style={{ marginTop: '10px', color: '#16a34a', fontSize: '13px', fontWeight: 600 }}>
-          ✅ บันทึกเรียบร้อยแล้ว
+          ✅ บันทึกเรียบร้อยแล้ว — กำลังกลับเมนูหลัก...
         </div>
       )}
     </div>
