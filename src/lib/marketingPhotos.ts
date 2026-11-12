@@ -3,7 +3,7 @@ import sharp from 'sharp'
 
 const MAX_PER_BRANCH = 25
 
-const storagePathOf = (url: string | null | undefined) => url?.match(/\/rental-photo\/(.+?)(?:\?|$)/)?.[1] ?? null
+export const storagePathOf = (url: string | null | undefined) => url?.match(/\/rental-photo\/(.+?)(?:\?|$)/)?.[1] ?? null
 
 // ตัดคิวของสาขาให้เหลือ MAX_PER_BRANCH รูปล่าสุด — ลบทั้งแถวและไฟล์ในที่เก็บรูป (เดิมลบแต่แถว ไฟล์ค้างสะสม)
 // รูปที่ใส่กรอบแล้วลบเสมอ ส่วนรูปต้นฉบับลบเฉพาะเมื่อสัญญาไม่ได้อ้างถึงแล้ว — ถ้ายังอ้างอยู่ปล่อยให้ cron ล้างรูปสัญญาลบให้ตามเวลา
@@ -14,7 +14,7 @@ export async function trimMarketingQueue(
 ): Promise<number> {
   const { data: rows } = await supabase
     .from('marketing_photos')
-    .select('id, rental_id, rental_type, original_photo_url, processed_photo_url')
+    .select('id, rental_id, rental_type, original_photo_url, processed_photo_url, processed_photo_url_2')
     .eq('branch_id', branchId)
     .order('created_at', { ascending: false })
 
@@ -32,6 +32,8 @@ export async function trimMarketingQueue(
   for (const r of overflow) {
     const processed = storagePathOf(r.processed_photo_url)
     if (processed) paths.push(processed)
+    const processed2 = storagePathOf(r.processed_photo_url_2)
+    if (processed2) paths.push(processed2)
     const original = storagePathOf(r.original_photo_url)
     if (original && !contractPhotos.includes(original)) paths.push(original)
   }
@@ -68,6 +70,20 @@ export async function queueMarketingPhoto(
   } catch (e) {
     console.error('[marketing] trim failed', branchId, String(e))
   }
+}
+
+// อัปโหลดรูปที่ประกอบกรอบแล้วเข้าที่เก็บรูป คืนพาธกับลิงก์เซ็นชื่อ (อายุ 1 ปี) — tag แยกไฟล์กรอบที่ 2 ออกจากกรอบสาขา
+export async function uploadMarketingResult(
+  supabase: ReturnType<typeof createAdminClient>,
+  photoId: string,
+  buf: Buffer,
+  tag = '',
+): Promise<{ path: string; url: string }> {
+  const filename = `marketing/${photoId}${tag}_${Date.now()}.jpg`
+  const { data: uploaded, error } = await supabase.storage.from('rental-photo').upload(filename, buf, { contentType: 'image/jpeg', upsert: false })
+  if (error || !uploaded) throw new Error('บันทึกรูปไม่สำเร็จ: ' + (error?.message ?? ''))
+  const { data: signed } = await supabase.storage.from('rental-photo').createSignedUrl(uploaded.path, 60 * 60 * 24 * 365)
+  return { path: uploaded.path, url: signed?.signedUrl ?? '' }
 }
 
 async function fetchBuffer(url: string): Promise<Buffer> {

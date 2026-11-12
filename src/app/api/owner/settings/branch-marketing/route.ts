@@ -8,11 +8,13 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { branch_id, frame_url, sticker_url } = await request.json()
+  const { branch_id, frame_url, frame2_url, sticker_url } = await request.json()
   if (!branch_id) return NextResponse.json({ error: 'Missing branch' }, { status: 400 })
 
+  // frame2_url (กรอบรวมสำหรับ IG/TikTok) ไม่ส่งมา = ไม่แตะค่าเดิม กันหน้าเก่าที่ยังไม่รู้จักช่องนี้เผลอลบกรอบที่ตั้งไว้
   const fields = {
     frame_url: frame_url || null,
+    ...(frame2_url === undefined ? {} : { frame2_url: frame2_url || null }),
     sticker_url: sticker_url || null,
   }
 

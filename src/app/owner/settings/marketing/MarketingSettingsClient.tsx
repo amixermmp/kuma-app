@@ -5,19 +5,21 @@ import Link from 'next/link'
 import { Section, SettingsHeader, type Branch } from '../_shared'
 import { compressImagePng } from '@/lib/compressImage'
 
-type BranchAssets = { branch_id: string; frame_url: string | null; sticker_url: string | null }
+type BranchAssets = { branch_id: string; frame_url: string | null; frame2_url: string | null; sticker_url: string | null }
+type AssetKind = 'frame' | 'frame2' | 'sticker'
 
 function BranchMarketingCard({ branch, initial }: { branch: Branch; initial?: BranchAssets }) {
   const [frameUrl, setFrameUrl] = useState(initial?.frame_url ?? '')
+  const [frame2Url, setFrame2Url] = useState(initial?.frame2_url ?? '')
   const [stickerUrl, setStickerUrl] = useState(initial?.sticker_url ?? '')
-  const [uploading, setUploading] = useState<'frame' | 'sticker' | null>(null)
+  const [uploading, setUploading] = useState<AssetKind | null>(null)
   const [msg, setMsg] = useState('')
 
-  const save = async (fields: { frame_url?: string; sticker_url?: string }) => {
+  const save = async (fields: { frame_url?: string; frame2_url?: string; sticker_url?: string }) => {
     const res = await fetch('/api/owner/settings/branch-marketing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ branch_id: branch.id, frame_url: frameUrl, sticker_url: stickerUrl, ...fields }),
+      body: JSON.stringify({ branch_id: branch.id, frame_url: frameUrl, frame2_url: frame2Url, sticker_url: stickerUrl, ...fields }),
     })
     if (res.ok) {
       setMsg('✅ บันทึกแล้ว')
@@ -28,7 +30,7 @@ function BranchMarketingCard({ branch, initial }: { branch: Branch; initial?: Br
     setTimeout(() => setMsg(''), 5000)
   }
 
-  const upload = async (kind: 'frame' | 'sticker', file: File) => {
+  const upload = async (kind: AssetKind, file: File) => {
     setUploading(kind)
     try {
       const compressed = await compressImagePng(file)
@@ -39,6 +41,7 @@ function BranchMarketingCard({ branch, initial }: { branch: Branch; initial?: Br
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? data.detail ?? `HTTP ${res.status}`)
       if (kind === 'frame') { setFrameUrl(data.url); await save({ frame_url: data.url }) }
+      else if (kind === 'frame2') { setFrame2Url(data.url); await save({ frame2_url: data.url }) }
       else { setStickerUrl(data.url); await save({ sticker_url: data.url }) }
     } catch (e) {
       setMsg('❌ ' + (e instanceof Error ? e.message : 'อัพโหลดไม่สำเร็จ'))
@@ -48,7 +51,7 @@ function BranchMarketingCard({ branch, initial }: { branch: Branch; initial?: Br
     }
   }
 
-  const AssetSlot = ({ kind, label, url }: { kind: 'frame' | 'sticker'; label: string; url: string }) => (
+  const AssetSlot = ({ kind, label, url }: { kind: AssetKind; label: string; url: string }) => (
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>{label}</div>
       {url ? (
@@ -86,6 +89,12 @@ function BranchMarketingCard({ branch, initial }: { branch: Branch; initial?: Br
       <div style={{ display: 'flex', gap: '10px' }}>
         <AssetSlot kind="frame" label="กรอบรูป" url={frameUrl} />
         <AssetSlot kind="sticker" label="สติ๊กเกอร์ปิดหน้า" url={stickerUrl} />
+      </div>
+      <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+        <AssetSlot kind="frame2" label="กรอบรวมสาขา (IG/TikTok) — ไม่บังคับ" url={frame2Url} />
+        <div style={{ flex: 1, fontSize: '11px', color: '#6b7280', lineHeight: 1.6 }}>
+          ถ้าอัปโหลด หน้ารูปโปรโมทของสาขานี้จะทำให้ 2 แบบพร้อมกัน (กรอบสาขา + กรอบรวม) ต้องเป็น PNG ที่ช่องใส่รูปโปร่งใส เหมือนกรอบสาขา
+        </div>
       </div>
     </div>
   )

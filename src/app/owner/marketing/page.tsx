@@ -20,11 +20,11 @@ export default async function MarketingPage({
 
   const [{ data: branches }, { data: settingsRows }] = await Promise.all([
     admin.from('branches').select('id, name').order('name'),
-    admin.from('branch_settings').select('branch_id, frame_url'),
+    admin.from('branch_settings').select('branch_id, frame_url, frame2_url'),
   ])
 
   let q = admin.from('marketing_photos')
-    .select('id, branch_id, original_photo_url, processed_photo_url, sticker_x, sticker_y, sticker_x2, sticker_y2, created_at')
+    .select('id, branch_id, original_photo_url, processed_photo_url, processed_photo_url_2, sticker_x, sticker_y, sticker_x2, sticker_y2, created_at')
     .order('created_at', { ascending: false })
   if (branch) q = q.eq('branch_id', branch)
   const { data: rows } = await q
@@ -34,6 +34,7 @@ export default async function MarketingPage({
     branchId: r.branch_id,
     originalUrl: r.original_photo_url,
     processedUrl: r.processed_photo_url,
+    processedUrl2: r.processed_photo_url_2,
     stickerX: r.sticker_x,
     stickerY: r.sticker_y,
     stickerX2: r.sticker_x2,
@@ -49,6 +50,7 @@ export default async function MarketingPage({
       branches={branches ?? []}
       branch={branch}
       branchHasFrame={Array.from(branchHasFrame)}
+      branchHasFrame2={(settingsRows ?? []).filter(s => s.frame2_url).map(s => s.branch_id)}
     />
   )
 }

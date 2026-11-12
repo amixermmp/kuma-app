@@ -16,10 +16,10 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient()
 
-  const { data: photo } = await admin.from('marketing_photos').select('branch_id, original_photo_url, processed_photo_url').eq('id', photoId).single()
+  const { data: photo } = await admin.from('marketing_photos').select('branch_id, original_photo_url, processed_photo_url, processed_photo_url_2').eq('id', photoId).single()
   if (!photo || !canTouchPhoto(access, photo.branch_id)) return NextResponse.json({ error: 'ไม่พบรูป' }, { status: 404 })
 
-  const paths = [photo?.original_photo_url, photo?.processed_photo_url]
+  const paths = [photo?.original_photo_url, photo?.processed_photo_url, photo?.processed_photo_url_2]
     .filter((u): u is string => !!u)
     .map(extractStoragePath)
     .filter((p): p is string => !!p)
