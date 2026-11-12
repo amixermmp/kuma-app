@@ -10,6 +10,9 @@ export type ModelAvailability = { totalCount: number; freeBikeIds: string[] }
  * (เดินตารางแบบเดียวกับ findBrokenBookings/findModelBookingConflict) แทนการนับ "ชนกันสูงสุดกี่คิว"
  * เทียบกับ "ว่างกี่คัน" แบบหยาบ ซึ่งนับคิวที่ไม่ได้ใช้รถพร้อมกันจริงเป็นการแย่งโควต้าเกินจริง — เคยเจอเคส
  * ค้นหาไม่ว่างทั้งที่กดส่งจริงผ่านฉลุยไม่ชนคิวเลย เพราะสองจุดนี้ใช้ตรรกะคนละแบบกัน
+ *
+ * freeBikeIds = รถที่ "คิวใหม่ของช่วงนี้" จะได้จริงเมื่อจัดสรรทั้งกองใหม่ โดยไม่มีคิวเดิมที่เคยได้รถหลุดไป
+ * (จำนวนเท่ากับจำนวนคิวใหม่ช่วงเดียวกันที่ใส่เพิ่มได้) — ไม่ใช่ "รถที่เหลือหลังวางคิวเดิมลงคันแรกที่ว่าง"
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getModelBikeAvailability(
@@ -53,43 +56,58 @@ export async function getModelBikeAvailability(
     })
   }
 
-  // จำลองจัดสรรคิวจองแบบระบุแค่รุ่นที่มีอยู่ก่อนแล้ว (ไม่รวมคิวที่กำลังแก้ไขเอง) ตามลำดับความสำคัญ
-  // เดียวกับคิวมีปัญหา เพื่อรู้ว่าคันไหนถูกจับจองไว้แล้วจริงๆ ช่วงไหนบ้าง
-  const claimed = new Map<string, { start: number; end: number }[]>()
-  for (const sc of specificBookings ?? []) {
-    if (!candidateIds.has(sc.bike_id)) continue
-    const arr = claimed.get(sc.bike_id) ?? []
-    arr.push({ start: new Date(sc.start_datetime).getTime(), end: new Date(sc.end_datetime).getTime() })
-    claimed.set(sc.bike_id, arr)
-  }
-  const priorityBookings = (modelBookings ?? []).filter(b => b.id !== excludeBookingId)
-  const priority = [...priorityBookings].sort((a, b) =>
-    new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime() ||
-    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  )
-  for (const b of priority) {
-    const bStart = new Date(b.start_datetime).getTime()
-    const bEnd = new Date(b.end_datetime).getTime()
-    const bike = candidates.find(bk => {
-      if (isBikeBusyInWindow(bk.id, b.start_datetime, b.end_datetime)) return false
-      const claims = claimed.get(bk.id) ?? []
-      return !claims.some(c => c.start < bEnd + BUFFER_MS && c.end > bStart - BUFFER_MS)
-    })
-    if (bike) {
-      const claims = claimed.get(bike.id) ?? []
-      claims.push({ start: bStart, end: bEnd })
-      claimed.set(bike.id, claims)
+  type Req = { id: string; start: number; end: number; created: number }
+
+  // จัดสรรรถให้คิวแบบระบุแค่รุ่นตามลำดับความสำคัญเดียวกับคิวมีปัญหา (findBrokenBookings): วันรับใกล้กว่าเลือกรถก่อน
+  // ถ้าวันรับเท่ากันดูว่าจองก่อน คืน map คิว → รถที่ได้ (คิวที่ไม่ได้รถไม่อยู่ใน map)
+  function allocate(reqs: Req[]): Map<string, string> {
+    const claimed = new Map<string, { start: number; end: number }[]>()
+    for (const sc of specificBookings ?? []) {
+      if (!candidateIds.has(sc.bike_id)) continue
+      const arr = claimed.get(sc.bike_id) ?? []
+      arr.push({ start: new Date(sc.start_datetime).getTime(), end: new Date(sc.end_datetime).getTime() })
+      claimed.set(sc.bike_id, arr)
     }
+    const assigned = new Map<string, string>()
+    const priority = [...reqs].sort((a, b) => a.start - b.start || a.created - b.created)
+    for (const r of priority) {
+      const bike = candidates.find(bk => {
+        if (isBikeBusyInWindow(bk.id, new Date(r.start).toISOString(), new Date(r.end).toISOString())) return false
+        const claims = claimed.get(bk.id) ?? []
+        return !claims.some(c => c.start < r.end + BUFFER_MS && c.end > r.start - BUFFER_MS)
+      })
+      if (bike) {
+        const claims = claimed.get(bike.id) ?? []
+        claims.push({ start: r.start, end: r.end })
+        claimed.set(bike.id, claims)
+        assigned.set(r.id, bike.id)
+      }
+    }
+    return assigned
   }
 
-  // คันที่ว่างจริงสำหรับช่วง [fromIso, toIso] คือคันที่ไม่ติดสัญญาเช่าจริง และไม่ถูกคิวจองที่มีอยู่ก่อนจับจองไว้ทับช่วงนี้
+  const existing: Req[] = (modelBookings ?? [])
+    .filter(b => b.id !== excludeBookingId)
+    .map(b => ({ id: b.id, start: new Date(b.start_datetime).getTime(), end: new Date(b.end_datetime).getTime(), created: new Date(b.created_at).getTime() }))
+  const baselineSucceeded = Array.from(allocate(existing).keys())
+
+  // "ว่างกี่คัน" = ใส่คิวสมมติของช่วงที่ค้นหาลงกองเดียวกับคิวเดิม แล้วจัดสรรใหม่ทั้งกอง (แบบเดียวกับที่คิวมีปัญหาจะทำจริงหลังจอง)
+  // ใส่ได้ทีละใบจนกว่าจะมีคิวสมมติไม่ได้รถ หรือคิวเดิมที่เคยได้รถอยู่ดีๆ หลุดไป — จำนวนที่ใส่ได้คือจำนวนคันว่าง
+  // (เดิมจัดสรรคิวเดิมลงรถก่อนแล้วค่อยดูว่าเหลือคันไหน — ได้ผลขึ้นกับลำดับรถ: คิวสั้นๆ หลายคิวถูกยัดคันเดียวกัน
+  //  คิวยาวที่ตามมาเลยไม่มีรถ ทั้งที่ย้ายคิวสั้นไปอีกคันแล้วลงตัว ค้นหาขึ้นไม่ว่างแต่คิวมีปัญหาไม่ขึ้น)
   const targetStart = new Date(fromIso).getTime()
   const targetEnd = new Date(toIso).getTime()
-  const freeBikeIds = candidates.filter(bk => {
-    if (isBikeBusyInWindow(bk.id, fromIso, toIso)) return false
-    const claims = claimed.get(bk.id) ?? []
-    return !claims.some(c => c.start < targetEnd + BUFFER_MS && c.end > targetStart - BUFFER_MS)
-  }).map(bk => bk.id)
+  const hypothetical: Req[] = []
+  let lastAssignment = new Map<string, string>()
+  for (let i = 0; i < candidates.length; i++) {
+    const copy: Req = { id: `__target_${i}`, start: targetStart, end: targetEnd, created: nowMs + i }
+    const trial = allocate([...existing, ...hypothetical, copy])
+    const ok = [copy, ...hypothetical].every(h => trial.has(h.id)) && baselineSucceeded.every(id => trial.has(id))
+    if (!ok) break
+    hypothetical.push(copy)
+    lastAssignment = trial
+  }
+  const freeBikeIds = hypothetical.map(h => lastAssignment.get(h.id)!)
 
   return {
     totalCount: candidates.length,
