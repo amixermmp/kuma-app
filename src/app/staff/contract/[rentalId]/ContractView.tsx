@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import CopyBlock from '@/components/staff/CopyBlock'
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', {
@@ -30,7 +31,7 @@ const TERMS_EN = [
 ]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ContractView({ rental, shop, branchName, theme = 'kuma' }: { rental: any; shop: any; branchName?: string | null; theme?: 'kuma' | 'zame' }) {
+export default function ContractView({ rental, shop, branchName, theme = 'kuma', summaryText = null }: { rental: any; shop: any; branchName?: string | null; theme?: 'kuma' | 'zame'; summaryText?: string | null }) {
   const isZame = theme === 'zame'
   // ZAME เจอลูกค้าต่างชาติเยอะ — ป้ายทุกจุดเลยขึ้นสองภาษา ไทย/อังกฤษ (KUMA ยังคงเป็นไทยล้วนเหมือนเดิม)
   const bi = (th: string, en: string) => isZame ? `${th} / ${en}` : th
@@ -114,6 +115,15 @@ export default function ContractView({ rental, shop, branchName, theme = 'kuma' 
           🖨️ บันทึก PDF
         </button>
       </div>
+
+      {summaryText && (
+        <div className="no-print" style={{ background: '#f3f4f6', padding: '12px 12px 0' }}>
+          <div style={{ maxWidth: '540px', margin: '0 auto' }}>
+            <CopyBlock title="💬 ข้อความสรุปให้ลูกค้า" text={summaryText}
+              note="กำหนดคืนในข้อความเป็นเวลาล่าสุดของสัญญา ถ้าลูกค้าต่อเวลาไปแล้วจะเป็นเวลาที่ต่อแล้ว" />
+          </div>
+        </div>
+      )}
 
       <div className="contract-wrap" style={{ background: '#f3f4f6', padding: '16px 12px 48px' }}>
         <div className="contract-card" style={{

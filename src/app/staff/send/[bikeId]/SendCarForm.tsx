@@ -8,6 +8,8 @@ import TabBar from '@/components/staff/TabBar'
 import { addTab } from '@/lib/tabStore'
 import { calcShortPrice, calcLongPrice, calendarDays, calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
 import { isThaiIdNumber, idAndSlipNameMatch } from '@/lib/customer'
+import CopyBlock, { CopyButton } from '@/components/staff/CopyBlock'
+import { buildContractSummary, buildContactMessage, bangkokTodayLocal } from '@/lib/contractSummary'
 
 // ── Step title with visible step number ─────────────────────────────────────
 function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
@@ -67,10 +69,28 @@ function ScriptBox({ children }: { children: React.ReactNode }) {
 }
 
 // ── Success screen ───────────────────────────────────────────────────────────
-function SuccessScreen({ rentalId, paymentId, type, bikeId, fastLaneConflictId }: { rentalId: string; paymentId: string | null; type: 'daily' | 'monthly'; bikeId: string; fastLaneConflictId?: string | null }) {
+function SuccessScreen({ rentalId, paymentId, type, bikeId, fastLaneConflictId, fuelFull }: { rentalId: string; paymentId: string | null; type: 'daily' | 'monthly'; bikeId: string; fastLaneConflictId?: string | null; fuelFull: boolean }) {
   const invoiceHref = type === 'daily'
     ? `/staff/invoice/${paymentId}`
     : `/staff/invoice/monthly/${paymentId}`
+
+  // ข้อความสรุปให้ลูกค้า — ดึงจากสัญญาที่บันทึกแล้ว (ตรงกับที่บันทึกจริงเสมอ แม้พนักงานแก้วัน-เวลาในฟอร์มก่อนกดบันทึก)
+  const [summary, setSummary] = useState<string | null>(null)
+  const [summaryError, setSummaryError] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    const q = `type=${type}&id=${rentalId}${type === 'monthly' ? `&fuelFull=${fuelFull ? 1 : 0}` : ''}`
+    fetch(`/api/staff/contract-summary?${q}`)
+      .then(async r => ({ ok: r.ok, data: await r.json().catch(() => ({})) }))
+      .then(({ ok, data }) => {
+        if (cancelled) return
+        if (ok && data.text) setSummary(data.text)
+        else setSummaryError(data.error ?? 'โหลดข้อความสรุปไม่สำเร็จ')
+      })
+      .catch(() => { if (!cancelled) setSummaryError('โหลดข้อความสรุปไม่สำเร็จ ลองเปิดหน้าสัญญาแทนได้') })
+    return () => { cancelled = true }
+  }, [type, rentalId, fuelFull])
+
   return (
     <div className="app-wrap">
       <div className="app-header" style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
@@ -82,6 +102,10 @@ function SuccessScreen({ rentalId, paymentId, type, bikeId, fastLaneConflictId }
         <div style={{ fontSize: '18px', fontWeight: 800, color: '#16a34a', marginBottom: '8px' }}>ส่งรถให้ลูกค้าสำเร็จ!</div>
         <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '32px' }}>
           {type === 'daily' ? 'สัญญาเช่ารายวัน' : 'สัญญาเช่ารายเดือน'}ถูกบันทึกแล้ว
+        </div>
+        <div style={{ margin: '-12px -12px 20px' }}>
+          <CopyBlock title="💬 ข้อความสรุปให้ลูกค้า" text={summary} loading={!summary && !summaryError} error={summaryError}
+            note="กดคัดลอกแล้วส่งให้ลูกค้าในแชทได้เลย" />
         </div>
         {fastLaneConflictId && (
           <Link href={`/staff/assign/${fastLaneConflictId}`} style={{
@@ -187,6 +211,8 @@ type Props = {
   whatsappQrUrl?: string | null
   whatsappNumber?: string | null
   studentPromoUniversity?: string | null
+  contactPhone?: string | null          // เบอร์ติดต่อของสาขา — ใช้เป็นเบอร์ฉุกเฉินในข้อความสรุปให้ลูกค้า
+  documentTheme?: 'kuma' | 'zame'       // ZAME ข้อความสรุปเป็นสองภาษา
 }
 
 type PhotoState = {
@@ -254,7 +280,7 @@ function bkkTimePart(iso: string): string {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings, promoPayDays = 5, qrDailyUrl, qrMonthlyUrl, lineQrUrl, lineId, whatsappQrUrl, whatsappNumber, studentPromoUniversity }: Props) {
+export default function SendCarForm({ bike, staffId, promotions, prefillBooking, prefillFrom, prefillTo, upcomingBookings, promoPayDays = 5, qrDailyUrl, qrMonthlyUrl, lineQrUrl, lineId, whatsappQrUrl, whatsappNumber, studentPromoUniversity, contactPhone, documentTheme = 'kuma' }: Props) {
   const DRAFT_KEY = `send_draft_${bike.id}`
   const [showWhatsapp, setShowWhatsapp] = useState(false)
 
@@ -631,6 +657,19 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
     ? new Date(startDate + 'T12:00:00').getDate()
     : 1
 
+  // ข้อความสรุปให้ลูกค้า (สร้างสดจากค่าในฟอร์ม พนักงานแก้ตรงไหนข้อความเปลี่ยนตาม) กับข้อความช่องทางติดต่อร้าน
+  const summaryText = startDate && startTime && (isMonthlyContract || (endDate && endTime))
+    ? buildContractSummary({
+        theme: documentTheme, type: isMonthlyContract ? 'monthly' : 'daily',
+        brand: bike.brand, model: bike.model, plate: bike.license_plate,
+        startLocal: `${startDate}T${startTime}`, endLocal: isMonthlyContract ? null : `${endDate}T${endTime}`,
+        paymentDay: isMonthlyContract ? paymentDay : null, fuelFull,
+        returnType: isMonthlyContract ? null : returnType, returnAddress, returnFee: returnFeeAmount,
+        emergencyPhone: contactPhone, todayLocal: bangkokTodayLocal(),
+      })
+    : null
+  const contactMessage = buildContactMessage({ theme: documentTheme, lineId, whatsapp: whatsappNumber, phone: contactPhone })
+
   // ── Blacklist check — เช็คชื่อ/เบอร์กับบัญชีดำของร้าน ──────────────────────
   const [blacklistHit, setBlacklistHit] = useState<{ name: string; reason: string | null } | null>(null)
   const checkBlacklist = useCallback(async (name: string, phone: string, idCard?: string) => {
@@ -847,7 +886,7 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
 
   // ── Success ───────────────────────────────────────────────────────────────
   if (createdRentalId) {
-    return <SuccessScreen rentalId={createdRentalId} paymentId={createdPaymentId} type={createdType} bikeId={bike.id} fastLaneConflictId={fastLaneConflictId} />
+    return <SuccessScreen rentalId={createdRentalId} paymentId={createdPaymentId} type={createdType} bikeId={bike.id} fastLaneConflictId={fastLaneConflictId} fuelFull={fuelFull} />
   }
 
   const headerBg = isMonthlyContract
@@ -1703,6 +1742,32 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ข้อความสรุปการเช่าให้ลูกค้า + ช่องทางติดต่อร้าน — พนักงานก๊อปส่งในแชท (หลังบันทึกสำเร็จมีข้อความเดียวกันขึ้นที่หน้าสำเร็จอีกครั้ง) */}
+        {summaryText && (
+          <CopyBlock
+            title="💬 ข้อความสรุปให้ลูกค้า"
+            text={summaryText}
+            note="ข้อความนี้ตามค่าในฟอร์มตอนนี้ ถ้ากำลังจะแก้วัน-เวลา ให้ส่งหลังกดบันทึกจะชัวร์กว่า (หน้าสำเร็จมีข้อความนี้อีกครั้ง)"
+          />
+        )}
+        {contactMessage && (
+          <div className="card">
+            <div className="card-title">📇 ช่องทางติดต่อร้าน (ก๊อปส่งลูกค้าที่ทักมา)</div>
+            {[
+              lineId?.trim() ? { label: 'LINE', value: lineId.trim() } : null,
+              whatsappNumber?.trim() ? { label: 'WhatsApp', value: whatsappNumber.trim() } : null,
+              contactPhone?.trim() ? { label: 'โทร', value: contactPhone.trim() } : null,
+            ].filter((r): r is { label: string; value: string } => !!r).map(r => (
+              <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <span style={{ width: '78px', fontSize: '12px', color: '#6b7280', fontWeight: 600 }}>{r.label}</span>
+                <span style={{ flex: 1, fontSize: '14px', fontWeight: 700, color: '#111827', wordBreak: 'break-all' }}>{r.value}</span>
+                <CopyButton text={r.value} label="คัดลอก" small />
+              </div>
+            ))}
+            <div style={{ marginTop: '10px' }}><CopyButton text={contactMessage} label="📋 คัดลอกทุกช่องทางเป็นข้อความ" /></div>
           </div>
         )}
 
