@@ -19,7 +19,7 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
 
   const [bikeRes, docsRes, branchesRes, statsRes, totalRevenue, routinesRes, repairsRes, lessorsRes] = await Promise.all([
     admin.from('bikes')
-      .select('id, license_plate, brand, model, year, color, photo_url, daily_rate, monthly_rate, deposit_amount, odometer, notes, status, branch_id, lessor_profile_id, branches(id, name)')
+      .select('id, license_plate, brand, model, year, color, photo_url, daily_rate, monthly_rate, deposit_amount, odometer, notes, status, branch_id, lessor_profile_id, created_at, branches(id, name)')
       .eq('id', bikeId)
       .single(),
     admin.from('bike_documents')
@@ -64,6 +64,11 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
   const repairs = repairsRes.data ?? []
   const lessors = lessorsRes.data ?? []
 
+  // อยู่มานานเท่าไร + รายได้เฉลี่ยต่อเดือน — คิดบนเซิร์ฟเวอร์ (ไม่ให้ตัวเลขต่างกันระหว่างเซิร์ฟเวอร์/เบราว์เซอร์)
+  // นับจากวันที่รถเข้าระบบ หารเดือนละ 30.44 วัน อยู่มาไม่ถึง 1 เดือนหารด้วย 1 เดือน กันตัวเลขพองเกินจริง
+  const ageDays = Math.max(0, Math.floor((Date.now() - new Date(bike.created_at).getTime()) / 86_400_000))
+  const ageText = ageDays < 30 ? `${ageDays} วัน` : `${Math.floor(ageDays / 30.44)} เดือน ${Math.round(ageDays % 30.44)} วัน`
+  const avgPerMonth = Math.round(totalRevenue / Math.max(1, ageDays / 30.44))
   const rentalCount = rentals.length
   const lastRental = rentals[0]?.start_datetime ?? null
 
@@ -84,7 +89,7 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ bik
         bike={{ ...bike, branch_id: bike.branch_id, branch_name: branch?.name ?? '—' }}
         docMap={docMap}
         branches={branches}
-        stats={{ totalRevenue, rentalCount, lastRental }}
+        stats={{ totalRevenue, rentalCount, lastRental, createdAt: bike.created_at, ageText, avgPerMonth }}
         routines={routines}
         repairs={repairs}
         brands={catalog.brands}

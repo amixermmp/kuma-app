@@ -28,7 +28,7 @@ type Bike = {
 type DocRecord = { doc_type: string; doc_photo_url: string | null; expiry_date: string | null }
 type Branch = { id: string; name: string }
 type Lessor = { id: string; name: string }
-type Stats = { totalRevenue: number; rentalCount: number; lastRental: string | null }
+type Stats = { totalRevenue: number; rentalCount: number; lastRental: string | null; createdAt: string; ageText: string; avgPerMonth: number }
 type Routine = {
   id: string
   task_name: string
@@ -721,6 +721,8 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
           <div className="card-title">📊 สถิติการใช้งาน</div>
           {[
             ['รายได้สะสมคันนี้ (เงินที่เก็บจริง ไม่รวมมัดจำ)', `฿${stats.totalRevenue.toLocaleString()}`, '#16a34a'],
+            ['รายได้เฉลี่ยต่อเดือน', `฿${stats.avgPerMonth.toLocaleString()} /เดือน`, '#16a34a'],
+            ['วันที่รถมา (วันที่เข้าระบบ)', `${new Date(stats.createdAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: 'numeric' })} • อยู่มา ${stats.ageText}`, '#1e293b'],
             ['จำนวนครั้งที่เช่า', `${stats.rentalCount} ครั้ง`, '#1e293b'],
             ['เช่าครั้งล่าสุด', stats.lastRental ? new Date(stats.lastRental).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) : '—', '#1e293b'],
           ].map(([k, v, c]) => (
