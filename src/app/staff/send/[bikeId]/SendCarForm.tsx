@@ -8,8 +8,8 @@ import TabBar from '@/components/staff/TabBar'
 import { addTab } from '@/lib/tabStore'
 import { calcShortPrice, calcLongPrice, calendarDays, calcExcessHours, calcOvertimeCharge } from '@/lib/pricing'
 import { isThaiIdNumber, idAndSlipNameMatch } from '@/lib/customer'
-import CopyBlock, { CopyButton } from '@/components/staff/CopyBlock'
-import { buildContractSummary, buildContactMessage, bangkokTodayLocal } from '@/lib/contractSummary'
+import CopyBlock from '@/components/staff/CopyBlock'
+import { buildContractSummary, bangkokTodayLocal } from '@/lib/contractSummary'
 
 // ── Step title with visible step number ─────────────────────────────────────
 function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
@@ -668,7 +668,6 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
         emergencyPhone: contactPhone, todayLocal: bangkokTodayLocal(),
       })
     : null
-  const contactMessage = buildContactMessage({ theme: documentTheme, lineId, whatsapp: whatsappNumber, phone: contactPhone })
 
   // ── Blacklist check — เช็คชื่อ/เบอร์กับบัญชีดำของร้าน ──────────────────────
   const [blacklistHit, setBlacklistHit] = useState<{ name: string; reason: string | null } | null>(null)
@@ -1752,23 +1751,6 @@ export default function SendCarForm({ bike, staffId, promotions, prefillBooking,
             text={summaryText}
             note="ข้อความนี้ตามค่าในฟอร์มตอนนี้ ถ้ากำลังจะแก้วัน-เวลา ให้ส่งหลังกดบันทึกจะชัวร์กว่า (หน้าสำเร็จมีข้อความนี้อีกครั้ง)"
           />
-        )}
-        {contactMessage && (
-          <div className="card">
-            <div className="card-title">📇 ช่องทางติดต่อร้าน (ก๊อปส่งลูกค้าที่ทักมา)</div>
-            {[
-              lineId?.trim() ? { label: 'LINE', value: lineId.trim() } : null,
-              whatsappNumber?.trim() ? { label: 'WhatsApp', value: whatsappNumber.trim() } : null,
-              contactPhone?.trim() ? { label: 'โทร', value: contactPhone.trim() } : null,
-            ].filter((r): r is { label: string; value: string } => !!r).map(r => (
-              <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
-                <span style={{ width: '78px', fontSize: '12px', color: '#6b7280', fontWeight: 600 }}>{r.label}</span>
-                <span style={{ flex: 1, fontSize: '14px', fontWeight: 700, color: '#111827', wordBreak: 'break-all' }}>{r.value}</span>
-                <CopyButton text={r.value} label="คัดลอก" small />
-              </div>
-            ))}
-            <div style={{ marginTop: '10px' }}><CopyButton text={contactMessage} label="📋 คัดลอกทุกช่องทางเป็นข้อความ" /></div>
-          </div>
         )}
 
         {/* ⑦ ที่ตัวรถ */}

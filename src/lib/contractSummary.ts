@@ -83,15 +83,3 @@ export function buildContractSummary(i: ContractSummaryInput): string {
 
   return lines.filter((l): l is string => !!l).join('\n')
 }
-
-// ข้อความช่องทางติดต่อร้าน (พนักงานก๊อปส่งลูกค้าที่ทักมา) — ช่องไหนสาขาไม่ได้ตั้งไว้จะไม่ขึ้นบรรทัดนั้น
-export function buildContactMessage(i: { theme: 'kuma' | 'zame'; lineId?: string | null; whatsapp?: string | null; phone?: string | null }): string | null {
-  const zame = i.theme === 'zame'
-  const rows = [
-    i.lineId?.trim() ? `LINE: ${i.lineId.trim()}` : null,
-    i.whatsapp?.trim() ? `WhatsApp: ${i.whatsapp.trim()}` : null,
-    i.phone?.trim() ? `${zame ? 'โทร / Tel' : 'โทร'}: ${i.phone.trim()}` : null,
-  ].filter((r): r is string => !!r)
-  if (rows.length === 0) return null
-  return [zame ? 'ช่องทางติดต่อร้านนะคะ / Contact us 💬' : 'ช่องทางติดต่อร้านนะคะ 💬', ...rows].join('\n')
-}
