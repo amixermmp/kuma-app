@@ -25,7 +25,7 @@ export default async function StaffMarketingPage() {
       .select('id, branch_id, original_photo_url, processed_photo_url, processed_photo_url_2, sticker_x, sticker_y, sticker_x2, sticker_y2, created_at')
       .eq('branch_id', branchId)
       .order('created_at', { ascending: false }),
-    admin.from('branch_settings').select('frame_url, frame2_url').eq('branch_id', branchId).maybeSingle(),
+    admin.from('branch_settings').select('frame_url, frame2_url, caption_facebook, caption_instagram, caption_tiktok').eq('branch_id', branchId).maybeSingle(),
   ])
 
   const photos: MarketingPhoto[] = (rows ?? []).map(r => ({
@@ -48,6 +48,11 @@ export default async function StaffMarketingPage() {
       branch={branchId}
       branchHasFrame={settings?.frame_url ? [branchId] : []}
       branchHasFrame2={settings?.frame2_url ? [branchId] : []}
+      captions={{
+        facebook: settings?.caption_facebook ?? '',
+        instagram: settings?.caption_instagram ?? '',
+        tiktok: settings?.caption_tiktok ?? '',
+      }}
       staffMode
     />
   )

@@ -3,6 +3,14 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { BranchFilter } from '@/components/BranchFilter'
+import { CopyButton } from '@/components/staff/CopyBlock'
+
+type Captions = { facebook: string; instagram: string; tiktok: string }
+const CAPTION_TABS: { key: keyof Captions; label: string }[] = [
+  { key: 'facebook', label: 'เพจ Facebook' },
+  { key: 'instagram', label: 'Instagram' },
+  { key: 'tiktok', label: 'TikTok' },
+]
 
 export type MarketingPhoto = {
   id: string
@@ -279,15 +287,22 @@ function PhotoCard({ photo, hasFrame, hasFrame2, selectMode, selected, onToggleS
 }
 
 // staffMode = หน้าฝั่งพนักงาน: ไม่มีตัวเลือกสาขา (เห็นแค่สาขาตัวเอง — เซิร์ฟเวอร์กรองให้แล้ว) และกลับไปหน้าหลักพนักงาน
-export default function MarketingClient({ photos: initialPhotos, branches, branch, branchHasFrame, branchHasFrame2 = [], staffMode = false }: {
+export default function MarketingClient({ photos: initialPhotos, branches, branch, branchHasFrame, branchHasFrame2 = [], captions = null, staffMode = false }: {
   photos: MarketingPhoto[]
   branches: { id: string; name: string }[]
   branch: string
   branchHasFrame: string[]
   branchHasFrame2?: string[]
+  captions?: Captions | null   // แคปชั่นสำหรับโพสต์ของสาขานี้ (เจ้าของตั้งในหน้าตั้งค่า) — ช่องไหนว่างไม่ขึ้นแท็บ
   staffMode?: boolean
 }) {
   const [photos, setPhotos] = useState(initialPhotos)
+
+  // ── แคปชั่นสำหรับโพสต์ — ป๊อปอัพแผงด้านล่าง แท็บตามช่องทาง กดคัดลอกได้ ──
+  const captionTabs = captions ? CAPTION_TABS.filter(t => captions[t.key].trim()) : []
+  const [captionOpen, setCaptionOpen] = useState(false)
+  const [captionTab, setCaptionTab] = useState<keyof Captions | null>(null)
+  const activeCaptionTab = captionTab && captionTabs.some(t => t.key === captionTab) ? captionTab : captionTabs[0]?.key ?? null
 
   const updatePhoto = (id: string, updated: Partial<MarketingPhoto>) => {
     setPhotos(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
@@ -366,6 +381,15 @@ export default function MarketingClient({ photos: initialPhotos, branches, branc
         </div>
       </div>
 
+      {captionTabs.length > 0 && (
+        <div style={{ margin: '12px 16px 0' }}>
+          <button onClick={() => setCaptionOpen(true)} style={{
+            width: '100%', padding: '10px', borderRadius: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            border: '1.5px solid #2563eb', background: '#eff6ff', color: '#2563eb',
+          }}>📝 แคปชั่นสำหรับโพสต์</button>
+        </div>
+      )}
+
       {anyFrame2 && canShareFiles && photos.some(p => p.processedUrl) && (
         <div style={{ margin: '12px 16px 0' }}>
           <button onClick={() => (selectMode ? exitSelect() : setSelectMode(true))} style={{
@@ -411,6 +435,36 @@ export default function MarketingClient({ photos: initialPhotos, branches, branc
           />
         ))}
       </div>
+
+      {captionOpen && captions && activeCaptionTab && (
+        <div onClick={() => setCaptionOpen(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(17,24,39,.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width: '100%', maxWidth: '430px', maxHeight: '80vh', overflowY: 'auto', background: '#fff', borderRadius: '20px 20px 0 0',
+            padding: '16px 16px calc(16px + env(safe-area-inset-bottom, 0px))',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ flex: 1, fontSize: '16px', fontWeight: 800, color: '#111827' }}>📝 แคปชั่นสำหรับโพสต์</div>
+              <button onClick={() => setCaptionOpen(false)} style={{ border: 'none', background: '#f3f4f6', borderRadius: '50%', width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+              {captionTabs.map(t => (
+                <button key={t.key} onClick={() => setCaptionTab(t.key)} style={{
+                  flex: 1, padding: '8px 4px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                  border: `1.5px solid ${activeCaptionTab === t.key ? '#111827' : '#e5e7eb'}`,
+                  background: activeCaptionTab === t.key ? '#111827' : '#fff', color: activeCaptionTab === t.key ? '#fff' : '#6b7280',
+                }}>{t.label}</button>
+              ))}
+            </div>
+            <div style={{
+              background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '12px', marginBottom: '12px',
+              fontSize: '14px', lineHeight: 1.7, color: '#111827', whiteSpace: 'pre-wrap', userSelect: 'text',
+            }}>{captions[activeCaptionTab]}</div>
+            <CopyButton text={captions[activeCaptionTab]} label="📋 คัดลอกแคปชั่น" />
+          </div>
+        </div>
+      )}
 
       {selectMode && (
         <div style={{

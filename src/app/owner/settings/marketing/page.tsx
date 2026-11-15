@@ -14,7 +14,7 @@ export default async function MarketingSettingsPage() {
 
   const [branchRes, branchAssetsRes] = await Promise.all([
     admin.from('branches').select('id, name').order('name'),
-    admin.from('branch_settings').select('branch_id, frame_url, frame2_url, sticker_url'),
+    admin.from('branch_settings').select('branch_id, frame_url, frame2_url, sticker_url, caption_facebook, caption_instagram, caption_tiktok'),
   ])
 
   return (

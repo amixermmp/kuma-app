@@ -20,7 +20,7 @@ export default async function MarketingPage({
 
   const [{ data: branches }, { data: settingsRows }] = await Promise.all([
     admin.from('branches').select('id, name').order('name'),
-    admin.from('branch_settings').select('branch_id, frame_url, frame2_url'),
+    admin.from('branch_settings').select('branch_id, frame_url, frame2_url, caption_facebook, caption_instagram, caption_tiktok'),
   ])
 
   let q = admin.from('marketing_photos')
@@ -51,6 +51,11 @@ export default async function MarketingPage({
       branch={branch}
       branchHasFrame={Array.from(branchHasFrame)}
       branchHasFrame2={(settingsRows ?? []).filter(s => s.frame2_url).map(s => s.branch_id)}
+      captions={(() => {
+        // แคปชั่นเป็นของแต่ละสาขา — โชว์เฉพาะตอนเลือกสาขาเดียวอยู่ (ทุกสาขาพร้อมกันไม่รู้ว่าจะเอาของสาขาไหน)
+        const s = branch ? (settingsRows ?? []).find(r => r.branch_id === branch) : null
+        return s ? { facebook: s.caption_facebook ?? '', instagram: s.caption_instagram ?? '', tiktok: s.caption_tiktok ?? '' } : null
+      })()}
     />
   )
 }

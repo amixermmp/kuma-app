@@ -5,7 +5,16 @@ import Link from 'next/link'
 import { Section, SettingsHeader, type Branch } from '../_shared'
 import { compressImagePng } from '@/lib/compressImage'
 
-type BranchAssets = { branch_id: string; frame_url: string | null; frame2_url: string | null; sticker_url: string | null }
+type BranchAssets = {
+  branch_id: string; frame_url: string | null; frame2_url: string | null; sticker_url: string | null
+  caption_facebook: string | null; caption_instagram: string | null; caption_tiktok: string | null
+}
+const CAPTION_CHANNELS = [
+  { key: 'caption_facebook', label: 'เพจ Facebook' },
+  { key: 'caption_instagram', label: 'Instagram' },
+  { key: 'caption_tiktok', label: 'TikTok' },
+] as const
+type CaptionKey = typeof CAPTION_CHANNELS[number]['key']
 type AssetKind = 'frame' | 'frame2' | 'sticker'
 
 function BranchMarketingCard({ branch, initial }: { branch: Branch; initial?: BranchAssets }) {
@@ -14,8 +23,13 @@ function BranchMarketingCard({ branch, initial }: { branch: Branch; initial?: Br
   const [stickerUrl, setStickerUrl] = useState(initial?.sticker_url ?? '')
   const [uploading, setUploading] = useState<AssetKind | null>(null)
   const [msg, setMsg] = useState('')
+  const [captions, setCaptions] = useState<Record<CaptionKey, string>>({
+    caption_facebook: initial?.caption_facebook ?? '',
+    caption_instagram: initial?.caption_instagram ?? '',
+    caption_tiktok: initial?.caption_tiktok ?? '',
+  })
 
-  const save = async (fields: { frame_url?: string; frame2_url?: string; sticker_url?: string }) => {
+  const save = async (fields: { frame_url?: string; frame2_url?: string; sticker_url?: string; caption_facebook?: string; caption_instagram?: string; caption_tiktok?: string }) => {
     const res = await fetch('/api/owner/settings/branch-marketing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -95,6 +109,26 @@ function BranchMarketingCard({ branch, initial }: { branch: Branch; initial?: Br
         <div style={{ flex: 1, fontSize: '11px', color: '#6b7280', lineHeight: 1.6 }}>
           ถ้าอัปโหลด หน้ารูปโปรโมทของสาขานี้จะทำให้ 2 แบบพร้อมกัน (กรอบสาขา + กรอบรวม) ต้องเป็น PNG ที่ช่องใส่รูปโปร่งใส เหมือนกรอบสาขา
         </div>
+      </div>
+
+      {/* แคปชั่นสำหรับโพสต์ แยกตามช่องทาง — พนักงานกดปุ่ม "แคปชั่น" ในหน้ารูปโปรโมทแล้วคัดลอกไปวางได้เลย ช่องที่ว่างไม่ขึ้น */}
+      <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
+        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>📝 แคปชั่นสำหรับโพสต์ (พนักงานกดคัดลอกจากหน้ารูปโปรโมท) — เว้นว่างถ้าไม่ใช้ช่องทางนั้น</div>
+        {CAPTION_CHANNELS.map(c => (
+          <div key={c.key} style={{ marginBottom: '8px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>{c.label}</div>
+            <textarea
+              value={captions[c.key]} rows={4}
+              onChange={e => setCaptions(prev => ({ ...prev, [c.key]: e.target.value }))}
+              placeholder={`ข้อความแคปชั่นสำหรับ ${c.label}`}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1.5px solid #e5e7eb', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+            />
+          </div>
+        ))}
+        <button
+          onClick={() => save({ caption_facebook: captions.caption_facebook, caption_instagram: captions.caption_instagram, caption_tiktok: captions.caption_tiktok })}
+          style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#111827', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+        >💾 บันทึกแคปชั่น</button>
       </div>
     </div>
   )
