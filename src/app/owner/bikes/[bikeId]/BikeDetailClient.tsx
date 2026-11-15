@@ -720,7 +720,7 @@ export default function BikeDetailClient({ bike, docMap, branches, stats, routin
         <div className="card">
           <div className="card-title">📊 สถิติการใช้งาน</div>
           {[
-            ['รายได้รวมทั้งหมด', `฿${stats.totalRevenue.toLocaleString()}`, '#16a34a'],
+            ['รายได้สะสมคันนี้ (เงินที่เก็บจริง ไม่รวมมัดจำ)', `฿${stats.totalRevenue.toLocaleString()}`, '#16a34a'],
             ['จำนวนครั้งที่เช่า', `${stats.rentalCount} ครั้ง`, '#1e293b'],
             ['เช่าครั้งล่าสุด', stats.lastRental ? new Date(stats.lastRental).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) : '—', '#1e293b'],
           ].map(([k, v, c]) => (
