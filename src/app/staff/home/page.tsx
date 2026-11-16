@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ScanLine, Pin, Search, Bike, Send, Wrench, FileText, Droplet, Undo2, Phone, Store, Lock, Fuel, Image as ImageIcon, ListChecks, CalendarDays } from 'lucide-react'
+import { ScanLine, Pin, Search, Bike, Send, Wrench, FileText, Droplet, Undo2, Phone, Store, Lock, Fuel, Image as ImageIcon, ListChecks, CalendarDays, Globe } from 'lucide-react'
 import TabBar from '@/components/staff/TabBar'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffBranchIds, getAllowedBikeIds, getStaffOwnBranchId } from '@/lib/staffBranch'
@@ -100,6 +100,16 @@ export default async function StaffHomePage() {
     scheduleOn = false
   }
 
+  // ปุ่มคำขอจากเว็บ โผล่เฉพาะสาขาที่เคยมีคำขอเข้ามาจากเว็บหน้าร้านแล้ว
+  let webInquiriesOn = false
+  try {
+    const { count } = await supabase.from('web_inquiries').select('id', { count: 'exact', head: true })
+      .in('branch_id', allowedBranchIds ?? [await getStaffOwnBranchId(staffId)])
+    webInquiriesOn = (count ?? 0) > 0
+  } catch {
+    webInquiriesOn = false
+  }
+
   const QUICK_ACTIONS = [
     { Icon: Search, label: 'ค้นหารถ',    href: '/staff/search' },
     { Icon: Bike,   label: 'รวมรถ',       href: '/staff/fleet' },
@@ -111,6 +121,7 @@ export default async function StaffHomePage() {
     { Icon: Fuel,    label: 'ภาพรวมน้ำมัน', href: '/staff/fuel' },
     { Icon: ImageIcon, label: 'รูปโปรโมท', href: '/staff/marketing' },
     { Icon: ListChecks, label: 'เควสประจำวัน', href: '/staff/quests' },
+    ...(webInquiriesOn ? [{ Icon: Globe, label: 'คำขอจากเว็บ', href: '/staff/inquiries' }] : []),
     ...(scheduleOn ? [{ Icon: CalendarDays, label: 'ตารางงาน', href: '/staff/schedule' }] : []),
     { Icon: Lock,    label: 'ปิดร้าน',    href: '/staff/closeshop' },
   ]

@@ -11,6 +11,7 @@ const CATEGORIES = [
   { icon: '📄', label: 'เอกสารร้าน', sub: 'สัญญา/ข้อกำหนด/คู่มือ ขึ้นทุกคัน', href: '/owner/settings/docs', color: '#0369a1' },
   { icon: '🔔', label: 'แจ้งเตือน', sub: 'เกณฑ์แจ้งเตือน + LINE ทั้งร้าน/รายสาขา', href: '/owner/settings/notifications', color: '#00b900' },
   { icon: '🖼️', label: 'รูปโปรโมท', sub: 'กรอบ/สติ๊กเกอร์ปิดหน้า รายสาขา', href: '/owner/settings/marketing', color: '#a78bfa' },
+  { icon: '🌐', label: 'เว็บหน้าร้าน', sub: 'โซนค่าส่ง + รุ่น/รูปที่โชว์บนเว็บลูกค้า', href: '/owner/settings/web', color: '#1976d4' },
   { icon: '🛢️', label: 'สต๊อกน้ำมัน', sub: 'สต๊อกน้ำมันเครื่อง/เฟืองท้าย รายสาขา', href: '/owner/settings/oil-stock', color: '#b45309' },
   { icon: '👤', label: 'ผู้ให้เช่า', sub: 'ชื่อ-เลขบัตร-ลายเซ็น สำหรับสัญญาเช่า', href: '/owner/settings/lessors', color: '#0f766e' },
   { icon: '🖼️', label: 'โปสเตอร์รถว่าง', sub: 'ตั้งตำแหน่งรุ่น กากบาทให้อัตโนมัติตามสต็อก', href: '/owner/settings/poster-setup', color: '#c026d3' },
