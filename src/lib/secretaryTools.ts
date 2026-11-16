@@ -8,24 +8,75 @@ const BKK_MS = 7 * 3600_000
 const DAY_MS = 86_400_000
 
 export const todayBkk = (nowMs = Date.now()) => new Date(nowMs + BKK_MS).toISOString().slice(0, 10)
-const dayStartIso = (d: string) => new Date(`${d}T00:00:00+07:00`).toISOString()
-const nextDayStartIso = (d: string) => new Date(new Date(`${d}T00:00:00+07:00`).getTime() + DAY_MS).toISOString()
-const fmtBkk = (iso: string | null | undefined) =>
+export const dayStartIso = (d: string) => new Date(`${d}T00:00:00+07:00`).toISOString()
+export const nextDayStartIso = (d: string) => new Date(new Date(`${d}T00:00:00+07:00`).getTime() + DAY_MS).toISOString()
+export const fmtBkk = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null
-const daysLeft = (iso: string | null | undefined, nowMs = Date.now()) =>
+export const daysLeft = (iso: string | null | undefined, nowMs = Date.now()) =>
   iso ? Math.round((new Date(iso).getTime() - nowMs) / DAY_MS * 10) / 10 : null
 
-// ห้ามส่งค่าลับ/รูป/ลายเซ็นให้ AI — ตัดคอลัมน์ที่ชื่อเข้าข่ายออก และตัดข้อความยาวๆ
-const SENSITIVE = /(token|secret|password|passcode|pin_|_pin|^pin|signature|photo|api_key|hash|line_user_id)/i
+// เลขาอ่านข้อมูลธุรกิจได้ทั้งหมด (เจ้าของคนเดียวในกลุ่ม) ยกเว้น "กุญแจเข้าระบบ": โทเค็นไลน์/กุญแจ API/รหัสผ่าน/hash/PIN พนักงาน
+// — ไม่ส่งให้ AI และห้ามใช้เป็นตัวกรอง/เรียง (กันเดาค่าด้วยการกรอง)
+const CREDENTIAL = /(token|secret|password|passcode|api_?key|hash|^pin$|_pin$|^pin_)/i
+export const isCredentialName = (name: string) => CREDENTIAL.test(String(name))
+
+// รูปในที่เก็บไฟล์ของระบบ → แทนด้วยรหัสสั้น "[รูป:bucket/path]" (ประหยัดโทเค็น และไม่หลุดลิงก์เซ็นชื่อ) ส่งเข้าไลน์ได้ด้วยเครื่องมือ send_photos
+const STORAGE_URL = /\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^/?]+)\/([^?]+)/
+export function photoHandle(url: string): string | null {
+  const m = STORAGE_URL.exec(url)
+  if (!m) return null
+  let path = m[2]
+  try { path = decodeURIComponent(path) } catch { /* ใช้ตามเดิม */ }
+  return `[รูป:${m[1]}/${path}]`
+}
+
 export function cleanRow(row: any): any {
   if (Array.isArray(row)) return row.map(cleanRow)
+  if (typeof row === 'string') {
+    if (row.startsWith('data:')) return '[ไฟล์ภาพฝังในข้อมูล (เช่นลายเซ็น) ไม่แสดงในแชท]'
+    if (/^https?:\/\//.test(row)) return photoHandle(row) ?? (row.length > 600 ? row.slice(0, 600) + '…' : row)
+    return row.length > 300 ? row.slice(0, 300) + '…' : row
+  }
   if (!row || typeof row !== 'object') return row
   const out: any = {}
   for (const [k, v] of Object.entries(row)) {
-    if (SENSITIVE.test(k)) continue
-    out[k] = typeof v === 'string' && v.length > 300 ? v.slice(0, 300) + '…' : cleanRow(v)
+    if (CREDENTIAL.test(k)) continue
+    out[k] = cleanRow(v)
   }
   return out
+}
+
+// ตัวห่อฐานข้อมูล "อ่านอย่างเดียว" — ปฏิเสธ insert/update/upsert/delete/rpc และการเขียนไฟล์ ทุกกรณี (ชั้นป้องกันที่สองต่อจากการไม่มีเครื่องมือเขียน)
+const WRITE_METHODS = new Set(['insert', 'update', 'upsert', 'delete'])
+const STORAGE_READ_METHODS = new Set(['createSignedUrl', 'createSignedUrls', 'getPublicUrl'])
+const denyWrite = () => { throw new Error('เลขาอ่านข้อมูลได้อย่างเดียว ห้ามเพิ่ม/แก้ไข/ลบ') }
+export function readOnlyDb(db: Db): Db {
+  return new Proxy(db, {
+    get(target, prop) {
+      if (prop === 'from') {
+        return (table: string) => new Proxy(target.from(table), {
+          get(qb, p) {
+            if (WRITE_METHODS.has(String(p))) return denyWrite
+            const v = qb[p]
+            return typeof v === 'function' ? v.bind(qb) : v
+          },
+        })
+      }
+      if (prop === 'rpc') return denyWrite
+      if (prop === 'storage') {
+        return {
+          from: (bucket: string) => new Proxy(target.storage.from(bucket), {
+            get(b, p) {
+              if (!STORAGE_READ_METHODS.has(String(p))) return denyWrite
+              return (b[p] as (...a: unknown[]) => unknown).bind(b)
+            },
+          }),
+        }
+      }
+      const v = target[prop]
+      return typeof v === 'function' ? v.bind(target) : v
+    },
+  })
 }
 
 // ตัดผลลัพธ์ไม่ให้ยาวเกินไปสำหรับ AI
@@ -34,15 +85,32 @@ export function clip(result: unknown, max = 14000): string {
   return s.length > max ? s.slice(0, max) + '…(ตัดเพราะยาวเกิน ให้ค้นให้แคบลง)' : s
 }
 
-export const QUERYABLE_TABLES = [
-  'rentals', 'monthly_rentals', 'rental_payments', 'monthly_payments', 'bikes', 'customers', 'bookings',
-  'repairs', 'bike_routines', 'expenses', 'bike_documents', 'staff', 'branches', 'branch_model_pricing',
-  'blacklist', 'activity_logs', 'staff_closeshops', 'staff_checkins', 'branch_settings', 'shop_settings',
-] as const
+// ทุกตารางอ่านได้ (ตรวจแค่ว่าชื่อเป็นชื่อตารางปกติ — ตารางที่ไม่มีจริง ฐานข้อมูลจะตอบ error เอง)
+const TABLE_NAME = /^[a-z][a-z0-9_]{0,62}$/
+const badTable = (table: string) => (TABLE_NAME.test(table) ? null : { error: `ชื่อตารางไม่ถูกต้อง "${table}" (ใช้ list_tables ดูรายชื่อตาราง)` })
+export const assertTableName = badTable
 
-const normPlate = (s: string) => s.replace(/[\s\-.]/g, '').toLowerCase()
+// รายชื่อตาราง+คอลัมน์ทั้งหมด อ่านจากสคีมาของฐานข้อมูล (แคช 10 นาที)
+let schemaCache: { at: number; defs: Record<string, { properties?: Record<string, { type?: string; format?: string }> }> } | null = null
+async function loadSchema() {
+  if (schemaCache && Date.now() - schemaCache.at < 600_000) return schemaCache.defs
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  const res = await fetch(`${url}/rest/v1/`, { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: 'no-store' })
+  if (!res.ok) return null
+  const defs = (await res.json()).definitions ?? {}
+  schemaCache = { at: Date.now(), defs }
+  return defs as NonNullable<typeof schemaCache>['defs']
+}
+export async function listTables() {
+  const defs = await loadSchema()
+  if (!defs) return { error: 'อ่านรายชื่อตารางไม่ได้ในตอนนี้' }
+  return { count: Object.keys(defs).length, tables: Object.keys(defs).sort() }
+}
 
-async function branchNames(db: Db): Promise<Record<string, string>> {
+export const normPlate = (s: string) => s.replace(/[\s\-.]/g, '').toLowerCase()
+
+export async function branchNames(db: Db): Promise<Record<string, string>> {
   const { data } = await db.from('branches').select('id, name')
   return Object.fromEntries((data ?? []).map((b: any) => [b.id, b.name]))
 }
@@ -181,15 +249,28 @@ export async function listActiveRentals(db: Db, branch?: string, overdueOnly = f
 
 // ── ค้นตารางทั่วไป (อ่านอย่างเดียว) สำหรับคำถามที่ไม่มีเครื่องมือเฉพาะ ──
 const OPS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'is', 'in'] as const
-export async function queryTable(db: Db, args: { table: string; select?: string; filters?: { column: string; op: string; value: any }[]; order_by?: string; ascending?: boolean; limit?: number }) {
-  const table = String(args.table ?? '')
-  if (!(QUERYABLE_TABLES as readonly string[]).includes(table)) return { error: `ไม่อนุญาตให้ค้นตาราง "${table}"`, allowed: QUERYABLE_TABLES }
-  let q = db.from(table).select(args.select && /^[\w\s,*().:!>-]+$/.test(args.select) ? args.select : '*')
-  for (const f of args.filters ?? []) {
+type Filter = { column: string; op: string; value: any }
+
+// ใส่ตัวกรองให้ query — คืน error ถ้ากรองด้วยคอลัมน์รหัสลับ/ตัวกรองผิดรูป
+function applyFilters(q: any, filters: Filter[] | undefined): { q: any } | { error: string } {
+  for (const f of filters ?? []) {
     if (!/^[\w.]+$/.test(String(f.column)) || !(OPS as readonly string[]).includes(f.op)) return { error: `ตัวกรองไม่ถูกต้อง: ${f.column} ${f.op}` }
-    q = f.op === 'in' ? q.in(f.column, Array.isArray(f.value) ? f.value : [f.value]) : f.op === 'is' ? q.is(f.column, f.value === 'null' ? null : f.value) : (q as any)[f.op](f.column, f.value)
+    if (isCredentialName(f.column)) return { error: `ไม่อนุญาตให้กรองด้วยคอลัมน์รหัสลับ "${f.column}"` }
+    q = f.op === 'in' ? q.in(f.column, Array.isArray(f.value) ? f.value : [f.value]) : f.op === 'is' ? q.is(f.column, f.value === 'null' ? null : f.value) : q[f.op](f.column, f.value)
   }
-  if (args.order_by && /^[\w.]+$/.test(args.order_by)) q = q.order(args.order_by, { ascending: args.ascending !== false })
+  return { q }
+}
+
+export async function queryTable(db: Db, args: { table: string; select?: string; filters?: Filter[]; order_by?: string; ascending?: boolean; limit?: number }) {
+  const table = String(args.table ?? '')
+  const bad = badTable(table)
+  if (bad) return bad
+  const select = args.select && /^[\w\s,*().:!>-]+$/.test(args.select) ? args.select : '*'
+  if (select !== '*' && /(token|secret|password|passcode|api_?key|hash|\bpin\b)/i.test(select)) return { error: 'ไม่อนุญาตให้เลือกคอลัมน์รหัสลับ' }
+  const f = applyFilters(db.from(table).select(select), args.filters)
+  if ('error' in f) return f
+  let q = f.q
+  if (args.order_by && /^[\w.]+$/.test(args.order_by) && !isCredentialName(args.order_by)) q = q.order(args.order_by, { ascending: args.ascending !== false })
   const limit = Math.min(Math.max(Number(args.limit) || 30, 1), 100)
   const { data, error } = await q.limit(limit)
   if (error) return { error: error.message }
@@ -197,8 +278,124 @@ export async function queryTable(db: Db, args: { table: string; select?: string;
 }
 
 export async function describeTable(db: Db, table: string) {
-  if (!(QUERYABLE_TABLES as readonly string[]).includes(table)) return { error: `ไม่อนุญาตให้ดูตาราง "${table}"`, allowed: QUERYABLE_TABLES }
+  const bad = badTable(String(table ?? ''))
+  if (bad) return bad
+  const defs = await loadSchema()
+  const props = defs?.[table]?.properties
   const { data, error } = await db.from(table).select('*').limit(1)
   if (error) return { error: error.message }
-  return { table, columns: Object.keys(cleanRow(data?.[0] ?? {})), sample: cleanRow(data?.[0] ?? {}) }
+  const visible = (c: string) => !CREDENTIAL.test(c)
+  const columns = props
+    ? Object.entries(props).filter(([c]) => visible(c)).map(([c, p]) => `${c} (${p.format ?? p.type ?? '?'})`)
+    : Object.keys(cleanRow(data?.[0] ?? {}))
+  return { table, columns, sample: cleanRow(data?.[0] ?? {}) }
+}
+
+// ── รวมยอด/นับ/เฉลี่ย/จัดกลุ่ม ฝั่งเซิร์ฟเวอร์ (ไล่อ่านทีละ 1,000 แถว สูงสุด 50,000 แถว) ──
+// group_by: "คอลัมน์" หรือ "คอลัมน์:day|month|year" (วันที่/เวลา แปลงเป็นเวลาไทยก่อนจัดกลุ่ม)
+const METRIC_OPS = ['count', 'sum', 'avg', 'min', 'max', 'count_distinct'] as const
+const AGG_MAX_ROWS = 50_000
+function bucketValue(v: any, unit?: string): string {
+  if (v == null || v === '') return 'ไม่ระบุ'
+  if (!unit) return String(v)
+  let s = String(v)
+  if (s.includes('T') || s.includes(' ')) { const t = new Date(s).getTime(); if (!Number.isNaN(t)) s = new Date(t + BKK_MS).toISOString() }
+  return s.slice(0, unit === 'year' ? 4 : unit === 'month' ? 7 : 10)
+}
+export async function aggregateTable(db: Db, args: { table: string; filters?: Filter[]; group_by?: string[]; metrics?: { op: string; column?: string; as?: string }[]; order_by?: string; ascending?: boolean; limit?: number }) {
+  const table = String(args.table ?? '')
+  const bad = badTable(table)
+  if (bad) return bad
+  const groups = (args.group_by ?? []).map(g => { const [col, unit] = String(g).split(':'); return { col, unit, key: String(g) } })
+  for (const g of groups) {
+    if (!/^\w+$/.test(g.col) || (g.unit && !['day', 'month', 'year'].includes(g.unit))) return { error: `group_by ไม่ถูกต้อง: ${g.key}` }
+    if (isCredentialName(g.col)) return { error: `ไม่อนุญาตให้จัดกลุ่มด้วยคอลัมน์รหัสลับ "${g.col}"` }
+  }
+  const metrics = (args.metrics?.length ? args.metrics : [{ op: 'count' }]).map((m, i) => ({ op: String(m.op), column: m.column, as: m.as && /^\w+$/.test(m.as) ? m.as : `${m.op}${m.column ? '_' + m.column : ''}` || `m${i}` }))
+  for (const m of metrics) {
+    if (!(METRIC_OPS as readonly string[]).includes(m.op)) return { error: `metric ไม่ถูกต้อง: ${m.op}` }
+    if (m.op !== 'count' && !m.column) return { error: `metric ${m.op} ต้องระบุ column` }
+    if (m.column && (!/^\w+$/.test(m.column) || isCredentialName(m.column))) return { error: `column ไม่ถูกต้อง: ${m.column}` }
+  }
+  const cols = Array.from(new Set([...groups.map(g => g.col), ...metrics.filter(m => m.column).map(m => m.column!)]))
+
+  // นับอย่างเดียวไม่จัดกลุ่ม → ใช้ count จากฐานข้อมูลตรงๆ (เร็ว ไม่จำกัด 50,000)
+  if (groups.length === 0 && metrics.every(m => m.op === 'count' && !m.column)) {
+    const f = applyFilters(db.from(table).select('*', { count: 'exact', head: true }), args.filters)
+    if ('error' in f) return f
+    const { count, error } = await f.q
+    if (error) return { error: error.message }
+    return { table, rows: [Object.fromEntries(metrics.map(m => [m.as, count ?? 0]))], rows_scanned: count ?? 0 }
+  }
+
+  const select = cols.length ? cols.join(',') : '*'
+  type Stat = { sum: number; n: number; nMin: number | null; nMax: number | null; sMin: string | null; sMax: string | null; set: Set<string> }
+  const acc = new Map<string, { g: Record<string, string>; n: number; st: Record<string, Stat> }>()
+  let scanned = 0
+  let truncated = false
+  let orderCol = 'id' // เรียงตาม id ให้การแบ่งหน้าคงที่ ตารางที่ไม่มี id ใช้คอลัมน์แรกแทน
+  for (let off = 0; ; off += 1000) {
+    if (off >= AGG_MAX_ROWS) { truncated = true; break }
+    const f = applyFilters(db.from(table).select(select), args.filters)
+    if ('error' in f) return f
+    let res = await f.q.range(off, off + 999).order(orderCol)
+    if (res.error && orderCol === 'id') {
+      orderCol = cols[0] ?? 'id'
+      const f2 = applyFilters(db.from(table).select(select), args.filters)
+      if ('error' in f2) return f2
+      res = await f2.q.range(off, off + 999).order(orderCol)
+    }
+    if (res.error) return { error: res.error.message }
+    const data: any[] = res.data ?? []
+    for (const r of data) {
+      scanned++
+      const g: Record<string, string> = {}
+      for (const x of groups) g[x.key] = bucketValue(r[x.col], x.unit)
+      const k = JSON.stringify(g)
+      let a = acc.get(k)
+      if (!a) { a = { g, n: 0, st: {} }; acc.set(k, a) }
+      a.n++
+      for (const m of metrics) {
+        if (!m.column) continue
+        const s = (a.st[m.as] ??= { sum: 0, n: 0, nMin: null, nMax: null, sMin: null, sMax: null, set: new Set() })
+        const v = r[m.column]
+        if (v == null) continue
+        s.n++
+        if (m.op === 'count_distinct') s.set.add(String(v))
+        const num = typeof v === 'number' ? v : Number(v)
+        if (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(num) && !/^\d{4}-\d{2}-\d{2}/.test(v))) {
+          s.sum += num
+          s.nMin = s.nMin == null ? num : Math.min(s.nMin, num)
+          s.nMax = s.nMax == null ? num : Math.max(s.nMax, num)
+        } else {
+          const str = String(v)
+          s.sMin = s.sMin == null || str < s.sMin ? str : s.sMin
+          s.sMax = s.sMax == null || str > s.sMax ? str : s.sMax
+        }
+      }
+    }
+    if (data.length < 1000) break
+  }
+  const round = (n: number) => Math.round(n * 100) / 100
+  const rows = Array.from(acc.values()).map(a => {
+    const out: Record<string, any> = { ...a.g }
+    for (const m of metrics) {
+      const s = a.st[m.as]
+      out[m.as] = m.op === 'count' ? (m.column ? s?.n ?? 0 : a.n)
+        : !s ? null
+        : m.op === 'sum' ? round(s.sum)
+        : m.op === 'avg' ? (s.nMin == null ? null : round(s.sum / Math.max(1, s.n)))
+        : m.op === 'count_distinct' ? s.set.size
+        : m.op === 'min' ? (s.nMin ?? s.sMin)
+        : (s.nMax ?? s.sMax)
+    }
+    return out
+  })
+  const orderKey = args.order_by && (metrics.some(m => m.as === args.order_by) || groups.some(g => g.key === args.order_by)) ? args.order_by : (groups.length ? metrics[0].as : undefined)
+  if (orderKey) {
+    const asc = args.ascending === true || (args.ascending === undefined && groups.some(g => g.key === orderKey))
+    rows.sort((a, b) => (a[orderKey] > b[orderKey] ? 1 : a[orderKey] < b[orderKey] ? -1 : 0) * (asc ? 1 : -1))
+  }
+  const limit = Math.min(Math.max(Number(args.limit) || 50, 1), 100)
+  return { table, group_count: rows.length, rows: cleanRow(rows.slice(0, limit)), rows_scanned: scanned, ...(truncated ? { warning: `อ่านได้สูงสุด ${AGG_MAX_ROWS} แถว ผลอาจไม่ครบ ให้เพิ่มตัวกรอง` } : {}) }
 }

@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { lineReply, linePush, textMessage } from '@/lib/line'
+import { lineReply, linePush, textMessage, imageMessage, type LineMessage } from '@/lib/line'
 import { utcToBangkokLocal, bangkokToUTC } from '@/lib/time'
 import { searchBikes } from '@/lib/bikeSearch'
-import { findBike, findCustomer, revenue, listActiveRentals, queryTable, describeTable, todayBkk, clip, QUERYABLE_TABLES } from '@/lib/secretaryTools'
+import { findBike, findCustomer, revenue, listActiveRentals, queryTable, describeTable, listTables, aggregateTable, readOnlyDb, todayBkk, clip } from '@/lib/secretaryTools'
+import { fleetSummary, bikePerformance, bikeHistory, customerHistory, dueSoon, ANALYTICS_TOOLS } from '@/lib/secretaryAnalytics'
+import { findPhotos, resolvePhotos, MAX_PHOTOS_PER_REPLY } from '@/lib/secretaryPhotos'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 // "เลขา" ของเจ้าของ — บอท LINE ตัวที่ส่งรายงานเข้ากลุ่มเจ้าของ (คนละตัวกับบอทตอบลูกค้า)
-// รับเฉพาะข้อความที่ขึ้นต้นด้วยคำปลุก และมาจากกลุ่มเจ้าของ (shop_settings.line_target_id) เท่านั้น — อ่านข้อมูลอย่างเดียว ไม่มีคำสั่งเขียน
+// รับเฉพาะข้อความที่ขึ้นต้นด้วยคำปลุก และมาจากกลุ่มเจ้าของ (shop_settings.line_target_id) เท่านั้น
+// อ่านข้อมูลได้ทุกตาราง (ยกเว้นคอลัมน์รหัสลับ) และส่งรูปเข้าแชทได้ — แต่เขียนอะไรไม่ได้เลย: ไม่มีเครื่องมือเขียน และตัวเชื่อมฐานข้อมูลห่อด้วย readOnlyDb ที่ปฏิเสธ insert/update/delete/rpc
 const WAKE_WORD = 'ถุงเท้า'
 // พิมพ์ "ถุงเท้า opus ..." / "ถุงเท้า haiku ..." เพื่อเลือกโมเดลที่ตอบ ไม่ระบุ = ใช้ haiku (เร็วและถูกที่สุด)
-const MODEL_IDS: Record<string, string> = { haiku: 'claude-haiku-4-5', sonnet: 'claude-sonnet-5-5', opus: 'claude-opus-5-5', fable: 'claude-fable-5-1' }
+const MODEL_IDS: Record<string, string> = { haiku: 'claude-haiku-5-5', sonnet: 'claude-sonnet-5-5', opus: 'claude-opus-5-5', fable: 'claude-fable-5-2' }
 const MODEL_LABEL: Record<string, string> = { haiku: 'Haiku', sonnet: 'Sonnet', opus: 'Opus', fable: 'Fable' }
 const DEFAULT_MODEL = 'haiku'
 // เรียกโมเดลที่เลือกก่อน ถ้าเรียกไม่ได้ถอยไปตัวอื่นตามลำดับ
@@ -27,7 +30,10 @@ const SYSTEM_PROMPT = (now: string, today: string) => `คุณคือ "${WAK
 กฎ:
 - ตอบภาษาไทย สุภาพ กระชับ ลงท้าย "ครับ" ห้ามใช้ markdown (LINE แสดงไม่ได้) ใช้ข้อความธรรมดา ขึ้นบรรทัดใหม่ได้ ใช้ emoji เล็กน้อยได้
 - ต้องใช้เครื่องมือค้นข้อมูลจริงทุกครั้ง ห้ามเดาหรือแต่งตัวเลข/ชื่อ/วันที่ ถ้าค้นแล้วไม่เจอให้บอกตรงๆ
-- อ่านอย่างเดียว ไม่แก้ ไม่ลบ ไม่ส่งข้อความหาลูกค้า ถ้าถูกขอให้แก้ข้อมูล ให้บอกว่าทำไม่ได้ ให้ทำในแอป
+- อ่านอย่างเดียว ไม่แก้ ไม่ลบ ไม่ส่งข้อความหาลูกค้า และทำให้ไม่ได้: จองคิว ส่งรถ รับคืนรถ แจ้ง/ปิดงานซ่อม เพิ่ม/ลบรถ ทำงานรูทีน เก็บเงิน ต่อเวลาลูกค้า ถ้าถูกขอให้ทำสิ่งเหล่านี้หรือแก้ข้อมูล ให้บอกว่าทำไม่ได้ ให้ทำในแอป (ส่งได้เฉพาะ "รูป" เข้าแชทนี้)
+- เจ้าของคนเดียวอยู่ในกลุ่มนี้ และมีสิทธิ์ดูข้อมูลทุกอย่างรวมถึงข้อมูลลูกค้า (เบอร์ เลขบัตร ที่อยู่) ตอบตามที่ถามได้เลย ไม่ต้องปฏิเสธเรื่องความเป็นส่วนตัว ยกเว้นรหัสลับ/โทเค็น/PIN ที่ระบบซ่อนไว้ให้แล้ว
+- เลือกเครื่องมือเฉพาะก่อนเสมอเพราะแม่นกว่า: จำนวนรถต่อสาขา → fleet_summary / ผลงานและรายได้ต่อคัน-รุ่น อัตราใช้รถ → bike_performance / ประวัติรถ → bike_history / ประวัติลูกค้า → customer_history / ภาษี-พ.ร.บ.-รูทีน-สัญญารายเดือนใกล้จบ-ซ่อมค้าง → due_soon / รวมยอดหรือนับตารางอื่น → aggregate_table (ห้ามนับเองจากแถวที่ query_table ได้ เพราะถูกจำกัดแค่ 100 แถว) ไม่รู้ว่าข้อมูลอยู่ตารางไหน → list_tables แล้ว describe_table
+- ขอรูป (เช่น "ขอรูปบัตรลูกค้า X", "ขอรูปรถ 5กฆ 8525", "ดูรูปตอนรับรถ"): ใช้ find_photos หารูป แล้วเรียก send_photos กับรหัสรูปที่ตรงที่ขอเท่านั้น (ห้ามส่งทั้งหมดถ้าไม่ได้ขอ) จากนั้นตอบสั้นๆ ว่าส่งรูปอะไรบ้าง ถ้ามีหลายสัญญา/หลายคันที่เป็นไปได้ ให้ถามกลับก่อน ลายเซ็นลูกค้าส่งเป็นรูปไม่ได้
 - ถ้าพิมพ์มาแค่ทะเบียน หรือเลขท้ายทะเบียน (เช่น "5กฆ 8525", "8525") ให้ใช้ find_bike แล้วตอบ: รถอะไร สถานะ ตอนนี้ใครเช่าอยู่ (รายวัน/รายสัปดาห์/รายเดือน) กำหนดคืนวันไหน เหลือกี่วันหรือเลยกำหนดแล้ว สาขา ถ้าไม่มีคนเช่าให้บอกว่าว่าง/ซ่อม/ล็อก ตามสถานะ
 - ถ้าตรงหลายคัน ให้ถามกลับว่าคันไหน
 - ถามว่ารถว่างไหม/คันไหนว่างให้จองในช่วงวันเวลา: ใช้ check_availability (แปลงวันเวลาจากที่พิมพ์เป็น YYYY-MM-DDTHH:mm เวลาไทย ปีใช้ปีปัจจุบันตามวันนี้ ถ้าไม่บอกเวลาให้ถามกลับ) แล้วสรุปรุ่น/จำนวน/ทะเบียนที่ว่าง และถ้าอยากรู้ว่าคันไหนไม่ว่างเพราะอะไร ก็บอกเหตุผลสั้นๆ
@@ -39,7 +45,7 @@ const SYSTEM_PROMPT = (now: string, today: string) => `คุณคือ "${WAK
 
 ตอนนี้ (เวลาไทย): ${now} / วันนี้: ${today}`
 
-const TOOLS = [
+const BASE_TOOLS = [
   { name: 'find_bike', description: 'ค้นรถจากทะเบียนหรือเลขท้ายทะเบียน คืนข้อมูลรถ ใครเช่าอยู่ตอนนี้ (รายวัน/รายเดือน) กำหนดคืน งานซ่อมที่เปิดอยู่ คิวจอง รูทีนซ่อมบำรุง และคนที่เช่าล่าสุด',
     input_schema: { type: 'object' as const, properties: { query: { type: 'string', description: 'ทะเบียนหรือเลขท้าย เช่น "5กฆ 8525" หรือ "8525"' } }, required: ['query'] } },
   { name: 'find_customer', description: 'ค้นลูกค้าจากชื่อหรือเบอร์โทร คืนสัญญาที่ใช้อยู่ของลูกค้านั้น',
@@ -50,9 +56,9 @@ const TOOLS = [
     input_schema: { type: 'object' as const, properties: { branch: { type: 'string', description: 'ชื่อสาขาบางส่วน (ไม่ใส่ = ทุกสาขา)' }, overdue_only: { type: 'boolean', description: 'true = เฉพาะที่เลยกำหนดคืนแล้ว' } } } },
   { name: 'check_availability', description: 'เช็กรถว่างตามช่วงวันเวลารับ-คืนที่ต้องการ (ใช้ตัวค้นหาเดียวกับหน้าค้นหาของพนักงาน นับสัญญา รายเดือน คิวจอง งานซ่อม ล็อค ครบแล้ว) คืนรุ่นและทะเบียนที่ว่าง กับคันที่ไม่ว่างพร้อมเหตุผล ใช้เมื่อถามว่ารถว่างไหม/คันไหนว่างให้จอง',
     input_schema: { type: 'object' as const, properties: { start: { type: 'string', description: 'วัน-เวลารับ เวลาไทย รูปแบบ YYYY-MM-DDTHH:mm เช่น 2026-10-21T10:00' }, end: { type: 'string', description: 'วัน-เวลาคืน เวลาไทย YYYY-MM-DDTHH:mm' }, branch: { type: 'string', description: 'ชื่อสาขาบางส่วน เช่น "บางแสน" "มอเกษตร" "ศรีราชา" (ไม่ใส่ = ทุกสาขา)' } }, required: ['start', 'end'] } },
-  { name: 'describe_table', description: `ดูชื่อคอลัมน์ของตาราง (อนุญาต: ${QUERYABLE_TABLES.join(', ')})`,
+  { name: 'describe_table', description: 'ดูชื่อและชนิดคอลัมน์ของตาราง (ตารางใดก็ได้ ใช้ list_tables ดูรายชื่อ) พร้อมแถวตัวอย่าง',
     input_schema: { type: 'object' as const, properties: { table: { type: 'string' } }, required: ['table'] } },
-  { name: 'query_table', description: 'ค้นตารางทั่วไป (อ่านอย่างเดียว) สำหรับคำถามที่ไม่มีเครื่องมือเฉพาะ ใช้ describe_table ดูคอลัมน์ก่อนถ้าไม่แน่ใจ',
+  { name: 'query_table', description: 'ดึงแถวจากตารางใดก็ได้ (อ่านอย่างเดียว สูงสุด 100 แถว) สำหรับดูรายละเอียดเป็นรายการ ใช้ describe_table ดูคอลัมน์ก่อนถ้าไม่แน่ใจ ถ้าต้องนับ/รวมยอดให้ใช้ aggregate_table แทน',
     input_schema: { type: 'object' as const, properties: {
       table: { type: 'string' },
       select: { type: 'string', description: 'คอลัมน์ที่ต้องการ เช่น "id,status,bikes(license_plate)" (ไม่ใส่ = ทุกคอลัมน์)' },
@@ -60,6 +66,10 @@ const TOOLS = [
       order_by: { type: 'string' }, ascending: { type: 'boolean' }, limit: { type: 'number', description: 'ไม่เกิน 100' },
     }, required: ['table'] } },
 ]
+const TOOLS = [...BASE_TOOLS, ...ANALYTICS_TOOLS]
+
+// ของที่เครื่องมือต้องส่งออกไปนอกคำตอบข้อความ — ตอนนี้มีแค่รหัสรูปที่จะส่งเข้าไลน์
+type ToolCtx = { photoHandles: string[] }
 
 function verifySignature(body: string, sig: string, secret: string): boolean {
   const hash = crypto.createHmac('SHA256', secret).update(body).digest('base64')
@@ -91,15 +101,28 @@ async function checkAvailability(db: any, start: string, end: string, branch?: s
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function runTool(db: any, name: string, input: any) {
+async function runTool(db: any, name: string, input: any, ctx: ToolCtx) {
   switch (name) {
     case 'find_bike': return findBike(db, input.query)
     case 'find_customer': return findCustomer(db, input.query)
     case 'revenue': return revenue(db, input.from, input.to, input.branch)
     case 'list_active_rentals': return listActiveRentals(db, input.branch, !!input.overdue_only)
     case 'check_availability': return checkAvailability(db, input.start, input.end, input.branch)
+    case 'list_tables': return listTables()
     case 'describe_table': return describeTable(db, input.table)
     case 'query_table': return queryTable(db, input)
+    case 'aggregate_table': return aggregateTable(db, input)
+    case 'fleet_summary': return fleetSummary(db, input.branch, !!input.by_model)
+    case 'bike_performance': return bikePerformance(db, input)
+    case 'bike_history': return bikeHistory(db, input.query)
+    case 'customer_history': return customerHistory(db, input.query)
+    case 'due_soon': return dueSoon(db, input.days, input.branch)
+    case 'find_photos': return findPhotos(db, input.query)
+    case 'send_photos': {
+      const handles: string[] = (Array.isArray(input.handles) ? input.handles : []).map(String).filter((h: string) => /^\[รูป:[^/\]]+\/.+\]$/.test(h.trim()))
+      for (const h of handles) if (!ctx.photoHandles.includes(h) && ctx.photoHandles.length < MAX_PHOTOS_PER_REPLY) ctx.photoHandles.push(h)
+      return { queued: ctx.photoHandles.length, note: handles.length === 0 ? 'ไม่พบรหัสรูปที่ถูกต้อง ใช้รหัสจาก find_photos' : 'จะส่งรูปเข้าแชทพร้อมคำตอบนี้' }
+    }
     default: return { error: 'unknown tool' }
   }
 }
@@ -132,6 +155,8 @@ export async function POST(request: NextRequest) {
   }
 
   const db = createAdminClient()
+  // เครื่องมือของเลขาใช้ตัวอ่านอย่างเดียวนี้เท่านั้น — ตัว db ธรรมดาใช้แค่เก็บประวัติแชทของบอทเอง (line_chat_sessions)
+  const readDb = readOnlyDb(db)
   const { data: shop } = await db.from('shop_settings').select('line_token, line_target_id').limit(1).maybeSingle()
   if (!shop?.line_token || !shop.line_target_id) return NextResponse.json({ ok: true })
 
@@ -151,14 +176,33 @@ export async function POST(request: NextRequest) {
     const replyToken = event.replyToken as string
     const groupId = event.source.groupId as string
 
-    const send = async (msg: string) => {
+    // ส่งคำตอบข้อความ + รูป (ถ้ามี) — ไลน์ตอบกลับได้ 5 ข้อความ/ครั้ง: ข้อความ + รูป 4 ใบ ที่เหลือส่งต่อเป็นก้อนละ 5
+    const send = async (msg: string, photoHandles: string[] = []) => {
       const out = msg.length > 4800 ? msg.slice(0, 4800) + '…' : msg
-      const ok = await lineReply(shop.line_token, replyToken, [textMessage(out)])
-      if (!ok) await linePush(shop.line_token, groupId, [textMessage(out)]) // reply token หมดอายุ → ส่งเข้ากลุ่มแทน
+      const imageUrls: string[] = []
+      const linkUrls: string[] = []
+      if (photoHandles.length) {
+        for (const p of await resolvePhotos(readDb, photoHandles)) {
+          if (p.url && p.sendable) imageUrls.push(p.url)
+          else if (p.url) linkUrls.push(p.url) // ไลน์แสดงเป็นรูปไม่ได้ (ไม่ใช่ JPEG/PNG) → ส่งเป็นลิงก์แทน
+        }
+      }
+      const text = linkUrls.length ? `${out}\n\nลิงก์ไฟล์ (ใช้ได้ 1 ชั่วโมง):\n${linkUrls.join('\n')}` : out
+      const images: LineMessage[] = imageUrls.map(imageMessage)
+      const first: LineMessage[] = [textMessage(text), ...images.slice(0, 4)]
+      let ok = await lineReply(shop.line_token, replyToken, first)
+      if (!ok) ok = await linePush(shop.line_token, groupId, first) // reply token หมดอายุ → ส่งเข้ากลุ่มแทน
+      if (!ok && images.length) {
+        // ส่งรูปไม่ผ่าน (เช่นไฟล์ใหญ่เกินที่ไลน์รับ) — ส่งข้อความพร้อมลิงก์รูปแทน อย่าให้คำตอบหาย
+        await linePush(shop.line_token, groupId, [textMessage(`${text}\n\nส่งเป็นรูปไม่ได้ ใช้ลิงก์แทน (ใช้ได้ 1 ชั่วโมง):\n${imageUrls.join('\n')}`)])
+        return
+      }
+      for (let i = 4; i < images.length; i += 5) await linePush(shop.line_token, groupId, images.slice(i, i + 5))
     }
 
     if (!question) { await send('ครับ มีอะไรให้ช่วยหาครับ (พิมพ์ ถุงเท้า ตามด้วยทะเบียนรถ ชื่อลูกค้า หรือคำถามได้เลยครับ เลือกโมเดลได้ เช่น ถุงเท้า opus ... / ถุงเท้า haiku ... ไม่ระบุใช้ haiku)'); continue }
 
+    const ctx: ToolCtx = { photoHandles: [] }
     try {
       // ประวัติคุย (จำได้ถามต่อได้) เก็บในตารางเดิมของบอท ใช้คีย์แยก ไม่ปนกับลูกค้า
       const sessionKey = `secretary:${groupId}`
@@ -182,7 +226,7 @@ export async function POST(request: NextRequest) {
         const results = []
         for (const tu of toolUses) {
           let result: unknown
-          try { result = await runTool(db, tu.name, tu.input ?? {}) } catch (e) { result = { error: String(e) } }
+          try { result = await runTool(readDb, tu.name, tu.input ?? {}, ctx) } catch (e) { result = { error: String(e) } }
           results.push({ type: 'tool_result', tool_use_id: tu.id, content: clip(result) })
         }
         messages = [...messages, { role: 'assistant', content: response.content }, { role: 'user', content: results }]
@@ -220,7 +264,7 @@ export async function POST(request: NextRequest) {
       const modelNote = failed ? '' : fellBack
         ? `\n(ตอบโดย ${MODEL_LABEL[usedKey!]} แทน ${MODEL_LABEL[modelKey]} เพราะตัวที่เลือกเรียกไม่ได้)`
         : MODEL_IDS[firstToken] ? `\n(ตอบโดย ${MODEL_LABEL[modelKey]})` : ''
-      await send(reply + modelNote)
+      await send(reply + modelNote, failed ? [] : ctx.photoHandles)
 
       if (branch && !failed) {
         await db.from('line_chat_sessions').upsert({
