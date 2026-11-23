@@ -156,12 +156,16 @@ export function bangkokDate(ms: number = Date.now()): string {
 }
 
 // วันครบกำหนด "รอบปัจจุบัน" ของรายเดือน (รอบล่าสุดที่ถึงหรือเลยแล้ว นับถึงวันนี้) — ตรรกะเดียวกับหน้างานค้างของพนักงาน (staff/jobs/page.tsx)
-function currentCycleDue(startDateStr: string, paymentDay: number | null, todayMs: number): { due: string; daysUntil: number } | null {
+// payLabel = due_date ของแถว monthly_payments ที่เป็นเงินของรอบนี้ (ใช้เช็คว่าจ่ายแล้วหรือยัง):
+// สัญญาที่ payment_day < วันเริ่ม แถวจ่ายบันทึกที่ "วันปลายงวด" (เงินที่จ่ายวันครบ d บันทึกเป็นงวด d+1 เดือน)
+// ตรงกับหน้าเก็บเงิน (getDueDate) — ถ้าเช็คที่ d จะเจอเงินงวดก่อนหน้าแล้วนึกว่าจ่ายแล้ว
+function currentCycleDue(startDateStr: string, paymentDay: number | null, todayMs: number): { due: string; payLabel: string; daysUntil: number } | null {
   if (!startDateStr) return null
   const [sy, sm, sd] = String(startDateStr).split('-').map(Number)
   const pd = paymentDay ?? sd
   const offset = pd < sd ? 1 : 0
   let last: { ms: number; str: string } | null = null
+  let next = ''
   for (let i = 0; i < 600; i++) {
     const tot = (sm - 1) + i + offset
     const y = sy + Math.floor(tot / 12)
@@ -169,11 +173,12 @@ function currentCycleDue(startDateStr: string, paymentDay: number | null, todayM
     const dim = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
     const day = Math.min(pd, dim)
     const ms = Date.UTC(y, m, day)
-    if (ms > todayMs) break
-    last = { ms, str: `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` }
+    const str = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    if (ms > todayMs) { next = str; break }
+    last = { ms, str }
   }
   if (!last) return null
-  return { due: last.str, daysUntil: Math.round((last.ms - todayMs) / 86_400_000) }
+  return { due: last.str, payLabel: offset ? next : last.str, daysUntil: Math.round((last.ms - todayMs) / 86_400_000) }
 }
 
 const thaiDate = (iso: string) => new Date(iso).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short' })
@@ -317,7 +322,7 @@ export async function loadQuestBoard(
   // 2-3) รายเดือนถึงกำหนดจ่าย/ค้างจ่าย
   for (const m of monthlies) {
     const cyc = currentCycleDue(m.start_date, m.payment_day, todayMs)
-    if (!cyc || cyc.daysUntil > 0 || paidPairs.has(`${m.id}|${cyc.due}`)) continue
+    if (!cyc || cyc.daysUntil > 0 || paidPairs.has(`${m.id}|${cyc.payLabel}`)) continue
     const late = -cyc.daysUntil
     draftOf(m.bike_id).items.push(decorate(
       `pay:${m.id}:${cyc.due}`, 'pay',

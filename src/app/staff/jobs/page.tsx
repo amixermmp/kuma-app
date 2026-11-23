@@ -181,12 +181,16 @@ export default async function JobsPage() {
   const cutoffMs = todayMs + 2 * 86_400_000 // ถึงก่อน 2 วัน
 
   // วันครบกำหนด "รอบปัจจุบัน" (รอบล่าสุดที่ถึง/ใกล้ถึง) — อิงวันเริ่ม+payment_day ตรงกับหน้าเก็บเงิน
-  const currentCycleDue = (startDateStr: string, paymentDay: number): { due: string; daysUntil: number } | null => {
+  // payLabel = due_date ของแถว monthly_payments ที่เป็นเงินของรอบนี้: สัญญาที่ payment_day < วันเริ่ม
+  // แถวจ่ายบันทึกที่ "วันปลายงวด" (เงินที่จ่ายวันครบ d บันทึกเป็นงวด d+1 เดือน — ตรงกับ getDueDate ของหน้าเก็บเงิน)
+  // เดิมเช็คที่ d เลยไปเจอเงินงวดก่อนหน้า → นึกว่าจ่ายแล้ว ไม่ขึ้นคิว (เช่น 1กล 4617 ครบ 23 พ.ย. 2569)
+  const currentCycleDue = (startDateStr: string, paymentDay: number): { due: string; payLabel: string; daysUntil: number } | null => {
     if (!startDateStr) return null
     const [sy, sm, sd] = String(startDateStr).split('-').map(Number)
     const pd = paymentDay ?? sd
     const offset = pd < sd ? 1 : 0
     let last: { ms: number; str: string } | null = null
+    let next = ''
     for (let i = 0; i < 600; i++) {
       const tot = (sm - 1) + i + offset
       const y = sy + Math.floor(tot / 12)
@@ -194,18 +198,19 @@ export default async function JobsPage() {
       const dim = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
       const day = Math.min(pd, dim)
       const ms = Date.UTC(y, m, day)
-      if (ms > cutoffMs) break
-      last = { ms, str: `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` }
+      const str = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      if (ms > cutoffMs) { next = str; break }
+      last = { ms, str }
     }
     if (!last) return null
-    return { due: last.str, daysUntil: Math.round((last.ms - todayMs) / 86_400_000) }
+    return { due: last.str, payLabel: offset ? next : last.str, daysUntil: Math.round((last.ms - todayMs) / 86_400_000) }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const contactCandidates = (allMonthlyActive ?? []).map((mr: any) => {
     const cyc = currentCycleDue(mr.start_date, mr.payment_day)
     if (!cyc) return null
-    return { ...mr, nextDueDate: cyc.due, daysUntil: cyc.daysUntil }
+    return { ...mr, nextDueDate: cyc.due, payLabel: cyc.payLabel, daysUntil: cyc.daysUntil }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }).filter(Boolean) as any[]
 
@@ -224,7 +229,7 @@ export default async function JobsPage() {
   }
 
   const monthlyContactAlerts = contactCandidates
-    .filter(m => !paidPairs.has(`${m.id}|${m.nextDueDate}`))
+    .filter(m => !paidPairs.has(`${m.id}|${m.payLabel}`))
     .sort((a, b) => a.daysUntil - b.daysUntil)
 
   return (
