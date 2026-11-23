@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { signCookieValue } from '@/lib/signedCookie'
+import { clientIp, pinLockMinutes, recordPinAttempt } from '@/lib/pinGuard'
 
 export async function POST(request: NextRequest) {
   const { pin } = await request.json()
 
   if (!pin || String(pin).length !== 6) {
     return NextResponse.json({ error: 'PIN ไม่ถูกต้อง' }, { status: 400 })
+  }
+
+  const ip = clientIp(request)
+  const lockMin = await pinLockMinutes(ip)
+  if (lockMin > 0) {
+    return NextResponse.json({ error: `ใส่ PIN ผิดหลายครั้ง ระบบล็อกชั่วคราว ลองใหม่ในอีก ${lockMin} นาที` }, { status: 429 })
   }
 
   const supabase = createAdminClient()
@@ -18,6 +25,7 @@ export async function POST(request: NextRequest) {
     .eq('is_active', true)
     .maybeSingle()
 
+  await recordPinAttempt(ip, !!staff)
   if (!staff) {
     return NextResponse.json({ error: 'PIN ไม่ถูกต้อง' }, { status: 401 })
   }

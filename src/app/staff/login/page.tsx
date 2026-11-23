@@ -23,11 +23,16 @@ export default function StaffLoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin: digits }),
       })
+      if (res.status === 429) {
+        // ถูกล็อกเพราะใส่ผิดหลายครั้ง — โชว์ข้อความจากเซิร์ฟเวอร์ (บอกเวลาที่ต้องรอ)
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'ใส่ PIN ผิดหลายครั้ง ลองใหม่ภายหลัง')
+      }
       if (!res.ok) throw new Error()
       router.push('/staff/home')
-    } catch {
+    } catch (err) {
       setShake(true)
-      setErrorMsg('PIN ไม่ถูกต้อง ลองอีกครั้ง')
+      setErrorMsg((err as Error).message || 'PIN ไม่ถูกต้อง ลองอีกครั้ง')
       setTimeout(() => {
         setShake(false)
         setPin('')

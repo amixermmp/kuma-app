@@ -118,15 +118,15 @@ export default function BikePublicClient({
   bike: Bike
   docMap: Record<string, DocRecord>
   settings: BranchSettings | null
-  pinError?: boolean
+  pinError?: boolean | 'locked'
   rentalInfo?: { type: 'daily'; expectedEnd: string | null } | null
   monthlyInfo?: { paymentDay: number } | null
 }) {
   const [tab, setTab] = useState<'info' | 'rental' | 'docs'>('info')
   const [viewDoc, setViewDoc] = useState<{ url: string; label: string } | null>(null)
-  const [showLogin, setShowLogin] = useState(pinError)
+  const [showLogin, setShowLogin] = useState(!!pinError)
   const [pin, setPin] = useState('')
-  const [loginError, setLoginError] = useState(pinError ? 'PIN ไม่ถูกต้อง กรุณาลองอีกครั้ง' : '')
+  const [loginError, setLoginError] = useState(pinError === 'locked' ? 'ใส่ PIN ผิดหลายครั้ง ระบบล็อกชั่วคราว 15 นาที' : pinError ? 'PIN ไม่ถูกต้อง กรุณาลองอีกครั้ง' : '')
   const [loginLoading, setLoginLoading] = useState(false)
   const statusColor = STATUS_COLOR[bike.status] ?? '#6b7280'
   const statusLabel = STATUS_LABEL[bike.status] ?? bike.status

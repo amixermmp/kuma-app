@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { signCookieValue } from '@/lib/signedCookie'
+import { clientIp, pinLockMinutes, recordPinAttempt } from '@/lib/pinGuard'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -12,6 +13,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/bike/${bikeId}?error=pin`, request.url))
   }
 
+  const ip = clientIp(request)
+  if (await pinLockMinutes(ip) > 0) {
+    return NextResponse.redirect(new URL(`/bike/${bikeId}?error=locked`, request.url))
+  }
+
   const supabase = createAdminClient()
   const { data: staff } = await supabase
     .from('staff')
@@ -20,6 +26,7 @@ export async function GET(request: NextRequest) {
     .eq('is_active', true)
     .maybeSingle()
 
+  await recordPinAttempt(ip, !!staff)
   if (!staff) {
     return NextResponse.redirect(new URL(`/bike/${bikeId}?error=pin`, request.url))
   }

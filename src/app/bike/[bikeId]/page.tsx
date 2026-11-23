@@ -79,7 +79,7 @@ export default async function BikePublicPage({
       bike={bikeWithStatus}
       docMap={docMap}
       settings={settings ?? null}
-      pinError={searchParams.error === 'pin'}
+      pinError={searchParams.error === 'locked' ? 'locked' : searchParams.error === 'pin'}
       rentalInfo={activeRental ? { type: 'daily', expectedEnd } : null}
       monthlyInfo={activeMonthly ? { paymentDay: activeMonthly.payment_day } : null}
     />
