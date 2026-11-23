@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
+import { isOwnerUser } from '@/lib/ownerAuth'
 
 export type MarketingAccess = { ok: true; branchId: string | null } | { ok: false }
 
@@ -9,7 +10,7 @@ export type MarketingAccess = { ok: true; branchId: string | null } | { ok: fals
 export async function getMarketingAccess(): Promise<MarketingAccess> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (user) return { ok: true, branchId: null }
+  if (isOwnerUser(user)) return { ok: true, branchId: null }
 
   const staffId = (await cookies()).get('kuma_staff_id')?.value
   if (!staffId) return { ok: false }

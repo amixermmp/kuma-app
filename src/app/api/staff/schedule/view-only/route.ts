@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import { getCheckinMode } from '@/lib/schedule'
 import { bkkDateStr } from '@/lib/scheduleCalc'
+import { signCookieValue } from '@/lib/signedCookie'
 
 // "ดูตารางอย่างเดียว" — คนที่มีแบบแผนแต่วันนี้ไม่มีงาน เข้าดูปฏิทินงานได้โดยไม่ต้องเช็คอิน
 // ตั้งคุกกี้ที่ด่านใน middleware ยอมให้เฉพาะหน้า /staff/schedule เท่านั้น (หน้าอื่นยังเด้งไปเช็คอินเหมือนเดิม)
@@ -23,7 +24,7 @@ export async function POST() {
   if (mode !== 'off_shift') return NextResponse.json({ error: 'วันนี้ต้องเช็คอินเข้างานตามปกติ' }, { status: 403 })
 
   const res = NextResponse.json({ success: true })
-  res.cookies.set('kuma_schedule_view', `${staffId}:${today}`, {
+  res.cookies.set('kuma_schedule_view', await signCookieValue('kuma_schedule_view', `${staffId}:${today}`, 60 * 60 * 24), {
     httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24,
   })
   return res

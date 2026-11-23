@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { signCookieValue } from '@/lib/signedCookie'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -35,13 +36,13 @@ export async function GET(request: NextRequest) {
   }
 
   const res = NextResponse.redirect(new URL(redirect, request.url))
-  res.cookies.set('kuma_staff_id', staff.id, { ...cookieOpts, httpOnly: true })
+  res.cookies.set('kuma_staff_id', await signCookieValue('kuma_staff_id', staff.id, cookieOpts.maxAge), { ...cookieOpts, httpOnly: true })
   res.cookies.set('kuma_staff_name', staff.name, cookieOpts)
   res.cookies.set('kuma_branch_name', branchName, cookieOpts)
   // บัญชีเจ้าของ (role = owner) ข้ามการเช็คอินเข้างาน: บัตรผ่านผูกกับรหัสบัญชี ใช้ข้ามบัญชีไม่ได้ (middleware เทียบกับ kuma_staff_id)
   // บัญชีปกติล้างบัตรผ่านเดิมทิ้ง กันเครื่องที่แชร์กันหลุดสิทธิ์จากคนก่อนหน้า
   if ((staff as { role?: string }).role === 'owner') {
-    res.cookies.set('kuma_owner_pass', staff.id, { ...cookieOpts, httpOnly: true })
+    res.cookies.set('kuma_owner_pass', await signCookieValue('kuma_owner_pass', staff.id, cookieOpts.maxAge), { ...cookieOpts, httpOnly: true })
   } else {
     res.cookies.set('kuma_owner_pass', '', { maxAge: 0, path: '/' })
   }

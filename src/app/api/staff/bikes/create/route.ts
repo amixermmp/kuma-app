@@ -3,11 +3,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { writeLog } from '@/lib/log'
 import { ENGINE_TASK, GEAR_TASK, GEAR_CEILING_DAYS, DEFAULT_ENGINE_RENTED_DAYS, planGearForNewBike, type GearChoice } from '@/lib/routineCycle'
+import { isOwnerUser } from '@/lib/ownerAuth'
 
 export async function POST(request: NextRequest) {
   const supabaseAuth = await createClient()
   const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isOwnerUser(user)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
   const {

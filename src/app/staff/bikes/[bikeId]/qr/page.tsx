@@ -3,13 +3,14 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import QRCode from 'qrcode'
 import Link from 'next/link'
+import { isOwnerUser } from '@/lib/ownerAuth'
 
 export const dynamic = 'force-dynamic'
 
 export default async function QRPage({ params }: { params: { bikeId: string } }) {
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
-  if (!user) redirect('/owner/login')
+  if (!isOwnerUser(user)) redirect('/owner/login')
 
   const supabase = createAdminClient()
   const { data: bike } = await supabase

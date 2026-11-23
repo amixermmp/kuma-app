@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import InvoiceView from '../../[paymentId]/InvoiceView'
+import { isOwnerUser } from '@/lib/ownerAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +25,7 @@ export default async function MonthlyInvoicePage({ params }: { params: Promise<{
     // ไม่มี staff login — เปิดได้ถ้าเป็นโอนเนอร์ (เช่น ดูจากหน้าประวัติรถที่คืนแล้ว)
     const ownerSupabase = await createClient()
     const { data: { user } } = await ownerSupabase.auth.getUser()
-    if (!user) redirect('/staff/login')
+    if (!isOwnerUser(user)) redirect('/staff/login')
   }
 
   const { paymentId } = await params

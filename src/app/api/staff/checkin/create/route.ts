@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStaffOwnBranchId } from '@/lib/staffBranch'
 import { logStaffAction } from '@/lib/log'
+import { signCookieValue } from '@/lib/signedCookie'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
   const res = NextResponse.json({ success: true, alreadyCheckedIn: !!already, checkedInAt: already?.checked_in_at ?? null })
   // ผูกคุกกี้เข้ากับ staffId ด้วย — กันเครื่อง/แท็บเล็ตที่แชร์กันหลายคน คนถัดไปที่ล็อคอินต่อ
   // ไม่ได้แปลว่า "เช็คอินแล้ว" ไปด้วย (คุกกี้เดิมเช็คแค่วันที่ ไม่ผูกคน เลยหลุดเช็คอินได้)
-  res.cookies.set('kuma_checkin_date', `${staffId}:${todayStr}`, {
+  res.cookies.set('kuma_checkin_date', await signCookieValue('kuma_checkin_date', `${staffId}:${todayStr}`, 60 * 60 * 24), {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
